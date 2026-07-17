@@ -14,8 +14,9 @@ asset is procedural, styled primitive geometry, authored in this repo.
 The game has grown across ~17 feature sprints (apartment, city expansion,
 solidity, visibility/occlusion, characters, traffic road-graph, world
 streaming, sector authoring kit, content pack, polish, art, signals, pedestrian
-crossings, destinations, crossing art, crime & law-enforcement, and crime
-hardening). It is ~30k lines of TypeScript across 25 `src/game` subsystems, and
+crossings, destinations, crossing art, crime & law-enforcement, crime
+hardening, and a mission & activity framework). It is ~30k lines of TypeScript
+across 26 `src/game` subsystems, and
 it stays maintainable because a handful of architectural ideas repeat
 everywhere. This document is about those ideas.
 
@@ -272,16 +273,16 @@ Three layers, all run from the pinned Node:
 
 1. **Unit / component** — Vitest (`npm run test`). Pure logic (routing, rules,
    state machines, decisions) is factored into side-effect-free functions and
-   tested directly; R3F components use `@react-three/test-renderer`. ~693 tests.
+   tested directly; R3F components use `@react-three/test-renderer`. ~729 tests.
 2. **E2E** — Playwright over the dev server on `:5199`
    (`npm run test:e2e`). Deterministic via a dev-only **`window.GAME_TEST_API`**
    ([`test/gameTestApi.ts`](../src/game/test/gameTestApi.ts)) that exposes
-   spawn/teleport/force hooks. ~142 tests across 23 specs, incl. long soak
+   spawn/teleport/force hooks. ~157 tests across 25 specs, incl. long soak
    tests. **The test API is guarded by `import.meta.env.DEV` and verified absent
    from the production `dist/`** (grep count 0) — production ships no test hooks.
 3. **Visual** — Playwright screenshot baselines (`npm run test:visual`). Scenes
    are made deterministic by pausing the world and teleporting actors to fixed
-   spots before the shot. ~76 baselines.
+   spots before the shot. ~83 baselines.
 
 **Honest gates.** Verification scripts assert `passed == DEFINED` (expected
 counts derived from the spec files, never hardcoded), `failed == 0`,

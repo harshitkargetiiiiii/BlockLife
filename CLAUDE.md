@@ -81,6 +81,8 @@ mission engine (`src/game/missions/`) plus two proof missions: City Courier
 (lawful, repeatable delivery) and Hot Cargo (criminal vehicle delivery: real
 theft → wanted → escape → deliver). Mission #3 should be mostly authored data —
 see [`docs/MISSIONS_AND_ACTIVITIES.md`](docs/MISSIONS_AND_ACTIVITIES.md).
-Full gate green: unit 727, E2E 157/157 (incl. 180s mission soak), visual 83/83 ×2,
-dist clean. Prior sprint: Crime v1 + hardening —
+Full gate green: unit 729, E2E 157/157 (incl. 180s mission soak), visual 83/83 ×2,
+dist clean (a pre-existing sector-streaming wedge — an unload→reload could stick a
+sector in `loading` forever — was found and fixed this sprint). Prior sprint:
+Crime v1 + hardening —
 [`docs/CRIME_LAW_ENFORCEMENT.md`](docs/CRIME_LAW_ENFORCEMENT.md).

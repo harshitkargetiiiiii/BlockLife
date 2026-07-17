@@ -7,7 +7,7 @@ Start here. Every doc, what it's for, and the order to read them in.
 1. **[ARCHITECTURE.md](ARCHITECTURE.md)** — the master doc. Tech stack, the
    two-tier state model (the one big idea), the frame loop, determinism &
    pause, sector streaming, save/load, test infrastructure, and a **module map**
-   of all 25 subsystems. *Read this first.*
+   of all 26 subsystems. *Read this first.*
 2. **[CONVENTIONS.md](CONVENTIONS.md)** — the engineering playbook: patterns to
    follow, and the gotchas that have cost real bugs (hardcoded delta, StrictMode
    registration, person-separation deadlocks, Playwright contention, gate
