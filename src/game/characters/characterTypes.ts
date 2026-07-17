@@ -1,0 +1,99 @@
+/**
+ * Character Model + Animation Pipeline v1.
+ *
+ * Ownership boundaries:
+ * - gameplay movement owns position/velocity/heading/driving state
+ * - physics owns the collider
+ * - THIS module owns the visual model, skeleton, clips, per-instance
+ *   materials and animation playback
+ * - wardrobe owns appearance selection; save/load owns its persistence
+ * - the visibility system owns occlusion; it reads bounds from here
+ * - NPC behavior owns destinations; animation reads normalized INTENT,
+ *   never raw input keys — animation must never become a second movement
+ *   system.
+ */
+
+/** Semantic animation roles — gameplay never references clip names. */
+export type AnimationRole = 'idle' | 'walk' | 'run' | 'sit' | 'drive'
+
+/** Semantic machine states. v1 implements idle/walk/run/driving/disabled;
+    the rest are reserved so future work extends data, not interfaces. */
+export type CharacterAnimState =
+  | 'idle'
+  | 'walk'
+  | 'run'
+  | 'driving'
+  | 'disabled'
+  // Future-ready (not implemented in v1):
+  | 'sit'
+  | 'interact'
+  | 'emote'
+  | 'carry'
+  | 'useObject'
+  | 'enterVehicle'
+  | 'exitVehicle'
+
+export type CharacterRenderMode = 'auto' | 'model' | 'primitive'
+
+/** Future LOD intent: hero animates every frame; ambient will reduce rate. */
+export type CharacterQualityTier = 'hero' | 'namedNpc' | 'ambient' | 'primitive'
+
+/** Semantic wardrobe slots → material names inside the asset. */
+export interface MaterialSlotMap {
+  skin?: string[]
+  hair?: string[]
+  shirt?: string[]
+  pants?: string[]
+  shoes?: string[]
+  accessory?: string[]
+}
+
+export interface CharacterBounds {
+  visualHeight: number
+  radius: number
+  centerY: number
+  headY: number
+}
+
+/** Root-relative anchors (labels, prompts, bubbles, future items/emotes). */
+export interface CharacterAnchors {
+  headY: number
+  chestY: number
+}
+
+export interface CharacterAssetDefinition {
+  id: string
+  modelPath: string
+  scale: number
+  /** Yaw correction if the asset's forward axis isn't +z. */
+  rotationOffset?: number
+  verticalOffset?: number
+  skeletonRootName?: string
+  materialSlots: MaterialSlotMap
+  /** Semantic role → clip-name aliases, tried in order. */
+  clips: Partial<Record<AnimationRole, string[]>>
+  /** Bounded playback-rate scaling relative to movement speed. */
+  animationSpeedScale?: { walk?: number; run?: number }
+  bounds: CharacterBounds
+  anchors: CharacterAnchors
+  fallback: { primitiveStyle: string }
+}
+
+/** Normalized visual locomotion — derived from authoritative movement. */
+export interface CharacterMotionState {
+  locomotion: 'idle' | 'walk' | 'run' | 'driving' | 'disabled'
+  /** World units/second. */
+  speed: number
+  /** 0..1 within the current gait band. */
+  normalizedSpeed: number
+  facingAngle: number
+  grounded: boolean
+  moving: boolean
+}
+
+/** Per-instance appearance (mirrors the wardrobe's PlayerAppearance). */
+export interface CharacterAppearance {
+  shirtColor: string
+  pantsColor: string
+  accentColor: string
+}

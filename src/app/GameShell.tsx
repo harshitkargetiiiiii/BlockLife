@@ -1,0 +1,50 @@
+import { useEffect, useState } from 'react'
+import { CanvasRoot } from './CanvasRoot'
+import { HUD } from './HUD'
+import { DialoguePanel } from './DialoguePanel'
+import { ActivityPanel } from './ActivityPanel'
+import { WardrobePanel } from './WardrobePanel'
+import { StoragePanel } from './StoragePanel'
+import { Phone } from './phone/Phone'
+import { useActionKeys } from './useActionKeys'
+import { useKeyboardControls } from '../game/controls/useKeyboardControls'
+import { registry } from '../game/world/runtimeRegistry'
+
+/** Simple splash shown until physics is up and the first frames rendered. */
+function LoadingOverlay() {
+  const [ready, setReady] = useState(registry.gameReady)
+  useEffect(() => {
+    if (ready) return
+    const interval = setInterval(() => {
+      if (registry.gameReady) {
+        setReady(true)
+        clearInterval(interval)
+      }
+    }, 120)
+    return () => clearInterval(interval)
+  }, [ready])
+  if (ready) return null
+  return (
+    <div className="loading-overlay" data-testid="loading-overlay">
+      <div className="loading-title">BlockLife</div>
+      <div className="loading-sub">waking up the block…</div>
+    </div>
+  )
+}
+
+export function GameShell() {
+  useKeyboardControls()
+  useActionKeys()
+  return (
+    <div className="game-root">
+      <CanvasRoot />
+      <HUD />
+      <DialoguePanel />
+      <ActivityPanel />
+      <WardrobePanel />
+      <StoragePanel />
+      <Phone />
+      <LoadingOverlay />
+    </div>
+  )
+}

@@ -1,0 +1,15 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "blocklife-dev",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": [
+        "-c",
+        "export PATH=$HOME/.nvm/versions/node/v23.3.0/bin:$PATH && npm run dev"
+      ],
+      "autoPort": true,
+      "port": 5173
+    }
+  ]
+}
