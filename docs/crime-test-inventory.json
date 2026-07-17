@@ -15,10 +15,10 @@
   },
   "totals": {
     "unitFiles": 89,
-    "unitTests": 729,
+    "unitTests": 744,
     "e2eFiles": 25,
-    "e2eDefined": 157,
-    "e2eRunnable": 157,
+    "e2eDefined": 159,
+    "e2eRunnable": 159,
     "e2eSkipped": 0,
     "visualFiles": 12,
     "visualDefined": 83,
@@ -42,7 +42,7 @@
     { "file": "gameplay-flow.spec.ts", "defined": 6, "notes": "Coffee for Ravi" },
     { "file": "intersections.spec.ts", "defined": 5 },
     { "file": "mission-soak.spec.ts", "defined": 1, "notes": "NEW — 180s mission soak: repeated courier/hot-cargo attempts + mid-mission sector cycling + fail/retry/cancel; asserts zero pageerrors, reward-paid-once (totalEarned == completions*reward), no stale ownedEntities, validation empty, police <= 3, crimes <= 64" },
-    { "file": "missions.spec.ts", "defined": 14, "notes": "NEW — both missions end-to-end through real gameplay interaction (no debug shortcuts), save/load, cooldown, cancel/retry, streaming, apartment policy, quest coexistence" },
+    { "file": "missions.spec.ts", "defined": 16, "notes": "both missions end-to-end through real gameplay; +15 replacement stolen car cannot complete Hot Cargo (target_vehicle_lost), +16 save/load never duplicates a reward or reuses an attempt id (hardening fixes 2/3/4)" },
     { "file": "occlusion.spec.ts", "defined": 7 },
     { "file": "pedestrian-crossings.spec.ts", "defined": 7 },
     { "file": "phone.spec.ts", "defined": 4 },
@@ -74,6 +74,17 @@
     "soakIterationLimit": "The 180s mission soak completes only ~1 courier + ~2 hot-cargo attempts because 6h/20h in-game cooldowns do not clear in 3 real minutes and setTime() moves the hour, not the day. The soak proves its invariants but is not a high-iteration fuzzer. A day-skip test API would be needed for that.",
     "sectorWedgeBug": "REAL PRODUCT BUG found by missions E2E test 12 (~1 run in 8, surfaced as a gate E2E failure). A sector could wedge in `loading` FOREVER after an unload→reload — no colliders, a hole in the world, and silently blocked teleports into it (teleportCoordinator only commits once the destination reports ready). Two independent defects: (1) React identity for sector roots was `key={id}` with effect deps `[id]`, so an unload→reload could coalesce into 'no membership change' — the roots never remounted, the readiness effect never re-ran, and nobody reported readiness for the new generation (signature: lifecycle=loading, visualsReady=false, staleCompletions=0, queue=1). Fixed with getMountedSectorEntries() + key=`${id}:${generation}` + generation passed as a prop. (2) reportSectorVisuals/Colliders guarded staleness only on ready===true, so a passive (async) useEffect cleanup from generation N could clear generation N+1's live flags. Fixed by guarding both directions. Both pinned by unit tests in sectorStreaming.test.ts (each verified to FAIL against the old code). Test 12 then passed 16/16 in isolation vs ~1-in-8 before. NOTE: this was pre-existing, not a mission regression — missions merely provided the first test that force-cycled a sector while ambient routed-vehicle prewarm concurrently demanded it.",
     "missionTestUnderBudget": "Mission E2E test 12 used fixed 900ms sleeps around a forced sector unload/reload. Measured reality: unload 0.9-7.3s (it must wait out an in-flight prewarm load plus the 3s unloadDelayMs) and remount→ready 1.5-4.9s. Besides tipping over 15s under full-suite load, an early-expiring sleep would let a slow unload silently SKIP the cycle the test exists to prove (a false pass). Rewritten to wait on the real sector lifecycle (matching the established tests/e2e/sectors.spec.ts pattern), with 20s budgets ~4x the measured worst case."
+  },
+  "repoHardeningFixes": {
+    "date": "2026-07-17",
+    "summary": "Six targeted repo-hardening fixes after the mission sprint. Unit 729→744, E2E 157→159 (missions.spec 14→16).",
+    "fix1_portableGate": "scripts/hardening-gate.sh + crime-gate.sh had hardcoded `/Users/harshitkargeti/GTABrowser` and a Claude scratchpad log path. Now: repo root resolved from the script location (SCRIPT_DIR/..), logs via `mktemp -d` with `trap ... EXIT` cleanup, Node pin applied only when the nvm dir exists (else falls back to PATH node for CI). Verified by running the FULL gate from a different path (/private/tmp/blocklife-altpath, node_modules symlinked).",
+    "fix2_exactVehicleIdentity": "drive_vehicle_to_zone (MissionDirector) and deliver_vehicle (engine) only checked isPlayerCarStolen()/the interactable — NOT that the delivered car was the exact assigned target. A player could boost the target, then boost a replacement and deliver the decoy. Fix: vehicleCrimeState records the player car's `sourceVehicleId` (getPlayerCarSourceId); the Director gates drive_vehicle_to_zone on source===targetVehicle, and the engine gates deliver_vehicle via ctx.drivenVehicleSourceId===target. Identity cleared on handoff/terminal (bridge) and on arrest/incap/reset/load (resetVehicleCrimeRuntime). Unit + E2E (missions.spec:15) prove a replacement cannot complete Hot Cargo.",
+    "fix3_vehicleLost": "The `target_vehicle_lost` failure rule was declared but unreachable (failureReasonFor never produced it). Implemented a typed `vehicle_lost` event with deterministic detection: boosting a DIFFERENT vehicle while driving the mission target emits vehicle_lost(target) (store.stealVehicle → bridge.notifyVehicleStolen), which failureReasonFor maps to target_vehicle_lost (only for the mission's own target). Unit + E2E.",
+    "fix4_persistenceHardening": "serializeMissions now persists `receipts` and `attemptSeq`; applyMissionSave restores them, keeps attemptSeq monotonic across sessions (max of saved/receipt-derived/active), and RE-MINTS a restored active mission's attemptId so a reloaded pre-completion save is a distinct attempt — a reward can't be duplicated and attempt ids can't repeat. Rigorous nested validation (history/cooldowns/receipts/active objectiveStates+variables+ownedEntityIds). Old saves (no receipts/attemptSeq) remain valid. Unit tests prove no double-pay and no id reuse; E2E (missions.spec:16) round-trips save/load.",
+    "fix5_ci": ".github/workflows/ci.yml (push + PR): Node from .nvmrc (23.3.0), npm ci, tsc -b --force, lint, unit, production build, and a dist test-API leak check. Browser/visual suites intentionally excluded from CI; README documents the full local `scripts/hardening-gate.sh`.",
+    "fix6_readme": "Player-facing intro rewritten (streamed multi-district city + jobs/crime). Corrected the false 'everything on screen is procedural' claim (CC0-1.0 Quaternius GLBs are used, each with a procedural fallback). Linked docs/MISSIONS_AND_ACTIVITIES.md; added a missions feature bullet + CI/local-gate verification section.",
+    "gateFromDifferentPath": "Full hardening-gate.sh executed from /private/tmp/blocklife-altpath (not the original /Users path) — proves portability."
   },
   "missionFinalRun": {
     "date": "2026-07-16",

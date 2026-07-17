@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import {
   applyVehicleImpact,
+  clearStolenPlayerCar,
+  getPlayerCarSourceId,
   getVehicleCrimeState,
   getVehicleOccupant,
   impactDamageFor,
@@ -90,5 +92,32 @@ describe('vehicle crime state', () => {
     expect(rec.access).toBe('public')
     expect(rec.health).toBe(VEHICLE_MAX_HEALTH)
     expect(rec.stolen).toBe(false)
+  })
+
+  it('records the exact source id the drivable car represents', () => {
+    expect(getPlayerCarSourceId()).toBeNull()
+    recordTheft('theft_parked_plaza')
+    expect(getPlayerCarSourceId()).toBe('theft_parked_plaza')
+    // Boosting a replacement OVERWRITES the source — a decoy replaces the target.
+    recordTheft('theft_parked_market')
+    expect(getPlayerCarSourceId()).toBe('theft_parked_market')
+  })
+
+  it('clearStolenPlayerCar resets the stolen identity (handoff/terminal)', () => {
+    recordTheft('theft_occupied_plaza')
+    expect(isPlayerCarStolen()).toBe(true)
+    expect(getPlayerCarSourceId()).toBe('theft_occupied_plaza')
+    clearStolenPlayerCar()
+    expect(isPlayerCarStolen()).toBe(false)
+    expect(getPlayerCarSourceId()).toBeNull()
+    expect(getVehicleCrimeState(PLAYER_CAR_ID).access).toBe('public')
+    // Idempotent.
+    expect(() => clearStolenPlayerCar()).not.toThrow()
+  })
+
+  it('getPlayerCarSourceId is null once the car is no longer stolen', () => {
+    recordTheft('theft_parked_plaza')
+    resetVehicleCrimeRuntime()
+    expect(getPlayerCarSourceId()).toBeNull()
   })
 })

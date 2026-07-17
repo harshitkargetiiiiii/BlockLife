@@ -3,7 +3,7 @@ import { useFrame } from '@react-three/fiber'
 import { useGameStore } from '../store/useGameStore'
 import { registry, getFollowTargetPosition } from '../world/runtimeRegistry'
 import { getWantedLevel } from '../crime/wantedRuntime'
-import { PLAYER_CAR_ID, getStealable, isPlayerCarStolen } from '../vehicles/vehicleCrimeState'
+import { PLAYER_CAR_ID, getStealable, getPlayerCarSourceId } from '../vehicles/vehicleCrimeState'
 import { missionRuntime } from './missionRuntime'
 import { getMissionDefinition } from './missionDefinitions'
 import { distanceToAnchor, getMissionAnchor, isInsideAnchor } from './missionAnchors'
@@ -42,9 +42,12 @@ export function MissionDirector() {
     //    mission target, use the target's id so exit_vehicle matches it.
     const mode = store.mode
     if (mode !== prevMode.current) {
-      const targetId = missionRuntime.active?.variables.targetVehicle as string | undefined
-      const usingTarget = targetId !== undefined && isPlayerCarStolen()
-      const id = usingTarget ? targetId! : PLAYER_CAR_ID
+      // Emit the id of the car the player is actually in: the boosted SOURCE
+      // vehicle when driving a stolen car, else the generic drivable car. Using
+      // the real source (not "any stolen car == target") keeps exit_vehicle
+      // matching honest when a decoy has replaced the target.
+      const source = getPlayerCarSourceId()
+      const id = source ?? PLAYER_CAR_ID
       if (mode === 'driving') emitMissionEvent({ type: 'vehicle_entered', vehicleId: id })
       else emitMissionEvent({ type: 'vehicle_exited', vehicleId: id })
       prevMode.current = mode
@@ -76,7 +79,13 @@ export function MissionDirector() {
           emitMissionEvent({ type: 'reached_zone', anchorId: obj.anchorId })
         }
       } else if (obj.kind === 'drive_vehicle_to_zone') {
-        if (store.mode === 'driving' && isPlayerCarStolen()) {
+        // The delivered car must be the EXACT boosted target — the player's
+        // drivable car must currently represent that target's source id, not
+        // merely be "some stolen car".
+        const targetId = active.variables[obj.targetVehicleFromVariable] as string | undefined
+        const drivingTarget =
+          store.mode === 'driving' && targetId !== undefined && getPlayerCarSourceId() === targetId
+        if (drivingTarget) {
           const v = registry.vehiclePosition
           const speed = Math.abs(registry.flags.drivingSpeed)
           if (

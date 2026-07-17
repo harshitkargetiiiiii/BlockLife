@@ -360,6 +360,62 @@ test.describe('missions & activities', () => {
     expect(res.active).toBe('city_courier')
     expect(res.objective).toBe(0)
   })
+
+  test('15 — a replacement stolen car cannot complete Hot Cargo (target lost)', async ({ page }) => {
+    await fresh(page)
+    const target = await page.evaluate(() => {
+      const api = window.GAME_TEST_API!
+      api.startMission('hot_cargo')
+      return api.getMissionTargetVehicle()
+    })
+    expect(target).toBeTruthy()
+    // Boost the REAL marked target through the crime stack.
+    await page.evaluate((t) => window.GAME_TEST_API!.stealVehicle(t as string), target)
+    await page.waitForTimeout(400)
+    expect(await page.evaluate(() => window.GAME_TEST_API!.getMissionState().activeMissionId)).toBe('hot_cargo')
+    // Abandon it and boost a DIFFERENT car — the assigned target is now lost.
+    const outcome = await page.evaluate((t) => {
+      const api = window.GAME_TEST_API!
+      const all = ['theft_parked_plaza', 'theft_parked_market', 'theft_occupied_plaza', 'theft_occupied_market']
+      const replacement = all.find((id) => id !== t)!
+      api.stealVehicle(replacement)
+      const s = api.getMissionState()
+      return { active: s.activeMissionId, result: s.result }
+    }, target)
+    // The mission fails deterministically — a decoy can never be delivered.
+    expect(outcome.active).toBeNull()
+    expect(outcome.result?.outcome).toBe('failed')
+    expect(outcome.result?.reason).toBe('target_vehicle_lost')
+  })
+
+  test('16 — save/load never duplicates a reward or reuses an attempt id', async ({ page }) => {
+    await fresh(page)
+    await completeCourier(page) // earns $100 as attempt city_courier#1
+    const earnedBefore = await page.evaluate(
+      () => window.GAME_TEST_API!.getMissionHistory()['city_courier']?.totalEarned ?? 0,
+    )
+    expect(earnedBefore).toBe(100)
+    // Round-trip the post-completion state through the real save slot.
+    await page.evaluate(async () => {
+      await window.GAME_TEST_API!.saveGame()
+      await window.GAME_TEST_API!.loadGame()
+    })
+    await page.waitForTimeout(400)
+    const earnedAfter = await page.evaluate(
+      () => window.GAME_TEST_API!.getMissionHistory()['city_courier']?.totalEarned ?? 0,
+    )
+    // Loading restored history but did NOT re-pay the completed attempt.
+    expect(earnedAfter).toBe(100)
+    // A fresh mission after the reload must NOT reuse attempt #1.
+    const attemptId = await page.evaluate(() => {
+      const api = window.GAME_TEST_API!
+      api.setTime(23) // clear the 6h courier cooldown (it completed at 13:00)
+      api.startMission('city_courier')
+      return api.getMissionState().attemptId
+    })
+    expect(attemptId).not.toBe('city_courier#1')
+    expect(attemptId).toMatch(/^city_courier#\d+$/)
+  })
 })
 
 // --- helpers ---------------------------------------------------------------

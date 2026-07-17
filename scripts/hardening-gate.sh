@@ -9,9 +9,21 @@
 # DEFINED + skip guard so a truncated reporter line or a stray .only can't hide
 # a failure.
 set -uo pipefail
-export PATH="$HOME/.nvm/versions/node/v23.3.0/bin:$PATH"
-cd /Users/harshitkargeti/GTABrowser || exit 2
-LOG="/private/tmp/claude-501/-Users-harshitkargeti-GTABrowser/886c4b54-3f68-4867-90eb-9c94fdab0504/scratchpad"
+
+# Portable: resolve the repo root from THIS script's location (works from any
+# checkout path / any machine), never a hardcoded absolute path.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+cd "$REPO_ROOT" || exit 2
+
+# Pin Node to v23.3.0 when that nvm install is present (local dev); otherwise
+# fall back to whatever `node` is on PATH (e.g. CI's actions/setup-node).
+PINNED_NODE_BIN="$HOME/.nvm/versions/node/v23.3.0/bin"
+[ -d "$PINNED_NODE_BIN" ] && export PATH="$PINNED_NODE_BIN:$PATH"
+
+# Logs go to a private temp dir, cleaned up on exit (success or failure).
+LOG="$(mktemp -d "${TMPDIR:-/tmp}/blocklife-gate.XXXXXX")"
+trap 'rm -rf "$LOG"' EXIT
 FAIL=0
 hr() { printf -- '========================================\n'; }
 num() { grep -oE "$2" "$1" | grep -oE '[0-9]+' | tail -1; }

@@ -20,6 +20,7 @@ import { getCrimeGameTime, resetCrimeSystems } from '../crime/crimeSystem'
 import { emitCrime as emitCrimeEvent } from '../crime/crimeRuntime'
 import { getWantedLevel } from '../crime/wantedRuntime'
 import {
+  getPlayerCarSourceId,
   getStealable,
   getVehicleCrimeState,
   PLAYER_CAR_ID,
@@ -49,6 +50,7 @@ import {
   cancelActiveMission as bridgeCancel,
   discoverAndOfferMission,
   emitMissionEvent,
+  notifyVehicleStolen,
   registerMissionBridge,
   retryLastMission as bridgeRetry,
 } from '../missions/missionBridge'
@@ -522,6 +524,8 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     if (!target && !ambient) return false
     // Can't steal the same car twice (and never re-eject a driver).
     if (getVehicleCrimeState(vehicleId).stolen) return false
+    // The source the drivable car represented BEFORE this theft (for vehicle_lost).
+    const prevSourceId = getPlayerCarSourceId()
     // A carjack of an occupied car must not race with an active pursuit that
     // already downed the player.
     if (get().playerIncapacitated) return false
@@ -572,6 +576,8 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     // Mission hook: a boost of the marked target advances Hot Cargo (a wrong
     // vehicle is ignored by the engine).
     emitMissionEvent({ type: 'vehicle_stolen', vehicleId, theftKind: crimeType })
+    // If this boost replaced the mission's boosted target, the target is lost.
+    notifyVehicleStolen(prevSourceId, vehicleId)
     return true
   },
 

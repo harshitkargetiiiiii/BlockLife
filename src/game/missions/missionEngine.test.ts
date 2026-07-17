@@ -18,6 +18,7 @@ import {
   isValidMissionSave,
   serializeMissions,
 } from './missionPersistence'
+import { claimMissionReward } from './missionRewards'
 
 const TARGET = 'theft_occupied_plaza'
 
@@ -26,11 +27,27 @@ function ctx(over: Partial<MissionEngineContext> = {}): MissionEngineContext {
     gameHours: 100,
     gameTime: 1000,
     wantedLevel: 0,
+    // Default: the player is driving the resolved target (the happy path).
+    drivenVehicleSourceId: TARGET,
     resolveTarget: () => TARGET,
     applyRewards: vi.fn(),
     toast: vi.fn(),
     ...over,
   }
+}
+
+/** Start City Courier and drive it all the way to a paid completion. */
+function completeCourier(c: MissionEngineContext) {
+  startMission('city_courier', c)
+  applyMissionEvent({ type: 'interactable_used', interactableId: 'courier_depot' }, c)
+  finishCourierFromWaterfront(c)
+}
+
+/** Finish an active City Courier that is at the Waterfront drop (post-depot). */
+function finishCourierFromWaterfront(c: MissionEngineContext) {
+  applyMissionEvent({ type: 'reached_zone', anchorId: 'courier_waterfront' }, c)
+  applyMissionEvent({ type: 'reached_zone', anchorId: 'courier_mainstreet' }, c)
+  applyMissionEvent({ type: 'reached_zone', anchorId: 'courier_return' }, c)
 }
 
 /**
@@ -295,6 +312,59 @@ describe('Hot Cargo flow', () => {
     expect(missionRuntime.active).not.toBeNull()
   })
 
+  // ---- Exact stolen-vehicle identity (Fix 2) ------------------------------
+
+  it('handoff is REJECTED when the driven car is not the exact boosted target', () => {
+    // Drive to the garage and dismount, then interact with the fixer while the
+    // player's drivable car represents a DIFFERENT (replacement) source. The
+    // handoff must not complete — a decoy cannot satisfy Hot Cargo.
+    const c = ctx({ wantedLevel: 0 })
+    startMission('hot_cargo', c)
+    applyMissionEvent({ type: 'vehicle_stolen', vehicleId: TARGET, theftKind: 'occupied_vehicle_theft' }, c)
+    applyMissionEvent({ type: 'reached_zone', anchorId: 'hotcargo_garage' }, c) // deliver_drive → dismount
+    applyMissionEvent({ type: 'vehicle_exited', vehicleId: TARGET }, c) // dismount → handoff
+    expect(missionRuntime.active?.objectiveIndex).toBe(4) // at handoff
+    // Now the driven source is a replacement car, not the target.
+    const decoy = ctx({ wantedLevel: 0, drivenVehicleSourceId: 'theft_parked_market' })
+    applyMissionEvent({ type: 'interactable_used', interactableId: 'hotcargo_fixer' }, decoy)
+    expect(missionRuntime.active?.objectiveIndex).toBe(4) // still at handoff — rejected
+    expect(missionRuntime.active).not.toBeNull()
+    // Driving the real target again completes it.
+    applyMissionEvent({ type: 'interactable_used', interactableId: 'hotcargo_fixer' }, ctx({ wantedLevel: 0 }))
+    expect(missionRuntime.result?.outcome).toBe('completed')
+  })
+
+  it('handoff is REJECTED when the car is not stolen at all (source null)', () => {
+    const c = ctx({ wantedLevel: 0 })
+    startMission('hot_cargo', c)
+    applyMissionEvent({ type: 'vehicle_stolen', vehicleId: TARGET, theftKind: 'occupied_vehicle_theft' }, c)
+    applyMissionEvent({ type: 'reached_zone', anchorId: 'hotcargo_garage' }, c)
+    applyMissionEvent({ type: 'vehicle_exited', vehicleId: TARGET }, c)
+    const onFoot = ctx({ wantedLevel: 0, drivenVehicleSourceId: null })
+    applyMissionEvent({ type: 'interactable_used', interactableId: 'hotcargo_fixer' }, onFoot)
+    expect(missionRuntime.active).not.toBeNull() // no car ⇒ no handoff
+  })
+
+  // ---- target_vehicle_lost (Fix 3) ----------------------------------------
+
+  it('a vehicle_lost for the boosted target fails with target_vehicle_lost', () => {
+    const c = ctx({ wantedLevel: 0 })
+    startMission('hot_cargo', c)
+    applyMissionEvent({ type: 'vehicle_stolen', vehicleId: TARGET, theftKind: 'occupied_vehicle_theft' }, c)
+    applyMissionEvent({ type: 'vehicle_lost', vehicleId: TARGET }, c)
+    expect(missionRuntime.active).toBeNull()
+    expect(missionRuntime.result?.outcome).toBe('failed')
+    expect(missionRuntime.result?.reason).toBe('target_vehicle_lost')
+  })
+
+  it('a vehicle_lost for a non-target vehicle does NOT fail the mission', () => {
+    const c = ctx({ wantedLevel: 0 })
+    startMission('hot_cargo', c)
+    applyMissionEvent({ type: 'vehicle_stolen', vehicleId: TARGET, theftKind: 'occupied_vehicle_theft' }, c)
+    applyMissionEvent({ type: 'vehicle_lost', vehicleId: 'theft_parked_market' }, c)
+    expect(missionRuntime.active).not.toBeNull()
+  })
+
   it('cannot start until discovered, then can', () => {
     expect(startMission('hot_cargo', ctx()).ok).toBe(true) // engine start is discovery-agnostic
     // (discovery gates AVAILABILITY, tested above; the engine start guards active/cooldown.)
@@ -358,5 +428,107 @@ describe('persistence', () => {
     resetMissionRuntime()
     applyMissionSave(data)
     expect(c.applyRewards).not.toHaveBeenCalled()
+  })
+
+  // ---- Persistence hardening (Fix 4) --------------------------------------
+
+  it('persists receipts and the attempt counter', () => {
+    const c = ctx()
+    completeCourier(c) // attempt #1 → receipt
+    const data = serializeMissions()
+    expect(data.attemptSeq).toBe(1)
+    expect(data.receipts.map((r) => r.attemptId)).toContain('city_courier#1')
+    expect(isValidMissionSave(data)).toBe(true)
+  })
+
+  it('attempt ids never repeat after a reload / fresh session', () => {
+    const c = ctx()
+    completeCourier(c) // uses attempt #1
+    const data = serializeMissions()
+    resetMissionRuntime() // fresh session: attemptSeq back to 0
+    applyMissionSave(data)
+    // The next mission must NOT reuse #1 — the counter was restored.
+    expect(missionRuntime.attemptSeq).toBeGreaterThanOrEqual(1)
+    startMission('hot_cargo', ctx())
+    expect(missionRuntime.active?.attemptId).toBe('hot_cargo#2')
+    expect(missionRuntime.active?.attemptId).not.toBe('hot_cargo#1')
+  })
+
+  it('a persisted receipt blocks re-paying the SAME attempt after reload', () => {
+    const c = ctx()
+    completeCourier(c) // receipt for city_courier#1
+    const data = serializeMissions()
+    resetMissionRuntime()
+    applyMissionSave(data) // receipts restored
+    // Attempting to claim the already-paid attempt id pays nothing.
+    const claim = claimMissionReward('city_courier', 'city_courier#1', [{ kind: 'money', amount: 100 }], 100)
+    expect(claim.alreadyClaimed).toBe(true)
+    expect(claim.moneyTotal).toBe(0)
+  })
+
+  it('re-mints a restored active mission with a fresh, unused attempt id', () => {
+    const c = ctx()
+    startMission('city_courier', c) // attempt #1
+    applyMissionEvent({ type: 'interactable_used', interactableId: 'courier_depot' }, c)
+    const data = serializeMissions()
+    const savedId = data.active!.attemptId
+    resetMissionRuntime()
+    applyMissionSave(data)
+    // Progress is preserved but the attempt id is a NEW one (never the saved id),
+    // so finishing a reloaded save can't collide with a prior completion receipt.
+    expect(missionRuntime.active?.objectiveIndex).toBe(1)
+    expect(missionRuntime.active?.attemptId).not.toBe(savedId)
+    expect(missionRuntime.active?.attemptId).toMatch(/^city_courier#\d+$/)
+  })
+
+  it('reloading a pre-completion save then finishing does NOT double-pay the same attempt', () => {
+    // Full integration of the guarantee: save mid-mission, finish once (paid),
+    // reload the SAME pre-completion save, finish again. Each finish is a
+    // distinct re-minted attempt, and no single attempt id is ever paid twice.
+    const first = ctx()
+    startMission('city_courier', first) // #1
+    applyMissionEvent({ type: 'interactable_used', interactableId: 'courier_depot' }, first)
+    const midSave = serializeMissions() // active #1, no receipts yet
+    finishCourierFromWaterfront(first)
+    expect(first.applyRewards).toHaveBeenCalledTimes(1)
+    const paidAttempts = Object.keys(missionRuntime.receipts)
+    expect(paidAttempts).toHaveLength(1)
+
+    // Reload the pre-completion save into the SAME runtime and finish again.
+    applyMissionSave({ ...midSave, receipts: Object.values(missionRuntime.receipts), attemptSeq: missionRuntime.attemptSeq })
+    const second = ctx()
+    finishCourierFromWaterfront(second)
+    // Every receipt is a UNIQUE attempt id — no id paid twice.
+    const ids = Object.keys(missionRuntime.receipts)
+    expect(new Set(ids).size).toBe(ids.length)
+    expect(ids).not.toContain(undefined)
+  })
+
+  it('rejects a save with a malformed nested active field (fail safe)', () => {
+    const c = ctx()
+    startMission('city_courier', c)
+    const data = serializeMissions() as unknown as Record<string, unknown>
+    ;(data.active as Record<string, unknown>).objectiveStates = [{ id: 5, phase: 'bogus', progress: 'x' }]
+    expect(isValidMissionSave(data)).toBe(false)
+  })
+
+  it('rejects malformed receipts / attemptSeq', () => {
+    const base = serializeMissions() as unknown as Record<string, unknown>
+    expect(isValidMissionSave({ ...base, receipts: [{ attemptId: 1 }] })).toBe(false)
+    expect(isValidMissionSave({ ...base, attemptSeq: -3 })).toBe(false)
+    expect(isValidMissionSave({ ...base, attemptSeq: 'x' })).toBe(false)
+  })
+
+  it('an old save without receipts/attemptSeq is still valid (compat)', () => {
+    const legacy = {
+      version: 1,
+      history: [{ missionId: 'city_courier', completions: 1, lastCompletedGameHours: 10, totalEarned: 100 }],
+      cooldowns: [],
+      discovered: ['hot_cargo'],
+    }
+    expect(isValidMissionSave(legacy)).toBe(true)
+    applyMissionSave(legacy as unknown as ReturnType<typeof serializeMissions>)
+    expect(missionRuntime.history['city_courier'].completions).toBe(1)
+    expect(missionRuntime.discovered.has('hot_cargo')).toBe(true)
   })
 })

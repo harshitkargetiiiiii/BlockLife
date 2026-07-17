@@ -172,6 +172,35 @@ a duplicated event, a save/load race, or a retry is exactly the kind of bug that
 only shows up in the wild. The receipt makes double-pay impossible even if an
 event *does* get duplicated.
 
+**Across save/load** (see §7) the receipts *and* the `attemptSeq` counter are
+persisted, and a restored active mission is **re-minted a fresh attempt id**. So
+reloading a pre-completion save and finishing again is a distinct attempt, no
+attempt id is ever reused across sessions, and no reward is ever paid twice.
+
+## 3b. Exact stolen-vehicle identity (Hot Cargo)
+
+A vehicle-delivery job must verify the **exact** boosted target reaches the
+drop — not merely "some stolen car". The one drivable car
+([`vehicleCrimeState.ts`](../src/game/vehicles/vehicleCrimeState.ts)) records the
+`sourceVehicleId` it currently represents (`getPlayerCarSourceId()`), overwritten
+on each theft. Two gates use it:
+
+- `drive_vehicle_to_zone` — the `MissionDirector` emits `reached_zone` only when
+  `getPlayerCarSourceId() === targetVehicle` (plus in-zone, stopped, wanted 0).
+- `deliver_vehicle` — the engine completes the handoff only when
+  `ctx.drivenVehicleSourceId === targetVehicle`.
+
+So a boosted **decoy** can never be handed off in place of the target. The
+identity is cleared on handoff and every terminal path (the bridge clears it
+when a mission resolves while you still drive its target; arrest / incapacitation
+/ reset / load clear it via the full vehicle-crime reset).
+
+Complementing this, boosting a *different* car while driving the target emits a
+typed **`vehicle_lost`** event (`store.stealVehicle` → `notifyVehicleStolen`),
+which the `target_vehicle_lost` failure rule turns into a deterministic fail —
+so abandoning the target for a replacement fails the job immediately rather than
+leaving it quietly uncompletable.
+
 ---
 
 ## 5. Availability, cooldowns, and the in-game clock
@@ -211,8 +240,13 @@ be finished.
 [`missionPersistence.ts`](../src/game/missions/missionPersistence.ts),
 `MISSION_SAVE_VERSION = 1`. Persists active mission + objective index + vars +
 attemptId, history (completions, totalEarned, lastCompletedGameHours), cooldowns,
-discovered set, and receipts. `isValidMissionSave` gates it; the field is
-optional in `saveTypes.ts` so old saves load with missions simply absent.
+discovered set, **reward receipts, and the `attemptSeq` counter**. Every nested
+field is rigorously validated (`isValidMissionSave`); a malformed record is
+dropped, fail-safe. Old saves that predate receipts/attemptSeq stay valid (both
+optional). On load, `attemptSeq` is kept monotonic (max of the saved counter,
+any receipt's number, and any restored attempt) and the restored active mission
+is **re-minted a fresh attempt id** — so a reload can neither reuse an attempt id
+nor re-pay a completed one.
 
 `blockSaveWhenActive` lets a definition opt out of mid-mission saves —
 `hot_cargo` does, `city_courier` doesn't. Reasoning: the courier run is
@@ -296,8 +330,8 @@ the API exists so tests can reach states quickly, not so the missions depend on 
 
 | Layer | What |
 |---|---|
-| Unit | 34 tests in [`missionEngine.test.ts`](../src/game/missions/missionEngine.test.ts) — objectives, idempotency, rewards-once, cooldowns, validation vs. real sector data, persistence round-trip |
-| E2E | 14 in [`tests/e2e/missions.spec.ts`](../tests/e2e/missions.spec.ts) — both missions end-to-end through real interaction, save/load, cancel/retry, streaming, apartment policy |
+| Unit | 46 in [`missionEngine.test.ts`](../src/game/missions/missionEngine.test.ts) (objectives, idempotency, rewards-once, cooldowns, exact-target handoff, `vehicle_lost`, validation vs. real sector data, persistence: receipts/attemptSeq/re-mint/no-double-pay) + 12 in [`vehicleCrimeState.test.ts`](../src/game/vehicles/vehicleCrimeState.test.ts) (source-id tracking, clear) |
+| E2E | 16 in [`tests/e2e/missions.spec.ts`](../tests/e2e/missions.spec.ts) — both missions end-to-end, save/load, cancel/retry, streaming, apartment policy, **a replacement stolen car cannot complete Hot Cargo**, **save/load never duplicates a reward or reuses an attempt id** |
 | Soak | [`tests/e2e/mission-soak.spec.ts`](../tests/e2e/mission-soak.spec.ts) — 180s, repeated attempts + sector cycling, asserts no page errors, no double-pay, no stale ownership |
 | Visual | 7 baselines in [`tests/visual/mission-visuals.spec.ts`](../tests/visual/mission-visuals.spec.ts) |
 

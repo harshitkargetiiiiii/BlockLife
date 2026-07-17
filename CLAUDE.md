@@ -81,8 +81,13 @@ mission engine (`src/game/missions/`) plus two proof missions: City Courier
 (lawful, repeatable delivery) and Hot Cargo (criminal vehicle delivery: real
 theft → wanted → escape → deliver). Mission #3 should be mostly authored data —
 see [`docs/MISSIONS_AND_ACTIVITIES.md`](docs/MISSIONS_AND_ACTIVITIES.md).
-Full gate green: unit 729, E2E 157/157 (incl. 180s mission soak), visual 83/83 ×2,
-dist clean (a pre-existing sector-streaming wedge — an unload→reload could stick a
-sector in `loading` forever — was found and fixed this sprint). Prior sprint:
+Full gate green: unit 744, E2E 159/159 (incl. 180s mission soak), visual 83/83 ×2,
+dist clean. Repo-hardening pass (2026-07-17) since then: portable gate scripts
+(repo root from `$BASH_SOURCE`, `mktemp` logs), exact stolen-vehicle identity for
+Hot Cargo (a decoy can't be delivered) + a real `target_vehicle_lost`, mission
+persistence hardening (persisted receipts + `attemptSeq`, re-minted attempt ids —
+no reward duplication across reload), a GitHub Actions CI workflow, and a README
+accuracy pass. A pre-existing sector-streaming wedge (an unload→reload could stick
+a sector in `loading` forever) was found and fixed in the mission sprint. Prior:
 Crime v1 + hardening —
 [`docs/CRIME_LAW_ENFORCEMENT.md`](docs/CRIME_LAW_ENFORCEMENT.md).

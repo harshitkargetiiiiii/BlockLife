@@ -28,6 +28,10 @@ export interface MissionEngineContext {
   gameTime: number
   /** Current wanted level (drives lose_wanted + delivery gating). */
   wantedLevel: number
+  /** The source vehicle the player's drivable car currently represents, or
+      null. Used so a `deliver_vehicle` handoff only completes for the EXACT
+      boosted target — not any stolen replacement. */
+  drivenVehicleSourceId: string | null
   /** Resolve a deterministic target vehicle id for a steal selector, or null. */
   resolveTarget: (selectorId: string) => string | null
   /** Apply granted rewards to the player (money via store economy, items via giveItem). */
@@ -196,8 +200,16 @@ function objectiveSatisfiedBy(
       const want = obj.vehicleFromVariable ? active.variables[obj.vehicleFromVariable] : undefined
       return want === undefined || event.vehicleId === want
     }
-    case 'deliver_vehicle':
-      return event.type === 'interactable_used' && event.interactableId === obj.interactableId
+    case 'deliver_vehicle': {
+      if (event.type !== 'interactable_used' || event.interactableId !== obj.interactableId) {
+        return false
+      }
+      // The handoff only counts for the EXACT boosted target. The player's
+      // drivable car must currently represent that target vehicle — a decoy /
+      // replacement steal has a different source id and is rejected here.
+      const want = active.variables[obj.targetVehicleFromVariable]
+      return want !== undefined && ctx.drivenVehicleSourceId === want
+    }
   }
 }
 
@@ -211,8 +223,12 @@ function failureReasonFor(event: MissionGameEvent, active: ActiveMissionRuntime)
   }
   if (event.type === 'vehicle_disabled' && rules.has('target_vehicle_disabled')) {
     // Only the mission's target vehicle failing counts.
-    const targetIds = [...active.ownedEntityIds]
-    if (targetIds.includes(event.vehicleId)) return 'target_vehicle_disabled'
+    if (active.ownedEntityIds.has(event.vehicleId)) return 'target_vehicle_disabled'
+  }
+  if (event.type === 'vehicle_lost' && rules.has('target_vehicle_lost')) {
+    // The boosted target was abandoned/replaced. Only the mission's own target
+    // counts (a lost non-mission vehicle is irrelevant).
+    if (active.ownedEntityIds.has(event.vehicleId)) return 'target_vehicle_lost'
   }
   return null
 }

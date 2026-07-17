@@ -12,7 +12,12 @@ import { missionRuntime } from './missionRuntime'
 import { selectMissionTarget } from './missionSelectors'
 import { getWantedLevel } from '../crime/wantedRuntime'
 import { getCrimeGameTime } from '../crime/crimeSystem'
-import { STEALABLE_VEHICLES, getVehicleCrimeState } from '../vehicles/vehicleCrimeState'
+import {
+  STEALABLE_VEHICLES,
+  clearStolenPlayerCar,
+  getPlayerCarSourceId,
+  getVehicleCrimeState,
+} from '../vehicles/vehicleCrimeState'
 
 /**
  * The narrow live adapter between the running game and the pure mission engine.
@@ -62,6 +67,7 @@ function buildContext(): MissionEngineContext {
     gameHours,
     gameTime: getCrimeGameTime(),
     wantedLevel: getWantedLevel(),
+    drivenVehicleSourceId: getPlayerCarSourceId(),
     resolveTarget: (selectorId) =>
       selectMissionTarget({
         missionId: missionRuntime.active?.missionId ?? 'unknown',
@@ -78,8 +84,29 @@ function buildContext(): MissionEngineContext {
 /** Feed one gameplay event to the active mission, then refresh the UI. */
 export function emitMissionEvent(event: MissionGameEvent): void {
   if (!hooks) return
+  // Capture the boosted target BEFORE applying: if this event resolves the
+  // mission (handoff, fail, cancel) while the player still drives that exact
+  // target, the car is no longer theirs — clear its stolen identity.
+  const before = missionRuntime.active
+  const boostedTarget = before?.variables.targetVehicle as string | undefined
   applyMissionEvent(event, buildContext())
+  if (before && !missionRuntime.active && boostedTarget && getPlayerCarSourceId() === boostedTarget) {
+    clearStolenPlayerCar()
+  }
   hooks.onUiChanged()
+}
+
+/**
+ * Report that the player just boosted `newVehicleId`. If an active mission's
+ * boosted target was the car the player WAS driving (prevSourceId) and this is
+ * a DIFFERENT vehicle, the target has been abandoned/replaced — emit
+ * `vehicle_lost` so a `target_vehicle_lost` failure rule can fire deterministically.
+ */
+export function notifyVehicleStolen(prevSourceId: string | null, newVehicleId: string): void {
+  const target = missionRuntime.active?.variables.targetVehicle as string | undefined
+  if (target && prevSourceId === target && newVehicleId !== target) {
+    emitMissionEvent({ type: 'vehicle_lost', vehicleId: target })
+  }
 }
 
 export function acceptMission(missionId: string): StartResult {

@@ -52,6 +52,10 @@ export interface VehicleCrimeRecord {
   health: number // 0..100
   disabled: boolean
   lastCollisionAt: number
+  /** ON THE PLAYER CAR RECORD ONLY: which source vehicle it currently
+      represents (the last one stolen). Undefined when not stolen. Missions read
+      this to verify the EXACT boosted target reaches the garage. */
+  sourceVehicleId?: string
 }
 
 export const VEHICLE_MAX_HEALTH = 100
@@ -101,6 +105,8 @@ export function recordTheft(stolenVehicleId: string): 'vehicle_theft' | 'occupie
   player.ownerId = target?.ownerId ?? `owner_${stolenVehicleId}`
   player.health = VEHICLE_MAX_HEALTH
   player.disabled = false
+  // Record the EXACT source this drivable car now represents (mission identity).
+  player.sourceVehicleId = stolenVehicleId
   // The source vehicle is now taken.
   const src = ensure(stolenVehicleId, occupied ? 'civilian_occupied' : 'civilian_parked')
   src.access = 'owned_by_player'
@@ -139,6 +145,33 @@ export function applyVehicleImpact(id: string, relativeSpeed: number, gameTime: 
 
 export function isPlayerCarStolen(): boolean {
   return vehicleCrimeRuntime.records.get(PLAYER_CAR_ID)?.stolen ?? false
+}
+
+/**
+ * The source vehicle id the player's drivable car currently represents, or
+ * null when the car isn't stolen. This is the authoritative "which car am I
+ * driving" for mission delivery — a replacement theft overwrites it, so a
+ * boosted decoy can never be handed off in place of the real target.
+ */
+export function getPlayerCarSourceId(): string | null {
+  const rec = vehicleCrimeRuntime.records.get(PLAYER_CAR_ID)
+  return rec?.stolen ? rec.sourceVehicleId ?? null : null
+}
+
+/**
+ * Clear ONLY the player car's stolen identity (access, stolen flag, source).
+ * Used on mission handoff and terminal resolution so the delivered/abandoned
+ * car is no longer treated as the player's. Leaves every other vehicle record
+ * (and a full crime reset — resetVehicleCrimeRuntime — for arrest/incap/load)
+ * untouched. Idempotent.
+ */
+export function clearStolenPlayerCar(): void {
+  const rec = vehicleCrimeRuntime.records.get(PLAYER_CAR_ID)
+  if (!rec) return
+  rec.access = 'public'
+  rec.stolen = false
+  rec.ownerId = undefined
+  rec.sourceVehicleId = undefined
 }
 
 export function resetVehicleCrimeRuntime(): void {

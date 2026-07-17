@@ -1,14 +1,20 @@
 # BlockLife 🏙
 
-A tiny, living, browser-based open-world **life sandbox** — one dense,
-colorful city block rendered as a low-poly 2.5D diorama. Walk around, drive a
-little car, eat at the food truck, train at the gym, work a shift, sleep,
-befriend the neighbors and finish your first quest, all while the block cycles
-through warm mornings, golden evenings and cozy lamp-lit nights.
+A living, browser-based open-world **life sandbox** — a low-poly 2.5D city you
+explore on foot or by car, rendered as an orthographic diorama. It streams a
+**multi-district city** (central neighbourhood, downtown gateway, waterfront,
+main street, residential east, industrial yard) sector by sector as you move.
+Walk around, drive a little car, eat at the food truck, train at the gym, work
+a shift, sleep, befriend the neighbours, run **jobs** for cash — or boost a
+marked car, shake the police and lose your wanted level — all while the city
+cycles through warm mornings, golden evenings and cozy lamp-lit nights.
 
-BlockLife is an **original game**. It contains no third-party IP: no ripped
-assets, no branded vehicles, no copyrighted maps or characters. Everything on
-screen is procedural, styled primitive geometry.
+BlockLife is an **original game** — no branded vehicles, no copyrighted maps or
+characters. **Most** geometry is procedural, styled primitive shapes, but it is
+**not** "everything procedural": a handful of landmark buildings and street
+props render **CC0-1.0-licensed [Quaternius](https://quaternius.com) GLB
+models** (each with a procedural fallback). See "Asset strategy" below and
+[`public/assets/ASSET_CREDITS.md`](public/assets/ASSET_CREDITS.md).
 
 ## Documentation
 
@@ -18,7 +24,7 @@ Developer/architecture docs live in [`docs/`](docs/) — start with the index:
 - **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** — master architecture (state model, frame loop, streaming, module map)
 - **[docs/SYSTEMS.md](docs/SYSTEMS.md)** — deep dive per subsystem
 - **[docs/CONVENTIONS.md](docs/CONVENTIONS.md)** — patterns & gotchas playbook
-- Feature docs: [world foundation](docs/LARGE_CITY_FOUNDATION.md) · [authoring kit](docs/DISTRICT_AUTHORING_KIT.md) · [crime & law enforcement](docs/CRIME_LAW_ENFORCEMENT.md)
+- Feature docs: [world foundation](docs/LARGE_CITY_FOUNDATION.md) · [authoring kit](docs/DISTRICT_AUTHORING_KIT.md) · [crime & law enforcement](docs/CRIME_LAW_ENFORCEMENT.md) · [missions & activities](docs/MISSIONS_AND_ACTIVITIES.md)
 - **[CLAUDE.md](CLAUDE.md)** — condensed context primer for coding agents
 
 ## Tech stack
@@ -105,6 +111,12 @@ npm run preview    # serve the production build
   bubbles and simple persistent memory (greeted, trust, quests completed).
 - **One complete quest** — *Coffee for Ravi*: accept → buy coffee from Maya →
   deliver → get paid (+$25, +5 reputation). Fully persisted.
+- **Missions & activities** — a reusable, data-driven mission framework with two
+  proof jobs: *City Courier* (lawful, repeatable multi-drop delivery) and *Hot
+  Cargo* (criminal — boost a marked car, lose the police, deliver it clean).
+  Objectives, rewards (paid exactly once), in-game cooldowns, failure/retry and
+  the phone Jobs board are all authored data. See
+  [docs/MISSIONS_AND_ACTIVITIES.md](docs/MISSIONS_AND_ACTIVITIES.md).
 - **Arcade driving** with real collisions against buildings and props.
 - **Save / Load / Reset** through IndexedDB (stats, inventory, quest state,
   NPC memory, position, clock).
@@ -187,6 +199,27 @@ Notes:
   moving between machines.
 - E2E tests drive the real game through `window.GAME_TEST_API`, a dev/test
   automation API that is **not** included in production builds.
+
+### Verification gates
+
+- **CI** ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs on every
+  push and pull request: the real typecheck (`tsc -b --force`), lint, unit
+  tests, a production build, and a check that the test API never ships in
+  `dist/`. The browser (E2E) and visual-regression suites are **not** in CI —
+  they are timing/machine-sensitive and slow; run them locally.
+- **Full local hardening gate** — run everything, sequentially and honestly:
+
+  ```bash
+  bash scripts/hardening-gate.sh
+  ```
+
+  It resolves the repo root from its own location (portable — run it from any
+  checkout), runs `tsc -b --force` → lint → unit → build + `dist/` test-API
+  check → **full E2E** (incl. soak tests) → **visual ×2** for stability. Counts
+  are derived from the spec files (never hardcoded), `pipefail` is on, and stray
+  `.only`/`.skip` fail the gate. `scripts/crime-gate.sh` is the crime-scoped
+  subset. See [docs/CONVENTIONS.md](docs/CONVENTIONS.md) for the philosophy
+  (and why `tsc --noEmit` is vacuous here).
 
 ## Folder structure
 

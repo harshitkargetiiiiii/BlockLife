@@ -253,6 +253,9 @@ export type MissionGameEvent =
   | { type: 'vehicle_exited'; vehicleId: string }
   | { type: 'vehicle_stolen'; vehicleId: string; theftKind: string }
   | { type: 'vehicle_disabled'; vehicleId: string }
+  /** The mission's boosted target was abandoned/replaced — deterministic:
+      the player boosted a DIFFERENT vehicle while driving the target. */
+  | { type: 'vehicle_lost'; vehicleId: string }
   | { type: 'wanted_changed'; previous: number; current: number }
   | { type: 'player_arrested' }
   | { type: 'player_incapacitated' }

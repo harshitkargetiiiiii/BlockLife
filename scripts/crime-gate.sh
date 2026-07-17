@@ -6,9 +6,19 @@
 # stage captures full output to a log; the summary is derived from parsed
 # counts AND exit codes, never from a glanced tail.
 set -uo pipefail
-export PATH="$HOME/.nvm/versions/node/v23.3.0/bin:$PATH"
-cd /Users/harshitkargeti/GTABrowser || exit 2
-LOG="/private/tmp/claude-501/-Users-harshitkargeti-GTABrowser/886c4b54-3f68-4867-90eb-9c94fdab0504/scratchpad"
+
+# Portable: repo root from THIS script's location, never a hardcoded path.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+cd "$REPO_ROOT" || exit 2
+
+# Pin Node to v23.3.0 when present (local dev); else use PATH node (CI).
+PINNED_NODE_BIN="$HOME/.nvm/versions/node/v23.3.0/bin"
+[ -d "$PINNED_NODE_BIN" ] && export PATH="$PINNED_NODE_BIN:$PATH"
+
+# Temp log dir, cleaned up on exit.
+LOG="$(mktemp -d "${TMPDIR:-/tmp}/blocklife-crimegate.XXXXXX")"
+trap 'rm -rf "$LOG"' EXIT
 FAIL=0
 hr() { printf -- '----------------------------------------\n'; }
 

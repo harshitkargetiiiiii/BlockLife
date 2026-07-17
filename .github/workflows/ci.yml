@@ -1,0 +1,62 @@
+name: CI
+
+# Fast, practical gate for every push and PR: real typecheck, lint, unit tests,
+# a production build, and a check that the dev-only test API never ships in the
+# bundle. The FULL browser + visual regression (Playwright E2E and screenshot
+# baselines) is intentionally NOT run here — it is machine/timing-sensitive and
+# far slower; run it locally with `bash scripts/hardening-gate.sh` (see README
+# "Verification"). Node is pinned to the repo's .nvmrc (23.3.0).
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+# One in-flight run per ref; a newer push cancels the older run.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: typecheck · lint · unit · build · dist-leak
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node (pinned via .nvmrc)
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # The REAL typecheck. `tsc --noEmit` is vacuous here (the root tsconfig is
+      # references-only and compiles 0 files); `-b --force` builds the referenced
+      # projects and actually type-checks. See docs/CONVENTIONS.md gotcha 12.
+      - name: Typecheck (tsc -b --force)
+        run: npx tsc -b --force
+
+      - name: Lint (oxlint, 0 errors)
+        run: npm run lint
+
+      - name: Unit + component tests (vitest)
+        run: npm run test
+
+      - name: Production build
+        run: npm run build
+
+      # Production must ship NO test hooks. window.GAME_TEST_API and every method
+      # it exposes are import.meta.env.DEV-guarded; assert none survive into dist/.
+      - name: Assert no test API in dist/
+        run: |
+          set -euo pipefail
+          if grep -rlE 'GAME_TEST_API|spawnPoliceResponse|givePlayerWeapon|firePlayerWeaponAt|forcePoliceDismount|isNpcPanicking' dist/; then
+            echo "::error::Test API strings leaked into the production bundle (dist/)."
+            exit 1
+          fi
+          echo "dist/ is clean — no test API strings."
