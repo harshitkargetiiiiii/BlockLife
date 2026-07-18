@@ -19,6 +19,8 @@ export type CrimeType =
   | 'attacking_police'
   | 'civilian_injury'
   | 'police_injury'
+  /** Store Robbery v1: an armed robbery reported by an alarm/cashier. */
+  | 'armed_robbery'
 
 export type CrimeStatus = 'unseen' | 'witnessed' | 'reported' | 'expired'
 
@@ -75,4 +77,5 @@ export const CRIME_PROFILES: Record<CrimeType, CrimeProfile> = {
   attacking_police: { severity: 8, noiseRadius: 45, visibleRadius: 30, debounceSeconds: 0.4 },
   civilian_injury: { severity: 4, noiseRadius: 14, visibleRadius: 24, debounceSeconds: 1 },
   police_injury: { severity: 7, noiseRadius: 18, visibleRadius: 26, debounceSeconds: 0.6 },
+  armed_robbery: { severity: 5, noiseRadius: 20, visibleRadius: 26, debounceSeconds: 2 },
 }

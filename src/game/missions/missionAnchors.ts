@@ -47,6 +47,11 @@ export const MISSION_ANCHORS: readonly MissionAnchor[] = [
   // At the far (west) end of the yard, past the warehouse row and clear of the
   // service lane, so a boosted car can be driven right up to the garage.
   anchor('hotcargo_garage', 'garage', [-182, 0, -238], 6, "Fixer's Garage"),
+  // --- Corner Take (criminal robbery wrapper) — markers only ---
+  // The convenience store front on Main St North, and the same fixer for the
+  // secure step. The mission OBSERVES the robbery; these anchors just point.
+  anchor('cornertake_store', 'meeting', [132, 0, -318], 3, 'Main St Convenience'),
+  anchor('cornertake_secure', 'garage', [-182, 0, -238], 6, "Fixer's Garage"),
 ]
 
 const BY_ID: Record<string, MissionAnchor> = Object.fromEntries(

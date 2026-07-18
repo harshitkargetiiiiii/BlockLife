@@ -3,6 +3,11 @@ import { NPC_DEFS } from './npcs'
 import { APARTMENT_INTERACTABLE_POSITIONS } from '../game/interiors/apartmentLayout'
 import { STEALABLE_VEHICLES } from '../game/vehicles/vehicleCrimeState'
 import { getMissionAnchor } from '../game/missions/missionAnchors'
+import {
+  getInterior,
+  STORE_MAINST_INTERIOR,
+  STORE_KIOSK_INTERIOR,
+} from '../game/interiors/interiorRegistry'
 
 /**
  * Static interaction points sit in front of their building/prop. NPCs and the
@@ -162,6 +167,65 @@ export const MISSION_INTERACTABLES: InteractableDef[] = [
   },
 ]
 
+// --- Store Robbery v1: exterior store doors + interior register/exit points ---
+const mainstInterior = getInterior('store_mainst')!
+const kioskInterior = getInterior('store_kiosk')!
+export const STORE_INTERACTABLES: InteractableDef[] = [
+  // Exterior entrances (city sidewalks).
+  {
+    id: 'store_mainst_entrance',
+    kind: 'store_entrance',
+    name: 'Main St Convenience',
+    position: [mainstInterior.streetExit[0], 0, mainstInterior.streetExit[2]],
+    radius: 2.4,
+    marker: true,
+    icon: '🏪',
+    markerColor: '#c7b56a',
+    interiorId: 'store_mainst',
+  },
+  {
+    id: 'store_kiosk_entrance',
+    kind: 'store_entrance',
+    name: 'Waterfront Kiosk',
+    position: [kioskInterior.streetExit[0], 0, kioskInterior.streetExit[2]],
+    radius: 2.2,
+    marker: true,
+    icon: '🥤',
+    markerColor: '#6ab0c7',
+    interiorId: 'store_kiosk',
+  },
+  // Interior register + exit for the convenience store.
+  {
+    id: 'store_mainst_register',
+    kind: 'store_register',
+    name: 'Register',
+    position: [STORE_MAINST_INTERIOR.register[0], 0, STORE_MAINST_INTERIOR.register[1]],
+    radius: 2.2,
+  },
+  {
+    id: 'store_mainst_exit',
+    kind: 'store_exit',
+    name: 'Exit',
+    position: [mainstInterior.spawn[0], 0, mainstInterior.spawn[2] + 0.8],
+    radius: 1.8,
+  },
+  // Interior register + exit for the kiosk.
+  {
+    id: 'store_kiosk_register',
+    kind: 'store_register',
+    name: 'Cashbox',
+    position: [STORE_KIOSK_INTERIOR.register[0], 0, STORE_KIOSK_INTERIOR.register[1]],
+    radius: 2.0,
+  },
+  {
+    id: 'store_kiosk_exit',
+    kind: 'store_exit',
+    name: 'Exit',
+    position: [kioskInterior.spawn[0], 0, kioskInterior.spawn[2] + 0.8],
+    radius: 1.8,
+  },
+]
+
 export const ALL_INTERACTABLES: InteractableDef[] = [
   ...STATIC_INTERACTABLES,
   ...APARTMENT_INTERACTABLES,
@@ -169,6 +233,7 @@ export const ALL_INTERACTABLES: InteractableDef[] = [
   ...NPC_INTERACTABLES,
   ...STEAL_INTERACTABLES,
   ...MISSION_INTERACTABLES,
+  ...STORE_INTERACTABLES,
 ]
 
 export const INTERACTABLE_BY_ID: Record<string, InteractableDef> = Object.fromEntries(

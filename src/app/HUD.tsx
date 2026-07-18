@@ -9,6 +9,7 @@ import { InteractionPrompt } from './InteractionPrompt'
 import { QuestLog } from './QuestLog'
 import { SaveControls } from './SaveControls'
 import { MissionTracker, MissionBanner } from './MissionTracker'
+import { RobberyHUD } from './RobberyHUD'
 import { DebugPanel } from './DebugPanel'
 import { RecoveryOverlay } from './RecoveryOverlay'
 
@@ -146,6 +147,7 @@ export function HUD() {
 
       <MissionTracker />
       <MissionBanner />
+      <RobberyHUD />
       <QuestLog />
 
       <div className="hud-bottom-right">

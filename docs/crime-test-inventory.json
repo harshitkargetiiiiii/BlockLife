@@ -1,5 +1,20 @@
 {
-  "generatedFor": "Mission & Open-World Activity Framework v1 — M7 final gate (supersedes the Crime v1 hardening inventory; this file is the repo-wide test inventory despite its historical name)",
+  "generatedFor": "Store Robbery & Criminal Activities v1 (supersedes prior sprints; this file is the repo-wide test inventory despite its historical name)",
+  "storeRobberyV1": {
+    "date": "2026-07-18",
+    "summary": "Reusable criminalActivities subsystem + two robbable locations (Main St Convenience, Waterfront Kiosk) + Corner Take mission wrapper + reusable interior registry.",
+    "totals": { "unitTests": 764, "e2eTests": 171, "e2eSpecs": 27, "visualBaselines": 88, "visualSpecs": 13 },
+    "newSpecs": {
+      "src/game/criminalActivities/robberyEngine.test.ts": "18 unit — definitions/validation, seeded cashier+loot+LOS, engine begin/loot-once/alarm-idempotent/abandon/secure-gated/lose-once, persistence",
+      "tests/e2e/store-robbery.spec.ts": "11 E2E — full loop, holstered/outside/blocked-LOS negatives, pay-once, arrest loss, cooldown, wanted-clear anti-exploit, kiosk reuse, Corner Take, save-block",
+      "tests/e2e/robbery-soak.spec.ts": "1 E2E — 180s repeated-cycle soak + sector cycling",
+      "tests/visual/robbery-visuals.spec.ts": "5 baselines — store exterior/interior, robbery-in-progress HUD, looted proceeds, kiosk interior",
+      "missionEngine.test.ts": "+2 Corner Take unit tests (observe register_looted min-take + proceeds_secured; fails on arrest)"
+    },
+    "realDefectsFound": "None pre-existing in touched systems; the sprint added new code. Integration caught + fixed during build: the store's syncActivityUI initially had a tangled def-resolution (rewritten); the register-behind-counter collider needed a doorway gap so the player can reach the register.",
+    "invariantsHeld": "Module-singleton runtime (ids/scalars only); bounded ~4Hz zustand projection; seeded determinism (no Math.random); real clamped delta; idempotent loot+secure receipts; robbery code never sets wanted or spawns police (reports via crime stack); no interior wanted-clear exploit (crime director suppresses decay while location==='store'); Corner Take wraps via typed activity_event, owns no robbery internals; dist test-API strings = 0."
+  },
+  "priorGeneratedFor": "Mission & Open-World Activity Framework v1 — M7 final gate (this file is the repo-wide test inventory despite its historical name)",
   "date": "2026-07-16",
   "node": "v23.3.0",
   "commands": {
@@ -14,15 +29,15 @@
     "hardeningGate": "bash scripts/hardening-gate.sh"
   },
   "totals": {
-    "unitFiles": 89,
-    "unitTests": 744,
-    "e2eFiles": 25,
-    "e2eDefined": 159,
-    "e2eRunnable": 159,
+    "unitFiles": 91,
+    "unitTests": 764,
+    "e2eFiles": 27,
+    "e2eDefined": 171,
+    "e2eRunnable": 171,
     "e2eSkipped": 0,
-    "visualFiles": 12,
-    "visualDefined": 83,
-    "visualRunnable": 83,
+    "visualFiles": 13,
+    "visualDefined": 88,
+    "visualRunnable": 88,
     "visualSkipped": 0,
     "onlyMarkers": 0
   },

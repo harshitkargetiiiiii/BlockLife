@@ -123,8 +123,50 @@ const HOT_CARGO: MissionDefinition = {
   sourceRef: { file: 'src/game/missions/missionDefinitions.ts', symbol: 'HOT_CARGO' },
 }
 
+const CORNER_TAKE: MissionDefinition = {
+  id: 'corner_take',
+  version: 1,
+  title: 'Corner Take',
+  description:
+    "The fixer wants a specific corner store hit. Rob the Main St Convenience for at least $120, shake any heat, and secure the take at the garage. He pays a bonus on delivery.",
+  category: 'criminal',
+  // Discovered at the fixer, accepted from the phone Jobs+ board — the fixer's
+  // direct interaction is reserved for Hot Cargo's offer/handoff + securing.
+  offerSource: { kind: 'phone_job', jobId: 'corner_take' },
+  repeatable: true,
+  cooldownGameHours: 24,
+  objectives: [
+    {
+      id: 'rob',
+      kind: 'rob_store',
+      activityId: 'robbery_mainst_store',
+      minAmount: 120,
+      anchorId: 'cornertake_store',
+      description: 'Rob the Main St Convenience (take at least $120)',
+      marker: { kind: 'target_vehicle', showOnMap: true, showTracker: true },
+    },
+    {
+      id: 'secure',
+      kind: 'secure_proceeds',
+      anchorId: 'cornertake_secure',
+      description: 'Secure the take at the fixer’s garage',
+      marker: { kind: 'delivery', showOnMap: true, showTracker: true },
+    },
+  ],
+  rewards: [{ kind: 'money', amount: 150 }],
+  failureRules: [
+    { kind: 'player_arrested' },
+    { kind: 'player_incapacitated' },
+    { kind: 'mission_cancelled' },
+  ],
+  // Robbery already blocks its own save (active/unsecured); a bonus-only wrapper
+  // needn't add extra save friction beyond that.
+  blockSaveWhenActive: false,
+  sourceRef: { file: 'src/game/missions/missionDefinitions.ts', symbol: 'CORNER_TAKE' },
+}
+
 /** Deterministic definition order (never sorted at runtime). */
-export const MISSION_DEFINITIONS: readonly MissionDefinition[] = [CITY_COURIER, HOT_CARGO]
+export const MISSION_DEFINITIONS: readonly MissionDefinition[] = [CITY_COURIER, HOT_CARGO, CORNER_TAKE]
 
 const BY_ID: Record<string, MissionDefinition> = Object.fromEntries(
   MISSION_DEFINITIONS.map((m) => [m.id, m]),

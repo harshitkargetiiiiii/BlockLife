@@ -53,7 +53,11 @@ export function CrimeDirector() {
         const rec = ambientCitizenRuntime.get(id)
         return rec !== undefined && rec.state !== 'hidden'
       },
-      hasPoliceLOS: anyPoliceSeesSuspect(),
+      // Block wanted DECAY while inside a store interior, exactly as if an
+      // officer still had eyes on the suspect. This is the anti-exploit: ducking
+      // into a robbable store (which police don't enter in v1) can never be used
+      // to melt an active pursuit. The robbery code never touches wanted itself.
+      hasPoliceLOS: anyPoliceSeesSuspect() || store.location === 'store',
     })
   })
   return null

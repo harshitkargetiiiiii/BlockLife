@@ -28,8 +28,11 @@ export function getMissionAvailability(
   if (ctx.activeMissionId === def.id) return 'active'
   const readyAt = ctx.cooldownReadyAt[def.id]
   if (readyAt !== undefined && readyAt > ctx.gameHours) return 'cooldown'
-  // Interactable-offered missions (the fixer) stay locked until discovered.
-  if (def.offerSource.kind === 'interactable' && !ctx.discovered.has(def.id)) return 'locked'
+  // Criminal jobs stay locked until discovered — an interactable offer (the
+  // fixer's Hot Cargo) or a criminal phone job unlocked by meeting the fixer
+  // (Corner Take). Lawful phone jobs (City Courier) are available from the start.
+  const needsDiscovery = def.offerSource.kind === 'interactable' || def.category === 'criminal'
+  if (needsDiscovery && !ctx.discovered.has(def.id)) return 'locked'
   return 'available'
 }
 

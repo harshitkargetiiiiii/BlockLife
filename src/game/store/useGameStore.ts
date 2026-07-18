@@ -30,6 +30,7 @@ import { ejectDriver } from '../vehicles/ejectedDriverRuntime'
 import { fileReport } from '../crime/reportingSystem'
 import { registerPlayerDamageSink } from '../combat/damageRuntime'
 import { resetCombatSystems } from '../combat/combatSystem'
+import { getWeaponSnapshot } from '../combat/weaponRuntime'
 import {
   clearSave,
   createSnapshot,
@@ -44,7 +45,7 @@ import {
   type PlayerAppearance,
   type PlayerLocationMode,
 } from '../interiors/interiorTypes'
-import { APARTMENT_SPAWN, APARTMENT_STREET_EXIT } from '../interiors/apartmentLayout'
+import { APARTMENT_STREET_EXIT } from '../interiors/apartmentLayout'
 import {
   acceptMission as bridgeAccept,
   cancelActiveMission as bridgeCancel,
@@ -58,6 +59,25 @@ import { missionRuntime, resetMissionRuntime } from '../missions/missionRuntime'
 import { MISSION_DEFINITIONS, getMissionDefinition } from '../missions/missionDefinitions'
 import { dismissMissionResult as engineDismissResult } from '../missions/missionEngine'
 import { applyMissionSave, serializeMissions } from '../missions/missionPersistence'
+import { getInterior } from '../interiors/interiorRegistry'
+import type { ActivityView } from '../criminalActivities/activityTypes'
+import {
+  activityRuntime,
+  resetActivityRuntime,
+} from '../criminalActivities/activityRuntime'
+import {
+  registerActivityBridge,
+  tryLootRegister,
+  trySecureProceeds,
+  onPlayerIncident,
+} from '../criminalActivities/activityBridge'
+import { getRobberyForInterior, getRobberyDefinition } from '../criminalActivities/activityDefinitions'
+import { dismissRobberyResult } from '../criminalActivities/robberyEngine'
+import {
+  applyActivitySave,
+  serializeActivities,
+} from '../criminalActivities/activityPersistence'
+import { distanceToRegister } from '../criminalActivities/robberyLogic'
 
 export type PanelKind = 'none' | 'dialogue' | 'activity' | 'phone' | 'wardrobe' | 'storage'
 export type PlayMode = 'walking' | 'driving'
@@ -135,6 +155,10 @@ interface GameDataState {
   recovery: { kind: 'arrest' | 'incapacitation'; message: string; seq: number } | null
   /** UI mirror of the mission runtime (Mission & Activity Framework v1). */
   missionView: MissionView
+  /** Which interior the player is inside (store/apartment id), or null in city. */
+  currentInteriorId: string | null
+  /** UI mirror of the criminal-activity runtime (Store Robbery v1). */
+  activityView: ActivityView
 }
 
 export interface GameStore extends GameDataState {
@@ -197,6 +221,19 @@ export interface GameStore extends GameDataState {
   dismissMissionResult: () => void
   /** Re-project the mission runtime into `missionView` (called by the driver). */
   syncMissionUI: (distance?: number | null) => void
+  // ---- Criminal activities (Store Robbery v1) ----
+  /** Enter a registered interior (apartment or store) by id. */
+  enterInterior: (interiorId: string) => void
+  /** Leave the current interior back to its street exit. */
+  exitInterior: () => void
+  /** Empty a store register during an active robbery (register interaction). */
+  lootStoreRegister: () => void
+  /** Convert unsecured proceeds to money at the fixer (wanted 0, out of combat). */
+  secureRobberyProceeds: () => void
+  /** Dismiss the robbery result banner. */
+  dismissRobberyResult: () => void
+  /** Re-project the activity runtime into `activityView` (driver, ~4 Hz). */
+  syncActivityUI: (threatProgress: number) => void
 }
 
 function createInitialNpcMemory(): Record<string, NPCMemory> {
@@ -236,6 +273,19 @@ export function createInitialGameState(): GameDataState {
       result: null,
       listSeq: 0,
     },
+    currentInteriorId: null,
+    activityView: {
+      storeId: null,
+      storeTitle: null,
+      phase: 'idle',
+      cashierPhase: 'calm',
+      threatProgress: 0,
+      canLoot: false,
+      alarmArmed: false,
+      unsecuredProceeds: 0,
+      canSecure: false,
+      result: null,
+    },
   }
 }
 
@@ -266,6 +316,14 @@ function handleMissionInteract(
     return
   }
   if (kind === 'mission_offer' && !active) {
+    // Meeting the fixer also unlocks his phone-board jobs (e.g. Corner Take).
+    if (id === 'hotcargo_fixer') {
+      for (const m of MISSION_DEFINITIONS) {
+        if (m.offerSource.kind === 'phone_job' && m.category === 'criminal') {
+          discoverAndOfferMission(m.id)
+        }
+      }
+    }
     const offered = MISSION_DEFINITIONS.find(
       (m) => m.offerSource.kind === 'interactable' && m.offerSource.interactableId === id,
     )
@@ -325,11 +383,20 @@ export const useGameStore = create<GameStore>()((set, get) => ({
       get().enterApartment()
     } else if (def.kind === 'apartment_exit') {
       get().exitApartment()
+    } else if (def.kind === 'store_entrance') {
+      get().enterInterior(def.interiorId ?? '')
+    } else if (def.kind === 'store_exit') {
+      get().exitInterior()
+    } else if (def.kind === 'store_register') {
+      get().lootStoreRegister()
     } else if (def.kind === 'wardrobe') {
       set((s) => ({ ui: { ...s.ui, panel: 'wardrobe', dialogueNpcId: null, activityId: null } }))
     } else if (def.kind === 'storage') {
       set((s) => ({ ui: { ...s.ui, panel: 'storage', dialogueNpcId: null, activityId: null } }))
     } else if (def.kind === 'mission_offer' || def.kind === 'mission_objective') {
+      // The fixer doubles as the criminal-proceeds secure point: converting
+      // unsecured cash here also feeds any observing mission (Corner Take).
+      if (activityRuntime.unsecuredProceeds > 0) get().secureRobberyProceeds()
       handleMissionInteract(id, def.kind, get)
     } else {
       get().openActivity(id)
@@ -420,28 +487,39 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     if (outcome.close) get().closePanel()
   },
 
-  enterApartment: () => {
+  enterApartment: () => get().enterInterior('apartment'),
+  exitApartment: () => get().exitInterior(),
+
+  enterInterior: (interiorId) => {
     const s = get()
+    const def = getInterior(interiorId)
+    if (!def) return
     // On foot only — driving keeps E reserved for exiting the car.
     if (s.mode !== 'walking' || s.location !== 'city') return
-    // No ducking home to shake a pursuit: the interior is a separate scene the
-    // police can't enter, so allowing this would trivially end a chase. Same
-    // policy as the phone block and the save block (wanted is never persisted).
-    if (getWantedLevel() > 0) {
+    // The apartment is a private refuge the police can't enter, so ducking home
+    // during a pursuit would trivially end a chase — forbid it while wanted.
+    // Stores are PUBLIC robbery targets: you may enter while wanted, but the
+    // crime director suppresses wanted DECAY inside so it's not an exploit.
+    if (def.kind === 'apartment' && getWantedLevel() > 0) {
       get().showToast("Can't hide at home during a police pursuit!")
       return
     }
-    set({ location: 'apartment' })
-    get().requestTeleport(APARTMENT_SPAWN)
-    get().showToast('Home sweet home.')
-    emitMissionEvent({ type: 'location_changed', location: 'apartment' })
+    const location: PlayerLocationMode = def.kind === 'apartment' ? 'apartment' : 'store'
+    set({ location, currentInteriorId: interiorId })
+    get().requestTeleport(def.spawn)
+    if (def.kind === 'apartment') get().showToast('Home sweet home.')
+    emitMissionEvent({ type: 'location_changed', location })
+    get().syncActivityUI(0)
   },
 
-  exitApartment: () => {
-    if (get().location !== 'apartment') return
-    set({ location: 'city' })
-    get().requestTeleport(APARTMENT_STREET_EXIT)
+  exitInterior: () => {
+    const s = get()
+    if (s.location === 'city') return
+    const def = s.currentInteriorId ? getInterior(s.currentInteriorId) : undefined
+    set({ location: 'city', currentInteriorId: null })
+    get().requestTeleport(def?.streetExit ?? APARTMENT_STREET_EXIT)
     emitMissionEvent({ type: 'location_changed', location: 'city' })
+    get().syncActivityUI(0)
   },
 
   setAppearance: (appearance) =>
@@ -493,9 +571,13 @@ export const useGameStore = create<GameStore>()((set, get) => ({
   respawnAfterIncident: (kind) => {
     const s = get()
     if (s.recovery) return // already recovering — ignore re-entrancy
-    // Mission hook FIRST (before crime/combat reset), so an active mission fails
+    // Mission + activity hooks FIRST (before crime/combat reset), so they resolve
     // on the real arrest/incapacitation rather than seeing already-cleared state.
     emitMissionEvent({ type: kind === 'arrest' ? 'player_arrested' : 'player_incapacitated' })
+    // Robbery: lose unsecured proceeds exactly once, end any active robbery, and
+    // (if inside a store) fall back out to the street.
+    onPlayerIncident(kind)
+    if (s.location !== 'city') set({ location: 'city', currentInteriorId: null })
     const penalty = Math.min(s.stats.money, kind === 'arrest' ? 150 : 100)
     if (s.mode === 'driving') get().exitVehicle()
     // Wanted, police, incidents, stolen-vehicle state, weapon, panic all clear.
@@ -640,12 +722,19 @@ export const useGameStore = create<GameStore>()((set, get) => ({
       set({ saveStatus: 'error' })
       return false
     }
+    // Robbery: never bake an active heist or unsecured criminal cash into a save.
+    if (activityRuntime.active || activityRuntime.unsecuredProceeds > 0) {
+      get().showToast("Can't save with a job in progress.")
+      set({ saveStatus: 'error' })
+      return false
+    }
     const pos =
       s.mode === 'driving' ? registry.vehiclePosition : registry.playerPosition
-    // v1 limitation: saving inside the apartment stores the street entrance
-    // instead, so every load starts safely in the city (documented in README).
+    // v1 limitation: saving inside an interior stores its street exit instead,
+    // so every load starts safely in the city (documented in README).
+    const interiorDef = s.location !== 'city' && s.currentInteriorId ? getInterior(s.currentInteriorId) : undefined
     const savedPosition: [number, number, number] =
-      s.location === 'apartment' ? [...APARTMENT_STREET_EXIT] : [pos.x, pos.y, pos.z]
+      s.location !== 'city' ? (interiorDef?.streetExit ?? [...APARTMENT_STREET_EXIT]) : [pos.x, pos.y, pos.z]
     const snapshot = createSnapshot({
       stats: s.stats,
       inventory: s.inventory,
@@ -656,6 +745,7 @@ export const useGameStore = create<GameStore>()((set, get) => ({
       appearance: { ...s.appearance },
       playerHealth: s.playerHealth,
       missions: serializeMissions(),
+      activities: serializeActivities(),
     })
     try {
       await persistSave(snapshot)
@@ -699,6 +789,7 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     resetCrimeSystems() // transient: wanted/crime/incidents clear on reset
     resetCombatSystems() // transient: weapon/health/damage/panic clear on reset
     resetMissionRuntime() // missions/cooldowns/history clear on a full reset
+    resetActivityRuntime() // robbery cooldowns/history/proceeds clear on reset
     set({ ...createInitialGameState() })
     teleportPlayer(PLAYER_SPAWN)
   },
@@ -721,6 +812,9 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     // Missions: restore persistent history/cooldowns + a safe lawful active
     // mission (its markers are rebuilt by the driver); never a criminal chase.
     applyMissionSave(snapshot.missions)
+    // Robbery: restore per-store cooldowns/history; never an active heist or
+    // unsecured proceeds.
+    applyActivitySave(snapshot.activities)
     const loadedHealth =
       typeof snapshot.playerHealth === 'number' && Number.isFinite(snapshot.playerHealth)
         ? Math.max(0, Math.min(PLAYER_MAX_HEALTH, snapshot.playerHealth))
@@ -742,6 +836,7 @@ export const useGameStore = create<GameStore>()((set, get) => ({
       ui: { panel: 'none', dialogueNpcId: null, activityId: null, activePhoneApp: 'home' },
       playerHealth: loadedHealth,
       playerIncapacitated: loadedHealth === 0,
+      currentInteriorId: null,
     })
     teleportPlayer([
       snapshot.playerPosition[0],
@@ -749,6 +844,7 @@ export const useGameStore = create<GameStore>()((set, get) => ({
       snapshot.playerPosition[2],
     ])
     get().syncMissionUI()
+    get().syncActivityUI(0)
   },
 
   // ---- Missions (Mission & Activity Framework v1) ----------------------------
@@ -809,6 +905,59 @@ export const useGameStore = create<GameStore>()((set, get) => ({
       },
     }))
   },
+
+  lootStoreRegister: () => {
+    const taken = tryLootRegister()
+    if (taken > 0) get().showToast(`Grabbed $${taken} from the register`)
+  },
+
+  secureRobberyProceeds: () => {
+    const before = activityRuntime.unsecuredProceeds
+    if (before <= 0) return
+    const secured = trySecureProceeds()
+    if (secured > 0) get().showToast(`Laundered $${secured}. Clean money.`)
+    else if (getWantedLevel() > 0) get().showToast('Lose the police before securing the cash.')
+    else get().showToast('Holster your weapon before securing the cash.')
+  },
+
+  dismissRobberyResult: () => {
+    dismissRobberyResult()
+    get().syncActivityUI(get().activityView.threatProgress)
+  },
+
+  syncActivityUI: (threatProgress) => {
+    const active = activityRuntime.active
+    const interiorId = get().currentInteriorId
+    // The store def is the active robbery's, else the one hosted by the current
+    // interior (so the HUD/prompt shows even before a robbery begins).
+    const storeDef =
+      (active ? getRobberyDefinition(active.activityId) : undefined) ??
+      (interiorId ? getRobberyForInterior(interiorId) : undefined)
+    const p = registry.playerPosition
+    const canLoot =
+      active?.phase === 'demanding' && storeDef !== undefined
+        ? distanceToRegister(storeDef, p.x, p.z) <= 2.2
+        : false
+    const res = activityRuntime.result
+    set({
+      activityView: {
+        storeId: active?.storeId ?? storeDef?.id ?? null,
+        storeTitle: storeDef?.title ?? null,
+        phase: active?.phase ?? 'idle',
+        cashierPhase: active?.cashierPhase ?? 'calm',
+        threatProgress,
+        canLoot,
+        alarmArmed:
+          active?.alarmReportsAtGameTime !== null && active?.alarmReportsAtGameTime !== undefined,
+        unsecuredProceeds: activityRuntime.unsecuredProceeds,
+        canSecure:
+          activityRuntime.unsecuredProceeds > 0 &&
+          getWantedLevel() === 0 &&
+          getWeaponSnapshot().pose === 'holstered',
+        result: res ? { outcome: res.outcome, amount: res.amount } : null,
+      },
+    })
+  },
 }))
 
 // Register the live mission bridge once (no circular import: missions never
@@ -829,6 +978,27 @@ registerMissionBridge({
   },
   toast: (text) => useGameStore.getState().showToast(text),
   onUiChanged: () => useGameStore.getState().syncMissionUI(),
+})
+
+// Register the live criminal-activity bridge once (same sink pattern). Secured
+// proceeds add to money; typed activity events feed the UI and any observing
+// mission (Corner Take) via emitMissionEvent.
+registerActivityBridge({
+  getGameHours: () => {
+    const { day, hour } = useGameStore.getState().stats
+    return day * 24 + hour
+  },
+  applyMoney: (amount) => {
+    if (amount !== 0) {
+      useGameStore.setState((s) => ({ stats: { ...s.stats, money: s.stats.money + amount } }))
+    }
+  },
+  toast: (text) => useGameStore.getState().showToast(text),
+  onUiChanged: () => {
+    const s = useGameStore.getState()
+    s.syncActivityUI(s.activityView.threatProgress)
+  },
+  onActivityEvent: (event) => emitMissionEvent({ type: 'activity_event', event }),
 })
 
 // Route bullet/collision damage aimed at the player through the store so the

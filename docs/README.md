@@ -34,6 +34,10 @@ Start here. Every doc, what it's for, and the order to read them in.
   mission framework: how to author a mission (definitions, anchors, the ten
   objective kinds), the event vocabulary, pay-once reward receipts, in-game-hour
   cooldowns, validation, save policy, streaming safety, and how to add mission #3.
+- **[CRIMINAL_ACTIVITIES.md](CRIMINAL_ACTIVITIES.md)** — the store-robbery
+  subsystem: threat detection, deterministic cashier + loot, unsecured proceeds +
+  securing, alarm→crime reporting, the wanted-decay anti-exploit, the reusable
+  interior registry, and the Corner Take mission that observes (not owns) it.
 
 ## Reference data
 
