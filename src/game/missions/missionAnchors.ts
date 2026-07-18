@@ -52,6 +52,11 @@ export const MISSION_ANCHORS: readonly MissionAnchor[] = [
   // secure step. The mission OBSERVES the robbery; these anchors just point.
   anchor('cornertake_store', 'meeting', [132, 0, -318], 3, 'Main St Convenience'),
   anchor('cornertake_secure', 'garage', [-182, 0, -238], 6, "Fixer's Garage"),
+  // --- Fast Exit (Robbery Pursuit & Getaway Polish v1) ---
+  // A staging apron on the Main St North frontage, a short walk from the store
+  // entrance (the police containment focus), where the getaway car is parked
+  // before the hit. Generous radius so a stopped car reads as "in the bay".
+  anchor('fastexit_staging', 'meeting', [140, 0, -322], 5, 'Getaway Staging'),
 ]
 
 const BY_ID: Record<string, MissionAnchor> = Object.fromEntries(

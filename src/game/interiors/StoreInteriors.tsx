@@ -6,6 +6,14 @@ import { STORE_INTERIORS, type InteriorDef } from './interiorRegistry'
 import { getRobberyForInterior } from '../criminalActivities/activityDefinitions'
 import { activityRuntime } from '../criminalActivities/activityRuntime'
 import type { RobberyActivityDefinition } from '../criminalActivities/activityTypes'
+import { registry } from '../world/runtimeRegistry'
+import { useGameStore } from '../store/useGameStore'
+import {
+  cashierReactionFor,
+  getCivilians,
+  layoutFor,
+  stepCivilian,
+} from './interiorCivilians'
 
 /**
  * Reusable robbable-store interiors (Store Robbery v1). Rendered exactly like
@@ -55,19 +63,42 @@ function StoreRoom({ interior, def }: { interior: InteriorDef; def: RobberyActiv
   const [ox, oz] = interior.origin
   const hw = interior.size.width / 2
   const hd = interior.size.depth / 2
-  const cashier = useRef<THREE.Group>(null)
-  const customers = useRef<THREE.Group>(null)
   const registerLid = useRef<THREE.Mesh>(null)
+  const actorRefs = useRef<(THREE.Group | null)[]>([])
+  const layout = layoutFor(interior, def)
+  // Rendered once for the ref pool (count is stable: cashier + 2 customers).
+  const rendered = getCivilians(interior, def)
 
-  useFrame(() => {
+  useFrame((_, rawDt) => {
+    const dt = Math.min(rawDt, 0.05)
+    const store = useGameStore.getState()
+    // Fetch the LIVE actor array each frame: a reset rebuilds it, so a captured
+    // render-time reference would go stale (stepped but never read). The count
+    // is invariant, so the ref pool below still lines up.
+    const actors = getCivilians(interior, def)
     const active = activityRuntime.active
     const mine = active && active.activityId === def.id ? active : null
-    // Cashier pose: hands-up when threatened/complying, slump when fled/refused.
-    if (cashier.current) {
-      const phase = mine?.cashierPhase ?? 'calm'
-      cashier.current.rotation.z =
-        phase === 'threatened' || phase === 'complying' ? 0 : phase === 'fled' ? 0.3 : 0
-      cashier.current.position.y = phase === 'fled' ? -0.4 : 0
+    // A civilian reacts while a robbery is active AND the player is in this store
+    // (they route/hold to safety); otherwise they recover home. Frozen on pause.
+    const threatActive = mine !== null && store.location === 'store' && store.currentInteriorId === interior.id
+    const p = registry.playerPosition
+    if (!store.worldPaused) {
+      // The cashier's reaction tracks the robbery decision each frame (fled → run
+      // for the door, else freeze at the register); customers keep their personality.
+      actors[0].reaction = cashierReactionFor(mine?.cashierPhase)
+      for (const a of actors) {
+        stepCivilian(a, { threatActive, threat: [p.x, p.z], layout, dt })
+      }
+    }
+    // Pose each actor from its runtime state (crouch = duck/hands-up, not a sink).
+    for (let i = 0; i < actors.length; i++) {
+      const g = actorRefs.current[i]
+      if (!g) continue
+      const a = actors[i]
+      g.position.set(a.pos[0], 0, a.pos[1])
+      g.rotation.y = a.heading
+      g.children[0].position.y = -0.22 * a.crouch
+      g.children[0].rotation.x = 0.18 * a.crouch
     }
     // Register lid pops open (emissive) once the register is demandable/looted.
     if (registerLid.current) {
@@ -75,14 +106,9 @@ function StoreRoom({ interior, def }: { interior: InteriorDef; def: RobberyActiv
       registerLid.current.rotation.x = open ? -1.1 : 0
       registerLid.current.material = open ? registerOpenMat : registerMat
     }
-    // Customers duck when a robbery is active in this store.
-    if (customers.current) {
-      customers.current.position.y = mine ? -0.5 : 0
-    }
   })
 
   const [rx, rz] = def.registerPosition
-  const [cx, cz] = def.cashierPosition
 
   return (
     <group>
@@ -126,20 +152,15 @@ function StoreRoom({ interior, def }: { interior: InteriorDef; def: RobberyActiv
         <boxGeometry args={[0.58, 0.06, 0.5]} />
       </mesh>
 
-      {/* Cashier behind the counter. */}
-      <group ref={cashier} position={[cx, 0, cz]}>
-        <Figure shirt={cashierShirtMat} />
-      </group>
-
-      {/* Two customers idling near the aisle. */}
-      <group ref={customers}>
-        <group position={[ox + hw - 1.6, 0, oz + 1.2]}>
-          <Figure shirt={customerShirtMat} />
+      {/* Cashier + customers — posed each frame from the civilian runtime, so
+          they route to exits/cover instead of sinking through the floor. */}
+      {rendered.map((a, i) => (
+        <group key={a.id} ref={(el) => (actorRefs.current[i] = el)} position={[a.pos[0], 0, a.pos[1]]}>
+          <group>
+            <Figure shirt={a.role === 'cashier' ? cashierShirtMat : customerShirtMat} />
+          </group>
         </group>
-        <group position={[ox - hw + 1.4, 0, oz + 0.4]}>
-          <Figure shirt={customerShirtMat} />
-        </group>
-      </group>
+      ))}
 
       {/* Shelf aisles (also the LOS blockers). */}
       {def.losBlockers.map((b, i) => (

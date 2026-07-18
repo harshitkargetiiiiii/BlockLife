@@ -165,8 +165,99 @@ const CORNER_TAKE: MissionDefinition = {
   sourceRef: { file: 'src/game/missions/missionDefinitions.ts', symbol: 'CORNER_TAKE' },
 }
 
+const FAST_EXIT: MissionDefinition = {
+  id: 'fast_exit',
+  version: 1,
+  title: 'Fast Exit',
+  description:
+    'The fixer wants a clean smash-and-go: line up a getaway car, stage it by the Main St Convenience, hit the register, then beat the containment out the door and shake the heat before the take is secured. Bonus on delivery.',
+  category: 'criminal',
+  // Discovered at the fixer (meeting him unlocks his criminal phone board),
+  // accepted from the phone Jobs+ page — same discovery path as Corner Take.
+  offerSource: { kind: 'phone_job', jobId: 'fast_exit' },
+  repeatable: true,
+  cooldownGameHours: 24,
+  objectives: [
+    {
+      id: 'brief',
+      kind: 'interact',
+      interactableId: 'hotcargo_fixer',
+      description: 'Meet the fixer to set up the fast exit',
+      marker: { kind: 'return', showOnMap: true, showTracker: true },
+    },
+    {
+      id: 'getaway',
+      kind: 'steal_vehicle',
+      targetSelectorId: 'fastexit_getaway',
+      writeTargetToVariable: 'targetVehicle',
+      // A getaway car is a quiet parked grab — no need to start hot.
+      preferParked: true,
+      description: 'Line up the marked getaway car',
+      marker: { kind: 'target_vehicle', showOnMap: true, showTracker: true },
+    },
+    {
+      id: 'stage',
+      kind: 'drive_vehicle_to_zone',
+      targetVehicleFromVariable: 'targetVehicle',
+      anchorId: 'fastexit_staging',
+      maxSpeed: 3,
+      // STAGING, not a clean delivery: park it by the store even if slightly hot.
+      requireClean: false,
+      description: 'Stage the getaway car by the store',
+      marker: { kind: 'delivery', showOnMap: true, showTracker: true },
+    },
+    {
+      id: 'rob',
+      kind: 'rob_store',
+      activityId: 'robbery_mainst_store',
+      minAmount: 120,
+      anchorId: 'cornertake_store',
+      description: 'Rob the Main St Convenience (take at least $120)',
+      marker: { kind: 'target_vehicle', showOnMap: true, showTracker: true },
+    },
+    {
+      id: 'to_getaway',
+      kind: 'enter_vehicle',
+      vehicleFromVariable: 'targetVehicle',
+      description: 'Get to the getaway car',
+      marker: { kind: 'target_vehicle', showTracker: true },
+    },
+    {
+      id: 'lose_heat',
+      kind: 'lose_wanted',
+      requiredLevel: 0,
+      description: 'Lose the police',
+      marker: { kind: 'destination', showTracker: false },
+    },
+    {
+      id: 'secure',
+      kind: 'secure_proceeds',
+      anchorId: 'cornertake_secure',
+      description: 'Secure the take at the fixer’s garage',
+      marker: { kind: 'delivery', showOnMap: true, showTracker: true },
+    },
+  ],
+  rewards: [{ kind: 'money', amount: 250 }],
+  failureRules: [
+    { kind: 'player_arrested' },
+    { kind: 'player_incapacitated' },
+    { kind: 'target_vehicle_disabled' },
+    { kind: 'target_vehicle_lost' },
+    { kind: 'mission_cancelled' },
+  ],
+  // Assigns an exact target + wraps an active robbery/pursuit — block saves once
+  // accepted (the robbery separately blocks its own active/unsecured window too).
+  blockSaveWhenActive: true,
+  sourceRef: { file: 'src/game/missions/missionDefinitions.ts', symbol: 'FAST_EXIT' },
+}
+
 /** Deterministic definition order (never sorted at runtime). */
-export const MISSION_DEFINITIONS: readonly MissionDefinition[] = [CITY_COURIER, HOT_CARGO, CORNER_TAKE]
+export const MISSION_DEFINITIONS: readonly MissionDefinition[] = [
+  CITY_COURIER,
+  HOT_CARGO,
+  CORNER_TAKE,
+  FAST_EXIT,
+]
 
 const BY_ID: Record<string, MissionDefinition> = Object.fromEntries(
   MISSION_DEFINITIONS.map((m) => [m.id, m]),

@@ -87,6 +87,9 @@ export interface StealVehicleObjective extends BaseMissionObjective {
   targetSelectorId: string
   /** Variable the chosen target vehicle id is written into. */
   writeTargetToVariable: string
+  /** Prefer a quiet PARKED grab over a carjack (a getaway car should be a clean
+   *  take). Default (undefined/false) keeps the occupied-preferred behaviour. */
+  preferParked?: boolean
 }
 
 export interface DriveVehicleToZoneObjective extends BaseMissionObjective {
@@ -95,6 +98,10 @@ export interface DriveVehicleToZoneObjective extends BaseMissionObjective {
   anchorId: string
   /** Deliver requires the vehicle roughly stopped (planar speed ≤ this). */
   maxSpeed?: number
+  /** A clean DELIVERY rejects the drop while wanted (default true). A STAGING
+   *  park (e.g. positioning a getaway car before a heist) sets this false, so a
+   *  freshly-boosted car can be staged without first shaking heat. */
+  requireClean?: boolean
 }
 
 export interface LoseWantedObjective extends BaseMissionObjective {

@@ -11,6 +11,7 @@ import { policeRuntime } from './policeRuntime'
 import { POLICE_CAPS } from './policeTypes'
 import { stepPoliceDirector } from './policeStep'
 import { avoidSolids } from './policeAvoidance'
+import { getContainmentTarget } from '../criminalActivities/activityRuntime'
 import { cruiserExit } from './policeDismount'
 import { OfficerMesh } from './OfficerMesh'
 
@@ -61,9 +62,15 @@ export function PoliceUnits() {
     // When paused we skip the director (deterministic frames) but STILL map
     // units → meshes below, so paused pursuit scenes render at fixed positions.
     if (!store.worldPaused) {
+      // While the player is inside a robbed store under containment, the police
+      // contain the ENTRANCE (a road-reachable city point) instead of chasing
+      // the off-grid interior — reusing the whole dispatch/dismount/AI stack.
+      // The suspect is unseen (no interior LOS), so no wall-firing is possible
+      // (player and police are never in the same scene until the exit).
+      const containTarget = getContainmentTarget()
       const follow = getFollowTargetPosition(store.mode)
-      const suspectPos: Vec2 = [follow.x, follow.z]
-      const driving = store.mode === 'driving'
+      const suspectPos: Vec2 = containTarget ?? [follow.x, follow.z]
+      const driving = containTarget ? false : store.mode === 'driving'
       // Read the body's true planar velocity rather than finite-differencing
       // position: a settled/idle player reads ~0, so physics micro-jitter can't
       // spuriously exceed the surrender speed and stall an arrest.
@@ -89,7 +96,9 @@ export function PoliceUnits() {
         suspectInVehicle: driving,
         suspectSpeed,
         cameraBox,
-        hasLos,
+        // Contained suspect is inside, unseen: no LOS, so no arrest/fire until
+        // they exit. Police just form up at the door.
+        hasLos: containTarget ? () => false : hasLos,
         avoid: avoidSolids,
         findSafeExit,
       })

@@ -117,6 +117,16 @@ npm run preview    # serve the production build
   Objectives, rewards (paid exactly once), in-game cooldowns, failure/retry and
   the phone Jobs board are all authored data. See
   [docs/MISSIONS_AND_ACTIVITIES.md](docs/MISSIONS_AND_ACTIVITIES.md).
+- **Store robbery, pursuit & getaway** — two robbable stores (Main St
+  Convenience, Waterfront Kiosk): draw + hold an aim on the cashier to trigger a
+  spontaneous robbery, empty the register, and secure the take at a fixer. Store
+  civilians react for real — a customer bolts for the door, others hide or freeze,
+  and a fled witness raises the alarm. Get heat while inside and the police
+  **contain the exit**, escalating through a readable warning to a fair breach that
+  forces you into the street. The **Fast Exit** job lines up a marked getaway car,
+  stages it by the store, and has you beat the containment out and shake the police
+  before securing — a data-only mission that observes the robbery and owns none of
+  it. See [docs/CRIMINAL_ACTIVITIES.md](docs/CRIMINAL_ACTIVITIES.md).
 - **Arcade driving** with real collisions against buildings and props.
 - **Save / Load / Reset** through IndexedDB (stats, inventory, quest state,
   NPC memory, position, clock).

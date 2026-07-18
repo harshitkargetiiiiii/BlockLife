@@ -64,7 +64,9 @@ import type { ActivityView } from '../criminalActivities/activityTypes'
 import {
   activityRuntime,
   resetActivityRuntime,
+  clearTransientActivity,
 } from '../criminalActivities/activityRuntime'
+import { resetInteriorCivilians } from '../interiors/interiorCivilians'
 import {
   registerActivityBridge,
   tryLootRegister,
@@ -72,6 +74,7 @@ import {
   onPlayerIncident,
 } from '../criminalActivities/activityBridge'
 import { getRobberyForInterior, getRobberyDefinition } from '../criminalActivities/activityDefinitions'
+import { breachCountdown } from '../criminalActivities/containmentLogic'
 import { dismissRobberyResult } from '../criminalActivities/robberyEngine'
 import {
   applyActivitySave,
@@ -284,6 +287,8 @@ export function createInitialGameState(): GameDataState {
       alarmArmed: false,
       unsecuredProceeds: 0,
       canSecure: false,
+      containmentPhase: 'none',
+      breachSeconds: null,
       result: null,
     },
   }
@@ -790,6 +795,7 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     resetCombatSystems() // transient: weapon/health/damage/panic clear on reset
     resetMissionRuntime() // missions/cooldowns/history clear on a full reset
     resetActivityRuntime() // robbery cooldowns/history/proceeds clear on reset
+    resetInteriorCivilians() // store cashier/customers snap home on reset
     set({ ...createInitialGameState() })
     teleportPlayer(PLAYER_SPAWN)
   },
@@ -815,6 +821,8 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     // Robbery: restore per-store cooldowns/history; never an active heist or
     // unsecured proceeds.
     applyActivitySave(snapshot.activities)
+    resetInteriorCivilians() // no heist loads → civilians start home
+    clearTransientActivity() // drop any transient robbery + containment on load
     const loadedHealth =
       typeof snapshot.playerHealth === 'number' && Number.isFinite(snapshot.playerHealth)
         ? Math.max(0, Math.min(PLAYER_MAX_HEALTH, snapshot.playerHealth))
@@ -954,6 +962,11 @@ export const useGameStore = create<GameStore>()((set, get) => ({
           activityRuntime.unsecuredProceeds > 0 &&
           getWantedLevel() === 0 &&
           getWeaponSnapshot().pose === 'holstered',
+        containmentPhase: activityRuntime.containment.phase,
+        breachSeconds:
+          activityRuntime.containment.phase === 'warning'
+            ? breachCountdown(activityRuntime.containment)
+            : null,
         result: res ? { outcome: res.outcome, amount: res.amount } : null,
       },
     })

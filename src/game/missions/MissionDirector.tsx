@@ -88,11 +88,10 @@ export function MissionDirector() {
         if (drivingTarget) {
           const v = registry.vehiclePosition
           const speed = Math.abs(registry.flags.drivingSpeed)
-          if (
-            isInsideAnchor(obj.anchorId, v.x, v.z) &&
-            speed <= (obj.maxSpeed ?? 3) &&
-            getWantedLevel() === 0
-          ) {
+          // A staging park (requireClean:false) doesn't need zero heat; a clean
+          // delivery does. The engine re-checks the same gate authoritatively.
+          const cleanOk = obj.requireClean === false || getWantedLevel() === 0
+          if (isInsideAnchor(obj.anchorId, v.x, v.z) && speed <= (obj.maxSpeed ?? 3) && cleanOk) {
             emitMissionEvent({ type: 'reached_zone', anchorId: obj.anchorId })
           }
         }
@@ -131,9 +130,16 @@ function currentObjectiveDistance(store: ReturnType<typeof useGameStore.getState
       return a ? Math.hypot(f.x - a.position[0], f.z - a.position[2]) : null
     }
     case 'steal_vehicle': {
-      const targetId = active.variables.targetVehicle as string | undefined
+      const targetId = active.variables[obj.writeTargetToVariable] as string | undefined
       const v = targetId ? getStealable(targetId) : undefined
       return v ? Math.hypot(f.x - v.position[0], f.z - v.position[1]) : null
+    }
+    case 'enter_vehicle': {
+      // Return-to-the-getaway-car: the boosted car sits wherever the player left
+      // it — the single drivable car body's live position. On foot the follow
+      // target is the player, so this is the real walk-back distance.
+      const v = registry.vehiclePosition
+      return Math.hypot(f.x - v.x, f.z - v.z)
     }
     default:
       return null

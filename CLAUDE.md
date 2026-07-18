@@ -76,20 +76,41 @@ regression) and `scripts/crime-gate.sh`.
 compiles 0 files and always passes. Only `-b --force` really typechecks.
 
 ## Current state
-Latest sprint: **Store Robbery & Criminal Activities v1** — a reusable,
+Latest sprint: **Robbery Pursuit & Getaway Polish v1** — a pursuit/getaway layer
+ON TOP of the robbery + crime + police + mission + vehicle-identity stacks (never
+reimplementing them). Adds: a deterministic **police containment** phase machine
+(`src/game/criminalActivities/containmentLogic.ts`: none→responding→contained→
+warning→breach) that routes the EXISTING police stack to the store *entrance*
+while the player is inside a robbed store with heat — the `ActivityDirector`
+advances the phase, `PoliceUnits` overrides `suspectPos` to the entrance and
+suppresses arrest LOS while the suspect is unseen inside, and the "breach" is a
+fair forced-exit (`store.exitInterior()`) since police can't enter a far-off-grid
+interior; **routed store civilians** (`src/game/interiors/interiorCivilians.ts` +
+`interiorCivilianLogic.ts`) that REPLACE the old floor-sink duck with seeded
+flee-to-exit / hide-in-cover / freeze reactions using best-effort seek + an
+interior-aware avoid (no nav stack), recover home after the robbery, and (customer
+0 always bolts) raise the alarm as an organic witness after reaching safety — the
+kiosk's only report path; **reusable getaway-vehicle support** reusing the exact
+stolen-vehicle identity (`steal_vehicle` with `preferParked` → `enter_vehicle` /
+`drive_vehicle_to_zone` with `requireClean:false` staging), an `enter_vehicle`
+marker+distance to the parked getaway car; and the **Fast Exit** mission (a 4th
+data-only mission) that OBSERVES robbery/vehicle/wanted/proceeds events and owns
+none of them. HUD adds a containment/breach warning + audio (siren/alert/chime).
+Save is blocked through pursuit/containment (wanted>0) + Fast Exit + unsecured
+proceeds. See [`docs/CRIMINAL_ACTIVITIES.md`](docs/CRIMINAL_ACTIVITIES.md).
+Bug found + fixed this sprint: a `useFrame` that CAPTURES a module-runtime array
+in render goes stale after a reset rebuilds it (civilians stepped an orphan while
+the UI read a fresh unstepped array) — fetch runtime arrays fresh **inside** the
+frame (see CONVENTIONS gotcha #14). Gate green: unit **799**, E2E **180/180**
+(incl. new getaway 8-case spec + 180s getaway soak), visual **90/90** ×2, dist clean.
+Prior sprint: **Store Robbery & Criminal Activities v1** — a reusable,
 data-driven spontaneous-robbery subsystem (`src/game/criminalActivities/`) built
-on the crime/wanted/police/firearm/economy/interior stacks (never reimplementing
-them). Two robbable locations (Main St Convenience, Waterfront Kiosk) on ONE
-engine; real threat detection (drawn + aim + range + LOS held); deterministic
-seeded cashier + loot; unsecured proceeds secured at the fixer; a reusable
-interior registry (`src/game/interiors/interiorRegistry.ts`, apartment + stores);
-and the **Corner Take** mission that OBSERVES robbery events (typed
-`activity_event`) without owning them. Anti-exploit: the crime director suppresses
-wanted decay while `location==='store'`. See
-[`docs/CRIMINAL_ACTIVITIES.md`](docs/CRIMINAL_ACTIVITIES.md). Full gate green: unit
-764, E2E 171/171 (incl. 180s robbery soak), visual 88/88 ×2, dist clean.
-Prior sprint: **Mission & Activity Framework v1** (`src/game/missions/`) — City
-Courier + Hot Cargo, see [`docs/MISSIONS_AND_ACTIVITIES.md`](docs/MISSIONS_AND_ACTIVITIES.md).
+on the crime/wanted/police/firearm/economy/interior stacks. Two robbable locations
+(Main St Convenience, Waterfront Kiosk); real threat detection; deterministic
+seeded cashier + loot; unsecured proceeds secured at the fixer; and the **Corner
+Take** mission that OBSERVES robbery events. Anti-exploit: wanted decay suppressed
+while `location==='store'`. Prior sprint: **Mission & Activity Framework v1**
+(`src/game/missions/`) — City Courier + Hot Cargo, see [`docs/MISSIONS_AND_ACTIVITIES.md`](docs/MISSIONS_AND_ACTIVITIES.md).
 Earlier gate baseline: unit 744, E2E 159/159 (incl. 180s mission soak), visual 83/83 ×2,
 dist clean. Repo-hardening pass (2026-07-17) since then: portable gate scripts
 (repo root from `$BASH_SOURCE`, `mktemp` logs), exact stolen-vehicle identity for

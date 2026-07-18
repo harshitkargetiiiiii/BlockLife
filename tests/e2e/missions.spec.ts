@@ -68,8 +68,8 @@ test.describe('missions & activities', () => {
         cornerBefore: api.getMissionAvailability('corner_take'),
       }
     })
-    // City Courier + the two criminal jobs (Hot Cargo, Corner Take).
-    expect(res.defs).toEqual(['city_courier', 'hot_cargo', 'corner_take'])
+    // City Courier + the criminal jobs (Hot Cargo, Corner Take, Fast Exit).
+    expect(res.defs).toEqual(['city_courier', 'hot_cargo', 'corner_take', 'fast_exit'])
     expect(res.courier).toBe('available')
     expect(res.hotBefore).toBe('locked') // undiscovered criminal job
     expect(res.cornerBefore).toBe('locked') // undiscovered criminal job

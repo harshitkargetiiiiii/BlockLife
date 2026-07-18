@@ -134,9 +134,78 @@ completable through **normal gameplay** without them.
 - Soak: [`tests/e2e/robbery-soak.spec.ts`](../tests/e2e/robbery-soak.spec.ts) — 180 s, repeated cycles + sector cycling.
 - Visual: 5 baselines in [`tests/visual/robbery-visuals.spec.ts`](../tests/visual/robbery-visuals.spec.ts).
 
-## 12. v1 limitations
+## 12. Robbery Pursuit & Getaway Polish v1
 
-- Police contain the exterior; they do not enter store interiors (decay-suppression is the anti-exploit).
-- The cashier "flee" is a pose + duck, not a routed escape to an anchor.
-- One robbery active at a time.
-- Escape-to-fixer driving in E2E is stood in with `clearWanted` + the secure interaction (the securing gates still run for real).
+A pursuit/getaway layer sits ON TOP of the robbery + crime + police + mission +
+vehicle-identity stacks (it reimplements none of them).
+
+**Police containment** — a pure phase machine
+([`containmentLogic.ts`](../src/game/criminalActivities/containmentLogic.ts)):
+`none → responding → contained → warning → breach`, real clamped delta. The
+`ActivityDirector` advances it whenever the player is inside a robbed store with
+`wanted>0`; [`PoliceUnits`](../src/game/police/PoliceUnits.tsx) reads
+`getContainmentTarget()` and overrides `suspectPos` to the store **entrance** (a
+road-reachable city point), so the EXISTING dispatch/dismount/road-route stack
+contains the door instead of chasing the off-grid interior. The suspect is unseen
+inside (`hasLos:()=>false` while contained), so no arrest/fire happens until the
+exit. **Breach** is the smallest safe repository-compatible pressure: after a
+readable warning the store force-ejects the player into the contained street
+(`store.exitInterior()`) — police can't enter a far-off-grid interior, and the
+player + police are never in the same scene until the exit. The armed-robbery
+report is filed at the **entrance** (its street address), not the interior
+counter, so last-known-position is road-reachable. Wanted decay stays suppressed
+inside the store (issue #1 anti-exploit).
+
+**Routed store civilians**
+([`interiorCivilians.ts`](../src/game/interiors/interiorCivilians.ts) +
+[`interiorCivilianLogic.ts`](../src/game/interiors/interiorCivilianLogic.ts)) —
+REPLACE the old floor-sink duck. Each civilian has a STABLE reaction: customer 0
+always bolts for the door (a guaranteed witness), the rest are seeded
+hide-in-cover / freeze; the cashier flees for the door or freezes at the register
+by its robbery decision. Movement is capped best-effort seek + an interior-aware
+avoid (out of counter/shelf rects, off the walls, through the doorway gap) with a
+5-way steer fan to round obstacles — **no nav graph, no second nav stack**. They
+recover home after the robbery. A fled/hidden civilian raises the alarm after
+reaching safety (idempotent `reported` flag → `reportRobberyByWitness`, which
+`fireAlarm` self-guards) — this is the organic-witness path and the open-air
+kiosk's only report source. State lives in a module singleton (survives interior
+remount); it is fetched fresh each frame (see CONVENTIONS gotcha #14).
+
+**Reusable getaway vehicle** — reuses the exact stolen-vehicle identity from Hot
+Cargo, not a new system. A `steal_vehicle` objective with `preferParked:true`
+selects a quiet parked civilian car (never police/disabled/already-owned) via the
+deterministic selector; `drive_vehicle_to_zone` with `requireClean:false` stages
+the (possibly hot) car near the store; `enter_vehicle` re-enters the EXACT car
+(source-id match — a wrong car is rejected) with a marker+distance to where it was
+parked. Loss/replace/disable flow through the existing `vehicle_lost` /
+`target_vehicle_disabled` failure rules; the identity clears on
+completion/failure/arrest/incapacitation/reset/load.
+
+**Fast Exit mission** ([`missionDefinitions.ts`](../src/game/missions/missionDefinitions.ts),
+`FAST_EXIT`) — a 4th, data-only mission: meet fixer → boost the marked getaway car
+→ stage it by the store → rob the store → get to the getaway car → lose the police
+→ secure the take → bonus. It OBSERVES typed robbery/vehicle/wanted/proceeds events
+and owns none of them (never opens the register, sets wanted, spawns police, or
+bypasses cooldowns). Discovered at the fixer like Corner Take; save-blocking while
+active.
+
+**HUD/audio** — a containment/breach warning panel (siren on responding, alert on
+warning), a completion chime; the getaway-car marker + "Get to the getaway car" /
+"Lose the police" / secure guidance surface through the existing mission tracker.
+**Save** is refused through pursuit (wanted>0, which covers all containment/breach),
+Fast Exit, an active robbery, and unsecured proceeds; load clears transient
+containment + civilians.
+
+## 13. Coverage
+
+- Unit: 18 in [`robberyEngine.test.ts`](../src/game/criminalActivities/robberyEngine.test.ts); 9 in [`containmentLogic.test.ts`](../src/game/criminalActivities/containmentLogic.test.ts); 13 in [`interiorCivilianLogic.test.ts`](../src/game/interiors/interiorCivilianLogic.test.ts); Fast Exit flow (8) + Corner Take (2) in `missionEngine.test.ts`; 5 in [`RobberyHUD.test.tsx`](../src/app/RobberyHUD.test.tsx).
+- E2E: 11 in [`store-robbery.spec.ts`](../tests/e2e/store-robbery.spec.ts) + 8 in [`getaway-pursuit.spec.ts`](../tests/e2e/getaway-pursuit.spec.ts) (containment arm/advance, breach forced-exit, civilian reactions, kiosk witness alarm, full Fast Exit, exact re-entry, save-block, parked target).
+- Soak: [`robbery-soak.spec.ts`](../tests/e2e/robbery-soak.spec.ts) + [`getaway-soak.spec.ts`](../tests/e2e/getaway-soak.spec.ts) — 180 s each, repeated containment/civilian/Fast-Exit cycles under sector streaming; assert baseline + no page errors.
+- Visual: 7 baselines in [`robbery-visuals.spec.ts`](../tests/visual/robbery-visuals.spec.ts) (incl. containment HUD + reacting civilians).
+
+## 14. v1 limitations
+
+- Police contain the exterior + force a fair breach; they never render *inside* a store interior (the interior is far off-grid and unreachable — the forced-exit is the deliberate, smallest-safe substitute).
+- Breach warning is a fixed timer (not tuned per store); one robbery active at a time.
+- The getaway car's vehicle-movement legs a headless test can't auto-drive are stood in with `stealVehicle` + typed events (which still pass the engine's exact-identity + wanted gates); the securing legs run for real.
+- "One-time bonus" is paid once per attempt via the reward receipt (repeatable with a cooldown), not a first-completion-only reward.

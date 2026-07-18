@@ -6,7 +6,9 @@ import type {
   SecureReceipt,
   StoreRuntimeState,
 } from './activityTypes'
-import { ROBBERY_DEFINITIONS } from './activityDefinitions'
+import { ROBBERY_DEFINITIONS, getRobberyDefinition } from './activityDefinitions'
+import { freshContainment, resetContainment, type ContainmentState } from './containmentLogic'
+import type { Vec2 } from '../world/worldTypes'
 
 /**
  * Criminal-activity runtime — a module singleton (same pattern as the crime /
@@ -43,6 +45,8 @@ export const activityRuntime = {
   lootReceipts: {} as Record<string, LootReceipt>,
   /** One receipt per secure op: proceeds convert exactly once. */
   secureReceipts: {} as Record<string, SecureReceipt>,
+  /** Police containment phase machine around a robbed store (transient). */
+  containment: freshContainment() as ContainmentState,
   /** Last terminal robbery result, for the HUD banner (transient). */
   result: null as RobberyResult | null,
   /** Monotonic sequences. */
@@ -53,6 +57,19 @@ export const activityRuntime = {
   /** Diagnostics. */
   lastEventType: null as ActivityEventType | null,
   debugEnabled: false,
+}
+
+/**
+ * The position the police should CONTAIN while a robbery is under exterior
+ * containment (the robbed store's entrance), or null when not containing. The
+ * police director reads this to route/hold at the door instead of the off-grid
+ * interior — reusing the whole dispatch/dismount stack, never a new one.
+ */
+export function getContainmentTarget(): Vec2 | null {
+  const c = activityRuntime.containment
+  if (c.phase === 'none' || c.storeId === null) return null
+  const def = getRobberyDefinition(c.storeId)
+  return def ? def.entrancePosition : null
 }
 
 export function getStoreState(storeId: string): StoreRuntimeState {
@@ -81,6 +98,7 @@ export function resetActivityRuntime(): void {
   activityRuntime.unsecuredProceeds = 0
   activityRuntime.lootReceipts = {}
   activityRuntime.secureReceipts = {}
+  resetContainment(activityRuntime.containment)
   activityRuntime.result = null
   activityRuntime.eventSeq = 0
   activityRuntime.attemptSeq = 0
@@ -99,4 +117,5 @@ export function clearTransientActivity(): void {
   activityRuntime.active = null
   activityRuntime.result = null
   activityRuntime.unsecuredProceeds = 0
+  resetContainment(activityRuntime.containment)
 }

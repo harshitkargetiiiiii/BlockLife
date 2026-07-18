@@ -2,6 +2,7 @@ import type { ActivityGameEvent } from './activityTypes'
 import {
   abandonRobbery,
   beginRobbery,
+  fireAlarm,
   loseProceeds,
   lootRegister,
   secureProceeds,
@@ -114,6 +115,19 @@ export function abandonActiveRobbery(): void {
 export function tickRobberyAlarm(): void {
   if (!hooks || !activityRuntime.active) return
   tickAlarm(buildContext())
+  hooks.onUiChanged()
+}
+
+/**
+ * A fled/hidden civilian reached safety and raises the alarm. Idempotent:
+ * fireAlarm self-guards on `alarmFired`, so repeated calls report exactly once.
+ * This is the organic-witness path — notably the ONLY report source for the
+ * open-air kiosk (alarm policy 'none'), and it can trip a store's silent alarm
+ * early when a witness escapes before the timer.
+ */
+export function reportRobberyByWitness(): void {
+  if (!hooks || !activityRuntime.active) return
+  fireAlarm(buildContext())
   hooks.onUiChanged()
 }
 

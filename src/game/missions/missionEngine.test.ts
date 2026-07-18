@@ -61,7 +61,7 @@ function validationCtx() {
     anchorIds: new Set(MISSION_ANCHORS.map((a) => a.id)),
     interactableIds: new Set(['courier_depot', 'hotcargo_fixer']),
     registeredSectorIds: new Set(SECTOR_DEFINITIONS.map((d) => d.id)),
-    phoneJobIds: new Set(['city_courier', 'corner_take']),
+    phoneJobIds: new Set(['city_courier', 'corner_take', 'fast_exit']),
   }
 }
 
@@ -71,7 +71,12 @@ beforeEach(() => resetMissionRuntime())
 
 describe('definitions & validation', () => {
   it('has stable, unique mission + objective ids in deterministic order', () => {
-    expect(MISSION_DEFINITIONS.map((m) => m.id)).toEqual(['city_courier', 'hot_cargo', 'corner_take'])
+    expect(MISSION_DEFINITIONS.map((m) => m.id)).toEqual([
+      'city_courier',
+      'hot_cargo',
+      'corner_take',
+      'fast_exit',
+    ])
     for (const def of MISSION_DEFINITIONS) {
       const ids = def.objectives.map((o) => o.id)
       expect(new Set(ids).size).toBe(ids.length)
@@ -404,6 +409,116 @@ describe('Corner Take flow', () => {
     applyMissionEvent({ type: 'player_arrested' }, c)
     expect(missionRuntime.result?.outcome).toBe('failed')
     expect(c.applyRewards).not.toHaveBeenCalled()
+  })
+})
+
+// ---- Fast Exit: getaway car + observed robbery + pursuit ------------------
+
+describe('Fast Exit flow', () => {
+  const LOOTED = (amount: number, storeId = 'robbery_mainst_store') =>
+    ({ type: 'activity_event', event: { type: 'register_looted', activityId: storeId, storeId, amount } }) as const
+  const SECURED = (amount: number) =>
+    ({ type: 'activity_event', event: { type: 'proceeds_secured', amount } }) as const
+
+  /** Walk from a fresh Fast Exit up to (but not through) the given objective idx,
+   *  driving the exact getaway target the whole time. `wanted` is the live heat. */
+  function startAndStage(wanted = 2) {
+    const c = () => ctx({ wantedLevel: wanted })
+    startMission('fast_exit', c())
+    expect(missionRuntime.active?.objectiveIndex).toBe(0) // brief
+    applyMissionEvent({ type: 'interactable_used', interactableId: 'hotcargo_fixer' }, c())
+    expect(missionRuntime.active?.objectiveIndex).toBe(1) // getaway
+    expect(missionRuntime.active?.variables.targetVehicle).toBe(TARGET)
+    applyMissionEvent({ type: 'vehicle_stolen', vehicleId: TARGET, theftKind: 'vehicle_theft' }, c())
+    expect(missionRuntime.active?.objectiveIndex).toBe(2) // stage
+    return c
+  }
+
+  it('passes preferParked into target selection for the getaway car', () => {
+    const seen: { preferParked?: boolean }[] = []
+    const c = ctx({
+      resolveTarget: (_selector, opts) => {
+        seen.push(opts ?? {})
+        return TARGET
+      },
+    })
+    startMission('fast_exit', c)
+    applyMissionEvent({ type: 'interactable_used', interactableId: 'hotcargo_fixer' }, c)
+    // The getaway steal_vehicle objective resolves with preferParked = true.
+    expect(seen).toEqual([{ preferParked: true }])
+  })
+
+  it('stages a still-hot getaway car (requireClean:false skips the wanted gate)', () => {
+    const c = startAndStage(2)
+    // Wanted 2 but staging is a staging park, not a clean delivery → it advances.
+    applyMissionEvent({ type: 'reached_zone', anchorId: 'fastexit_staging' }, c())
+    expect(missionRuntime.active?.objectiveIndex).toBe(3) // rob
+  })
+
+  it('completes the whole loop, pays the bonus once, and starts a cooldown', () => {
+    const wanted = { level: 2 }
+    const applyRewards = vi.fn()
+    // One shared reward sink; heat is live via the `wanted` box.
+    const c = () => ctx({ wantedLevel: wanted.level, gameHours: 400, applyRewards })
+    startMission('fast_exit', c())
+    applyMissionEvent({ type: 'interactable_used', interactableId: 'hotcargo_fixer' }, c()) // brief → getaway
+    applyMissionEvent({ type: 'vehicle_stolen', vehicleId: TARGET, theftKind: 'vehicle_theft' }, c()) // → stage
+    applyMissionEvent({ type: 'reached_zone', anchorId: 'fastexit_staging' }, c()) // → rob (hot ok)
+    applyMissionEvent(LOOTED(140), c()) // rob a qualifying take → to_getaway
+    expect(missionRuntime.active?.objectiveIndex).toBe(4)
+    applyMissionEvent({ type: 'vehicle_entered', vehicleId: TARGET }, c()) // back in the getaway → lose_heat
+    expect(missionRuntime.active?.objectiveIndex).toBe(5)
+    // Still wanted: securing can't be reached until heat is gone.
+    applyMissionEvent(SECURED(140), c())
+    expect(missionRuntime.active?.objectiveIndex).toBe(5)
+    wanted.level = 0
+    applyMissionEvent({ type: 'wanted_changed', previous: 2, current: 0 }, c()) // → secure
+    expect(missionRuntime.active?.objectiveIndex).toBe(6)
+    applyMissionEvent(SECURED(140), c()) // secure the take → complete
+    expect(missionRuntime.active).toBeNull()
+    expect(missionRuntime.result?.outcome).toBe('completed')
+    expect(applyRewards).toHaveBeenCalledTimes(1)
+    expect(applyRewards).toHaveBeenCalledWith([{ kind: 'money', amount: 250 }], 250)
+    expect(missionRuntime.cooldowns['fast_exit'].readyAtGameHours).toBe(424) // +24h
+  })
+
+  it('only the EXACT getaway car re-entry advances to lose_heat', () => {
+    const c = startAndStage(2)
+    applyMissionEvent({ type: 'reached_zone', anchorId: 'fastexit_staging' }, c()) // → rob
+    applyMissionEvent(LOOTED(140), c()) // → to_getaway
+    expect(missionRuntime.active?.objectiveIndex).toBe(4)
+    // Entering a DIFFERENT car does not satisfy the getaway re-entry.
+    applyMissionEvent({ type: 'vehicle_entered', vehicleId: 'theft_parked_market' }, c())
+    expect(missionRuntime.active?.objectiveIndex).toBe(4)
+    applyMissionEvent({ type: 'vehicle_entered', vehicleId: TARGET }, c())
+    expect(missionRuntime.active?.objectiveIndex).toBe(5) // lose_heat
+  })
+
+  it('a sub-minimum take does not satisfy the robbery step', () => {
+    const c = startAndStage(2)
+    applyMissionEvent({ type: 'reached_zone', anchorId: 'fastexit_staging' }, c())
+    applyMissionEvent(LOOTED(100), c()) // below $120
+    expect(missionRuntime.active?.objectiveIndex).toBe(3) // still robbing
+    applyMissionEvent(LOOTED(120), c())
+    expect(missionRuntime.active?.objectiveIndex).toBe(4) // → to_getaway
+  })
+
+  it('fails if the getaway car is disabled during the run', () => {
+    const c = startAndStage(2)
+    applyMissionEvent({ type: 'vehicle_disabled', vehicleId: TARGET }, c())
+    expect(missionRuntime.result?.reason).toBe('target_vehicle_disabled')
+  })
+
+  it('fails on arrest mid-heist and pays nothing', () => {
+    const c = startAndStage(3)
+    applyMissionEvent({ type: 'player_arrested' }, c())
+    expect(missionRuntime.result?.outcome).toBe('failed')
+    expect(missionRuntime.result?.reason).toBe('player_arrested')
+  })
+
+  it('is save-blocking: an active Fast Exit is never serialized', () => {
+    startMission('fast_exit', ctx())
+    expect(serializeMissions().active).toBeUndefined()
   })
 })
 
