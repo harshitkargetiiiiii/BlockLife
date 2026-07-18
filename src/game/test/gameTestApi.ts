@@ -42,10 +42,16 @@ import { INTERACTABLE_BY_ID } from '../../data/interactables'
 import { NPC_DEFS } from '../../data/npcs'
 import { INTERIORS } from '../interiors/interiorRegistry'
 import { activityRuntime, resetActivityRuntime } from '../criminalActivities/activityRuntime'
-import { ROBBERY_DEFINITIONS, getRobberyDefinition } from '../criminalActivities/activityDefinitions'
+import { ROBBERY_DEFINITIONS, getRobberyDefinition, getRobberyForInterior } from '../criminalActivities/activityDefinitions'
 import { validateRobberies } from '../criminalActivities/activityValidation'
 import { rollLoot } from '../criminalActivities/robberyLogic'
 import { tryBeginRobbery } from '../criminalActivities/activityBridge'
+import { breachCountdown } from '../criminalActivities/containmentLogic'
+import { getInterior } from '../interiors/interiorRegistry'
+import {
+  getCivilians,
+  resetInteriorCivilians,
+} from '../interiors/interiorCivilians'
 import { MISSION_DEFINITIONS, getMissionDefinition } from '../missions/missionDefinitions'
 import { MISSION_ANCHORS, getMissionAnchor } from '../missions/missionAnchors'
 import { missionRuntime } from '../missions/missionRuntime'
@@ -441,6 +447,8 @@ export interface GameTestApi {
   } | null
   setCrimeDebug: (enabled: boolean) => void
   stealVehicle: (vehicleId: string) => boolean
+  /** Leave the drivable car (back on foot) — e.g. to rob a store mid-getaway. */
+  exitPlayerVehicle: () => void
   getVehicleCrimeState: (vehicleId: string) => {
     access: string
     stolen: boolean
@@ -551,7 +559,29 @@ export interface GameTestApi {
     result: { outcome: string; amount: number } | null
     location: string
     interiorId: string | null
+    containmentPhase: string
+    breachSeconds: number | null
   }
+  /** Police containment phase machine around a robbed store (Getaway Polish v1). */
+  getContainmentState: () => {
+    storeId: string | null
+    phase: string
+    phaseSeconds: number
+    breached: boolean
+    breachSeconds: number | null
+  }
+  /** Routed store civilians (cashier + customers) for a store interior, or null. */
+  getInteriorCivilians: (interiorId: string) =>
+    | {
+        id: string
+        role: string
+        reaction: string
+        pos: [number, number]
+        crouch: number
+        arrived: boolean
+        reported: boolean
+      }[]
+    | null
   getStoreRobberyState: (storeId: string) => {
     cooldownReadyAtGameHours: number
     robberyCount: number
@@ -1138,6 +1168,7 @@ export function installTestApi(): void {
       witnessRuntime.debugEnabled = enabled
     },
     stealVehicle: (vehicleId) => useGameStore.getState().stealVehicle(vehicleId),
+    exitPlayerVehicle: () => useGameStore.getState().exitVehicle(),
     getVehicleCrimeState: (vehicleId) => {
       const r = getVehicleCrimeStateRuntime(vehicleId)
       return { access: r.access, stolen: r.stolen, ownerId: r.ownerId, health: r.health, disabled: r.disabled }
@@ -1386,7 +1417,33 @@ export function installTestApi(): void {
           : null,
         location: s.location,
         interiorId: s.currentInteriorId,
+        containmentPhase: activityRuntime.containment.phase,
+        breachSeconds: breachCountdown(activityRuntime.containment),
       }
+    },
+    getContainmentState: () => {
+      const c = activityRuntime.containment
+      return {
+        storeId: c.storeId,
+        phase: c.phase,
+        phaseSeconds: c.phaseSeconds,
+        breached: c.breached,
+        breachSeconds: breachCountdown(c),
+      }
+    },
+    getInteriorCivilians: (interiorId) => {
+      const interior = getInterior(interiorId)
+      const def = getRobberyForInterior(interiorId)
+      if (!interior || !def) return null
+      return getCivilians(interior, def).map((a) => ({
+        id: a.id,
+        role: a.role,
+        reaction: a.reaction,
+        pos: [a.pos[0], a.pos[1]] as [number, number],
+        crouch: a.crouch,
+        arrived: a.arrived,
+        reported: a.reported,
+      }))
     },
     getStoreRobberyState: (storeId) => {
       const s = activityRuntime.stores[storeId]
@@ -1425,6 +1482,7 @@ export function installTestApi(): void {
     },
     resetActivities: () => {
       resetActivityRuntime()
+      resetInteriorCivilians()
       useGameStore.getState().syncActivityUI(0)
     },
     setActivityDebug: (enabled) => {

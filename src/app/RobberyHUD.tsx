@@ -1,12 +1,14 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useGameStore } from '../game/store/useGameStore'
+import { audioManager } from '../game/audio/AudioManager'
 
 /**
- * Compact criminal-activity HUD (Store Robbery v1). Reads ONLY the UI-reactive
- * `activityView` mirror, never the runtime. Three small, non-overlapping pieces:
- * an unsecured-cash badge (top-left, under the stats), a contextual robbery
- * prompt (threat meter / register / alarm), and a centered result banner. Kept
- * clear of health, wanted, ammo, vehicle and mission info.
+ * Compact criminal-activity HUD (Store Robbery v1 + Getaway Polish v1). Reads
+ * ONLY the UI-reactive `activityView` mirror, never the runtime. Non-overlapping
+ * pieces: an unsecured-cash badge (top-left, under the stats), a contextual
+ * robbery prompt (threat meter / register / alarm), a police containment/breach
+ * warning, and a centered result banner. Kept clear of health, wanted, ammo,
+ * vehicle and mission info.
  */
 
 export function RobberyHUD() {
@@ -16,6 +18,7 @@ export function RobberyHUD() {
 
   return (
     <>
+      <ContainmentWarning phase={view.containmentPhase} breachSeconds={view.breachSeconds} />
       {/* Unsecured criminal cash — a warning-tinted badge. */}
       {view.unsecuredProceeds > 0 && (
         <div className="robbery-proceeds panel" data-testid="robbery-proceeds">
@@ -64,6 +67,46 @@ export function RobberyHUD() {
   )
 }
 
+/**
+ * Police-response + containment/breach warning. Reads only the projected phase +
+ * countdown. Plays a one-shot siren when police start responding and an alert as
+ * the breach warning opens (audio self-guards until the player enables sound).
+ */
+function ContainmentWarning({
+  phase,
+  breachSeconds,
+}: {
+  phase: 'none' | 'responding' | 'contained' | 'warning' | 'breached'
+  breachSeconds: number | null
+}) {
+  const prev = useRef(phase)
+  useEffect(() => {
+    if (phase !== prev.current) {
+      if (phase === 'responding') audioManager.playSiren()
+      else if (phase === 'warning') audioManager.playAlert()
+      prev.current = phase
+    }
+  }, [phase])
+
+  if (phase === 'none' || phase === 'breached') return null
+  const warning = phase === 'warning'
+  return (
+    <div
+      className={`robbery-containment panel${warning ? ' robbery-containment-warning' : ''}`}
+      data-testid="robbery-containment"
+    >
+      <div className="robbery-containment-title">🚨 Police {phase === 'responding' ? 'responding' : 'containment'}</div>
+      <div className="robbery-containment-line" data-testid="robbery-containment-line">
+        {phase === 'responding'
+          ? 'Units inbound — get out before they lock it down'
+          : warning
+            ? `They're coming in — ${Math.max(1, Math.ceil(breachSeconds ?? 0))}s`
+            : "Exit's covered — find your moment"}
+      </div>
+    </div>
+  )
+}
+
 /** Centered success/failure banner, auto-dismissed after a moment. */
 function RobberyBanner() {
   const result = useGameStore((s) => s.activityView.result)
@@ -73,6 +116,7 @@ function RobberyBanner() {
   useEffect(() => {
     if (!result) return
     setShown(result)
+    audioManager.playChime(result.outcome === 'secured')
     const t = setTimeout(() => {
       setShown(null)
       dismiss()

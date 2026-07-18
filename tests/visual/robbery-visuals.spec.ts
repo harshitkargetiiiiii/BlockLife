@@ -58,6 +58,9 @@ test.describe('robbery visuals', () => {
       api.setPlayerHeading(0)
       api.forceBeginRobbery('robbery_mainst_store')
     })
+    // Let the routed civilians settle at their terminal reaction poses first, so
+    // the shot is deterministic (they no longer duck instantly into the floor).
+    await page.waitForTimeout(3000)
     await freeze(page)
     await expect(page).toHaveScreenshot('robbery-in-progress.png')
   })
@@ -75,6 +78,8 @@ test.describe('robbery visuals', () => {
       api.teleportPlayer([258.6, 1.2, 203.8])
       api.lootStoreRegister()
     })
+    // Loot resolves the robbery; give civilians a moment to settle recovering.
+    await page.waitForTimeout(3000)
     await freeze(page)
     await expect(page).toHaveScreenshot('robbery-looted-proceeds.png')
   })
@@ -88,5 +93,42 @@ test.describe('robbery visuals', () => {
     })
     await freeze(page)
     await expect(page).toHaveScreenshot('robbery-kiosk-interior.png')
+  })
+
+  test('police containment warning HUD (Getaway Polish v1)', async ({ page }) => {
+    await ready(page)
+    await page.evaluate(() => {
+      const api = window.GAME_TEST_API!
+      api.enterInterior('store_mainst')
+      api.teleportPlayer([260, 1.2, 207])
+      api.setWantedLevel(2) // heat inside a robbable store → containment arms
+    })
+    // Hold until the deterministic phase machine reaches 'contained', then pause
+    // (the director stops stepping on pause, so the phase + HUD are stable).
+    await page
+      .waitForFunction(() => window.GAME_TEST_API!.getContainmentState().phase === 'contained', undefined, {
+        timeout: 16_000,
+      })
+      .catch(() => {})
+    await freeze(page)
+    await expect(page).toHaveScreenshot('getaway-containment-hud.png')
+  })
+
+  test('store civilians route to cover during a robbery (Getaway Polish v1)', async ({ page }) => {
+    await ready(page)
+    await page.evaluate(() => {
+      const api = window.GAME_TEST_API!
+      api.enterInterior('store_mainst')
+      api.givePlayerWeapon('handgun')
+      api.drawPlayerWeapon()
+      api.teleportPlayer([260, 1.2, 208])
+      api.setPlayerHeading(Math.PI) // face into the store
+      api.forceBeginRobbery('robbery_mainst_store')
+    })
+    // Let the routed civilians settle at their terminal reactions (fled to the
+    // door, hidden in cover, frozen crouched) — deterministic end poses.
+    await page.waitForTimeout(3500)
+    await freeze(page)
+    await expect(page).toHaveScreenshot('getaway-civilians-react.png')
   })
 })

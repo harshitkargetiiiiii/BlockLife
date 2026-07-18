@@ -2,6 +2,7 @@ import { useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import { useFrame } from '@react-three/fiber'
 import { useGameStore } from '../store/useGameStore'
+import { registry } from '../world/runtimeRegistry'
 import { getStealable } from '../vehicles/vehicleCrimeState'
 import { getSectorAtWorldPosition } from '../world/sectors/sectorRegistry'
 import { streamingRuntime, isSectorMounted } from '../world/sectors/sectorStreaming'
@@ -58,9 +59,14 @@ function resolveMarker(): MarkerTarget | null {
     return a ? { x: a.position[0], z: a.position[2], color } : null
   }
   if (obj.kind === 'steal_vehicle') {
-    const targetId = active.variables.targetVehicle as string | undefined
+    const targetId = active.variables[obj.writeTargetToVariable] as string | undefined
     const v = targetId ? getStealable(targetId) : undefined
     return v ? { x: v.position[0], z: v.position[1], color } : null
+  }
+  if (obj.kind === 'enter_vehicle') {
+    // Beacon over the parked getaway car (the single drivable body's live spot).
+    const v = registry.vehiclePosition
+    return { x: v.x, z: v.z, color }
   }
   return null
 }

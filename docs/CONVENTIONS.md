@@ -183,6 +183,17 @@ went active, and silently killed the whole simulation. Drive any new per-frame
 component in a live/E2E run with `page.on('pageerror')` asserted empty before
 believing it works.
 
+### 14. Don't CAPTURE a module-runtime array in render — fetch it in the frame
+A `useFrame` that closes over `const actors = getRuntimeArray()` read at render
+time goes **stale** the moment a reset rebuilds that array: the component keeps
+mutating the orphaned array while every reader (UI mirror, test API) sees a fresh,
+never-stepped one. The store-civilian reactions silently stopped working after any
+`resetActivities()` for exactly this reason — the E2E showed `frames>0` and the
+threat gate ON, yet `crouch` stayed `0`. Fetch the live array **inside** the frame
+(`const actors = getCivilians(...)` per tick; the count is invariant so a
+render-time copy is still fine for the ref pool). Same family as gotcha #2/#12b:
+module-singleton state and React render scope must not be conflated.
+
 ---
 
 ## The verification workflow (honest gates)

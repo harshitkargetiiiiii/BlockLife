@@ -144,6 +144,66 @@ class AudioManager {
     }
   }
 
+  /** A short two-tone police wail — police responding to a contained robbery. */
+  playSiren(): void {
+    if (!this.enabled || !this.ctx) return
+    const ctx = this.ctx
+    const osc = ctx.createOscillator()
+    osc.type = 'sawtooth'
+    const gain = ctx.createGain()
+    const t0 = ctx.currentTime
+    gain.gain.setValueAtTime(0.0001, t0)
+    gain.gain.exponentialRampToValueAtTime(0.05, t0 + 0.05)
+    // Wail up then down twice.
+    osc.frequency.setValueAtTime(600, t0)
+    osc.frequency.linearRampToValueAtTime(900, t0 + 0.35)
+    osc.frequency.linearRampToValueAtTime(600, t0 + 0.7)
+    osc.frequency.linearRampToValueAtTime(900, t0 + 1.05)
+    gain.gain.setTargetAtTime(0.0001, t0 + 1.2, 0.15)
+    osc.connect(gain).connect(ctx.destination)
+    osc.start(t0)
+    osc.stop(t0 + 1.5)
+  }
+
+  /** An urgent low pulse — a breach warning / countdown alert. */
+  playAlert(): void {
+    if (!this.enabled || !this.ctx) return
+    const ctx = this.ctx
+    for (const offset of [0, 0.22] as const) {
+      const osc = ctx.createOscillator()
+      osc.type = 'square'
+      osc.frequency.value = 220
+      const gain = ctx.createGain()
+      const t0 = ctx.currentTime + offset
+      gain.gain.setValueAtTime(0.0001, t0)
+      gain.gain.exponentialRampToValueAtTime(0.06, t0 + 0.02)
+      gain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.16)
+      osc.connect(gain).connect(ctx.destination)
+      osc.start(t0)
+      osc.stop(t0 + 0.2)
+    }
+  }
+
+  /** A short rising/falling chime — a job completion (ok) or loss (bad) sting. */
+  playChime(ok: boolean): void {
+    if (!this.enabled || !this.ctx) return
+    const ctx = this.ctx
+    const notes = ok ? [523, 659, 784] : [392, 311]
+    notes.forEach((freq, i) => {
+      const osc = ctx.createOscillator()
+      osc.type = 'triangle'
+      osc.frequency.value = freq
+      const gain = ctx.createGain()
+      const t0 = ctx.currentTime + i * 0.12
+      gain.gain.setValueAtTime(0.0001, t0)
+      gain.gain.exponentialRampToValueAtTime(0.07, t0 + 0.02)
+      gain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.24)
+      osc.connect(gain).connect(ctx.destination)
+      osc.start(t0)
+      osc.stop(t0 + 0.28)
+    })
+  }
+
   /** Short click blip for interactions/buttons. */
   playClick(): void {
     if (!this.enabled || !this.ctx) return

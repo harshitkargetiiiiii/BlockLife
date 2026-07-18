@@ -45,18 +45,22 @@ export function registerMissionBridge(h: MissionBridgeHooks): void {
 }
 
 /**
- * Eligible Hot Cargo targets: civilian stealables that are not already stolen,
- * not disabled, and not mission-owned. Occupied cars are preferred (the
- * carjacking system is stable); parked cars are the fallback.
+ * Eligible mission targets: civilian stealables that are not already stolen,
+ * not disabled, and not mission-owned (never police vehicles — those aren't in
+ * STEALABLE_VEHICLES at all). `prefer` biases the pool: 'occupied' (default, Hot
+ * Cargo) favours a carjack; 'parked' (a getaway car) favours a quiet grab that
+ * needn't raise heat. When the preferred class is empty the other is the
+ * fallback, so a target is still found.
  */
-export function getEligibleTargets(): string[] {
+export function getEligibleTargets(prefer: 'occupied' | 'parked' = 'occupied'): string[] {
   const ownedByMission = missionRuntime.active?.ownedEntityIds ?? new Set<string>()
   const eligible = STEALABLE_VEHICLES.filter((v) => {
     const rec = getVehicleCrimeState(v.id)
     return !rec.stolen && !rec.disabled && !ownedByMission.has(v.id)
   })
-  const occupied = eligible.filter((v) => v.access === 'civilian_occupied').map((v) => v.id)
-  if (occupied.length > 0) return occupied
+  const wantAccess = prefer === 'parked' ? 'civilian_parked' : 'civilian_occupied'
+  const preferred = eligible.filter((v) => v.access === wantAccess).map((v) => v.id)
+  if (preferred.length > 0) return preferred
   return eligible.map((v) => v.id)
 }
 
@@ -68,13 +72,13 @@ function buildContext(): MissionEngineContext {
     gameTime: getCrimeGameTime(),
     wantedLevel: getWantedLevel(),
     drivenVehicleSourceId: getPlayerCarSourceId(),
-    resolveTarget: (selectorId) =>
+    resolveTarget: (selectorId, opts) =>
       selectMissionTarget({
         missionId: missionRuntime.active?.missionId ?? 'unknown',
         selectorId,
         attemptSeq: missionRuntime.attemptSeq,
         gameDay: Math.max(1, Math.floor(gameHours / 24)),
-        candidates: getEligibleTargets(),
+        candidates: getEligibleTargets(opts?.preferParked ? 'parked' : 'occupied'),
       }),
     applyRewards: (rewards, moneyTotal) => hooks?.applyRewards(rewards, moneyTotal),
     toast: (text) => hooks?.toast(text),

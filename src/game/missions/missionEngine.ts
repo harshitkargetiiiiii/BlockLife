@@ -32,8 +32,9 @@ export interface MissionEngineContext {
       null. Used so a `deliver_vehicle` handoff only completes for the EXACT
       boosted target — not any stolen replacement. */
   drivenVehicleSourceId: string | null
-  /** Resolve a deterministic target vehicle id for a steal selector, or null. */
-  resolveTarget: (selectorId: string) => string | null
+  /** Resolve a deterministic target vehicle id for a steal selector, or null.
+      `preferParked` biases the eligible pool toward a quiet parked grab. */
+  resolveTarget: (selectorId: string, opts?: { preferParked?: boolean }) => string | null
   /** Apply granted rewards to the player (money via store economy, items via giveItem). */
   applyRewards: (rewards: MissionRewardDefinition[], moneyTotal: number) => void
   /** Surface a short message to the player. */
@@ -124,7 +125,7 @@ function activateObjective(
   active.status = 'active'
 
   if (obj.kind === 'steal_vehicle') {
-    const target = ctx.resolveTarget(obj.targetSelectorId)
+    const target = ctx.resolveTarget(obj.targetSelectorId, { preferParked: obj.preferParked })
     if (!target) return { ok: false, reason: 'no_target' }
     active.variables[obj.writeTargetToVariable] = target
     active.ownedEntityIds.add(target)
@@ -186,12 +187,13 @@ function objectiveSatisfiedBy(
     }
     case 'drive_vehicle_to_zone':
       // The driver only emits reached_zone for this anchor when the TARGET
-      // vehicle is in-zone and stopped; the engine additionally gates on
-      // wanted 0 (delivery is rejected while wanted).
+      // vehicle is in-zone and stopped; a clean DELIVERY additionally gates on
+      // wanted 0 (rejected while wanted). A STAGING park (requireClean:false)
+      // skips that gate so a hot getaway car can still be positioned.
       return (
         event.type === 'reached_zone' &&
         event.anchorId === obj.anchorId &&
-        ctx.wantedLevel === 0
+        (obj.requireClean === false || ctx.wantedLevel === 0)
       )
     case 'lose_wanted':
       return event.type === 'wanted_changed' && event.current <= obj.requiredLevel

@@ -330,7 +330,7 @@ the API exists so tests can reach states quickly, not so the missions depend on 
 
 | Layer | What |
 |---|---|
-| Unit | 46 in [`missionEngine.test.ts`](../src/game/missions/missionEngine.test.ts) (objectives, idempotency, rewards-once, cooldowns, exact-target handoff, `vehicle_lost`, validation vs. real sector data, persistence: receipts/attemptSeq/re-mint/no-double-pay) + 12 in [`vehicleCrimeState.test.ts`](../src/game/vehicles/vehicleCrimeState.test.ts) (source-id tracking, clear) |
+| Unit | 54 in [`missionEngine.test.ts`](../src/game/missions/missionEngine.test.ts) (objectives, idempotency, rewards-once, cooldowns, exact-target handoff, `vehicle_lost`, **Fast Exit full flow + `preferParked` + `requireClean` staging**, validation vs. real sector data, persistence: receipts/attemptSeq/re-mint/no-double-pay) + 12 in [`vehicleCrimeState.test.ts`](../src/game/vehicles/vehicleCrimeState.test.ts) (source-id tracking, clear) |
 | E2E | 16 in [`tests/e2e/missions.spec.ts`](../tests/e2e/missions.spec.ts) — both missions end-to-end, save/load, cancel/retry, streaming, apartment policy, **a replacement stolen car cannot complete Hot Cargo**, **save/load never duplicates a reward or reuses an attempt id** |
 | Soak | [`tests/e2e/mission-soak.spec.ts`](../tests/e2e/mission-soak.spec.ts) — 180s, repeated attempts + sector cycling, asserts no page errors, no double-pay, no stale ownership |
 | Visual | 7 baselines in [`tests/visual/mission-visuals.spec.ts`](../tests/visual/mission-visuals.spec.ts) |

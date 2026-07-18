@@ -117,8 +117,11 @@ export function fireAlarm(ctx: RobberyEngineContext): void {
   active.alarmFired = true
   active.alarmReportsAtGameTime = null
   // Report through the existing crime/witness/wanted stack — NEVER set wanted
-  // or spawn police here. Position is the cashier's counter.
-  ctx.reportCrime([def.cashierPosition[0], 0, def.cashierPosition[1]])
+  // or spawn police here. Position is the store's EXTERIOR ENTRANCE (its street
+  // address), not the off-grid interior counter: that's the road-reachable point
+  // dispatch anchors and cruisers road-route to, so police contain the door
+  // rather than chase an unreachable interior coordinate.
+  ctx.reportCrime([def.entrancePosition[0], 0, def.entrancePosition[1]])
   markStoreRobbed(def.id, ctx.gameHours, def.cooldownGameHours)
   emitEvent(ctx, { type: 'alarm_triggered', activityId: def.id, storeId: def.id })
 }

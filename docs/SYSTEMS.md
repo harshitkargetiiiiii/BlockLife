@@ -351,7 +351,10 @@ of never blocking the scene.
 **procedural** Web Audio — no external files. Browsers block autoplay, so nothing
 plays until the user presses the Audio button (a user-gesture `enable()`).
 Provides click SFX and a continuous engine tone whose pitch tracks driving speed
-(`setEngine(speed)`), fed by the WorldDirector.
+(`setEngine(speed)`), fed by the WorldDirector. Robbery Pursuit & Getaway Polish
+v1 adds one-shot cues driven from the HUD on state transitions: `playSiren()`
+(police responding to a contained robbery), `playAlert()` (breach warning), and
+`playChime(ok)` (job secured / lost) — all self-guarded until audio is enabled.
 
 ---
 

@@ -67,6 +67,10 @@ export interface RobberyActivityDefinition {
   secureInteractableId: string
   /** Exterior entrance interactable id (opens the interior). */
   entranceInteractableId: string
+  /** Exterior entrance position (city sidewalk) — police containment focus. */
+  entrancePosition: Vec2
+  /** Heading facing INTO the store from the entrance (containment forms up here). */
+  entranceHeading: number
   /** Derived: sector owning the exterior entrance (streaming/validation). */
   sectorId: string
   /** Seed base for deterministic cashier decision + loot. */
@@ -184,5 +188,9 @@ export interface ActivityView {
   unsecuredProceeds: number
   /** True when standing at the fixer with securable proceeds. */
   canSecure: boolean
+  /** Police containment phase around the store the player is inside. */
+  containmentPhase: 'none' | 'responding' | 'contained' | 'warning' | 'breached'
+  /** Seconds until the breach forces an exit, or null when not warning. */
+  breachSeconds: number | null
   result: { outcome: RobberyOutcome; amount: number } | null
 }

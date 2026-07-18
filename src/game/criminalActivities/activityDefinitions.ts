@@ -34,6 +34,8 @@ const CONVENIENCE_STORE: RobberyActivityDefinition = {
   cooldownGameHours: 24,
   secureInteractableId: 'hotcargo_fixer',
   entranceInteractableId: 'store_mainst_entrance',
+  entrancePosition: [MAINST_ENTRANCE[0], MAINST_ENTRANCE[2]],
+  entranceHeading: Math.PI, // faces south, out toward the street
   sectorId: worldToSectorId(MAINST_ENTRANCE[0], MAINST_ENTRANCE[2]),
   seedKey: 'robbery_mainst_store',
   sourceRef: { file: 'src/game/criminalActivities/activityDefinitions.ts', symbol: 'CONVENIENCE_STORE' },
@@ -57,6 +59,8 @@ const WATERFRONT_KIOSK: RobberyActivityDefinition = {
   cooldownGameHours: 12,
   secureInteractableId: 'hotcargo_fixer',
   entranceInteractableId: 'store_kiosk_entrance',
+  entrancePosition: [KIOSK_ENTRANCE[0], KIOSK_ENTRANCE[2]],
+  entranceHeading: Math.PI,
   sectorId: worldToSectorId(KIOSK_ENTRANCE[0], KIOSK_ENTRANCE[2]),
   seedKey: 'robbery_waterfront_kiosk',
   sourceRef: { file: 'src/game/criminalActivities/activityDefinitions.ts', symbol: 'WATERFRONT_KIOSK' },
