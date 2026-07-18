@@ -1,5 +1,9 @@
-/** Where the player currently is. City is the default outdoor world. */
-export type PlayerLocationMode = 'city' | 'apartment'
+/**
+ * Where the player currently is. City is the default outdoor world; 'apartment'
+ * and 'store' are interiors (which specific store is tracked separately by
+ * `currentInteriorId`). Old saves lack the field and default to 'city'.
+ */
+export type PlayerLocationMode = 'city' | 'apartment' | 'store'
 
 /**
  * Outfit colors applied to the player mesh (city and apartment alike).

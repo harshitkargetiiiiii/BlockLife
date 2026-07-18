@@ -1,5 +1,6 @@
 import type { Vec3 } from '../world/worldTypes'
 import type { SectorId } from '../world/sectors/worldGrid'
+import type { ActivityGameEvent } from '../criminalActivities/activityTypes'
 
 /**
  * Mission & Open-World Activity Framework v1 — the type keystone.
@@ -118,6 +119,27 @@ export interface ReturnToGiverObjective extends BaseMissionObjective {
   interactableId: string
 }
 
+/**
+ * Store Robbery v1 — a mission OBSERVES a criminal activity it does not own.
+ * `rob_store` completes when the marked store's register is looted for at least
+ * `minAmount`; `secure_proceeds` completes when unsecured proceeds are secured.
+ * The mission never opens the register, forces compliance, or secures the cash
+ * — the robbery subsystem does all of that; the mission just watches its events.
+ */
+export interface RobStoreObjective extends BaseMissionObjective {
+  kind: 'rob_store'
+  activityId: string
+  minAmount: number
+  /** Marker anchor (the store entrance). */
+  anchorId: string
+}
+
+export interface SecureProceedsObjective extends BaseMissionObjective {
+  kind: 'secure_proceeds'
+  /** Marker anchor (the fixer). */
+  anchorId: string
+}
+
 export type MissionObjectiveDefinition =
   | ReachZoneObjective
   | InteractObjective
@@ -129,6 +151,8 @@ export type MissionObjectiveDefinition =
   | ExitVehicleObjective
   | DeliverVehicleObjective
   | ReturnToGiverObjective
+  | RobStoreObjective
+  | SecureProceedsObjective
 
 export type MissionObjectiveKind = MissionObjectiveDefinition['kind']
 
@@ -261,5 +285,8 @@ export type MissionGameEvent =
   | { type: 'player_incapacitated' }
   | { type: 'location_changed'; location: string }
   | { type: 'reached_zone'; anchorId: string }
+  /** A criminal-activity event a mission may OBSERVE (Corner Take wraps a
+      robbery without owning it). Carries the typed activity event. */
+  | { type: 'activity_event'; event: ActivityGameEvent }
 
 export type MissionEventType = MissionGameEvent['type']

@@ -18,6 +18,13 @@ export type InteractableKind =
   | 'mission_offer'
   /** Mission & Activity Framework v1: a mission objective point (pickup, etc). */
   | 'mission_objective'
+  // Store Robbery v1 — reusable store interiors.
+  /** Exterior door: enters a store interior. */
+  | 'store_entrance'
+  /** Interior door: leaves a store back to the street. */
+  | 'store_exit'
+  /** The store register: emptied during an active robbery. */
+  | 'store_register'
 
 export interface InteractableDef {
   id: string
@@ -32,6 +39,8 @@ export interface InteractableDef {
   marker?: boolean
   icon?: string
   markerColor?: string
+  /** For 'store_entrance': which interior it opens (interiorRegistry id). */
+  interiorId?: string
 }
 
 export interface ActivityAction {

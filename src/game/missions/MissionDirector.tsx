@@ -121,6 +121,8 @@ function currentObjectiveDistance(store: ReturnType<typeof useGameStore.getState
   switch (obj.kind) {
     case 'reach_zone':
     case 'drive_vehicle_to_zone':
+    case 'rob_store':
+    case 'secure_proceeds':
       return distanceToAnchor(obj.anchorId, f.x, f.z)
     case 'interact':
     case 'deliver_vehicle':

@@ -43,7 +43,12 @@ function resolveMarker(): MarkerTarget | null {
   if (!obj || !obj.marker) return null
   const color = MARKER_COLORS[obj.marker.kind]
 
-  if (obj.kind === 'reach_zone' || obj.kind === 'drive_vehicle_to_zone') {
+  if (
+    obj.kind === 'reach_zone' ||
+    obj.kind === 'drive_vehicle_to_zone' ||
+    obj.kind === 'rob_store' ||
+    obj.kind === 'secure_proceeds'
+  ) {
     const a = getMissionAnchor(obj.anchorId)
     return a ? { x: a.position[0], z: a.position[2], color } : null
   }

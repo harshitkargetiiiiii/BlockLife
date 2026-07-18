@@ -24,7 +24,7 @@ Developer/architecture docs live in [`docs/`](docs/) — start with the index:
 - **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** — master architecture (state model, frame loop, streaming, module map)
 - **[docs/SYSTEMS.md](docs/SYSTEMS.md)** — deep dive per subsystem
 - **[docs/CONVENTIONS.md](docs/CONVENTIONS.md)** — patterns & gotchas playbook
-- Feature docs: [world foundation](docs/LARGE_CITY_FOUNDATION.md) · [authoring kit](docs/DISTRICT_AUTHORING_KIT.md) · [crime & law enforcement](docs/CRIME_LAW_ENFORCEMENT.md) · [missions & activities](docs/MISSIONS_AND_ACTIVITIES.md)
+- Feature docs: [world foundation](docs/LARGE_CITY_FOUNDATION.md) · [authoring kit](docs/DISTRICT_AUTHORING_KIT.md) · [crime & law enforcement](docs/CRIME_LAW_ENFORCEMENT.md) · [missions & activities](docs/MISSIONS_AND_ACTIVITIES.md) · [criminal activities / store robbery](docs/CRIMINAL_ACTIVITIES.md)
 - **[CLAUDE.md](CLAUDE.md)** — condensed context primer for coding agents
 
 ## Tech stack

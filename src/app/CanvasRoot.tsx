@@ -19,6 +19,9 @@ import { PlayerController } from '../game/player/PlayerController'
 import { Vehicle } from '../game/vehicles/Vehicle'
 import { WeatherEffects } from '../game/weather/WeatherEffects'
 import { ApartmentColliders, ApartmentInterior } from '../game/interiors/ApartmentInterior'
+import { StoreInteriors, StoreInteriorColliders } from '../game/interiors/StoreInteriors'
+import { ActivityDirector } from '../game/criminalActivities/ActivityDirector'
+import { RobberyMarkers } from '../game/criminalActivities/RobberyMarkers'
 import { OcclusionManager } from '../game/visibility/OcclusionManager'
 import {
   SectorColliders,
@@ -45,6 +48,7 @@ export function CanvasRoot() {
       <WeatherEffects />
       <SectorVisuals />
       <ApartmentInterior />
+      <StoreInteriors />
       <NPCManager />
       <AmbientCitizens />
       <AmbientCars />
@@ -56,10 +60,13 @@ export function CanvasRoot() {
       <PlayerWeapon />
       <MissionDirector />
       <MissionMarkers />
+      <ActivityDirector />
+      <RobberyMarkers />
       <Suspense fallback={null}>
         <Physics>
           <SectorColliders />
           <ApartmentColliders />
+          <StoreInteriorColliders />
           <PlayerController />
           <Vehicle />
           <WorldDirector />

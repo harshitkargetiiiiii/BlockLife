@@ -57,7 +57,7 @@ test.describe('missions & activities', () => {
     expect(errs).toEqual([])
   })
 
-  test('2 — two missions are defined; Hot Cargo is locked until discovered', async ({ page }) => {
+  test('2 — missions are defined; criminal jobs are locked until discovered', async ({ page }) => {
     await fresh(page)
     const res = await page.evaluate(() => {
       const api = window.GAME_TEST_API!
@@ -65,11 +65,14 @@ test.describe('missions & activities', () => {
         defs: api.getMissionDefinitions().map((d) => d.id),
         courier: api.getMissionAvailability('city_courier'),
         hotBefore: api.getMissionAvailability('hot_cargo'),
+        cornerBefore: api.getMissionAvailability('corner_take'),
       }
     })
-    expect(res.defs).toEqual(['city_courier', 'hot_cargo'])
+    // City Courier + the two criminal jobs (Hot Cargo, Corner Take).
+    expect(res.defs).toEqual(['city_courier', 'hot_cargo', 'corner_take'])
     expect(res.courier).toBe('available')
-    expect(res.hotBefore).toBe('locked')
+    expect(res.hotBefore).toBe('locked') // undiscovered criminal job
+    expect(res.cornerBefore).toBe('locked') // undiscovered criminal job
   })
 
   test('3 — City Courier completes end-to-end and pays exactly once', async ({ page }) => {

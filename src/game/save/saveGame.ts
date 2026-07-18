@@ -9,6 +9,7 @@ import { isQuestState } from '../quests/questMachine'
 import { isWeatherKind } from '../weather/weatherTypes'
 import { isPlayerAppearance } from '../interiors/interiorTypes'
 import { isValidMissionSave, type MissionSaveData } from '../missions/missionPersistence'
+import { isValidActivitySave, type ActivitySaveData } from '../criminalActivities/activityPersistence'
 
 export interface SnapshotInput {
   stats: PlayerStats
@@ -20,6 +21,7 @@ export interface SnapshotInput {
   appearance?: { shirtColor: string; pantsColor: string; accentColor: string }
   playerHealth?: number
   missions?: MissionSaveData
+  activities?: ActivitySaveData
 }
 
 export function createSnapshot(input: SnapshotInput): SaveData {
@@ -36,6 +38,7 @@ export function createSnapshot(input: SnapshotInput): SaveData {
     appearance: input.appearance,
     playerHealth: input.playerHealth,
     missions: input.missions,
+    activities: input.activities,
   })
 }
 
@@ -72,6 +75,8 @@ export function isValidSave(value: unknown): value is SaveData {
   }
   // Missions are optional (pre-mission saves) but must be sane when present.
   if (v.missions !== undefined && !isValidMissionSave(v.missions)) return false
+  // Activities are optional (pre-robbery saves) but must be sane when present.
+  if (v.activities !== undefined && !isValidActivitySave(v.activities)) return false
   return true
 }
 

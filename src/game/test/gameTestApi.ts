@@ -39,6 +39,13 @@ import {
 } from '../world/sectors/sectorStreaming'
 import { worldToSectorId } from '../world/sectors/worldGrid'
 import { INTERACTABLE_BY_ID } from '../../data/interactables'
+import { NPC_DEFS } from '../../data/npcs'
+import { INTERIORS } from '../interiors/interiorRegistry'
+import { activityRuntime, resetActivityRuntime } from '../criminalActivities/activityRuntime'
+import { ROBBERY_DEFINITIONS, getRobberyDefinition } from '../criminalActivities/activityDefinitions'
+import { validateRobberies } from '../criminalActivities/activityValidation'
+import { rollLoot } from '../criminalActivities/robberyLogic'
+import { tryBeginRobbery } from '../criminalActivities/activityBridge'
 import { MISSION_DEFINITIONS, getMissionDefinition } from '../missions/missionDefinitions'
 import { MISSION_ANCHORS, getMissionAnchor } from '../missions/missionAnchors'
 import { missionRuntime } from '../missions/missionRuntime'
@@ -528,6 +535,41 @@ export interface GameTestApi {
   /** Teleport the player to the current objective's marker position. */
   teleportToMissionObjective: () => boolean
   setMissionDebug: (enabled: boolean) => void
+  // ---- Criminal activities / Store Robbery v1 -----------------------------
+  getRobberyDefinitions: () => { id: string; kind: string; interiorId: string; cashRange: { min: number; max: number }; cooldownGameHours: number }[]
+  getActivityState: () => {
+    activeId: string | null
+    phase: string
+    cashierPhase: string
+    decision: string | null
+    unsecuredProceeds: number
+    alarmArmed: boolean
+    alarmFired: boolean
+    threatProgress: number
+    canLoot: boolean
+    canSecure: boolean
+    result: { outcome: string; amount: number } | null
+    location: string
+    interiorId: string | null
+  }
+  getStoreRobberyState: (storeId: string) => {
+    cooldownReadyAtGameHours: number
+    robberyCount: number
+    registerEmptied: boolean
+  } | null
+  getActivityValidation: () => string[]
+  getRobberyLoot: (activityId: string, attemptId: string) => number
+  /** Enter/leave an interior (store or apartment) by id — teleport-coordinated. */
+  enterInterior: (interiorId: string) => void
+  exitInterior: () => void
+  /** Force a robbery to begin (bypasses sustained-threat detection, for tests). */
+  forceBeginRobbery: (activityId: string) => boolean
+  lootStoreRegister: () => void
+  secureRobberyProceeds: () => void
+  /** Set the player's facing heading (radians) so tests can aim deterministically. */
+  setPlayerHeading: (heading: number) => void
+  resetActivities: () => void
+  setActivityDebug: (enabled: boolean) => void
   // ---- Firearm + health/damage (M5) ---------------------------------------
   givePlayerWeapon: (id?: string) => void
   drawPlayerWeapon: () => void
@@ -1315,6 +1357,78 @@ export function installTestApi(): void {
     },
     setMissionDebug: (enabled) => {
       missionRuntime.debugEnabled = enabled
+    },
+    // ---- Criminal activities / Store Robbery v1 ---------------------------
+    getRobberyDefinitions: () =>
+      ROBBERY_DEFINITIONS.map((d) => ({
+        id: d.id,
+        kind: d.kind,
+        interiorId: d.interiorId,
+        cashRange: { ...d.cashRange },
+        cooldownGameHours: d.cooldownGameHours,
+      })),
+    getActivityState: () => {
+      const a = activityRuntime.active
+      const s = useGameStore.getState()
+      return {
+        activeId: a?.activityId ?? null,
+        phase: a?.phase ?? 'idle',
+        cashierPhase: a?.cashierPhase ?? 'calm',
+        decision: a?.decision ?? null,
+        unsecuredProceeds: activityRuntime.unsecuredProceeds,
+        alarmArmed: a?.alarmReportsAtGameTime !== null && a?.alarmReportsAtGameTime !== undefined,
+        alarmFired: a?.alarmFired ?? false,
+        threatProgress: s.activityView.threatProgress,
+        canLoot: s.activityView.canLoot,
+        canSecure: s.activityView.canSecure,
+        result: activityRuntime.result
+          ? { outcome: activityRuntime.result.outcome, amount: activityRuntime.result.amount }
+          : null,
+        location: s.location,
+        interiorId: s.currentInteriorId,
+      }
+    },
+    getStoreRobberyState: (storeId) => {
+      const s = activityRuntime.stores[storeId]
+      return s
+        ? {
+            cooldownReadyAtGameHours: s.cooldownReadyAtGameHours,
+            robberyCount: s.robberyCount,
+            registerEmptied: s.registerEmptied,
+          }
+        : null
+    },
+    getActivityValidation: () =>
+      validateRobberies({
+        interiorIds: new Set(INTERIORS.map((i) => i.id)),
+        interiorBounds: new Map(
+          INTERIORS.map((i) => [
+            i.id,
+            { origin: i.origin, halfWidth: i.size.width / 2, halfDepth: i.size.depth / 2 },
+          ]),
+        ),
+        registeredSectorIds: new Set(SECTOR_DEFINITIONS.map((d) => d.id)),
+        interactableIds: new Set(Object.keys(INTERACTABLE_BY_ID)),
+        questCriticalNpcIds: new Set(NPC_DEFS.map((n) => n.id)),
+      }),
+    getRobberyLoot: (activityId, attemptId) => {
+      const def = getRobberyDefinition(activityId)
+      return def ? rollLoot(def, attemptId) : 0
+    },
+    enterInterior: (interiorId) => useGameStore.getState().enterInterior(interiorId),
+    exitInterior: () => useGameStore.getState().exitInterior(),
+    forceBeginRobbery: (activityId) => tryBeginRobbery(activityId).ok,
+    lootStoreRegister: () => useGameStore.getState().lootStoreRegister(),
+    secureRobberyProceeds: () => useGameStore.getState().secureRobberyProceeds(),
+    setPlayerHeading: (heading) => {
+      registry.playerHeading = heading
+    },
+    resetActivities: () => {
+      resetActivityRuntime()
+      useGameStore.getState().syncActivityUI(0)
+    },
+    setActivityDebug: (enabled) => {
+      activityRuntime.debugEnabled = enabled
     },
     // ---- Firearm + health/damage (M5) -------------------------------------
     givePlayerWeapon: (id) => giveWeapon((id as WeaponId) ?? 'handgun'),

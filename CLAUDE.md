@@ -31,7 +31,7 @@ TypeScript, Vite + React 19 + three.js/R3F + rapier + zustand.
   systems mount once; static world visuals/colliders mount per streamed sector).
 
 ## Where things live
-- 26 subsystems under `src/game/*` — see the module map in
+- 27 subsystems under `src/game/*` — see the module map in
   [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md#11-module-map).
 - Deep dives per subsystem: [`docs/SYSTEMS.md`](docs/SYSTEMS.md).
 - Static data: `src/data/` (npcs, quests, interactables). DOM UI: `src/app/`.
@@ -76,12 +76,21 @@ regression) and `scripts/crime-gate.sh`.
 compiles 0 files and always passes. Only `-b --force` really typechecks.
 
 ## Current state
-Latest sprint: **Mission & Activity Framework v1** — a reusable data-driven
-mission engine (`src/game/missions/`) plus two proof missions: City Courier
-(lawful, repeatable delivery) and Hot Cargo (criminal vehicle delivery: real
-theft → wanted → escape → deliver). Mission #3 should be mostly authored data —
-see [`docs/MISSIONS_AND_ACTIVITIES.md`](docs/MISSIONS_AND_ACTIVITIES.md).
-Full gate green: unit 744, E2E 159/159 (incl. 180s mission soak), visual 83/83 ×2,
+Latest sprint: **Store Robbery & Criminal Activities v1** — a reusable,
+data-driven spontaneous-robbery subsystem (`src/game/criminalActivities/`) built
+on the crime/wanted/police/firearm/economy/interior stacks (never reimplementing
+them). Two robbable locations (Main St Convenience, Waterfront Kiosk) on ONE
+engine; real threat detection (drawn + aim + range + LOS held); deterministic
+seeded cashier + loot; unsecured proceeds secured at the fixer; a reusable
+interior registry (`src/game/interiors/interiorRegistry.ts`, apartment + stores);
+and the **Corner Take** mission that OBSERVES robbery events (typed
+`activity_event`) without owning them. Anti-exploit: the crime director suppresses
+wanted decay while `location==='store'`. See
+[`docs/CRIMINAL_ACTIVITIES.md`](docs/CRIMINAL_ACTIVITIES.md). Full gate green: unit
+764, E2E 171/171 (incl. 180s robbery soak), visual 88/88 ×2, dist clean.
+Prior sprint: **Mission & Activity Framework v1** (`src/game/missions/`) — City
+Courier + Hot Cargo, see [`docs/MISSIONS_AND_ACTIVITIES.md`](docs/MISSIONS_AND_ACTIVITIES.md).
+Earlier gate baseline: unit 744, E2E 159/159 (incl. 180s mission soak), visual 83/83 ×2,
 dist clean. Repo-hardening pass (2026-07-17) since then: portable gate scripts
 (repo root from `$BASH_SOURCE`, `mktemp` logs), exact stolen-vehicle identity for
 Hot Cargo (a decoy can't be delivered) + a real `target_vehicle_lost`, mission

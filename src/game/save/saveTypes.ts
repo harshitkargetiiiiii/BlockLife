@@ -3,6 +3,7 @@ import type { QuestState } from '../quests/questTypes'
 import type { NPCMemory } from '../npc/npcTypes'
 import type { Inventory } from '../interactables/interactionHandlers'
 import type { MissionSaveData } from '../missions/missionPersistence'
+import type { ActivitySaveData } from '../criminalActivities/activityPersistence'
 
 export const SAVE_KEY = 'blocklife-save-v1'
 export const SAVE_VERSION = 1
@@ -37,4 +38,10 @@ export interface SaveData {
    * saves lack it and load with no mission history.
    */
   missions?: MissionSaveData
+  /**
+   * Store Robbery v1 (additive, optional): per-store cooldowns, robbery counts
+   * and secure receipts. Never an active robbery or unsecured proceeds. Older
+   * saves lack it and load with fresh (un-robbed) stores.
+   */
+  activities?: ActivitySaveData
 }

@@ -1462,3 +1462,100 @@ body,
 .hud-location-chip {
   margin-top: 4px;
 }
+
+/* --- Store Robbery v1 HUD --------------------------------------------------- */
+.robbery-proceeds {
+  position: absolute;
+  top: 190px;
+  left: 16px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: rgba(60, 30, 20, 0.82);
+  border: 1px solid rgba(242, 193, 78, 0.55);
+  border-radius: 8px;
+  font-size: 13px;
+  color: #f2c14e;
+}
+.robbery-proceeds-amt {
+  font-weight: 700;
+}
+.robbery-proceeds-label {
+  color: #d8c39a;
+  font-size: 11px;
+}
+.robbery-prompt {
+  position: absolute;
+  bottom: 96px;
+  left: 50%;
+  transform: translateX(-50%);
+  min-width: 240px;
+  padding: 8px 14px;
+  text-align: center;
+  background: rgba(28, 24, 22, 0.9);
+  border: 1px solid rgba(209, 73, 91, 0.5);
+  border-radius: 10px;
+}
+.robbery-prompt-title {
+  font-weight: 700;
+  color: #e8927a;
+  font-size: 13px;
+}
+.robbery-prompt-line {
+  font-size: 12px;
+  color: #efe6d8;
+  margin-top: 3px;
+}
+.robbery-threat-bar {
+  height: 6px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 3px;
+  margin: 5px 0;
+  overflow: hidden;
+}
+.robbery-threat-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #f2b263, #d1495b);
+  transition: width 0.12s linear;
+}
+.robbery-alarm {
+  margin-top: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #ff6b6b;
+  animation: robbery-alarm-blink 1s steps(2) infinite;
+}
+@keyframes robbery-alarm-blink {
+  50% {
+    opacity: 0.3;
+  }
+}
+.robbery-banner {
+  position: absolute;
+  top: 42%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 16px 34px;
+  text-align: center;
+  border-radius: 14px;
+  background: rgba(20, 18, 16, 0.92);
+}
+.robbery-banner-ok {
+  border: 2px solid #6a994e;
+}
+.robbery-banner-bad {
+  border: 2px solid #d1495b;
+}
+.robbery-banner-title {
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: #f2ede2;
+}
+.robbery-banner-amt {
+  margin-top: 4px;
+  font-size: 22px;
+  font-weight: 800;
+  color: #f2c14e;
+}

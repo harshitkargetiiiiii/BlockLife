@@ -210,6 +210,17 @@ function objectiveSatisfiedBy(
       const want = active.variables[obj.targetVehicleFromVariable]
       return want !== undefined && ctx.drivenVehicleSourceId === want
     }
+    case 'rob_store':
+      // OBSERVE the robbery subsystem: the marked store's register was looted
+      // for at least the required take.
+      return (
+        event.type === 'activity_event' &&
+        event.event.type === 'register_looted' &&
+        event.event.storeId === obj.activityId &&
+        event.event.amount >= obj.minAmount
+      )
+    case 'secure_proceeds':
+      return event.type === 'activity_event' && event.event.type === 'proceeds_secured'
   }
 }
 

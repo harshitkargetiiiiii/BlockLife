@@ -61,7 +61,7 @@ function validationCtx() {
     anchorIds: new Set(MISSION_ANCHORS.map((a) => a.id)),
     interactableIds: new Set(['courier_depot', 'hotcargo_fixer']),
     registeredSectorIds: new Set(SECTOR_DEFINITIONS.map((d) => d.id)),
-    phoneJobIds: new Set(['city_courier']),
+    phoneJobIds: new Set(['city_courier', 'corner_take']),
   }
 }
 
@@ -71,7 +71,7 @@ beforeEach(() => resetMissionRuntime())
 
 describe('definitions & validation', () => {
   it('has stable, unique mission + objective ids in deterministic order', () => {
-    expect(MISSION_DEFINITIONS.map((m) => m.id)).toEqual(['city_courier', 'hot_cargo'])
+    expect(MISSION_DEFINITIONS.map((m) => m.id)).toEqual(['city_courier', 'hot_cargo', 'corner_take'])
     for (const def of MISSION_DEFINITIONS) {
       const ids = def.objectives.map((o) => o.id)
       expect(new Set(ids).size).toBe(ids.length)
@@ -368,6 +368,42 @@ describe('Hot Cargo flow', () => {
   it('cannot start until discovered, then can', () => {
     expect(startMission('hot_cargo', ctx()).ok).toBe(true) // engine start is discovery-agnostic
     // (discovery gates AVAILABILITY, tested above; the engine start guards active/cooldown.)
+  })
+})
+
+// ---- Corner Take: a mission that OBSERVES a robbery ------------------------
+
+describe('Corner Take flow', () => {
+  const LOOTED = (amount: number, storeId = 'robbery_mainst_store') =>
+    ({ type: 'activity_event', event: { type: 'register_looted', activityId: storeId, storeId, amount } }) as const
+  const SECURED = (amount: number) =>
+    ({ type: 'activity_event', event: { type: 'proceeds_secured', amount } }) as const
+
+  it('advances on a qualifying robbery, then on securing, and pays the bonus once', () => {
+    const c = ctx({ gameHours: 300 })
+    startMission('corner_take', c)
+    expect(missionRuntime.active?.objectiveIndex).toBe(0) // rob_store
+    // A take BELOW the minimum does not advance.
+    applyMissionEvent(LOOTED(80), c)
+    expect(missionRuntime.active?.objectiveIndex).toBe(0)
+    // A different store does not advance.
+    applyMissionEvent(LOOTED(200, 'robbery_waterfront_kiosk'), c)
+    expect(missionRuntime.active?.objectiveIndex).toBe(0)
+    // The marked store for >= the minimum advances to secure.
+    applyMissionEvent(LOOTED(150), c)
+    expect(missionRuntime.active?.objectiveIndex).toBe(1) // secure_proceeds
+    applyMissionEvent(SECURED(150), c)
+    expect(missionRuntime.active).toBeNull()
+    expect(missionRuntime.result?.outcome).toBe('completed')
+    expect(c.applyRewards).toHaveBeenCalledWith([{ kind: 'money', amount: 150 }], 150)
+  })
+
+  it('fails on arrest and does not pay the bonus', () => {
+    const c = ctx()
+    startMission('corner_take', c)
+    applyMissionEvent({ type: 'player_arrested' }, c)
+    expect(missionRuntime.result?.outcome).toBe('failed')
+    expect(c.applyRewards).not.toHaveBeenCalled()
   })
 })
 

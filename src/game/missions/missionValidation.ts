@@ -39,6 +39,12 @@ function validateObjectiveRefs(
         errs.push(`${where}: unknown interactable '${obj.interactableId}'`)
       }
       break
+    case 'rob_store':
+    case 'secure_proceeds':
+      // Observes a robbery it doesn't own; only its marker anchor is validated
+      // here (the activity id is validated by the criminalActivities validator).
+      if (!ctx.anchorIds.has(obj.anchorId)) errs.push(`${where}: unknown anchor '${obj.anchorId}'`)
+      break
   }
   // A drive/deliver/exit objective that reads a target variable requires an
   // earlier objective to have written it.
