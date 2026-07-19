@@ -15,7 +15,7 @@ import { useGameStore } from '../store/useGameStore'
 import { moveTowards } from '../npc/npcBehavior'
 import { lerpAngle } from '../utils/math'
 import { pushOutOfCircle } from '../world/trafficAvoidance'
-import { separateWalkerFromPeople } from '../world/personSeparation'
+import { resolvePersonSpacing } from '../world/personSeparation'
 import { panicFleeStep } from '../combat/panicFlee'
 import { getCrimeGameTime } from '../crime/crimeSystem'
 import { CROSSWALKS, SIGNALLED_CROSSWALK_IDS, TRAFFIC_TUNING } from '../traffic/trafficData'
@@ -442,7 +442,6 @@ function Citizen({ def }: { def: AmbientCitizen }) {
           if (pushed) s.pos = [pushed.x, pushed.z]
         }
         fleeGunfire(s, def, dt)
-        separateWalkerFromPeople(s.pos, def.id, dt, s.heading)
       } else {
         s.walking = false
       }
@@ -506,12 +505,15 @@ function Citizen({ def }: { def: AmbientCitizen }) {
         if (pushed) s.pos = [pushed.x, pushed.z]
       }
       fleeGunfire(s, def, dt)
-      separateWalkerFromPeople(s.pos, def.id, dt, s.heading)
     } else if (def.behaviorType === 'idle_stand' && t >= s.nextTurnAt) {
       // Occasionally shift to face a new direction.
       s.nextTurnAt = t + 4 + Math.random() * 5
       s.heading = (def.heading ?? 0) + (Math.random() - 0.5) * 1.4
     }
+
+    // Universal post-movement occupancy: EVERY citizen (walking, idle, queueing,
+    // waiting to cross) separates here, so co-located idlers no longer overlap.
+    resolvePersonSpacing(s.pos, def.id, dt, s.walking)
 
     // Small ambient motion by behavior.
     const wobble =

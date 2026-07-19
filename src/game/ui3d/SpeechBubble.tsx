@@ -1,17 +1,20 @@
-import { Html } from '@react-three/drei'
+import { WorldAnchoredHtml } from './WorldAnchoredHtml'
 
-const IS_VITEST = Boolean(
-  (globalThis as { process?: { env?: Record<string, string> } }).process?.env?.VITEST,
-)
-
-/** A small comic-style speech bubble floating above an NPC's head. */
+/**
+ * A small comic-style speech bubble floating above an NPC's head. Routed through
+ * the shared viewport-clamped world-UI layer so it stays on-screen near edges
+ * (issue §9). Test-mode stub name is preserved for existing component tests.
+ */
 export function SpeechBubble({ text, offset = 2.6 }: { text: string; offset?: number }) {
-  if (IS_VITEST) {
-    return <group name={`speech-bubble:${text}`} />
-  }
   return (
-    <Html position={[0, offset, 0]} center zIndexRange={[50, 0]} style={{ pointerEvents: 'none' }}>
+    <WorldAnchoredHtml
+      offset={offset}
+      halfWidth={92}
+      halfHeight={26}
+      zIndexRange={[50, 0]}
+      testGroupName={`speech-bubble:${text}`}
+    >
       <div className="speech-bubble">{text}</div>
-    </Html>
+    </WorldAnchoredHtml>
   )
 }

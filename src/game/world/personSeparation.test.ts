@@ -1,6 +1,10 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import * as THREE from 'three'
-import { PERSON_SEP_RADIUS, separateWalkerFromPeople } from './personSeparation'
+import {
+  PERSON_SEP_RADIUS,
+  resolvePersonSpacing,
+  separateWalkerFromPeople,
+} from './personSeparation'
 import { registry } from './runtimeRegistry'
 import type { Vec2 } from './worldTypes'
 
@@ -59,5 +63,40 @@ describe('person separation (no phasing between moving people)', () => {
     const dist = Math.hypot(a[0] - b[0], a[1] - b[1])
     expect(dist).toBeGreaterThanOrEqual(PERSON_SEP_RADIUS - 0.05)
     expect(Number.isFinite(dist)).toBe(true) // no NaN from coincident points
+  })
+})
+
+describe('universal person spacing (resolvePersonSpacing — every state participates)', () => {
+  it('REPAIRS two co-located IDLE people (the Harbor Cross overlap the legacy path skipped)', () => {
+    // Neither is moving — the legacy separator ignores this and they stay stacked.
+    const a: Vec2 = [0, 0]
+    const b: Vec2 = [0.05, 0]
+    for (let i = 0; i < 300; i++) {
+      registry.npcPositions.clear()
+      registry.npcPositions.set('a', new THREE.Vector3(a[0], 0, a[1]))
+      registry.npcPositions.set('b', new THREE.Vector3(b[0], 0, b[1]))
+      // deliberately NOT in movingPersonIds — both idle
+      resolvePersonSpacing(a, 'a', 0.1, false)
+      resolvePersonSpacing(b, 'b', 0.1, false)
+    }
+    expect(Math.hypot(a[0] - b[0], a[1] - b[1])).toBeGreaterThanOrEqual(PERSON_SEP_RADIUS - 0.05)
+  })
+
+  it('a stationary person is still NOT shoved by a passing mover (deadlock-safe)', () => {
+    registry.npcPositions.set('mover', new THREE.Vector3(0, 0, 0))
+    registry.movingPersonIds.add('mover')
+    const idle: Vec2 = [0.3, 0]
+    resolvePersonSpacing(idle, 'idle', 1, false) // self is idle, neighbour moves
+    expect(idle).toEqual([0.3, 0]) // idle holds; the mover yields instead
+  })
+
+  it('caps the nudge below walk speed even in a dense cluster', () => {
+    for (let i = 0; i < 6; i++) {
+      registry.npcPositions.set(`n${i}`, new THREE.Vector3(Math.cos(i) * 0.1, 0, Math.sin(i) * 0.1))
+      registry.movingPersonIds.add(`n${i}`)
+    }
+    const self: Vec2 = [0, 0]
+    resolvePersonSpacing(self, 'self', 1 / 60, true)
+    expect(Math.hypot(self[0], self[1])).toBeLessThanOrEqual(1.2 / 60 + 1e-9)
   })
 })

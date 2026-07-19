@@ -1,5 +1,19 @@
 import { useGameStore } from '../store/useGameStore'
 import { registry } from '../world/runtimeRegistry'
+import { listEntities } from '../world/integrity/entityRegistry'
+import {
+  getActiveAnomalies,
+  getIntegritySnapshot,
+  runIntegrityScan,
+  type IntegritySnapshot,
+} from '../world/integrity/integrityRuntime'
+import type { AnomalyRecord } from '../world/integrity/anomalyTypes'
+import {
+  certifyOcclusionParity,
+  checkLiveOcclusionParity,
+  type LiveOcclusionParity,
+  type OcclusionParityReport,
+} from '../world/integrity/occlusionParity'
 import { getDistrict } from '../world/cityLayout'
 import { ambientCitizenRuntime } from '../citizens/AmbientCitizens'
 import { getMood } from '../simulation/worldMoodSystem'
@@ -305,6 +319,23 @@ export interface GameTestApi {
   /** Active people (citizens + NPCs) whose bodies overlap — empty = no phasing. */
   assertNoPersonPersonOverlaps: (minDistance?: number) => [string, string, number][]
   assertNoMovingPeopleOverlaps: (minDistance?: number) => [string, string, number][]
+  // ---- World Integrity & City Certification Platform v1 (DEV) ----
+  /** Every mirrored semantic entity (id/kind/position/sector) — safe snapshot. */
+  getWorldEntities: () => { id: string; kind: string; x: number; z: number; sectorId: string | null }[]
+  /** Integrity scan/registry/anomaly counters. */
+  getIntegritySnapshot: () => IntegritySnapshot
+  /** Currently-active integrity anomalies (safe copies). */
+  getIntegrityAnomalies: () => AnomalyRecord[]
+  /** Force one integrity scan now (tests don't wait on the 4 Hz throttle). */
+  runIntegrityScan: () => void
+  /** Person↔vehicle overlaps as id pairs — empty = none. */
+  assertNoPersonVehicleOverlaps: () => [string, string][]
+  /** Person↔solid (building/prop) overlaps as id pairs — empty = none. */
+  assertNoPersonSolidOverlaps: () => [string, string][]
+  /** Occlusion-parity certification from authored data (per district). */
+  getOcclusionParity: () => OcclusionParityReport
+  /** Live occluder-registration cross-check: missing + phantom ids. */
+  getLiveOcclusionParity: () => LiveOcclusionParity
   /** Routing: graph counts + content-hash version. */
   getRoadGraphSummary: () => {
     version: number
@@ -987,6 +1018,28 @@ export function installTestApi(): void {
       }
       return out
     },
+    // ---- World Integrity & City Certification Platform v1 ------------------
+    getWorldEntities: () =>
+      listEntities().map((e) => ({ id: e.id, kind: e.kind, x: e.x, z: e.z, sectorId: e.sectorId })),
+    getIntegritySnapshot: () => getIntegritySnapshot(),
+    getIntegrityAnomalies: () => getActiveAnomalies().map((a) => ({ ...a, entityIds: [...a.entityIds] })),
+    runIntegrityScan: () => runIntegrityScan(),
+    assertNoPersonVehicleOverlaps: () =>
+      getActiveAnomalies()
+        .filter((a) => a.type === 'person_vehicle_overlap')
+        .map((a) => [a.entityIds[0], a.entityIds[1]] as [string, string]),
+    assertNoPersonSolidOverlaps: () =>
+      getActiveAnomalies()
+        .filter((a) => a.type === 'person_solid_overlap')
+        .map((a) => [a.entityIds[0], a.entityIds[1]] as [string, string]),
+    getOcclusionParity: () => certifyOcclusionParity(),
+    getLiveOcclusionParity: () =>
+      checkLiveOcclusionParity(
+        // Exclude linked decal occluders (they intentionally have non-building ids).
+        [...visibilityRuntime.occluders.values()]
+          .filter((o) => !o.descriptor.linkedTo)
+          .map((o) => o.descriptor.id),
+      ),
     // ---- Cross-District Traffic Routing v1 ---------------------------------
     getRoadGraphSummary: () => {
       const graph = getRoadGraph()

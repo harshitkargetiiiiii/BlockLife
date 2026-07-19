@@ -15,7 +15,15 @@ export interface WorldLabelProps {
   icon?: string
 }
 
-/** A screen-space text chip anchored to a world position. */
+/**
+ * A screen-space text chip anchored to a world position. Building/district
+ * labels are authored at fixed, comfortably on-screen positions, so they render
+ * with plain projection (the issue requires comfortably on-screen labels stay
+ * visually unchanged). The dynamic, edge-prone case — NPC speech bubbles above
+ * moving actors — is what routes through the viewport-clamped WorldAnchoredHtml
+ * (see SpeechBubble). World-label clamping remains available via that component
+ * for any future world-space UI that needs it.
+ */
 export function WorldLabel({ text, className, offset = 0, icon }: WorldLabelProps) {
   if (IS_VITEST) {
     return <group name={`world-label:${text}`} />
