@@ -106,6 +106,7 @@ import {
   resetCommerceRuntime,
 } from '../commerce/commerceRuntime'
 import { serializeCommerce, applyCommerceSave } from '../commerce/commercePersistence'
+import { resetIntegrityRuntime } from '../world/integrity/integrityRuntime'
 import { LOCKED_PALETTE_IDS } from '../interiors/interiorTypes'
 import { getWeaponDef, setAmmo } from '../combat/weaponRuntime'
 
@@ -1105,6 +1106,7 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     resetActivityRuntime() // robbery cooldowns/history/proceeds clear on reset
     resetInteriorCivilians() // store cashier/customers snap home on reset
     resetCommerceRuntime() // store stock back to full defaults
+    resetIntegrityRuntime() // clear mirrored entities + anomaly history on reset
     set({ ...createInitialGameState() })
     teleportPlayer(PLAYER_SPAWN)
   },

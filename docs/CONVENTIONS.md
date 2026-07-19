@@ -207,6 +207,30 @@ non-`use*` local (`const consumeItem = useGameStore(s => s.useItem)`); better ye
 don't prefix store actions with `use`. Same root as gotcha #10 — a real defect
 that only the full gate surfaces, so never skip lint.
 
+### 16. Occupancy must be trip-safe in a waypoint world (mover-yields deadlocks)
+A universal person-occupancy resolver that makes a MOVING actor yield around a
+STATIONARY one (even with a capped nudge) will **strand waypoint trips**: a
+citizen whose destination legitimately sits beside an idler gets pushed off its
+path every frame and never arrives. This reintroduces the exact deadlock the
+legacy moving-only separator avoided (gotcha: `person-separation-moving-only`).
+`tsc` + unit tests pass; only the **full E2E** (`citizen-destinations` trip soak,
+`cit_g_plaza_stroller stranded`) catches it. Fix: run the resolver with
+`yieldAroundStationary:false` on the live path — movers separate from movers,
+idlers repair overlaps among themselves, transient mover-through-idler contact is
+tolerated (only SUSTAINED overlap is corruption). Always run the FULL E2E after a
+person-separation change (gotcha #3 / non-negotiable #3).
+
+### 17. Runtime separation can't fix authored-lockstep actors — fix the data
+When a sustained overlap survives the occupancy resolver, suspect an **authored
+defect**, not the resolver. Two citizens sharing a start position + waypoints +
+speed march in lockstep and stay perfectly co-located forever — the capped nudge
+can't overpower two actors locked onto the same target. The Harbor Cross
+`cit_hc_*` loop/shuttle pairs were exactly this; the fix was to de-conflict the
+authored lanes (parallel interior lanes), not to fight it in the resolver. The
+issue is explicit: "do not grandfather screenshot defects" — fix the data. The
+structural prevention is anchor-clearance validation (a later World Integrity
+phase) that flags co-located authored anchors at build time.
+
 ---
 
 ## The verification workflow (honest gates)

@@ -358,10 +358,10 @@ const HARBOR_CROSS_CITIZENS: AmbientCitizen[] = (
   [
     { id: 'cit_hc_loop_cw', district: 'downtown_gateway', archetype: 'Harbor Commuter', behaviorType: 'loop_walk', position: [41, -152.9], waypoints: [[41, -152.9], [55, -152.9], [55, -167.1], [41, -167.1]], walkSpeed: 1.4, weatherBehavior: 'any', bubbleLines: ['light’s about to change.'] },
     { id: 'cit_hc_loop_ccw', district: 'downtown_gateway', archetype: 'Harbor Commuter', behaviorType: 'loop_walk', position: [55, -167.1], waypoints: [[55, -167.1], [55, -152.9], [41, -152.9], [41, -167.1]], walkSpeed: 1.3, weatherBehavior: 'any' },
-    { id: 'cit_hc_south_shuttle', district: 'downtown_gateway', archetype: 'Dock Worker', behaviorType: 'visit_spot', position: [41, -152.9], waypoints: [[41, -152.9], [55, -152.9]], walkSpeed: 1.4, weatherBehavior: 'any', carriesBox: true },
+    { id: 'cit_hc_south_shuttle', district: 'downtown_gateway', archetype: 'Dock Worker', behaviorType: 'visit_spot', position: [41, -154.6], waypoints: [[41, -154.6], [55, -154.6]], walkSpeed: 1.4, weatherBehavior: 'any', carriesBox: true },
     { id: 'cit_hc_east_shuttle', district: 'downtown_gateway', archetype: 'Pier Regular', behaviorType: 'visit_spot', position: [55, -152.9], waypoints: [[55, -152.9], [55, -167.1]], walkSpeed: 1.3, weatherBehavior: 'any', bubbleLines: ['harbor air.'] },
     { id: 'cit_hc_west_shuttle', district: 'downtown_gateway', archetype: 'Evening Walker', behaviorType: 'visit_spot', position: [41, -167.1], waypoints: [[41, -167.1], [41, -152.9]], walkSpeed: 1.2, weatherBehavior: 'any' },
-    { id: 'cit_hc_north_shuttle', district: 'downtown_gateway', archetype: 'Boulevard Walker', behaviorType: 'visit_spot', position: [55, -167.1], waypoints: [[55, -167.1], [41, -167.1]], walkSpeed: 1.4, weatherBehavior: 'any' },
+    { id: 'cit_hc_north_shuttle', district: 'downtown_gateway', archetype: 'Boulevard Walker', behaviorType: 'visit_spot', position: [55, -165.4], waypoints: [[55, -165.4], [41, -165.4]], walkSpeed: 1.4, weatherBehavior: 'any' },
   ] as CitizenSeed[]
 ).map(citizen)
 

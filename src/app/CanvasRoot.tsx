@@ -23,6 +23,7 @@ import { StoreInteriors, StoreInteriorColliders } from '../game/interiors/StoreI
 import { ActivityDirector } from '../game/criminalActivities/ActivityDirector'
 import { RobberyMarkers } from '../game/criminalActivities/RobberyMarkers'
 import { OcclusionManager } from '../game/visibility/OcclusionManager'
+import { IntegritySystem } from '../game/world/integrity/IntegritySystem'
 import {
   SectorColliders,
   SectorDirector,
@@ -44,6 +45,7 @@ export function CanvasRoot() {
     >
       <FollowCamera />
       <OcclusionManager />
+      {import.meta.env.DEV && <IntegritySystem />}
       <Lighting />
       <WeatherEffects />
       <SectorVisuals />

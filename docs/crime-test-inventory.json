@@ -1,5 +1,25 @@
 {
-  "generatedFor": "Personal Economy, Inventory & Shopping v1 (supersedes prior sprints; this file is the repo-wide test inventory despite its historical name)",
+  "generatedFor": "World Integrity & City Certification Platform v1 (partial; supersedes prior sprints; this file is the repo-wide test inventory despite its historical name)",
+  "worldIntegrityV1": {
+    "date": "2026-07-19",
+    "status": "Phases 0-3 + occlusion parity shipped + gated; streaming safety ring, prop/anchor validation, person-vehicle/solid live clamps, and the full certification compiler + generated traversal/soak are deferred (see docs/WORLD_INTEGRITY_AND_CERTIFICATION.md §8).",
+    "summary": "Semantic entity registry (mirror) + spatial hash + universal person occupancy (idle citizens separate; yieldAroundStationary=false keeps waypoint trips deadlock-safe) + observe-only anomaly detection (~4Hz DEV) + viewport-clamped speech bubbles + occlusion-parity certification. Fixes screenshot bugs #1 (crowd phasing), #4 (off-screen bubbles), #5 (occlusion parity); Harbor Cross lockstep data defect de-conflicted.",
+    "newUnitSpecs": {
+      "src/game/world/integrity/spatialHash.test.ts": "6 — bounded neighbour queries, determinism, negative coords",
+      "src/game/world/integrity/entityRegistry.test.ts": "8 — register/update/remove, generation-stale cleanup, dynamic mirror, deterministic order, reset",
+      "src/game/world/integrity/occupancy.test.ts": "15 — AABB/oriented push-out, movement-priority weighting, yieldAroundStationary trip-safe mode, full ordered contract (never in vehicle/solid)",
+      "src/game/world/integrity/viewportClamp.test.ts": "7 — edge clamps, hide behind camera, alignment flip, degenerate viewport",
+      "src/game/world/integrity/anomalyDetector.test.ts": "14 — 4 overlap scans + SAT, tolerance, transient-vs-sustained tracker, dedup, bounded",
+      "src/game/world/integrity/integrityRuntime.test.ts": "3 — live mirror+scan, spaced scene clean, reset",
+      "src/game/world/integrity/occlusionParity.test.ts": "6 — certify all districts, expected set, live missing/phantom detection",
+      "src/game/world/personSeparation.test.ts": "+3 — universal spacing: idle-vs-idle repair, deadlock-safe idler-hold, dense-cluster cap"
+    },
+    "newE2E": {
+      "tests/e2e/world-integrity.spec.ts": "3 — registry mirrors live actors (86 entities), idle+moving crowd never sustains overlap (bug #1: 4->0 live), every district certifies occlusion parity live (central + gateway)"
+    },
+    "realDefectsFound": "1 authored data defect: cit_hc_south_shuttle/north_shuttle shared start position + waypoints + speed with the loop citizens (lockstep) -> permanent co-location; de-conflicted onto parallel interior lanes. 1 self-inflicted regression caught by the FULL E2E: the universal resolver's mover-yields-around-idler rule stranded waypoint trips (citizen-destinations 150s soak: cit_g_plaza_stroller stranded) -> fixed with yieldAroundStationary=false. 1 visual-churn issue: routing fixed building WorldLabels through the viewport clamp shifted comfortably-on-screen labels (violates spec) -> reverted WorldLabel to plain positioning, kept SpeechBubble clamped (bubbles are hidden in paused snapshots, zero churn).",
+    "invariantsHeld": "observe-only detector (correction owned by occupancy); IDs/scalars only in registry; deterministic+bounded+generation-safe; spatial index (no all-pairs per-frame); real clamped delta; never throws from useFrame; no per-frame Zustand writes; DEV-only test API, 0 dist leak; waypoint trips never stranded; pause determinism preserved (resolvePersonSpacing runs after the pause-snap early-return)."
+  },
   "personalEconomyV1": {
     "date": "2026-07-18",
     "summary": "Typed item catalog + pure inventory service (stacks, occupied-slot capacity) + pure item effects; one reusable commerce engine with deterministic persistent stock + lazy game-hour restock + robbery-recovery gate; apartment storage transfer; phone Bag + Shop panels; wardrobe-colour unlocks; Shelf Run lawful supply mission; additive save migration.",

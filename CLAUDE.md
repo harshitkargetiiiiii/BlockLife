@@ -76,7 +76,27 @@ regression) and `scripts/crime-gate.sh`.
 compiles 0 files and always passes. Only `-b --force` really typechecks.
 
 ## Current state
-Latest sprint: **Personal Economy, Inventory & Shopping v1** — a reusable
+In progress: **World Integrity & City Certification Platform v1** (issue #6) —
+a foundational reliability platform under `src/game/world/integrity/` giving every
+runtime entity ONE integrity contract. **Shipped + gated so far** (a staged
+migration): a semantic entity **registry** (IDs/scalars only, generation-safe,
+mirrors existing runtimes via adapters), a **spatial hash**, **universal person
+occupancy** (`occupancy.ts` + live `resolvePersonSpacing` — idle citizens now
+separate; **`yieldAroundStationary:false`** keeps waypoint trips deadlock-safe —
+CONVENTIONS #16), observe-only **anomaly detection** (`anomalyDetector.ts` +
+DEV-only ~4 Hz `IntegritySystem`), **viewport-clamped** speech bubbles
+(`WorldAnchoredHtml`/`viewportClamp.ts`), and **occlusion-parity certification**
+(`occlusionParity.ts` — corrects finding #11: all render paths already funnel
+through `<Occludable>`; now certified + regression-guarded). Fixes screenshot bugs
+#1 (crowd phasing), #4 (off-screen bubbles), #5 (district occlusion parity); the
+Harbor Cross shuttle-lane **lockstep data defect** was de-conflicted (CONVENTIONS
+#17). **Deferred** (scoped, next stretches): person↔vehicle/solid live clamps
+(#2/#3), transactional streaming safety ring (#6), 3D prop/anchor validation (#7),
+full per-district certification compiler + generated traversal/visual/300s soak.
+Do NOT commit until reviewed (issue mandate). See
+[`docs/WORLD_INTEGRITY_AND_CERTIFICATION.md`](docs/WORLD_INTEGRITY_AND_CERTIFICATION.md).
+
+Prior sprint: **Personal Economy, Inventory & Shopping v1** — a reusable
 life-sandbox commerce loop ON TOP of the existing economy/inventory/store-interior/
 robbery/apartment/wardrobe/mission/phone/save/streaming stacks (reimplementing
 none). A typed **item catalog** (`src/game/items/`: catalog + pure
