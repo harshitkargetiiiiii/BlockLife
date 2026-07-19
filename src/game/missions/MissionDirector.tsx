@@ -122,6 +122,7 @@ function currentObjectiveDistance(store: ReturnType<typeof useGameStore.getState
     case 'drive_vehicle_to_zone':
     case 'rob_store':
     case 'secure_proceeds':
+    case 'deliver_restock':
       return distanceToAnchor(obj.anchorId, f.x, f.z)
     case 'interact':
     case 'deliver_vehicle':
@@ -150,5 +151,6 @@ function currentObjectiveDistance(store: ReturnType<typeof useGameStore.getState
 function anchorForInteractable(interactableId: string): string {
   if (interactableId === 'courier_depot') return 'courier_depot'
   if (interactableId === 'hotcargo_fixer') return 'hotcargo_garage'
+  if (interactableId === 'shelf_depot') return 'shelfrun_depot'
   return interactableId
 }

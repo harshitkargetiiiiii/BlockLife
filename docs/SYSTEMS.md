@@ -279,14 +279,23 @@ Initial stats: `INITIAL_STATS` in [`player/playerTypes.ts`](../src/game/player/p
   — finds the closest interactable in range each frame; the HUD shows a prompt;
   `E` fires `store.interact()`.
 - **Kinds** — `apartment`, `apartment_exit`, `bed`, `food_truck`, `gym`,
-  `job_board`, `npc`, `steal_vehicle`, `storage`, `vehicle`, `wardrobe`. Each
-  routes in `store.interact()` to a dialogue, an activity panel, vehicle entry,
-  theft, apartment entry, etc.
+  `job_board`, `npc`, `shelf_depot`, `steal_vehicle`, `storage`, `store_register`,
+  `vehicle`, `wardrobe`. Each routes in `store.interact()` to a dialogue, an
+  activity panel, a shop, vehicle entry, theft, apartment entry, etc.
 - **Activities & inventory** ([`interactionHandlers.ts`](../src/game/interactables/interactionHandlers.ts))
   — `Inventory = Record<itemId, qty>`; `ActivityAction`s bake in affordability
   (e.g. buy coffee $5) and produce an `ActionOutcome` (stat/inventory/money
   changes, optional panel close). Quests advance through the dialogue/economy
   (buy coffee → `has_coffee` → deliver → `completed`).
+- **Personal Economy v1** ([`items/`](../src/game/items/) + [`commerce/`](../src/game/commerce/))
+  — the same `Record<itemId, qty>` bag is now the typed **backpack** (10 occupied
+  slots) fed by one pure inventory service; a reusable **commerce** engine turns
+  the two robbery stores into real shops with deterministic game-hour restock;
+  item **effects** are typed data applied as a store patch; an apartment **storage**
+  chest (40 slots) deposits/withdraws; the phone **Bag** uses items; and the lawful
+  **Shelf Run** mission observes a legitimate restock. The legacy `buy_coffee`
+  activity now resolves `coffee` through the same catalog behind a shared capacity
+  guard. Full design in [PERSONAL_ECONOMY_INVENTORY](PERSONAL_ECONOMY_INVENTORY.md).
 
 ---
 

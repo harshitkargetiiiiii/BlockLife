@@ -52,6 +52,19 @@ import {
   getCivilians,
   resetInteriorCivilians,
 } from '../interiors/interiorCivilians'
+// ---- Personal Economy, Inventory & Shopping v1 ----
+import { ITEM_DEFINITIONS } from '../items/itemCatalog'
+import { validateItemCatalog } from '../items/itemValidation'
+import {
+  BACKPACK_CAPACITY,
+  STORAGE_CAPACITY,
+  occupiedSlots,
+} from '../items/inventoryService'
+import { APPEARANCE_PRESETS, LOCKED_PALETTE_IDS } from '../interiors/interiorTypes'
+import { getStoreDefinition } from '../commerce/storeDefinitions'
+import { getStoreStock, reconcileStore, commerceRuntime } from '../commerce/commerceRuntime'
+import { validateStores } from '../commerce/commerceValidation'
+import type { ShopView } from '../commerce/shopView'
 import { MISSION_DEFINITIONS, getMissionDefinition } from '../missions/missionDefinitions'
 import { MISSION_ANCHORS, getMissionAnchor } from '../missions/missionAnchors'
 import { missionRuntime } from '../missions/missionRuntime'
@@ -600,6 +613,31 @@ export interface GameTestApi {
   setPlayerHeading: (heading: number) => void
   resetActivities: () => void
   setActivityDebug: (enabled: boolean) => void
+  // ---- Personal Economy, Inventory & Shopping v1 --------------------------
+  getItemCatalog: () => { id: string; name: string; category: string; price: number; stackLimit: number; usable: boolean; questReserved: boolean }[]
+  getItemValidation: () => string[]
+  getBackpack: () => { stacks: Record<string, number>; occupied: number; capacity: number }
+  getStorageContainer: () => { stacks: Record<string, number>; occupied: number; capacity: number }
+  getWardrobeUnlocks: () => string[]
+  giveTestItem: (id: string, qty: number) => void
+  useTestItem: (id: string) => void
+  discardTestItem: (id: string, qty?: number) => void
+  depositTestItem: (id: string, qty?: number | 'all') => void
+  withdrawTestItem: (id: string, qty?: number | 'all') => void
+  openTestShop: (storeId: string) => void
+  buyTestItem: (storeId: string, itemId: string) => void
+  getShopView: () => ShopView | null
+  getStoreCatalog: (storeId: string) => { itemId: string; maxStock: number; restockAmount: number }[] | null
+  getStoreStockState: (storeId: string) => { stock: Record<string, number>; lastRestockGameHours: number }
+  reconcileStoreStock: (storeId: string, gameHours: number) => Record<string, number>
+  getCommerceReceipts: () => string[]
+  getCommerceValidation: () => string[]
+  collectTestShelfCrate: () => void
+  deliverTestShelfCrate: (storeId: string) => void
+  /** Open a center panel directly (storage/wardrobe/shop) — visual/E2E setup. */
+  openTestPanel: (panel: string) => void
+  /** Open the phone at a given app (e.g. 'bag') — visual/E2E setup. */
+  openTestPhoneApp: (app: string) => void
   // ---- Firearm + health/damage (M5) ---------------------------------------
   givePlayerWeapon: (id?: string) => void
   drawPlayerWeapon: () => void
@@ -1488,6 +1526,64 @@ export function installTestApi(): void {
     setActivityDebug: (enabled) => {
       activityRuntime.debugEnabled = enabled
     },
+    // ---- Personal Economy, Inventory & Shopping v1 ------------------------
+    getItemCatalog: () =>
+      ITEM_DEFINITIONS.map((d) => ({
+        id: d.id,
+        name: d.name,
+        category: d.category,
+        price: d.price,
+        stackLimit: d.stackLimit,
+        usable: d.usable,
+        questReserved: d.questReserved,
+      })),
+    getItemValidation: () =>
+      validateItemCatalog({
+        paletteIds: new Set(APPEARANCE_PRESETS.map((p) => p.id)),
+        lockedPaletteIds: new Set(LOCKED_PALETTE_IDS),
+      }),
+    getBackpack: () => {
+      const inv = useGameStore.getState().inventory
+      return { stacks: { ...inv }, occupied: occupiedSlots(inv), capacity: BACKPACK_CAPACITY }
+    },
+    getStorageContainer: () => {
+      const st = useGameStore.getState().storage
+      return { stacks: { ...st }, occupied: occupiedSlots(st), capacity: STORAGE_CAPACITY }
+    },
+    getWardrobeUnlocks: () => [...useGameStore.getState().wardrobeUnlocks],
+    giveTestItem: (id, qty) => useGameStore.getState().giveItem(id, qty),
+    useTestItem: (id) => useGameStore.getState().useItem(id),
+    discardTestItem: (id, qty) => useGameStore.getState().discardItem(id, qty),
+    depositTestItem: (id, qty) => useGameStore.getState().depositItem(id, qty),
+    withdrawTestItem: (id, qty) => useGameStore.getState().withdrawItem(id, qty),
+    openTestShop: (storeId) => useGameStore.getState().openShop(storeId),
+    buyTestItem: (storeId, itemId) => useGameStore.getState().buyItem(storeId, itemId),
+    getShopView: () => useGameStore.getState().shopView,
+    getStoreCatalog: (storeId) => {
+      const d = getStoreDefinition(storeId)
+      return d ? d.listings.map((l) => ({ itemId: l.itemId, maxStock: l.maxStock, restockAmount: l.restockAmount })) : null
+    },
+    getStoreStockState: (storeId) => {
+      const s = getStoreStock(storeId)
+      return { stock: { ...s.stock }, lastRestockGameHours: s.lastRestockGameHours }
+    },
+    reconcileStoreStock: (storeId, gameHours) => ({ ...reconcileStore(storeId, gameHours).stock }),
+    getCommerceReceipts: () => [...commerceRuntime.restockReceipts],
+    getCommerceValidation: () =>
+      validateStores({
+        itemIds: new Set(ITEM_DEFINITIONS.map((i) => i.id)),
+        interiorIds: new Set(INTERIORS.map((i) => i.id)),
+        interactableIds: new Set(Object.keys(INTERACTABLE_BY_ID)),
+        activityIds: new Set(ROBBERY_DEFINITIONS.map((r) => r.id)),
+      }),
+    collectTestShelfCrate: () => useGameStore.getState().collectShelfCrate(),
+    deliverTestShelfCrate: (storeId) => useGameStore.getState().deliverShelfCrate(storeId),
+    openTestPanel: (panel) =>
+      useGameStore.setState((s) => ({
+        ui: { ...s.ui, panel: panel as never, dialogueNpcId: null, activityId: null },
+      })),
+    openTestPhoneApp: (app) =>
+      useGameStore.setState((s) => ({ ui: { ...s.ui, panel: 'phone', activePhoneApp: app as never } })),
     // ---- Firearm + health/damage (M5) -------------------------------------
     givePlayerWeapon: (id) => giveWeapon((id as WeaponId) ?? 'handgun'),
     drawPlayerWeapon: () => drawWeapon(),

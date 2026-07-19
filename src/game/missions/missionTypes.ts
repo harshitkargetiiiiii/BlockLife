@@ -147,6 +147,22 @@ export interface SecureProceedsObjective extends BaseMissionObjective {
   anchorId: string
 }
 
+/**
+ * Personal Economy v1 — a mission OBSERVES a legitimate store restock it does
+ * not perform. Completes when a supply item is delivered to the marked store and
+ * the commerce engine restocks it (emitting `store_restocked`). The mission never
+ * writes stock, money, or inventory itself.
+ */
+export interface DeliverRestockObjective extends BaseMissionObjective {
+  kind: 'deliver_restock'
+  /** The supply item carried (e.g. the restock crate). */
+  itemId: string
+  /** The store restocked on delivery. */
+  storeId: string
+  /** Marker anchor (the store front). */
+  anchorId: string
+}
+
 export type MissionObjectiveDefinition =
   | ReachZoneObjective
   | InteractObjective
@@ -160,6 +176,7 @@ export type MissionObjectiveDefinition =
   | ReturnToGiverObjective
   | RobStoreObjective
   | SecureProceedsObjective
+  | DeliverRestockObjective
 
 export type MissionObjectiveKind = MissionObjectiveDefinition['kind']
 
@@ -295,5 +312,7 @@ export type MissionGameEvent =
   /** A criminal-activity event a mission may OBSERVE (Corner Take wraps a
       robbery without owning it). Carries the typed activity event. */
   | { type: 'activity_event'; event: ActivityGameEvent }
+  /** A store was legitimately restocked by a delivery (Shelf Run OBSERVES this). */
+  | { type: 'store_restocked'; storeId: string }
 
 export type MissionEventType = MissionGameEvent['type']

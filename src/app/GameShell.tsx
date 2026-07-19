@@ -5,6 +5,7 @@ import { DialoguePanel } from './DialoguePanel'
 import { ActivityPanel } from './ActivityPanel'
 import { WardrobePanel } from './WardrobePanel'
 import { StoragePanel } from './StoragePanel'
+import { ShopPanel } from './ShopPanel'
 import { Phone } from './phone/Phone'
 import { useActionKeys } from './useActionKeys'
 import { useKeyboardControls } from '../game/controls/useKeyboardControls'
@@ -43,6 +44,7 @@ export function GameShell() {
       <ActivityPanel />
       <WardrobePanel />
       <StoragePanel />
+      <ShopPanel />
       <Phone />
       <LoadingOverlay />
     </div>

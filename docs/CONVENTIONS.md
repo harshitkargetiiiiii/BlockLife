@@ -194,6 +194,19 @@ threat gate ON, yet `crouch` stayed `0`. Fetch the live array **inside** the fra
 render-time copy is still fine for the ref pool). Same family as gotcha #2/#12b:
 module-singleton state and React render scope must not be conflated.
 
+### 15. A `use*`-named store action trips rules-of-hooks when called bare
+`react-hooks/rules-of-hooks` reads **any** identifier matching `use[A-Z]` as a
+React Hook. A zustand action named `useItem` is fine as a store key and fine via
+member access (`s.useItem`, `getState().useItem(id)`), but the moment you
+destructure it to a same-named local and call it **bare inside a callback**
+(`const useItem = useGameStore(s => s.useItem); onClick={() => useItem(id)}`) the
+linter sees a Hook called from a callback and errors — a hard lint failure, not a
+warning. This slipped past `tsc` (types are correct) and every test (behaviour is
+correct) and only the gate's `oxlint` caught it. Fix: alias the selector to a
+non-`use*` local (`const consumeItem = useGameStore(s => s.useItem)`); better yet,
+don't prefix store actions with `use`. Same root as gotcha #10 — a real defect
+that only the full gate surfaces, so never skip lint.
+
 ---
 
 ## The verification workflow (honest gates)

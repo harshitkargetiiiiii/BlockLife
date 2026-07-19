@@ -9,6 +9,7 @@ import { PhoneMessages } from './PhoneMessages'
 import { PhoneContacts } from './PhoneContacts'
 import { PhoneJobs } from './PhoneJobs'
 import { PhoneMissions } from './PhoneMissions'
+import { PhoneBag } from './PhoneBag'
 import { PhoneSettings } from './PhoneSettings'
 
 function PhoneStatusBar() {
@@ -46,6 +47,8 @@ function PhoneAppContent() {
       return <PhoneContacts />
     case 'jobs':
       return <PhoneJobs />
+    case 'bag':
+      return <PhoneBag />
     case 'settings':
       return <PhoneSettings />
   }

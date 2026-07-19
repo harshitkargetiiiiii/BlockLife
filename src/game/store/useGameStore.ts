@@ -81,8 +81,35 @@ import {
   serializeActivities,
 } from '../criminalActivities/activityPersistence'
 import { distanceToRegister } from '../criminalActivities/robberyLogic'
+// ---- Personal Economy, Inventory & Shopping v1 ----
+import { getItemDefinition } from '../items/itemCatalog'
+import {
+  BACKPACK_CAPACITY,
+  STORAGE_CAPACITY,
+  addItem as addStack,
+  hasItem,
+  occupiedSlots,
+  removeItem as removeStack,
+  sanitizeStacks,
+  transferItem,
+} from '../items/inventoryService'
+import { applyItemEffect } from '../items/itemEffects'
+import { getStoreDefinition, getStoreForRegister } from '../commerce/storeDefinitions'
+import { canPurchase } from '../commerce/commerceEngine'
+import { buildShopView, type ShopView } from '../commerce/shopView'
+import {
+  applyDeliveryRestock,
+  getStoreStock,
+  nextPurchaseReceipt,
+  reconcileStore,
+  recordSale,
+  resetCommerceRuntime,
+} from '../commerce/commerceRuntime'
+import { serializeCommerce, applyCommerceSave } from '../commerce/commercePersistence'
+import { LOCKED_PALETTE_IDS } from '../interiors/interiorTypes'
+import { getWeaponDef, setAmmo } from '../combat/weaponRuntime'
 
-export type PanelKind = 'none' | 'dialogue' | 'activity' | 'phone' | 'wardrobe' | 'storage'
+export type PanelKind = 'none' | 'dialogue' | 'activity' | 'phone' | 'wardrobe' | 'storage' | 'shop'
 export type PlayMode = 'walking' | 'driving'
 
 export type PhoneAppId =
@@ -93,6 +120,7 @@ export type PhoneAppId =
   | 'messages'
   | 'contacts'
   | 'jobs'
+  | 'bag'
   | 'settings'
 
 export interface UIState {
@@ -162,6 +190,13 @@ interface GameDataState {
   currentInteriorId: string | null
   /** UI mirror of the criminal-activity runtime (Store Robbery v1). */
   activityView: ActivityView
+  // ---- Personal Economy, Inventory & Shopping v1 ----
+  /** Apartment storage container (a second backpack; item id → quantity). */
+  storage: Inventory
+  /** Unlocked wardrobe palette ids (premium colours bought/used). */
+  wardrobeUnlocks: string[]
+  /** UI mirror of the open store shopfront (built on open/buy, never per frame). */
+  shopView: ShopView | null
 }
 
 export interface GameStore extends GameDataState {
@@ -203,6 +238,25 @@ export interface GameStore extends GameDataState {
   requestTeleport: (position: [number, number, number]) => void
   setQuestState: (questId: string, state: QuestState) => void
   giveItem: (itemId: string, quantity: number) => void
+  // ---- Personal Economy, Inventory & Shopping v1 ----
+  /** Open a store's shop UI (reconciles stock; refuses a robbed/recovering store). */
+  openShop: (storeId: string) => void
+  /** Buy one unit of an item from a store (atomic charge + stock + grant). */
+  buyItem: (storeId: string, itemId: string) => void
+  /** Use/consume one of a backpack item (applies its typed effect if valid). */
+  useItem: (itemId: string) => void
+  /** Discard `quantity` (default 1) of a discardable backpack item. */
+  discardItem: (itemId: string, quantity?: number) => void
+  /** Move backpack → apartment storage (default 1; `all` moves the whole stack). */
+  depositItem: (itemId: string, quantity?: number | 'all') => void
+  /** Move apartment storage → backpack (default 1; `all` moves the whole stack). */
+  withdrawItem: (itemId: string, quantity?: number | 'all') => void
+  /** True when a wardrobe palette id is available (free or unlocked). */
+  isPaletteUnlocked: (paletteId: string) => boolean
+  /** Shelf Run: pick up the restock crate at the depot (idempotent). */
+  collectShelfCrate: () => void
+  /** Shelf Run: deliver the crate to a store — restocks it + emits the event. */
+  deliverShelfCrate: (storeId: string) => void
   /** Change the weather (smooth fade by default; instant for tests/loads). */
   setWeather: (kind: WeatherKind, options?: { instant?: boolean; intensity?: number }) => void
   showToast: (text: string) => void
@@ -291,11 +345,66 @@ export function createInitialGameState(): GameDataState {
       breachSeconds: null,
       result: null,
     },
+    // Personal Economy, Inventory & Shopping v1.
+    storage: {},
+    wardrobeUnlocks: [],
+    shopView: null,
   }
 }
 
 let toastSeq = 0
 let recoverySeq = 0
+
+// ---- Personal Economy, Inventory & Shopping v1 helpers --------------------
+
+/** In-game hours (day*24 + hour) — the clock stock restock reconciles against. */
+function gameHoursOf(s: { stats: PlayerStats }): number {
+  return s.stats.day * 24 + s.stats.hour
+}
+
+/**
+ * A store refuses normal commerce while it is being robbed OR still within its
+ * post-robbery recovery cooldown (keyed by the robbery ACTIVITY id, which the
+ * commerce store references). Legitimate stock + robbery recovery stay separate
+ * concepts but integrate through this one gate.
+ */
+function storeClosedForCommerce(activityId: string, gameHours: number): boolean {
+  if (activityRuntime.active?.activityId === activityId) return true
+  const robbery = activityRuntime.stores[activityId]
+  return robbery ? robbery.cooldownReadyAtGameHours > gameHours : false
+}
+
+/** Build the bounded shop projection for a store from the current state. */
+function projectShop(storeId: string, s: GameStore): ShopView | null {
+  const def = getStoreDefinition(storeId)
+  if (!def) return null
+  return buildShopView(
+    def,
+    getStoreStock(storeId),
+    s.stats.money,
+    s.inventory,
+    BACKPACK_CAPACITY,
+    storeClosedForCommerce(def.activityId, gameHoursOf(s)),
+  )
+}
+
+/** Human message for a refused purchase. */
+function purchaseFailureMessage(reason: string | undefined): string {
+  switch (reason) {
+    case 'store_closed':
+      return 'The store is closed right now.'
+    case 'out_of_stock':
+      return 'Out of stock.'
+    case 'insufficient_funds':
+      return "You can't afford that."
+    case 'backpack_full':
+      return 'Your bag is full.'
+    case 'not_sold_here':
+      return "They don't sell that here."
+    default:
+      return "Can't buy that right now."
+  }
+}
 
 /**
  * Route an interaction with a mission giver/objective point. If the active
@@ -393,7 +502,19 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     } else if (def.kind === 'store_exit') {
       get().exitInterior()
     } else if (def.kind === 'store_register') {
-      get().lootStoreRegister()
+      // Priority: an in-progress heist loots the register; a Shelf Run delivery
+      // drops the crate here; otherwise it's a legitimate shop counter.
+      const store = getStoreForRegister(id)
+      const sm = missionRuntime.active
+      const shelfDeliverHere =
+        store !== undefined &&
+        sm?.missionId === 'shelf_run' &&
+        getMissionDefinition('shelf_run')?.objectives[sm.objectiveIndex]?.kind === 'deliver_restock' &&
+        hasItem(get().inventory, 'restock_crate')
+      if (activityRuntime.active) get().lootStoreRegister()
+      else if (shelfDeliverHere && store) get().deliverShelfCrate(store.id)
+      else if (store) get().openShop(store.id)
+      else get().lootStoreRegister()
     } else if (def.kind === 'wardrobe') {
       set((s) => ({ ui: { ...s.ui, panel: 'wardrobe', dialogueNpcId: null, activityId: null } }))
     } else if (def.kind === 'storage') {
@@ -402,6 +523,9 @@ export const useGameStore = create<GameStore>()((set, get) => ({
       // The fixer doubles as the criminal-proceeds secure point: converting
       // unsecured cash here also feeds any observing mission (Corner Take).
       if (activityRuntime.unsecuredProceeds > 0) get().secureRobberyProceeds()
+      // The supply depot grants the Shelf Run crate through the normal item path
+      // (idempotent) before the interact objective completes.
+      if (id === 'shelf_depot') get().collectShelfCrate()
       handleMissionInteract(id, def.kind, get)
     } else {
       get().openActivity(id)
@@ -457,6 +581,12 @@ export const useGameStore = create<GameStore>()((set, get) => ({
       { stats: s.stats, inventory: s.inventory, questStates: s.questStates },
       actionId,
     )
+    // One capacity authority: if an action would grow the backpack past its slot
+    // budget (e.g. buying coffee with a full bag), refuse rather than overflow.
+    if (outcome.ok && occupiedSlots(outcome.state.inventory) > BACKPACK_CAPACITY) {
+      get().showToast('Your bag is full.')
+      return
+    }
     audioManager.playClick()
     set({
       stats: outcome.state.stats,
@@ -592,11 +722,16 @@ export const useGameStore = create<GameStore>()((set, get) => ({
       kind === 'arrest'
         ? `Busted! Lost $${Math.round(penalty)}.`
         : `Hospitalized! Lost $${Math.round(penalty)}.`
+    // Mission cargo (Shelf Run crate) is dropped on a failed run; the rest of the
+    // bag is preserved.
+    const crate = s.inventory['restock_crate'] ?? 0
+    const cleanedInv = crate > 0 ? (removeStack(s.inventory, 'restock_crate', crate).stacks ?? s.inventory) : s.inventory
     set({
       stats: { ...s.stats, money: s.stats.money - penalty },
       playerHealth: PLAYER_MAX_HEALTH,
       playerIncapacitated: false,
-      // Quests + inventory + npc memory are deliberately preserved.
+      // Quests + inventory (minus mission cargo) + npc memory are preserved.
+      inventory: cleanedInv,
       recovery: { kind, message, seq: ++recoverySeq },
     })
     teleportPlayer(PLAYER_SPAWN)
@@ -681,13 +816,183 @@ export const useGameStore = create<GameStore>()((set, get) => ({
   },
 
   giveItem: (itemId, quantity) => {
-    set((s) => {
-      const next = { ...s.inventory, [itemId]: (s.inventory[itemId] ?? 0) + quantity }
-      if (next[itemId] <= 0) delete next[itemId]
-      return { inventory: next }
+    if (quantity > 0) {
+      // Capacity-aware grant through the ONE item service. A full bag refuses
+      // (no silent overflow); mission/quest grants surface a toast.
+      const r = addStack(get().inventory, itemId, quantity, BACKPACK_CAPACITY)
+      if (!r.ok) {
+        get().showToast(r.reason === 'capacity_full' ? 'Your bag is full.' : "Can't carry that.")
+        return
+      }
+      set({ inventory: r.stacks })
+      emitMissionEvent({ type: 'item_acquired', itemId, quantity })
+    } else if (quantity < 0) {
+      const r = removeStack(get().inventory, itemId, -quantity)
+      if (r.ok) set({ inventory: r.stacks })
+    }
+  },
+
+  openShop: (storeId) => {
+    const def = getStoreDefinition(storeId)
+    if (!def) return
+    const s = get()
+    reconcileStore(storeId, gameHoursOf(s)) // lazy time-based restock on open
+    if (storeClosedForCommerce(def.activityId, gameHoursOf(s))) {
+      get().showToast('The store is closed after the incident.')
+      return
+    }
+    audioManager.playClick()
+    set({
+      ui: { ...s.ui, panel: 'shop', dialogueNpcId: null, activityId: null },
+      shopView: projectShop(storeId, s),
     })
-    // Mission hook: acquiring items can satisfy a collect_item objective.
-    if (quantity > 0) emitMissionEvent({ type: 'item_acquired', itemId, quantity })
+  },
+
+  buyItem: (storeId, itemId) => {
+    const def = getStoreDefinition(storeId)
+    if (!def) return
+    const s = get()
+    const closed = storeClosedForCommerce(def.activityId, gameHoursOf(s))
+    const check = canPurchase(itemId, {
+      store: def,
+      stock: getStoreStock(storeId),
+      money: s.stats.money,
+      backpack: s.inventory,
+      backpackCapacity: BACKPACK_CAPACITY,
+      storeClosed: closed,
+    })
+    if (!check.ok) {
+      get().showToast(purchaseFailureMessage(check.reason))
+      return
+    }
+    // Atomic transaction: charge, decrement stock, grant — all together.
+    const granted = addStack(s.inventory, itemId, 1, BACKPACK_CAPACITY)
+    if (!granted.ok) {
+      get().showToast('Your bag is full.')
+      return
+    }
+    recordSale(storeId, itemId, 1)
+    nextPurchaseReceipt(storeId) // bounded receipt/sequence for idempotency + tooling
+    audioManager.playClick()
+    set({ stats: { ...s.stats, money: s.stats.money - (check.price ?? 0) }, inventory: granted.stacks })
+    set({ shopView: projectShop(storeId, get()) })
+    get().showToast(`Bought ${getItemDefinition(itemId)?.name ?? itemId} (-$${check.price}).`)
+  },
+
+  useItem: (itemId) => {
+    const s = get()
+    const def = getItemDefinition(itemId)
+    if (!def || (s.inventory[itemId] ?? 0) <= 0) return
+    if (def.questReserved || !def.usable) {
+      get().showToast(def.questReserved ? 'That’s reserved for a job.' : "Can't use that.")
+      return
+    }
+    const w = getWeaponSnapshot()
+    const res = applyItemEffect(def.effect, {
+      hunger: s.stats.hunger,
+      energy: s.stats.energy,
+      health: s.playerHealth,
+      maxHealth: PLAYER_MAX_HEALTH,
+      ammoReserve: w.reserve,
+      ammoReserveMax: getWeaponDef()?.reserveMax ?? 0,
+      incapacitated: s.playerIncapacitated,
+      unlockedPalettes: new Set(s.wardrobeUnlocks),
+      hasHandgun: w.equipped !== null,
+    })
+    if (!res.ok) {
+      get().showToast(res.message)
+      return
+    }
+    // Apply the typed patch to the relevant authority, then consume exactly one.
+    if (res.patch.hunger !== undefined || res.patch.energy !== undefined) {
+      set({
+        stats: {
+          ...s.stats,
+          hunger: res.patch.hunger ?? s.stats.hunger,
+          energy: res.patch.energy ?? s.stats.energy,
+        },
+      })
+    }
+    if (res.patch.health !== undefined) get().setPlayerHealth(res.patch.health)
+    if (res.patch.ammoReserve !== undefined) setAmmo(w.magazine, res.patch.ammoReserve)
+    if (res.patch.unlockPalette) {
+      set({ wardrobeUnlocks: [...new Set([...get().wardrobeUnlocks, res.patch.unlockPalette])] })
+    }
+    if (res.consume) {
+      const rem = removeStack(get().inventory, itemId, 1)
+      if (rem.ok) set({ inventory: rem.stacks })
+    }
+    audioManager.playClick()
+    get().showToast(res.message)
+  },
+
+  discardItem: (itemId, quantity = 1) => {
+    const s = get()
+    const def = getItemDefinition(itemId)
+    if (!def) return
+    if (def.questReserved || !def.discardable) {
+      get().showToast('You can’t drop that.')
+      return
+    }
+    const r = removeStack(s.inventory, itemId, quantity)
+    if (!r.ok) return
+    set({ inventory: r.stacks })
+    get().showToast(`Discarded ${def.name}.`)
+  },
+
+  depositItem: (itemId, quantity = 1) => {
+    const s = get()
+    const def = getItemDefinition(itemId)
+    if (!def) return
+    if (def.questReserved || !def.storable) {
+      get().showToast('That has to stay on you.')
+      return
+    }
+    const qty = quantity === 'all' ? (s.inventory[itemId] ?? 0) : quantity
+    const t = transferItem(s.inventory, s.storage, itemId, qty, STORAGE_CAPACITY)
+    if (!t.ok) {
+      get().showToast(t.reason === 'capacity_full' ? 'Storage is full.' : 'Nothing to store.')
+      return
+    }
+    set({ inventory: t.from, storage: t.to })
+  },
+
+  withdrawItem: (itemId, quantity = 1) => {
+    const s = get()
+    const qty = quantity === 'all' ? (s.storage[itemId] ?? 0) : quantity
+    const t = transferItem(s.storage, s.inventory, itemId, qty, BACKPACK_CAPACITY)
+    if (!t.ok) {
+      get().showToast(t.reason === 'capacity_full' ? 'Your bag is full.' : 'Nothing to withdraw.')
+      return
+    }
+    set({ storage: t.from, inventory: t.to })
+  },
+
+  isPaletteUnlocked: (paletteId) =>
+    !LOCKED_PALETTE_IDS.includes(paletteId) || get().wardrobeUnlocks.includes(paletteId),
+
+  collectShelfCrate: () => {
+    const active = missionRuntime.active
+    // Only during an active Shelf Run, and never a second crate (idempotent).
+    if (active?.missionId !== 'shelf_run') return
+    if (hasItem(get().inventory, 'restock_crate')) return
+    get().giveItem('restock_crate', 1) // normal item-grant path (emits item_acquired)
+  },
+
+  deliverShelfCrate: (storeId) => {
+    const active = missionRuntime.active
+    if (active?.missionId !== 'shelf_run') return
+    if (!hasItem(get().inventory, 'restock_crate')) {
+      get().showToast('You need the restock crate first.')
+      return
+    }
+    // Remove the exact crate, restock the store exactly once (receipt = attempt),
+    // and emit the typed event the mission OBSERVES.
+    const rem = removeStack(get().inventory, 'restock_crate', 1)
+    if (rem.ok) set({ inventory: rem.stacks })
+    applyDeliveryRestock(storeId, `shelf_run:${active.attemptId}`)
+    emitMissionEvent({ type: 'store_restocked', storeId })
+    get().showToast('Delivered — store restocked.')
   },
 
   showToast: (text) => set({ toast: { text, seq: ++toastSeq } }),
@@ -751,6 +1056,9 @@ export const useGameStore = create<GameStore>()((set, get) => ({
       playerHealth: s.playerHealth,
       missions: serializeMissions(),
       activities: serializeActivities(),
+      storage: s.storage,
+      wardrobe: { unlocked: s.wardrobeUnlocks },
+      commerce: serializeCommerce(),
     })
     try {
       await persistSave(snapshot)
@@ -796,6 +1104,7 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     resetMissionRuntime() // missions/cooldowns/history clear on a full reset
     resetActivityRuntime() // robbery cooldowns/history/proceeds clear on reset
     resetInteriorCivilians() // store cashier/customers snap home on reset
+    resetCommerceRuntime() // store stock back to full defaults
     set({ ...createInitialGameState() })
     teleportPlayer(PLAYER_SPAWN)
   },
@@ -823,13 +1132,23 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     applyActivitySave(snapshot.activities)
     resetInteriorCivilians() // no heist loads → civilians start home
     clearTransientActivity() // drop any transient robbery + containment on load
+    // Commerce: restore persistent store stock + restock clocks + receipts;
+    // old saves (no field) get deterministic full stock.
+    applyCommerceSave(snapshot.commerce)
     const loadedHealth =
       typeof snapshot.playerHealth === 'number' && Number.isFinite(snapshot.playerHealth)
         ? Math.max(0, Math.min(PLAYER_MAX_HEALTH, snapshot.playerHealth))
         : PLAYER_MAX_HEALTH
     set({
       stats: { ...snapshot.stats },
-      inventory: { ...snapshot.inventory },
+      // Migrate the legacy inventory Record → sanitised backpack stacks (drops
+      // unknown ids, floors quantities, trims to capacity; coffee is preserved).
+      inventory: sanitizeStacks(snapshot.inventory, BACKPACK_CAPACITY),
+      storage: sanitizeStacks(snapshot.storage, STORAGE_CAPACITY),
+      wardrobeUnlocks: Array.isArray(snapshot.wardrobe?.unlocked)
+        ? snapshot.wardrobe.unlocked.filter((p) => LOCKED_PALETTE_IDS.includes(p))
+        : [],
+      shopView: null,
       questStates: { ...snapshot.questStates },
       npcMemory: structuredClone(snapshot.npcMemory),
       mode: 'walking',
@@ -872,7 +1191,12 @@ export const useGameStore = create<GameStore>()((set, get) => ({
   },
 
   cancelActiveMission: () => {
-    if (bridgeCancel()) get().showToast('Job cancelled.')
+    if (bridgeCancel()) {
+      // Cleanup policy: a cancelled Shelf Run's crate is not kept (mission cargo).
+      const drop = removeStack(get().inventory, 'restock_crate', get().inventory['restock_crate'] ?? 0)
+      if (drop.ok) set({ inventory: drop.stacks })
+      get().showToast('Job cancelled.')
+    }
   },
 
   retryLastMission: () => {

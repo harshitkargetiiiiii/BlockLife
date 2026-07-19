@@ -144,6 +144,7 @@ export const STEAL_INTERACTABLES: InteractableDef[] = STEALABLE_VEHICLES.map((v)
  */
 const courierDepotAnchor = getMissionAnchor('courier_depot')!
 const fixerAnchor = getMissionAnchor('hotcargo_garage')!
+const shelfDepotAnchor = getMissionAnchor('shelfrun_depot')!
 export const MISSION_INTERACTABLES: InteractableDef[] = [
   {
     id: 'courier_depot',
@@ -164,6 +165,16 @@ export const MISSION_INTERACTABLES: InteractableDef[] = [
     marker: true,
     icon: '🔧',
     markerColor: '#e8871e',
+  },
+  {
+    id: 'shelf_depot',
+    kind: 'mission_objective',
+    name: 'Supply Depot',
+    position: [shelfDepotAnchor.position[0], 0, shelfDepotAnchor.position[2]],
+    radius: 2.6,
+    marker: true,
+    icon: '📦',
+    markerColor: '#7fd4c1',
   },
 ]
 

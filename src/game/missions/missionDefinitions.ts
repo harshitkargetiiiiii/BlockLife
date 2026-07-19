@@ -251,12 +251,51 @@ const FAST_EXIT: MissionDefinition = {
   sourceRef: { file: 'src/game/missions/missionDefinitions.ts', symbol: 'FAST_EXIT' },
 }
 
+const SHELF_RUN: MissionDefinition = {
+  id: 'shelf_run',
+  version: 1,
+  title: 'Shelf Run',
+  description:
+    'A lawful supply run: grab a sealed restock crate from the Industrial Yard depot, carry it in your bag, and drop it at the Main St Convenience. The store restocks and you get paid.',
+  category: 'lawful',
+  offerSource: { kind: 'phone_job', jobId: 'shelf_run' },
+  repeatable: true,
+  cooldownGameHours: 8,
+  objectives: [
+    {
+      id: 'collect',
+      kind: 'interact',
+      interactableId: 'shelf_depot',
+      description: 'Collect the restock crate from the yard depot',
+      marker: { kind: 'pickup', showOnMap: true, showTracker: true },
+    },
+    {
+      id: 'deliver',
+      kind: 'deliver_restock',
+      itemId: 'restock_crate',
+      storeId: 'store_mainst',
+      anchorId: 'shelfrun_store',
+      description: 'Deliver the crate to the Main St Convenience',
+      marker: { kind: 'delivery', showOnMap: true, showTracker: true },
+    },
+  ],
+  rewards: [{ kind: 'money', amount: 100 }],
+  failureRules: [
+    { kind: 'player_arrested' },
+    { kind: 'player_incapacitated' },
+    { kind: 'mission_cancelled' },
+  ],
+  blockSaveWhenActive: false,
+  sourceRef: { file: 'src/game/missions/missionDefinitions.ts', symbol: 'SHELF_RUN' },
+}
+
 /** Deterministic definition order (never sorted at runtime). */
 export const MISSION_DEFINITIONS: readonly MissionDefinition[] = [
   CITY_COURIER,
   HOT_CARGO,
   CORNER_TAKE,
   FAST_EXIT,
+  SHELF_RUN,
 ]
 
 const BY_ID: Record<string, MissionDefinition> = Object.fromEntries(

@@ -1,5 +1,24 @@
 {
-  "generatedFor": "Robbery Pursuit & Getaway Polish v1 (supersedes prior sprints; this file is the repo-wide test inventory despite its historical name)",
+  "generatedFor": "Personal Economy, Inventory & Shopping v1 (supersedes prior sprints; this file is the repo-wide test inventory despite its historical name)",
+  "personalEconomyV1": {
+    "date": "2026-07-18",
+    "summary": "Typed item catalog + pure inventory service (stacks, occupied-slot capacity) + pure item effects; one reusable commerce engine with deterministic persistent stock + lazy game-hour restock + robbery-recovery gate; apartment storage transfer; phone Bag + Shop panels; wardrobe-colour unlocks; Shelf Run lawful supply mission; additive save migration.",
+    "totals": { "unitTests": 844, "e2eTests": 194, "e2eSpecs": 31, "visualBaselines": 95, "visualSpecs": 14 },
+    "newSpecs": {
+      "src/game/items/inventory.test.ts": "12 unit — catalog validation, coffee migration, slots/capacity, atomic add/remove, transfer rollback, listStacks, sanitize",
+      "src/game/items/itemEffects.test.ts": "6 unit — feed/refresh/heal/ammo/unlock bounds + refuse-without-consume + quest not-usable",
+      "src/game/commerce/commerce.test.ts": "13 unit — store validation, multi-interval lazy restock, purchase gate failures, runtime sale/restock/idempotent-receipt/bounded",
+      "src/game/commerce/commercePersistence.test.ts": "4 unit — round-trip, default full stock, malformed fail-safe, inventory migration",
+      "src/app/phone/PhoneBag.test.tsx": "5 component — list + effect summary + Use, quest lock, valuable-discard confirm, cheap-discard instant",
+      "src/game/missions/missionEngine.test.ts": "+4 Shelf Run flow (collect→deliver via deliver_restock/store_restocked, pay once + cooldown, stray restock no re-grant, arrest fail, available-from-start)",
+      "src/app/WardrobePanel.test.ts": "StoragePanel rewritten to a transfer UI (deposit atomic, quest-lock, empty states)",
+      "tests/e2e/economy.spec.ts": "13 E2E — validation, real Shop buy-once, unaffordable/sold-out, restock, use effects + full-stat negatives, storage deposit/withdraw + save/load, robbery-recovery refusal, kiosk reuse, wardrobe unlock, full Shelf Run, old-save migration",
+      "tests/e2e/economy-soak.spec.ts": "1 E2E — 180s buy/use/transfer/restock/save-load/Shelf-Run/robbery cycling under streaming",
+      "tests/visual/economy-visuals.spec.ts": "5 baselines — shop, sold-out, phone Bag, storage transfer, wardrobe lock"
+    },
+    "realDefectsFound": "None pre-existing in touched systems; the sprint added new code. Integration hardening during build: the store_register interaction was overloaded (robbery loot vs shop vs Shelf-Run delivery) and prioritised cleanly; the legacy buy_coffee reducer was kept but wrapped by a store-layer capacity guard so there is ONE effective capacity authority; StoragePanel + PhoneBag component tests updated for the new transfer UI.",
+    "invariantsHeld": "Backpack + storage keep the legacy Record<itemId,qty> shape (no inventory migration); capacity = occupied slots; ONE mutation path via the pure inventory service; effects are typed data → a patch the store applies (health via setPlayerHealth, ammo via setAmmo, no second counters); commerce never mutates money/bag outside one atomic transaction; deterministic lazy restock (no per-frame writes, no paused advance); Shelf Run OBSERVES a generic deliver_restock/store_restocked, owns no stock/money/inventory; Coffee for Ravi preserved; additive fail-safe save; dist test-API strings = 0."
+  },
   "getawayPolishV1": {
     "date": "2026-07-18",
     "summary": "Police containment/breach phase machine, routed store civilians (flee/hide/freeze + witness report), reusable getaway vehicle (exact stolen-vehicle identity + preferParked + requireClean staging), and the Fast Exit mission that observes robbery/vehicle/wanted/proceeds events. Pursuit/breach HUD + audio hooks.",

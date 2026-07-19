@@ -51,18 +51,30 @@ describe('StoragePanel', () => {
     useGameStore.setState(createInitialGameState())
   })
 
-  it('shows the bag contents and the upgrade stub without touching inventory', () => {
-    useGameStore.setState({ inventory: { coffee: 2 } })
+  it('deposits a storable item from the bag into the chest atomically', () => {
+    useGameStore.setState({ inventory: { snack: 3 }, storage: {} })
     openPanel('storage')
     render(<StoragePanel />)
-    expect(screen.getByTestId('storage-items')).toHaveTextContent('Coffee × 2')
-    expect(screen.getByTestId('storage-stub-note')).toHaveTextContent('coming soon')
-    expect(useGameStore.getState().inventory).toEqual({ coffee: 2 })
+    expect(screen.getByTestId('storage-bag-snack')).toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('storage-bag-one-snack'))
+    expect(useGameStore.getState().inventory).toEqual({ snack: 2 })
+    expect(useGameStore.getState().storage).toEqual({ snack: 1 })
   })
 
-  it('shows an empty state', () => {
+  it('shows a quest-reserved item as locked (cannot be stored)', () => {
+    useGameStore.setState({ inventory: { coffee: 1 }, storage: {} })
     openPanel('storage')
     render(<StoragePanel />)
-    expect(screen.getByTestId('storage-empty')).toBeInTheDocument()
+    expect(screen.getByTestId('storage-bag-coffee')).toBeInTheDocument()
+    expect(screen.queryByTestId('storage-bag-one-coffee')).toBeNull() // no deposit button
+    expect(useGameStore.getState().inventory).toEqual({ coffee: 1 })
+  })
+
+  it('shows empty states for both containers', () => {
+    useGameStore.setState({ inventory: {}, storage: {} })
+    openPanel('storage')
+    render(<StoragePanel />)
+    expect(screen.getByTestId('storage-bag-empty')).toBeInTheDocument()
+    expect(screen.getByTestId('storage-chest-empty')).toBeInTheDocument()
   })
 })
