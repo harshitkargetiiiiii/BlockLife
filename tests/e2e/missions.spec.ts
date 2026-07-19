@@ -64,13 +64,15 @@ test.describe('missions & activities', () => {
       return {
         defs: api.getMissionDefinitions().map((d) => d.id),
         courier: api.getMissionAvailability('city_courier'),
+        shelfRun: api.getMissionAvailability('shelf_run'),
         hotBefore: api.getMissionAvailability('hot_cargo'),
         cornerBefore: api.getMissionAvailability('corner_take'),
       }
     })
-    // City Courier + the criminal jobs (Hot Cargo, Corner Take, Fast Exit).
-    expect(res.defs).toEqual(['city_courier', 'hot_cargo', 'corner_take', 'fast_exit'])
+    // City Courier + the criminal jobs (Hot Cargo, Corner Take, Fast Exit) + Shelf Run (lawful supply).
+    expect(res.defs).toEqual(['city_courier', 'hot_cargo', 'corner_take', 'fast_exit', 'shelf_run'])
     expect(res.courier).toBe('available')
+    expect(res.shelfRun).toBe('available') // lawful phone job — available from the start
     expect(res.hotBefore).toBe('locked') // undiscovered criminal job
     expect(res.cornerBefore).toBe('locked') // undiscovered criminal job
   })

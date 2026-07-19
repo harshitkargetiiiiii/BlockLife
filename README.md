@@ -24,7 +24,7 @@ Developer/architecture docs live in [`docs/`](docs/) — start with the index:
 - **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** — master architecture (state model, frame loop, streaming, module map)
 - **[docs/SYSTEMS.md](docs/SYSTEMS.md)** — deep dive per subsystem
 - **[docs/CONVENTIONS.md](docs/CONVENTIONS.md)** — patterns & gotchas playbook
-- Feature docs: [world foundation](docs/LARGE_CITY_FOUNDATION.md) · [authoring kit](docs/DISTRICT_AUTHORING_KIT.md) · [crime & law enforcement](docs/CRIME_LAW_ENFORCEMENT.md) · [missions & activities](docs/MISSIONS_AND_ACTIVITIES.md) · [criminal activities / store robbery](docs/CRIMINAL_ACTIVITIES.md)
+- Feature docs: [world foundation](docs/LARGE_CITY_FOUNDATION.md) · [authoring kit](docs/DISTRICT_AUTHORING_KIT.md) · [crime & law enforcement](docs/CRIME_LAW_ENFORCEMENT.md) · [missions & activities](docs/MISSIONS_AND_ACTIVITIES.md) · [criminal activities / store robbery](docs/CRIMINAL_ACTIVITIES.md) · [personal economy, inventory & shopping](docs/PERSONAL_ECONOMY_INVENTORY.md)
 - **[CLAUDE.md](CLAUDE.md)** — condensed context primer for coding agents
 
 ## Tech stack
@@ -127,6 +127,14 @@ npm run preview    # serve the production build
   stages it by the store, and has you beat the containment out and shake the police
   before securing — a data-only mission that observes the robbery and owns none of
   it. See [docs/CRIMINAL_ACTIVITIES.md](docs/CRIMINAL_ACTIVITIES.md).
+- **Personal economy, inventory & shopping** — the same two stores are legitimate
+  shops: browse real stock, buy snacks, meals, energy drinks, first-aid, ammo and
+  wardrobe-colour unlocks, and carry them in a limited backpack (10 slots). Use
+  items from the phone **Bag**, stash extras in your apartment storage chest, and
+  watch stores restock over game time. Robbed stores close until they recover. The
+  lawful **Shelf Run** job carries a supply crate from the yard depot to a store
+  for a legitimate restock — reusing the same commerce + inventory rather than
+  bypassing them. See [docs/PERSONAL_ECONOMY_INVENTORY.md](docs/PERSONAL_ECONOMY_INVENTORY.md).
 - **Arcade driving** with real collisions against buildings and props.
 - **Save / Load / Reset** through IndexedDB (stats, inventory, quest state,
   NPC memory, position, clock).

@@ -87,6 +87,14 @@ So the store must not become a pursuit reset: `CrimeDirector` treats
 you're inside. Ducking in never melts a chase. (The robbery code itself never
 touches wanted — this lives in the crime director, the wanted authority.)
 
+**Same store, legitimate side.** Personal Economy v1 makes these two stores real
+shops (browse/buy stock over the same register). Robbery and commerce meet at one
+gate: `storeClosedForCommerce` refuses shopping while a robbery is `active` OR the
+post-robbery cooldown above hasn't elapsed — so a store you just robbed is closed
+for business until the *same* recovery clock reopens it, with no new state. The
+commerce stack owns stock/restock; robbery owns the cooldown; neither reimplements
+the other. See [PERSONAL_ECONOMY_INVENTORY](PERSONAL_ECONOMY_INVENTORY.md) §5.
+
 ## 7. Corner Take (mission wraps, doesn't own)
 
 [`missionDefinitions.ts`](../src/game/missions/missionDefinitions.ts) `corner_take`

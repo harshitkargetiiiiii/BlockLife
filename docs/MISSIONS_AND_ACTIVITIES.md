@@ -1,16 +1,34 @@
 # Missions & Open-World Activities
 
-**Status:** v1 shipped. Two proof missions on a reusable framework.
+**Status:** v1 shipped, extended by later sprints. A reusable framework proven
+by a growing catalog of data-only missions.
 **Code:** [`src/game/missions/`](../src/game/missions/) · UI in
 [`src/app/MissionTracker.tsx`](../src/app/MissionTracker.tsx) and
 [`src/app/phone/PhoneMissions.tsx`](../src/app/phone/PhoneMissions.tsx).
 
-The point of this subsystem is **not** the two missions that ship with it. It is
-that a third mission — a race, a robbery, a taxi job, a story beat — should be
+The point of this subsystem is **not** the missions that ship with it. It is
+that another mission — a race, a robbery, a taxi job, a story beat — should be
 addable by writing a `MissionDefinition` and (maybe) an anchor, with no new
-engine code. The two shipped missions exist to prove that claim from both ends
-of the design space: one lawful, repeatable, on-foot/any-vehicle; one criminal,
-requiring real theft, a real wanted level, real police, and vehicle delivery.
+engine code. The shipped missions exist to prove that claim across the design
+space: lawful, repeatable, on-foot/any-vehicle; criminal, requiring real theft,
+a real wanted level, real police, and vehicle delivery; and pure observers that
+own none of the systems they react to.
+
+**Catalog** (each is data + observers only; the engine stays generic):
+
+| Mission | Kind | Observes | Home doc |
+|---|---|---|---|
+| City Courier | lawful courier | pickup/dropoff anchors | this doc |
+| Hot Cargo | criminal | exact stolen-vehicle identity, wanted, delivery | this doc |
+| Corner Take | criminal | store-robbery events | [CRIMINAL_ACTIVITIES](CRIMINAL_ACTIVITIES.md) |
+| Fast Exit | criminal | robbery/getaway-vehicle/wanted/proceeds events | [CRIMINAL_ACTIVITIES](CRIMINAL_ACTIVITIES.md) |
+| Shelf Run | lawful supply | a legitimate commerce restock (`store_restocked`) | [PERSONAL_ECONOMY_INVENTORY](PERSONAL_ECONOMY_INVENTORY.md) §8 |
+
+Corner Take, Fast Exit and Shelf Run are documented in full in their home docs
+(they belong to those feature stacks); this doc owns the two proof missions and
+the framework itself. Shelf Run added one generic objective kind
+(`deliver_restock`) and one generic event (`store_restocked`) — not Shelf-Run
+special-casing in the engine.
 
 ---
 
@@ -330,7 +348,7 @@ the API exists so tests can reach states quickly, not so the missions depend on 
 
 | Layer | What |
 |---|---|
-| Unit | 54 in [`missionEngine.test.ts`](../src/game/missions/missionEngine.test.ts) (objectives, idempotency, rewards-once, cooldowns, exact-target handoff, `vehicle_lost`, **Fast Exit full flow + `preferParked` + `requireClean` staging**, validation vs. real sector data, persistence: receipts/attemptSeq/re-mint/no-double-pay) + 12 in [`vehicleCrimeState.test.ts`](../src/game/vehicles/vehicleCrimeState.test.ts) (source-id tracking, clear) |
+| Unit | 58 in [`missionEngine.test.ts`](../src/game/missions/missionEngine.test.ts) (objectives, idempotency, rewards-once, cooldowns, exact-target handoff, `vehicle_lost`, **Fast Exit** flow, **Shelf Run** flow via the generic `deliver_restock` objective + `store_restocked` event, validation vs. real sector data, persistence: receipts/attemptSeq/re-mint/no-double-pay) + 12 in [`vehicleCrimeState.test.ts`](../src/game/vehicles/vehicleCrimeState.test.ts) (source-id tracking, clear) |
 | E2E | 16 in [`tests/e2e/missions.spec.ts`](../tests/e2e/missions.spec.ts) — both missions end-to-end, save/load, cancel/retry, streaming, apartment policy, **a replacement stolen car cannot complete Hot Cargo**, **save/load never duplicates a reward or reuses an attempt id** |
 | Soak | [`tests/e2e/mission-soak.spec.ts`](../tests/e2e/mission-soak.spec.ts) — 180s, repeated attempts + sector cycling, asserts no page errors, no double-pay, no stale ownership |
 | Visual | 7 baselines in [`tests/visual/mission-visuals.spec.ts`](../tests/visual/mission-visuals.spec.ts) |

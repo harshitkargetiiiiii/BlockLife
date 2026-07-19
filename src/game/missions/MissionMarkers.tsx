@@ -48,13 +48,19 @@ function resolveMarker(): MarkerTarget | null {
     obj.kind === 'reach_zone' ||
     obj.kind === 'drive_vehicle_to_zone' ||
     obj.kind === 'rob_store' ||
-    obj.kind === 'secure_proceeds'
+    obj.kind === 'secure_proceeds' ||
+    obj.kind === 'deliver_restock'
   ) {
     const a = getMissionAnchor(obj.anchorId)
     return a ? { x: a.position[0], z: a.position[2], color } : null
   }
   if (obj.kind === 'interact' || obj.kind === 'deliver_vehicle' || obj.kind === 'return_to_giver') {
-    const anchorId = obj.interactableId === 'hotcargo_fixer' ? 'hotcargo_garage' : obj.interactableId
+    const anchorId =
+      obj.interactableId === 'hotcargo_fixer'
+        ? 'hotcargo_garage'
+        : obj.interactableId === 'shelf_depot'
+          ? 'shelfrun_depot'
+          : obj.interactableId
     const a = getMissionAnchor(anchorId)
     return a ? { x: a.position[0], z: a.position[2], color } : null
   }

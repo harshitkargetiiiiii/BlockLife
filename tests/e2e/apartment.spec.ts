@@ -100,8 +100,14 @@ test.describe('apartment home base', () => {
     await waitForActiveInteractable(page, 'apartment_storage')
     await pressE(page)
     await expect(page.getByTestId('storage-panel')).toBeVisible()
-    await expect(page.getByTestId('storage-items')).toContainText('Coffee × 1')
-    await expect(page.getByTestId('storage-stub-note')).toContainText('coming soon')
+    // The transfer UI lists the coffee on the bag side, but a quest-reserved item
+    // is locked (🔒) — no Store control, so it can never leave the player's bag.
+    await expect(page.getByTestId('storage-bag-coffee')).toContainText('Coffee × 1')
+    await expect(page.getByTestId('storage-bag-one-coffee')).toHaveCount(0)
+    await expect(page.getByTestId('storage-chest-empty')).toBeVisible()
+    // Even a direct deposit request is refused by the item service.
+    await page.evaluate(() => window.GAME_TEST_API!.depositTestItem('coffee', 1))
+    await expect(page.getByTestId('storage-chest-empty')).toBeVisible()
     await page.keyboard.press('Escape')
     const inv = await page.evaluate(
       () => window.GAME_TEST_API!.getStats().inventory as Record<string, number>,

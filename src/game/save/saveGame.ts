@@ -10,6 +10,7 @@ import { isWeatherKind } from '../weather/weatherTypes'
 import { isPlayerAppearance } from '../interiors/interiorTypes'
 import { isValidMissionSave, type MissionSaveData } from '../missions/missionPersistence'
 import { isValidActivitySave, type ActivitySaveData } from '../criminalActivities/activityPersistence'
+import type { CommerceSaveData } from '../commerce/commercePersistence'
 
 export interface SnapshotInput {
   stats: PlayerStats
@@ -22,6 +23,9 @@ export interface SnapshotInput {
   playerHealth?: number
   missions?: MissionSaveData
   activities?: ActivitySaveData
+  storage?: Inventory
+  wardrobe?: { unlocked: string[] }
+  commerce?: CommerceSaveData
 }
 
 export function createSnapshot(input: SnapshotInput): SaveData {
@@ -39,6 +43,9 @@ export function createSnapshot(input: SnapshotInput): SaveData {
     playerHealth: input.playerHealth,
     missions: input.missions,
     activities: input.activities,
+    storage: input.storage,
+    wardrobe: input.wardrobe,
+    commerce: input.commerce,
   })
 }
 

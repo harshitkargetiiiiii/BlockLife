@@ -223,6 +223,9 @@ function objectiveSatisfiedBy(
       )
     case 'secure_proceeds':
       return event.type === 'activity_event' && event.event.type === 'proceeds_secured'
+    case 'deliver_restock':
+      // OBSERVE the commerce engine: the marked store was restocked by a delivery.
+      return event.type === 'store_restocked' && event.storeId === obj.storeId
   }
 }
 

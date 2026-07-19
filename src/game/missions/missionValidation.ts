@@ -41,8 +41,9 @@ function validateObjectiveRefs(
       break
     case 'rob_store':
     case 'secure_proceeds':
-      // Observes a robbery it doesn't own; only its marker anchor is validated
-      // here (the activity id is validated by the criminalActivities validator).
+    case 'deliver_restock':
+      // Observes a robbery/restock it doesn't own; only its marker anchor is
+      // validated here (activity/store ids validated by their own validators).
       if (!ctx.anchorIds.has(obj.anchorId)) errs.push(`${where}: unknown anchor '${obj.anchorId}'`)
       break
   }

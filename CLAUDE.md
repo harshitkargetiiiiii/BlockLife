@@ -76,7 +76,32 @@ regression) and `scripts/crime-gate.sh`.
 compiles 0 files and always passes. Only `-b --force` really typechecks.
 
 ## Current state
-Latest sprint: **Robbery Pursuit & Getaway Polish v1** — a pursuit/getaway layer
+Latest sprint: **Personal Economy, Inventory & Shopping v1** — a reusable
+life-sandbox commerce loop ON TOP of the existing economy/inventory/store-interior/
+robbery/apartment/wardrobe/mission/phone/save/streaming stacks (reimplementing
+none). A typed **item catalog** (`src/game/items/`: catalog + pure
+`inventoryService` + pure `itemEffects`) where the backpack + apartment storage
+stay `Record<itemId,qty>` (the legacy save shape) and capacity = occupied slots
+`Σ⌈qty/stackLimit⌉` (backpack 10, storage 40); ONE mutation path (giveItem/buyItem/
+useItem/discard/deposit/withdraw + the legacy coffee reducer all funnel through
+the service, guarded against overflow). ONE **commerce engine** (`src/game/commerce/`:
+store defs reuse the robbery interiors+registers, pure `canPurchase`, module-
+singleton `commerceRuntime` with lazy O(1) multi-interval restock reconcile — never
+per-frame, never while paused) — the store register opens the **Shop** during
+normal play (robbery still takes priority; a store refuses commerce while robbed/
+recovering via `storeClosedForCommerce`). Item effects are typed DATA interpreted
+by a pure service → a patch the store applies (stats/`setPlayerHealth`/`setAmmo`/
+wardrobe unlocks), consuming one only on success. **Shelf Run** (5th, data-only
+mission) OBSERVES a legitimate restock via the generic `deliver_restock` objective
++ `store_restocked` event (grants the crate through the normal item path; delivery
+restocks once via a receipt). Phone gains a **Bag** page; **Shop**/**Storage-transfer**
+panels; wardrobe premium colours (teal/gold) unlock via bought dyes. Save adds
+additive `storage`/`wardrobe.unlocked`/`commerce` fields (old `inventory` migrates
+via `sanitizeStacks`; malformed data fails safe). Coffee for Ravi is preserved on
+the new catalog/path. See [`docs/PERSONAL_ECONOMY_INVENTORY.md`](docs/PERSONAL_ECONOMY_INVENTORY.md).
+Gate green: unit **844**, E2E **194/194** (incl. new economy 13-case spec + 180s
+economy soak), visual **95/95** ×2, dist clean.
+Prior sprint: **Robbery Pursuit & Getaway Polish v1** — a pursuit/getaway layer
 ON TOP of the robbery + crime + police + mission + vehicle-identity stacks (never
 reimplementing them). Adds: a deterministic **police containment** phase machine
 (`src/game/criminalActivities/containmentLogic.ts`: none→responding→contained→

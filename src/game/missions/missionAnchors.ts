@@ -57,6 +57,11 @@ export const MISSION_ANCHORS: readonly MissionAnchor[] = [
   // entrance (the police containment focus), where the getaway car is parked
   // before the hit. Generous radius so a stopped car reads as "in the bay".
   anchor('fastexit_staging', 'meeting', [140, 0, -322], 5, 'Getaway Staging'),
+  // --- Shelf Run (Personal Economy, Inventory & Shopping v1) ---
+  // A supply depot in the Industrial Yard (beside the fixer's garage apron) and
+  // the Main St Convenience shopfront it stocks. Lawful commerce, not crime.
+  anchor('shelfrun_depot', 'pickup', [-176, 0, -232], 3, 'Supply Depot'),
+  anchor('shelfrun_store', 'delivery', [132, 0, -318], 4, 'Main St Convenience'),
 ]
 
 const BY_ID: Record<string, MissionAnchor> = Object.fromEntries(

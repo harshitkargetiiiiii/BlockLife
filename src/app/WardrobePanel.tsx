@@ -15,6 +15,7 @@ export function WardrobePanel() {
   const open = useGameStore((s) => s.ui.panel === 'wardrobe')
   const appearance = useGameStore((s) => s.appearance)
   const setAppearance = useGameStore((s) => s.setAppearance)
+  const isPaletteUnlocked = useGameStore((s) => s.isPaletteUnlocked)
   const closePanel = useGameStore((s) => s.closePanel)
 
   if (!open) return null
@@ -34,17 +35,23 @@ export function WardrobePanel() {
               {slot.icon} {slot.label}
             </div>
             <div className="wardrobe-swatches">
-              {APPEARANCE_PRESETS.map((preset) => (
-                <button
-                  key={preset.id}
-                  className={`wardrobe-swatch${appearance[slot.key] === preset.color ? ' wardrobe-swatch-active' : ''}`}
-                  style={{ background: preset.color }}
-                  title={preset.label}
-                  aria-label={`${slot.label}: ${preset.label}`}
-                  data-testid={`swatch-${slot.key}-${preset.id}`}
-                  onClick={() => setAppearance({ [slot.key]: preset.color })}
-                />
-              ))}
+              {APPEARANCE_PRESETS.map((preset) => {
+                const locked = !isPaletteUnlocked(preset.id)
+                return (
+                  <button
+                    key={preset.id}
+                    className={`wardrobe-swatch${appearance[slot.key] === preset.color ? ' wardrobe-swatch-active' : ''}${locked ? ' wardrobe-swatch-locked' : ''}`}
+                    style={{ background: preset.color }}
+                    title={locked ? `${preset.label} — locked (buy the dye at a store)` : preset.label}
+                    aria-label={`${slot.label}: ${preset.label}${locked ? ' (locked)' : ''}`}
+                    data-testid={`swatch-${slot.key}-${preset.id}`}
+                    disabled={locked}
+                    onClick={() => setAppearance({ [slot.key]: preset.color })}
+                  >
+                    {locked && <span className="wardrobe-swatch-lock" aria-hidden>🔒</span>}
+                  </button>
+                )
+              })}
             </div>
           </div>
         ))}

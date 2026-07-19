@@ -1590,3 +1590,71 @@ body,
   font-weight: 800;
   color: #f2c14e;
 }
+
+/* ---- Personal Economy, Inventory & Shopping v1 ---------------------------- */
+.btn-tiny {
+  padding: 2px 8px;
+  font-size: 11px;
+  border-radius: 6px;
+}
+/* Shop panel */
+.shop-panel { min-width: 340px; max-width: 420px; }
+.shop-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  color: #d8cfbe;
+  margin: 2px 0 8px;
+}
+.shop-closed {
+  font-size: 12px;
+  color: #e8927a;
+  margin-bottom: 6px;
+}
+.shop-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; max-height: 46vh; overflow-y: auto; }
+.shop-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 9px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 9px;
+}
+.shop-row-icon { font-size: 22px; }
+.shop-row-main { flex: 1; min-width: 0; }
+.shop-row-name { font-weight: 600; font-size: 13px; color: #f2ede2; }
+.shop-row-desc { font-size: 11px; color: #b6ad9c; }
+.shop-row-meta { display: flex; gap: 10px; font-size: 11px; margin-top: 2px; }
+.shop-row-price { color: #f2c14e; font-weight: 700; }
+.shop-row-stock { color: #9aa7b3; }
+.shop-buy:disabled { opacity: 0.5; cursor: not-allowed; }
+/* Phone bag */
+.phone-bag-cap, .storage-cap { font-weight: 400; color: #9aa7b3; }
+.phone-bag-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.phone-bag-item { display: flex; align-items: center; gap: 9px; }
+.phone-bag-icon { font-size: 22px; }
+.phone-bag-main { flex: 1; min-width: 0; }
+.phone-bag-name { font-weight: 600; font-size: 13px; }
+.phone-bag-qty { color: #9aa7b3; font-weight: 400; }
+.phone-bag-desc { font-size: 11px; color: #b6ad9c; }
+.phone-bag-effect { font-size: 11px; color: #7fd4c1; margin-top: 1px; }
+.phone-bag-actions { display: flex; align-items: center; gap: 5px; }
+.phone-bag-locked { font-size: 11px; color: #9aa7b3; }
+.phone-bag-confirm { display: flex; gap: 4px; }
+/* Apartment storage transfer */
+.storage-panel { min-width: 380px; max-width: 520px; }
+.storage-columns { display: flex; gap: 14px; }
+.storage-col { flex: 1; min-width: 0; }
+.storage-list { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-direction: column; gap: 5px; max-height: 42vh; overflow-y: auto; }
+.storage-row { display: flex; align-items: center; gap: 7px; padding: 5px 7px; background: rgba(255, 255, 255, 0.05); border-radius: 8px; }
+.storage-row-icon { font-size: 18px; }
+.storage-row-name { flex: 1; min-width: 0; font-size: 12px; }
+.storage-row-qty { color: #9aa7b3; }
+.storage-row-actions { display: flex; gap: 4px; }
+.storage-row-lock { font-size: 13px; opacity: 0.7; }
+@media (max-width: 640px) {
+  .storage-columns { flex-direction: column; }
+}
+/* Wardrobe lock */
+.wardrobe-swatch-locked { opacity: 0.4; cursor: not-allowed; position: relative; }
+.wardrobe-swatch-lock { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 12px; }

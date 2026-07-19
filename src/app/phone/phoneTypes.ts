@@ -9,6 +9,7 @@ export interface PhoneAppDef {
 export const PHONE_APPS: PhoneAppDef[] = [
   { id: 'home', label: 'Home', icon: '🏠' },
   { id: 'map', label: 'Map', icon: '🗺️' },
+  { id: 'bag', label: 'Bag', icon: '🎒' },
   { id: 'quests', label: 'Quests', icon: '⭐' },
   { id: 'missions', label: 'Jobs+', icon: '📋' },
   { id: 'messages', label: 'Chats', icon: '💬' },

@@ -4,6 +4,7 @@ import type { NPCMemory } from '../npc/npcTypes'
 import type { Inventory } from '../interactables/interactionHandlers'
 import type { MissionSaveData } from '../missions/missionPersistence'
 import type { ActivitySaveData } from '../criminalActivities/activityPersistence'
+import type { CommerceSaveData } from '../commerce/commercePersistence'
 
 export const SAVE_KEY = 'blocklife-save-v1'
 export const SAVE_VERSION = 1
@@ -44,4 +45,13 @@ export interface SaveData {
    * saves lack it and load with fresh (un-robbed) stores.
    */
   activities?: ActivitySaveData
+  /**
+   * Personal Economy, Inventory & Shopping v1 (additive, optional): apartment
+   * storage stacks, unlocked wardrobe palettes, and store stock + restock clocks
+   * + bounded delivery receipts. Older saves lack these and load with empty
+   * storage, no unlocks, and fresh full stock. The BACKPACK reuses `inventory`.
+   */
+  storage?: Inventory
+  wardrobe?: { unlocked: string[] }
+  commerce?: CommerceSaveData
 }

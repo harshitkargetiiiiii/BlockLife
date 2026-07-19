@@ -59,9 +59,9 @@ function finishCourierFromWaterfront(c: MissionEngineContext) {
 function validationCtx() {
   return {
     anchorIds: new Set(MISSION_ANCHORS.map((a) => a.id)),
-    interactableIds: new Set(['courier_depot', 'hotcargo_fixer']),
+    interactableIds: new Set(['courier_depot', 'hotcargo_fixer', 'shelf_depot']),
     registeredSectorIds: new Set(SECTOR_DEFINITIONS.map((d) => d.id)),
-    phoneJobIds: new Set(['city_courier', 'corner_take', 'fast_exit']),
+    phoneJobIds: new Set(['city_courier', 'corner_take', 'fast_exit', 'shelf_run']),
   }
 }
 
@@ -76,6 +76,7 @@ describe('definitions & validation', () => {
       'hot_cargo',
       'corner_take',
       'fast_exit',
+      'shelf_run',
     ])
     for (const def of MISSION_DEFINITIONS) {
       const ids = def.objectives.map((o) => o.id)
@@ -519,6 +520,57 @@ describe('Fast Exit flow', () => {
   it('is save-blocking: an active Fast Exit is never serialized', () => {
     startMission('fast_exit', ctx())
     expect(serializeMissions().active).toBeUndefined()
+  })
+})
+
+// ---- Shelf Run: a lawful mission that OBSERVES a store restock ---------------
+
+describe('Shelf Run flow', () => {
+  it('advances collect → deliver, pays once, and starts a cooldown', () => {
+    const c = ctx({ gameHours: 500 })
+    startMission('shelf_run', c)
+    expect(missionRuntime.active?.objectiveIndex).toBe(0) // collect (interact depot)
+    applyMissionEvent({ type: 'interactable_used', interactableId: 'shelf_depot' }, c)
+    expect(missionRuntime.active?.objectiveIndex).toBe(1) // deliver_restock
+    // A restock at a DIFFERENT store does not advance.
+    applyMissionEvent({ type: 'store_restocked', storeId: 'store_kiosk' }, c)
+    expect(missionRuntime.active?.objectiveIndex).toBe(1)
+    // The marked store completes it.
+    applyMissionEvent({ type: 'store_restocked', storeId: 'store_mainst' }, c)
+    expect(missionRuntime.active).toBeNull()
+    expect(missionRuntime.result?.outcome).toBe('completed')
+    expect(c.applyRewards).toHaveBeenCalledWith([{ kind: 'money', amount: 100 }], 100)
+    expect(missionRuntime.cooldowns['shelf_run'].readyAtGameHours).toBe(508) // +8h
+  })
+
+  it('a stray restock after completion cannot re-grant the reward', () => {
+    const c = ctx({ gameHours: 500 })
+    startMission('shelf_run', c)
+    applyMissionEvent({ type: 'interactable_used', interactableId: 'shelf_depot' }, c)
+    applyMissionEvent({ type: 'store_restocked', storeId: 'store_mainst' }, c)
+    const calls = (c.applyRewards as ReturnType<typeof vi.fn>).mock.calls.length
+    applyMissionEvent({ type: 'store_restocked', storeId: 'store_mainst' }, c) // no active mission now
+    expect((c.applyRewards as ReturnType<typeof vi.fn>).mock.calls.length).toBe(calls)
+  })
+
+  it('fails on arrest before delivery and pays nothing', () => {
+    const c = ctx()
+    startMission('shelf_run', c)
+    applyMissionEvent({ type: 'interactable_used', interactableId: 'shelf_depot' }, c)
+    applyMissionEvent({ type: 'player_arrested' }, c)
+    expect(missionRuntime.result?.outcome).toBe('failed')
+    expect(c.applyRewards).not.toHaveBeenCalled()
+  })
+
+  it('is available from the start (a lawful phone job)', () => {
+    expect(
+      getMissionAvailability(getMissionDefinition('shelf_run')!, {
+        gameHours: 10,
+        activeMissionId: null,
+        discovered: new Set(),
+        cooldownReadyAt: {},
+      }),
+    ).toBe('available')
   })
 })
 
