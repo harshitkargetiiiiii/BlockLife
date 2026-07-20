@@ -275,6 +275,23 @@ readies a neighbour before you can `holdSectorReadiness` it, so the hold clears
 the ready flags directly (and release restores them if the roots are still
 mounted) rather than only suppressing future reports.
 
+### 20. Placement validation: model overhang/abutment per TYPE, never per coordinate
+The 3D-placement validators (`placementValidation.ts`, canonical bounds in
+`propPlacement.ts`) flag floating props + facade clips. Two legitimate overlaps
+would false-positive a naive visual-envelope-vs-building check: **tree foliage**
+draping over a roof edge, and a **ground AC condenser** sitting flush against its
+host wall. Issue §7 forbids grandfathering screenshot defects AND forbids
+per-coordinate exemptions, but allows encoding intentional overlap "explicitly
+with a narrow reason." The reason must be per-TYPE (semantic), not per-instance
+(a coordinate hack): `canopy: true` (trees) makes the facade check use the TRUNK
+(collision) footprint — a tree GROWING inside a building is the real defect, not
+leaves overhead; `abutsBuilding: true` (AC units) exempts the host-wall overlap a
+wall-mounted prop is designed to have. With those two models the whole authored
+city validates to ZERO defects (no data moved, no baseline churn). When you add a
+prop type, transcribe its real `Props.tsx` mesh into `propPlacement` (visual
+bounds ≠ collision) and run `cityPlacement.test.ts` — a failure names the exact
+entity + reason; fix the DATA or add a per-type model, never a coordinate skip.
+
 ---
 
 ## The verification workflow (honest gates)

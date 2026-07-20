@@ -19,6 +19,9 @@ export type AnomalyType =
   // static world
   | 'prop_unsupported'
   | 'prop_visual_intersect'
+  | 'prop_floating'
+  | 'prop_clipping'
+  | 'anchor_invalid'
   | 'world_ui_out_of_bounds'
   | 'building_missing_occluder'
   | 'district_capability_missing'

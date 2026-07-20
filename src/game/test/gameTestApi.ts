@@ -55,6 +55,7 @@ import {
   streamingRuntime,
 } from '../world/sectors/sectorStreaming'
 import { safetyRingRuntime } from '../world/sectors/sectorSafetyRing'
+import { getCityPlacementReports } from '../world/integrity/placementIntegrity'
 import { worldToSectorId } from '../world/sectors/worldGrid'
 import { INTERACTABLE_BY_ID } from '../../data/interactables'
 import { NPC_DEFS } from '../../data/npcs'
@@ -355,6 +356,13 @@ export interface GameTestApi {
       safety-ring backstop/watchdog; release restores normal readiness. */
   holdSectorReadiness: (id: string) => void
   releaseSectorReadiness: (id: string) => void
+  /** Per-district 3D-placement report (float/clip/anchor/duplicate/route) with
+      exact entity ids + reasons — empty failures = a clean city (issue §7/§8). */
+  getPlacementReport: () => {
+    sectorId: string
+    failures: { kind: string; entityId: string; otherId?: string; reason: string; correction?: number }[]
+    counts: { props: number; citizens: number; anchors: number; solids: number }
+  }[]
   /** Routing: graph counts + content-hash version. */
   getRoadGraphSummary: () => {
     version: number
@@ -1074,6 +1082,18 @@ export function installTestApi(): void {
     isSectorReady: (id: string) => isSectorReadyForGameplay(id),
     holdSectorReadiness: (id: string) => holdSectorReadiness(id),
     releaseSectorReadiness: (id: string) => releaseSectorReadiness(id),
+    getPlacementReport: () =>
+      getCityPlacementReports().map((r) => ({
+        sectorId: r.sectorId,
+        failures: r.failures.map((f) => ({
+          kind: f.kind,
+          entityId: f.entityId,
+          otherId: f.otherId,
+          reason: f.reason,
+          correction: f.correction,
+        })),
+        counts: r.counts,
+      })),
     // ---- Cross-District Traffic Routing v1 ---------------------------------
     getRoadGraphSummary: () => {
       const graph = getRoadGraph()

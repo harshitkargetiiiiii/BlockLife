@@ -198,6 +198,40 @@ wedge fix), reimplementing none of it.
   `isSectorReady` expose coverage — so the required streaming tests exercise the
   real runtime, not test-only state jumps.
 
+## 7d. 3D placement & authoring integrity (Slice 4, issue §7/§8)
+
+Floating props, geometry clipping through facades, citizens authored inside
+walls/poles and duplicated routes become authoring FAILURES (bug #7). A canonical
+placement model + pure validators + a whole-city gate, reimplementing no renderer.
+
+- **Canonical visual bounds, separate from collision**
+  ([`propPlacement.ts`](../src/game/world/propPlacement.ts), a LEAF like
+  `propSolidity`): per prop type the full VISUAL envelope (foliage/canopy/overhang)
+  + `[minY,maxY]` + support mode, transcribed from the `Props.tsx` meshes. Encodes
+  the one intentional `wall` mount (`porch_light`), and — as narrow PER-TYPE intents
+  (never per-coordinate) — `canopy` (tree foliage legitimately overhangs a roof, so
+  the facade check uses the TRUNK) and `abutsBuilding` (a ground AC condenser sits
+  flush against its host wall).
+- **Pure validators**
+  ([`placementValidation.ts`](../src/game/world/integrity/placementValidation.ts)):
+  base-contact (float/sink vs the support surface), visual-clip (penetration, not
+  adjacency) vs facades, anchor clearance (actual body radius) for every authored
+  person/marker position, near-duplicate citizen start+route (the lockstep class),
+  route-corridor vs solids, and GLB↔fallback ground-contact drift.
+- **Whole-city gate**
+  ([`sectorPlacementReport.ts`](../src/game/world/integrity/sectorPlacementReport.ts)
+  + [`cityPlacement.test.ts`](../src/game/world/integrity/cityPlacement.test.ts)):
+  the validators run over EVERY district's real authored data — one unit test per
+  district, all zero defects. A regression names the exact entity + reason. The
+  authored city was already clean (no data moved, no baseline churn); the 4
+  apparent overlaps were foliage-overhang + a wall-abutting AC, both modelled.
+- **Runtime anomalies + test API**
+  ([`placementIntegrity.ts`](../src/game/world/integrity/placementIntegrity.ts)):
+  the memoized city failures fold into the observe-only integrity scan, producing
+  the now-wired `prop_floating` / `prop_clipping` / `anchor_invalid` types; a future
+  authored defect surfaces live, not only in the unit gate. `getPlacementReport`
+  exposes the per-district report.
+
 ## 8. Deferred work (honest scope)
 
 This is a large multi-phase platform; the following are scoped + partially
@@ -208,12 +242,10 @@ scaffolded but NOT yet shipped in this pass, and are the next stretches:
   bulk — are fully clamped. Hard-clamping the AI-driven police pursuit + the
   off-grid interior-civilian scenes is deferred to avoid fighting their bespoke
   logic (they already dismount at validated points / use interior-aware avoid).
-- **3D prop/anchor validation** (bug #7, issue §7/§8): base-contact + visual-bounds
-  + anchor-clearance validation (which would auto-catch the lockstep defect above).
 - **Per-district certification compiler + generated full-city traversal + visual
-  sweep + 300s integrity soak** (issue §11–14): the occlusion + occupancy pieces
-  are the first certified capabilities; the full certificate + generated suites
-  are the remaining structural-prevention layer.
+  sweep + 300s integrity soak** (issue §11–14): the occlusion + occupancy +
+  placement pieces are the first certified capabilities; the full certificate +
+  generated suites are the remaining structural-prevention layer.
 
 ## 9. Coverage
 
@@ -237,11 +269,21 @@ scaffolded but NOT yet shipped in this pass, and are the next stretches:
   required sectors from velocity, coverage gap on an un-ready entering sector,
   soft backstop zeroes only the crossing component into an un-ready neighbour
   within the band + slides along the edge, watchdog self-heals a wedged loading
-  sector with a generation bump).
+  sector with a generation bump),
+  [`placementValidation`](../src/game/world/integrity/placementValidation.test.ts)
+  (13 — geometry helpers + one fixture per **regression proof #1–7**:
+  rooftop-float, awning-clip, citizen-in-wall, duplicate route, crosswalk-in-furniture,
+  doorway-too-close, GLB/fallback drift),
+  [`cityPlacement`](../src/game/world/integrity/cityPlacement.test.ts) (7 — every
+  district's real authored data validated, all zero defects),
+  [`placementIntegrity`](../src/game/world/integrity/placementIntegrity.test.ts)
+  (3 — failure→anomaly mapping, report-only kinds skipped, live city clean).
 - E2E: [`tests/e2e/world-integrity.spec.ts`](../tests/e2e/world-integrity.spec.ts)
-  (4) — registry mirrors live actors, idle+moving crowd never sustains overlap,
-  every district certifies occlusion parity live, and **no sustained person↔vehicle
+  (5) — registry mirrors live actors, idle+moving crowd never sustains overlap,
+  every district certifies occlusion parity live, **no sustained person↔vehicle
   / person↔solid / vehicle↔vehicle overlap** in a busy crossing (crowds + traffic),
+  and every district is **placement-clean** live (no float/clip/anchor defects,
+  no runtime placement anomaly),
   with **zero false traffic-stall diagnostics** at the signalized Harbor Cross
   (proving `blockedTime` excludes signal/crosswalk stops). Plus the existing
   `citizen-destinations` trip soak proves no occupancy-induced deadlock from the
