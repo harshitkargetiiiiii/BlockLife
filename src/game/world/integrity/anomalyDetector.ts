@@ -295,6 +295,53 @@ export function scanTrafficAnomalies(
   return out
 }
 
+// ---- streaming safety-ring scan ------------------------------------------
+
+/** Snapshot of the player safety ring the streaming anomaly scan reads. */
+export interface StreamingSafetySnapshot {
+  /** True when every required (current + entering) sector is gameplay-ready. */
+  covered: boolean
+  /** Required sector ids NOT ready this frame (the coverage gap). */
+  notReady: readonly string[]
+  /** True when the soft backstop clamped a boundary crossing this frame. */
+  backstopActive: boolean
+  /** Required sector ids the watchdog force-reloaded (wedged in loading). */
+  healed: readonly string[]
+}
+
+/**
+ * Surface the streaming safety-ring diagnostics (issue §6): a coverage gap
+ * around the active subject (`player_outside_coverage`) and any required sector
+ * the watchdog had to force-reload (`sector_stuck_loading`). Observe-only — the
+ * safety ring itself owns correction (prewarm + soft clamp + self-heal). A
+ * transient gap during normal streaming resolves within a scan or two; only a
+ * SUSTAINED gap (readiness truly behind) is a real problem, which the tracker's
+ * duration threshold separates out.
+ */
+export function scanStreamingAnomalies(snap: StreamingSafetySnapshot | null): RawAnomaly[] {
+  if (!snap) return []
+  const out: RawAnomaly[] = []
+  if (!snap.covered) {
+    out.push({
+      type: 'player_outside_coverage',
+      severity: 'error',
+      entityIds: snap.notReady.length > 0 ? [...snap.notReady] : ['player'],
+      sectorId: snap.notReady[0] ?? null,
+      detail: snap.backstopActive ? 'backstop_clamping' : 'coverage_gap',
+    })
+  }
+  for (const id of snap.healed) {
+    out.push({
+      type: 'sector_stuck_loading',
+      severity: 'error',
+      entityIds: [id],
+      sectorId: id,
+      detail: 'watchdog_self_heal',
+    })
+  }
+  return out
+}
+
 // ---- stateful tracker ----------------------------------------------------
 
 /**

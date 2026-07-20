@@ -4,11 +4,17 @@
  * fresh overlap detections into the tracker. Throttled to ~4 Hz, spatially
  * indexed, bounded — never an all-pairs per-frame pass, never a Zustand write.
  */
-import { AnomalyTracker, scanOccupancyAnomalies, scanTrafficAnomalies } from './anomalyDetector'
+import {
+  AnomalyTracker,
+  scanOccupancyAnomalies,
+  scanStreamingAnomalies,
+  scanTrafficAnomalies,
+} from './anomalyDetector'
 import { collectAllEntities } from './entityAdapters'
 import { getRegistryStats, resetEntityRegistry, syncDynamicEntities } from './entityRegistry'
 import { resetLiveObstacles } from './liveObstacles'
 import { trafficRuntime } from '../../traffic/trafficRuntime'
+import { consumeStreamingSafetySnapshot, resetSafetyRingRuntime } from '../sectors/sectorSafetyRing'
 import type { AnomalyRecord } from './anomalyTypes'
 
 /** ~4 Hz scan cadence (issue §10 suggests 4 Hz or lower where safe). */
@@ -32,9 +38,10 @@ export function runIntegrityScan(): void {
   const entities = collectAllEntities()
   syncDynamicEntities(entities)
   // ONE ingest per scan (ingest advances the tick counter): occupancy overlaps +
-  // traffic stall/honk-loop diagnostics from the live car runtime scalars.
+  // traffic stall/honk-loop diagnostics + streaming safety-ring coverage/self-heal.
   const raw = scanOccupancyAnomalies(entities)
   for (const t of scanTrafficAnomalies(trafficRuntime.cars.values())) raw.push(t)
+  for (const s of scanStreamingAnomalies(consumeStreamingSafetySnapshot())) raw.push(s)
   integrityRuntime.tracker.ingest(raw)
   integrityRuntime.totalScans++
   integrityRuntime.lastScanEntityCount = entities.length
@@ -84,4 +91,5 @@ export function resetIntegrityRuntime(): void {
   integrityRuntime.peakEntityCount = 0
   resetEntityRegistry()
   resetLiveObstacles()
+  resetSafetyRingRuntime()
 }

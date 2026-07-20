@@ -76,6 +76,8 @@ interface StreamingMetrics {
   staleCompletions: number
   maxQueueLength: number
   processedLastTick: number
+  /** Times the safety-ring watchdog force-reloaded a wedged required sector. */
+  selfHeals: number
 }
 
 export interface StreamingRuntime {
@@ -93,6 +95,10 @@ export interface StreamingRuntime {
   metrics: StreamingMetrics
   /** Dev/test: force lifecycles regardless of policy. */
   forced: Map<SectorId, 'unloaded' | 'warm' | 'active'>
+  /** Dev/test: sectors whose readiness is HELD — a `ready:true` report is
+      suppressed so the sector stays mid-load (simulates delayed streaming for
+      the safety-ring backstop/watchdog tests). Empty in normal play. */
+  readinessHold: Set<SectorId>
 }
 
 function createState(id: SectorId): SectorRuntimeState {
@@ -128,14 +134,17 @@ export const streamingRuntime: StreamingRuntime = {
     staleCompletions: 0,
     maxQueueLength: 0,
     processedLastTick: 0,
+    selfHeals: 0,
   },
   forced: new Map(),
+  readinessHold: new Set(),
 }
 
 export function resetStreamingRuntime(): void {
   streamingRuntime.states = new Map(getAllSectorIds().map((id) => [id, createState(id)]))
   streamingRuntime.queue.length = 0
   streamingRuntime.forced.clear()
+  streamingRuntime.readinessHold.clear()
   streamingRuntime.enabled = true
   streamingRuntime.started = false
   streamingRuntime.activeRing = 0
@@ -147,6 +156,7 @@ export function resetStreamingRuntime(): void {
     staleCompletions: 0,
     maxQueueLength: 0,
     processedLastTick: 0,
+    selfHeals: 0,
   }
 }
 
@@ -410,6 +420,8 @@ export function reportSectorVisuals(id: SectorId, generation: number, ready: boo
     streamingRuntime.metrics.staleCompletions += 1
     return // stale report from a superseded generation — ignore
   }
+  // DEV/test readiness hold: keep the sector mid-load to exercise the backstop.
+  if (ready && streamingRuntime.readinessHold.has(id)) return
   state.visualsReady = ready
 }
 
@@ -420,7 +432,37 @@ export function reportSectorColliders(id: SectorId, generation: number, ready: b
     streamingRuntime.metrics.staleCompletions += 1
     return // stale report from a superseded generation — ignore
   }
+  if (ready && streamingRuntime.readinessHold.has(id)) return
   state.collidersReady = ready
+}
+
+/**
+ * DEV/test only — hold a sector's readiness so a `ready:true` report is
+ * suppressed and it stays mid-load, simulating delayed streaming. The safety
+ * ring's backstop/watchdog + coverage anomaly then have something real to react
+ * to. `release` clears the hold AND re-reports readiness if the roots are still
+ * mounted (so the sector recovers without needing a remount).
+ */
+export function holdSectorReadiness(id: SectorId): void {
+  const state = streamingRuntime.states.get(id)
+  if (!state) return
+  streamingRuntime.readinessHold.add(id)
+  // Immediately drop readiness too, so a test can un-ready a sector that already
+  // finished loading (prewarm readies neighbours before a test can move there).
+  state.visualsReady = false
+  state.collidersReady = false
+}
+
+export function releaseSectorReadiness(id: SectorId): void {
+  const state = streamingRuntime.states.get(id)
+  if (!state) return
+  streamingRuntime.readinessHold.delete(id)
+  // Restore readiness if the roots are still mounted — their mount effect won't
+  // re-run on its own, so recovery would otherwise need a remount.
+  if (isSectorMounted(state)) {
+    state.visualsReady = true
+    state.collidersReady = true
+  }
 }
 
 export function reportSectorError(id: SectorId, message: string): void {
@@ -428,6 +470,29 @@ export function reportSectorError(id: SectorId, message: string): void {
   if (!state) return
   state.lifecycle = 'error'
   state.error = message
+}
+
+/**
+ * Force a wedged REQUIRED sector to reload from scratch — the safety-ring
+ * watchdog's bounded self-heal. Bumps the generation (so any in-flight
+ * readiness callback from the stuck generation is rejected as stale), clears
+ * the ready flags, and drops the sector to `unloaded`. The policy re-drives it
+ * to `loading` next tick with a fresh generation, so React remounts the roots
+ * (new `id:generation` key) and re-reports readiness. Only the watchdog calls
+ * this, and only past a bounded timeout, so it can't thrash.
+ */
+export function forceSectorReload(id: SectorId): void {
+  const state = streamingRuntime.states.get(id)
+  if (!state) return
+  state.generation += 1
+  state.visualsReady = false
+  state.collidersReady = false
+  state.loadStartedAt = null
+  state.loadedAt = null
+  state.loadDurationMs = null
+  state.error = null
+  state.lifecycle = 'unloaded'
+  streamingRuntime.metrics.selfHeals += 1
 }
 
 // ---- Queries --------------------------------------------------------------

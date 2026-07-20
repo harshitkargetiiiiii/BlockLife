@@ -8,6 +8,7 @@ import { registry } from '../world/runtimeRegistry'
 import { isGameplayInputBlocked, useGameStore } from '../store/useGameStore'
 import { approach } from '../utils/math'
 import { blockVelocityTowardCircle } from '../world/trafficAvoidance'
+import { clampVelocityToCoverage, noteBackstop } from '../world/sectors/sectorSafetyRing'
 import {
   areVehicleFootprintsOverlapping,
   CAR_HALF_LENGTH,
@@ -183,6 +184,19 @@ export function useVehicleController(bodyRef: RefObject<RapierRigidBody | null>)
     prevPos.current.x = t.x
     prevPos.current.z = t.z
     prevPos.current.valid = true
+
+    // Streaming safety ring (issue §6): last-resort backstop for fast driving.
+    // If the sector across the boundary the car is about to cross isn't ready,
+    // softly zero the crossing component so the car eases to the edge until it
+    // commits. Speed-aware prewarm normally readies it well ahead, so a car at
+    // speed almost never feels this; when it does, it auto-releases on load.
+    const safe = clampVelocityToCoverage(t.x, t.z, vx, vz)
+    if (safe.clamped) {
+      vx = safe.vx
+      vz = safe.vz
+      speedRef.current = Math.sign(speed) * Math.hypot(vx, vz)
+      noteBackstop()
+    }
 
     body.setLinvel({ x: vx, y: vel.y, z: vz }, true)
   })

@@ -104,10 +104,20 @@ mirrored for detection; ambient cars mirrored with real headings for
 vehicle-overlap SAT; and a **traffic stall / honk-loop** diagnosis
 (`scanTrafficAnomalies` over `CarRuntime.blockedTime`, which excludes signal/queue
 waits) for the intersection-pileup / endless-blocked-honk failure mode.
+**Slice 3 (Streaming Safety Ring, issue §6)** extends the transactional
+streaming guarantee from teleport-only to ORDINARY walking/driving
+(`sectorSafetyRing.ts`): a per-frame **coverage invariant** (the sector under the
+subject + the velocity-projected entering sector must be gameplay-ready), a
+**soft boundary backstop** wired into the player + vehicle controllers (zeroes
+only the crossing velocity component into an un-ready neighbour — the rare
+emergency; prewarm normally wins), and a **bounded watchdog self-heal**
+(`forceSectorReload`) for a required sector wedged in `loading` (LOADING sectors
+only, so the active ground under the player is never unloaded — CONVENTIONS #19).
+Produces the `player_outside_coverage` + `sector_stuck_loading` anomalies; DEV
+`holdSectorReadiness` injects delayed readiness for the streaming tests.
 **Deferred** (scoped, next stretches): police/interior/ejected movement clamps
-(now DETECTED), transactional streaming safety ring (#6), 3D prop/anchor
-validation (#7), full per-district certification compiler + generated
-traversal/visual/300s soak.
+(now DETECTED), 3D prop/anchor validation (#7), full per-district certification
+compiler + generated traversal/visual/300s soak.
 Do NOT commit until reviewed (issue mandate). See
 [`docs/WORLD_INTEGRITY_AND_CERTIFICATION.md`](docs/WORLD_INTEGRITY_AND_CERTIFICATION.md).
 
