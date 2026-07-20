@@ -116,4 +116,32 @@ test.describe('world integrity', () => {
     expect(result.trafficBlocked).toBe(0)
     expect(result.honkLoop).toBe(0)
   })
+
+  test('3D placement integrity: every district is clean (no float/clip/anchor defects)', async ({ page }) => {
+    await gotoGame(page)
+    await page.waitForTimeout(600)
+    const result = await page.evaluate(() => {
+      const api = window.GAME_TEST_API!
+      const report = api.getPlacementReport()
+      api.runIntegrityScan()
+      const placementAnoms = api
+        .getIntegrityAnomalies()
+        .filter((a) => ['prop_floating', 'prop_clipping', 'anchor_invalid'].includes(a.type)).length
+      return {
+        districts: report.length,
+        totalProps: report.reduce((s, d) => s + d.counts.props, 0),
+        totalFailures: report.reduce((s, d) => s + d.failures.length, 0),
+        placementAnoms,
+        sample: report
+          .flatMap((d) => d.failures.map((f) => `${d.sectorId} ${f.kind} ${f.entityId}: ${f.reason}`))
+          .slice(0, 6),
+      }
+    })
+    // A real, non-trivial city…
+    expect(result.districts).toBeGreaterThan(3)
+    expect(result.totalProps).toBeGreaterThan(100)
+    // …validated with zero real placement defects, and no runtime placement anomaly.
+    expect(result.totalFailures, JSON.stringify(result.sample)).toBe(0)
+    expect(result.placementAnoms).toBe(0)
+  })
 })

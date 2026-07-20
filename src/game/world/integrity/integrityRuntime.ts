@@ -15,6 +15,7 @@ import { getRegistryStats, resetEntityRegistry, syncDynamicEntities } from './en
 import { resetLiveObstacles } from './liveObstacles'
 import { trafficRuntime } from '../../traffic/trafficRuntime'
 import { consumeStreamingSafetySnapshot, resetSafetyRingRuntime } from '../sectors/sectorSafetyRing'
+import { getCityPlacementFailures, scanPlacementAnomalies } from './placementIntegrity'
 import type { AnomalyRecord } from './anomalyTypes'
 
 /** ~4 Hz scan cadence (issue §10 suggests 4 Hz or lower where safe). */
@@ -42,6 +43,9 @@ export function runIntegrityScan(): void {
   const raw = scanOccupancyAnomalies(entities)
   for (const t of scanTrafficAnomalies(trafficRuntime.cars.values())) raw.push(t)
   for (const s of scanStreamingAnomalies(consumeStreamingSafetySnapshot())) raw.push(s)
+  // Static 3D-placement defects (float/clip/anchor) — memoized, so a clean city
+  // adds nothing; a future authored defect surfaces here as a sustained anomaly.
+  for (const p of scanPlacementAnomalies(getCityPlacementFailures())) raw.push(p)
   integrityRuntime.tracker.ingest(raw)
   integrityRuntime.totalScans++
   integrityRuntime.lastScanEntityCount = entities.length

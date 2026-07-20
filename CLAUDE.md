@@ -115,9 +115,24 @@ emergency; prewarm normally wins), and a **bounded watchdog self-heal**
 only, so the active ground under the player is never unloaded — CONVENTIONS #19).
 Produces the `player_outside_coverage` + `sector_stuck_loading` anomalies; DEV
 `holdSectorReadiness` injects delayed readiness for the streaming tests.
+**Slice 4 (3D Placement & Authoring Integrity, issue §7/§8)** makes floating
+props, facade clips, citizens-in-walls and duplicated routes authoring FAILURES
+(bug #7): a canonical per-type **visual-bounds** table
+([`propPlacement.ts`](src/game/world/propPlacement.ts), SEPARATE from
+`PROP_SOLIDITY` collision, transcribed from the `Props.tsx` meshes) + pure
+validators ([`placementValidation.ts`](src/game/world/integrity/placementValidation.ts):
+base-contact, visual-clip, anchor-clearance, duplicate-citizen, route-corridor,
+GLB/fallback parity) + a **whole-city gate**
+([`cityPlacement.test.ts`](src/game/world/integrity/cityPlacement.test.ts): every
+district validates to 0 defects) + `prop_floating`/`prop_clipping`/`anchor_invalid`
+runtime anomalies ([`placementIntegrity.ts`](src/game/world/integrity/placementIntegrity.ts))
++ `getPlacementReport`. Foliage overhang (`canopy` → trunk-checked) + a
+wall-abutting AC (`abutsBuilding`) are narrow per-TYPE intents, NEVER per-coordinate
+exemptions (CONVENTIONS #20). The authored city was already clean — no data moved,
+no baseline churn.
 **Deferred** (scoped, next stretches): police/interior/ejected movement clamps
-(now DETECTED), 3D prop/anchor validation (#7), full per-district certification
-compiler + generated traversal/visual/300s soak.
+(now DETECTED), full per-district certification compiler + generated
+traversal/visual/300s soak.
 Do NOT commit until reviewed (issue mandate). See
 [`docs/WORLD_INTEGRITY_AND_CERTIFICATION.md`](docs/WORLD_INTEGRITY_AND_CERTIFICATION.md).
 
