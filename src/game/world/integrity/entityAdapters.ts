@@ -13,11 +13,12 @@
 import { registry } from '../runtimeRegistry'
 import { visibilityRuntime } from '../../visibility/visibilityRuntime'
 import { useGameStore } from '../../store/useGameStore'
+import { policeRuntime } from '../../police/policeRuntime'
+import { getDrivenCarFootprint, trafficRuntime } from '../../traffic/trafficRuntime'
+import { CAR_HALF_LENGTH, CAR_HALF_WIDTH } from '../../traffic/vehicleObstacles'
 import type { EntityDescriptor } from './entityTypes'
 
 const PERSON_RADIUS = 0.35
-const CAR_HALF_LENGTH = 2.1
-const CAR_HALF_WIDTH = 0.95
 
 /** Player + ambient citizens/named NPCs from `registry.npcPositions`. */
 export function collectPeopleEntities(out: EntityDescriptor[]): void {
@@ -50,37 +51,60 @@ export function collectPeopleEntities(out: EntityDescriptor[]): void {
       sourceRef: 'runtimeRegistry.npcPositions',
     })
   }
-}
-
-/** Driven car (while driving) + ambient traffic cars. */
-export function collectVehicleEntities(out: EntityDescriptor[]): void {
-  const store = useGameStore.getState()
-  if (store.mode === 'driving') {
-    const p = registry.vehiclePosition
+  // Dismounted police officers (own runtime, not npcPositions) — mirrored so
+  // the detector surfaces police↔civilian and police↔solid overlaps. Their
+  // movement is AI-driven from validated curbside dismount points; hard-clamping
+  // it is deferred to avoid fighting pursuit (documented in the feature doc).
+  for (const unit of policeRuntime.units.values()) {
+    if (unit.kind !== 'officer') continue
     out.push({
-      id: 'player_vehicle',
-      kind: 'driven_vehicle',
+      id: unit.id,
+      kind: 'police_officer',
       sectorId: null,
-      x: p.x,
-      z: p.z,
-      headingY: registry.playerHeading,
-      oriented: { x: p.x, z: p.z, halfLength: CAR_HALF_LENGTH, halfWidth: CAR_HALF_WIDTH, headingY: registry.playerHeading },
-      capabilities: ['renderable', 'solid', 'occupancy', 'navObstacle'],
-      sourceRef: 'runtimeRegistry.vehiclePosition',
+      x: unit.position[0],
+      z: unit.position[1],
+      radius: PERSON_RADIUS,
+      moving: true,
+      capabilities: ['renderable', 'occupancy'],
+      sourceRef: 'policeRuntime.units',
     })
   }
-  for (const [id, pos] of registry.ambientCarPositions) {
+}
+
+/** Driven car (while driving) + ambient traffic cars — real oriented footprints. */
+export function collectVehicleEntities(out: EntityDescriptor[]): void {
+  const driven = getDrivenCarFootprint()
+  if (driven) {
     out.push({
-      id,
+      id: driven.id,
+      kind: 'driven_vehicle',
+      sectorId: null,
+      x: driven.position.x,
+      z: driven.position.z,
+      headingY: driven.heading,
+      oriented: {
+        x: driven.position.x,
+        z: driven.position.z,
+        halfLength: driven.halfLength,
+        halfWidth: driven.halfWidth,
+        headingY: driven.heading,
+      },
+      capabilities: ['renderable', 'solid', 'occupancy', 'navObstacle'],
+      sourceRef: 'traffic.getDrivenCarFootprint',
+    })
+  }
+  for (const car of trafficRuntime.cars.values()) {
+    out.push({
+      id: car.id,
       kind: 'ambient_vehicle',
       sectorId: null,
-      x: pos.x,
-      z: pos.z,
-      // Heading not tracked for decorative ambient cars yet — approximated as
-      // axis-aligned; refined with the traffic-integration phase.
-      oriented: { x: pos.x, z: pos.z, halfLength: CAR_HALF_LENGTH, halfWidth: CAR_HALF_WIDTH, headingY: 0 },
+      x: car.x,
+      z: car.z,
+      headingY: car.heading,
+      // Real heading from the traffic runtime → accurate oriented-SAT overlap.
+      oriented: { x: car.x, z: car.z, halfLength: CAR_HALF_LENGTH, halfWidth: CAR_HALF_WIDTH, headingY: car.heading },
       capabilities: ['renderable', 'solid', 'occupancy', 'navObstacle'],
-      sourceRef: 'runtimeRegistry.ambientCarPositions',
+      sourceRef: 'trafficRuntime.cars',
     })
   }
 }

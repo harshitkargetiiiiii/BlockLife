@@ -90,9 +90,24 @@ DEV-only ~4 Hz `IntegritySystem`), **viewport-clamped** speech bubbles
 through `<Occludable>`; now certified + regression-guarded). Fixes screenshot bugs
 #1 (crowd phasing), #4 (off-screen bubbles), #5 (district occlusion parity); the
 Harbor Cross shuttle-lane **lockstep data defect** was de-conflicted (CONVENTIONS
-#17). **Deferred** (scoped, next stretches): person↔vehicle/solid live clamps
-(#2/#3), transactional streaming safety ring (#6), 3D prop/anchor validation (#7),
-full per-district certification compiler + generated traversal/visual/300s soak.
+#17). **Slice 2 (Live Spatial Integrity)** adds the live per-actor clamp
+(`personOccupancy.ts` + `liveObstacles.ts`): every citizen + named NPC runs
+spacing → on-foot player push, then — for **OFF-path** actors only (idle,
+queueing, sitting, frozen, panicking, displaced) — **hard oriented vehicle
+push-out** → **mandatory static-solid clamp** (fixes #2 person-on-car, #3
+person-in-building). **On-path walkers are skipped**: they already gap-cross via
+`decidePedestrian` + `CAR_CLEARANCE` on routes validated clear of solids, and
+clamping them every frame both fights their crossings and adds per-citizen CPU
+drag that slowed the headless yard-worker commute to a timeout (CONVENTIONS #18).
+Also: safe vehicle-exit/respawn via `findClearPlayerSpawn`; police officers
+mirrored for detection; ambient cars mirrored with real headings for
+vehicle-overlap SAT; and a **traffic stall / honk-loop** diagnosis
+(`scanTrafficAnomalies` over `CarRuntime.blockedTime`, which excludes signal/queue
+waits) for the intersection-pileup / endless-blocked-honk failure mode.
+**Deferred** (scoped, next stretches): police/interior/ejected movement clamps
+(now DETECTED), transactional streaming safety ring (#6), 3D prop/anchor
+validation (#7), full per-district certification compiler + generated
+traversal/visual/300s soak.
 Do NOT commit until reviewed (issue mandate). See
 [`docs/WORLD_INTEGRITY_AND_CERTIFICATION.md`](docs/WORLD_INTEGRITY_AND_CERTIFICATION.md).
 

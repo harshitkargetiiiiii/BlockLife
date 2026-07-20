@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { Footprint2D, OrientedBox2D } from './entityTypes'
 import {
   type Occupant,
+  centreInsideOrientedBox,
   personSpacingDisplacement,
   pushCircleOutOfAabb,
   pushCircleOutOfOrientedBox,
@@ -58,6 +59,21 @@ describe('pushCircleOutOfOrientedBox', () => {
     const lx = x * cos - z * sin
     const lz = x * sin + z * cos
     expect(inAabb(lx, lz, 0.35, { minX: -1, maxX: 1, minZ: -2, maxZ: 2 })).toBe(false)
+  })
+})
+
+describe('centreInsideOrientedBox (embedding vs grazing)', () => {
+  const b = { x: 0, z: 0, halfLength: 2, halfWidth: 1, headingY: 0 }
+  it('is true only when the centre is inside the box', () => {
+    expect(centreInsideOrientedBox(0, 0, b)).toBe(true) // dead centre
+    expect(centreInsideOrientedBox(0.9, 1.9, b)).toBe(true) // inside near corner
+    expect(centreInsideOrientedBox(1.1, 0, b)).toBe(false) // just outside +width → grazing
+    expect(centreInsideOrientedBox(0, 2.1, b)).toBe(false) // just outside +length → grazing
+  })
+  it('respects rotation', () => {
+    const rot = { x: 0, z: 0, halfLength: 2, halfWidth: 1, headingY: Math.PI / 2 }
+    expect(centreInsideOrientedBox(1.5, 0, rot)).toBe(true) // inside the rotated long axis
+    expect(centreInsideOrientedBox(0, 1.5, rot)).toBe(false) // outside the rotated short axis
   })
 })
 

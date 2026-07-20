@@ -231,6 +231,36 @@ issue is explicit: "do not grandfather screenshot defects" — fix the data. The
 structural prevention is anchor-clearance validation (a later World Integrity
 phase) that flags co-located authored anchors at build time.
 
+### 18. Don't clamp on-path walkers to cars/solids — they already avoid them
+A HARD per-frame person↔vehicle/solid clamp on a WALKING citizen fights the
+pedestrian logic it duplicates. Two failure modes, both surfaced only by the
+**full E2E** (`citizen-destinations`, the `cit_dd_yard_worker` cross-district
+commute); `tsc` + unit pass regardless:
+
+1. **Grazing friction.** Authored paths hug solids — sidewalks run along
+   buildings, crosswalk waits sit beside signal poles, door destinations are AT
+   the building face — all WITHIN a 0.36 body of a solid. A clamp there shoves the
+   walker off its path every frame, and the trip's tiny arrival tolerance
+   (`moveTowards` ≈ 0.03/frame) can never win → it ping-pongs and the 45 s
+   no-progress recovery loops forever. Mitigation: clamp ONLY when the person's
+   CENTRE is inside the solid (`centreInsideOrientedBox`) — genuine embedding —
+   and tolerate a body grazing an edge.
+2. **Per-frame CPU drag.** Even the centre-inside clamp runs a spatial solid
+   query + a vehicle-loop for *every* citizen *every* frame. Across ~77 citizens
+   that measurably lowers the **headless** E2E frame rate, so every timed trip
+   takes longer wall-clock time — the same commute drifted 3.3min → 4.9min → a
+   6.3min timeout as clamp work was added, with no logic change.
+
+Root fix (both modes): a walking citizen is `onPath` — it already gap-crosses via
+`decidePedestrian` and steps out of cars via `CAR_CLEARANCE`, on a route
+validated clear of solids — so `resolvePersonOccupancy` **skips the vehicle/solid
+clamps entirely** for it (keeping only the cheap trip-safe person-spacing + player
+push). The hard clamps are the safety net for OFF-path actors (idle, queueing,
+sitting, frozen, panicking, displaced) that have no per-frame avoidance and are
+the actual source of the "person on a car / in a building" bugs. Keep the
+detector's person↔vehicle/solid definition centre-inside too (`embedTolerance`),
+so grazing is never flagged as corruption on either side.
+
 ---
 
 ## The verification workflow (honest gates)

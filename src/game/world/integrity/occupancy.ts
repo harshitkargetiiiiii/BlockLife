@@ -82,6 +82,22 @@ export function pushCircleOutOfAabb(
 }
 
 /**
+ * True when a point's CENTRE lies inside an oriented box. Used to distinguish
+ * genuine embedding (centre inside a building → the bug) from a body merely
+ * grazing a wall/door/curb-furniture edge (centre outside → tolerated, so
+ * citizens can hug sidewalks, wait at crossings, and reach door destinations).
+ */
+export function centreInsideOrientedBox(x: number, z: number, box: OrientedBox2D): boolean {
+  const cos = Math.cos(box.headingY)
+  const sin = Math.sin(box.headingY)
+  const relX = x - box.x
+  const relZ = z - box.z
+  const lx = relX * cos - relZ * sin
+  const lz = relX * sin + relZ * cos
+  return Math.abs(lx) < box.halfWidth && Math.abs(lz) < box.halfLength
+}
+
+/**
  * Push a circle centre out of an oriented box (vehicle footprint). Transforms
  * into the box's local frame (heading = atan2(dx,dz), forward = (sin,cos)),
  * resolves as an AABB, transforms back.

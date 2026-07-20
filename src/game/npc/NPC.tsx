@@ -8,7 +8,7 @@ import { registry } from '../world/runtimeRegistry'
 import { useGameStore } from '../store/useGameStore'
 import { lerpAngle } from '../utils/math'
 import { pushOutOfCircle } from '../world/trafficAvoidance'
-import { separateWalkerFromPeople } from '../world/personSeparation'
+import { resolvePersonOccupancy } from '../world/integrity/personOccupancy'
 import { CROSSWALKS, SIGNALLED_CROSSWALK_IDS } from '../traffic/trafficData'
 import { decidePedestrian } from '../traffic/pedestrianRules'
 import { getPedestrianSignal, getPhaseAt } from '../traffic/signalRules'
@@ -281,9 +281,6 @@ export function NPC({ def }: { def: NPCDef }) {
         )
         if (p) rt.pos = [p.x, p.z]
       }
-      // …and don't phase through other people while moving.
-      if (rt.walking) separateWalkerFromPeople(rt.pos, def.id, dt, rt.heading)
-
       // Ambient speech bubbles on a randomized timer — long enough to read,
       // rare enough to stay charming.
       const t = clock.elapsedTime
@@ -296,6 +293,13 @@ export function NPC({ def }: { def: NPCDef }) {
         rt.nextBubbleAt = t + 18 + Math.random() * 22
       }
     }
+
+    // Universal post-movement occupancy for every NAMED NPC — same contract as
+    // ambient citizens: person spacing + on-foot player push for all, and the
+    // hard vehicle/solid clamps for OFF-path (idle) NPCs. A walking NPC is on its
+    // authored route and already steps out of cars (above), so it is treated as
+    // on-path and the clamps are skipped to avoid fighting its patrol.
+    resolvePersonOccupancy(rt.pos, def.id, dt, rt.walking, rt.walking)
 
     const bob =
       rt.walking && !store.worldPaused ? Math.abs(Math.sin(clock.elapsedTime * 8)) * 0.06 : 0
