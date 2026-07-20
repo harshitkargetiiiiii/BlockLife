@@ -19,6 +19,7 @@ import {
   isTeleportDestinationReady,
   teleportRuntime,
 } from './teleportCoordinator'
+import { stepPlayerSafetyRing } from './sectorSafetyRing'
 import { commitPlayerTeleport } from '../runtimeRegistry'
 
 /**
@@ -101,6 +102,21 @@ export function SectorDirector() {
     contextScratch.routedVehiclePrewarmSectorIds = getRoutePrewarmSectorIds()
 
     updateStreaming(contextScratch, clock.elapsedTime * 1000)
+
+    // Safety ring (issue §6): after the streaming tick, evaluate coverage
+    // around the active subject and run the bounded stuck-sector watchdog. The
+    // movement backstop that consumes this is applied in the Player/Vehicle
+    // controllers; here we only observe + self-heal.
+    stepPlayerSafetyRing(
+      {
+        playerX: anchorX,
+        playerZ: anchorZ,
+        playerVelocityX: l.vx,
+        playerVelocityZ: l.vz,
+        locationMode: indoors ? 'apartment' : 'city',
+      },
+      clock.elapsedTime * 1000,
+    )
 
     // Deferred teleport: commit the held move once the destination sector
     // reports ready (it streams at top priority via the context above).

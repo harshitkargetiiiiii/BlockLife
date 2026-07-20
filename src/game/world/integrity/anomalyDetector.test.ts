@@ -6,6 +6,7 @@ import {
   circleOrientedDepth,
   orientedBoxesOverlap,
   scanOccupancyAnomalies,
+  scanStreamingAnomalies,
   scanTrafficAnomalies,
 } from './anomalyDetector'
 import type { RawAnomaly } from './anomalyTypes'
@@ -135,6 +136,49 @@ describe('scanTrafficAnomalies (endless blocked / honk-loop diagnosis)', () => {
   it('respects custom thresholds', () => {
     expect(scanTrafficAnomalies([car('c1', 6)], { blockedStallSeconds: 5 })).toHaveLength(1)
     expect(scanTrafficAnomalies([car('c1', 6)], { blockedStallSeconds: 8 })).toHaveLength(0)
+  })
+})
+
+describe('scanStreamingAnomalies (safety-ring coverage / self-heal)', () => {
+  it('reports nothing for a null snapshot or full coverage', () => {
+    expect(scanStreamingAnomalies(null)).toEqual([])
+    expect(
+      scanStreamingAnomalies({ covered: true, notReady: [], backstopActive: false, healed: [] }),
+    ).toEqual([])
+  })
+
+  it('flags player_outside_coverage with the un-ready sector ids', () => {
+    const raw = scanStreamingAnomalies({
+      covered: false,
+      notReady: ['s1_0'],
+      backstopActive: false,
+      healed: [],
+    })
+    expect(raw).toHaveLength(1)
+    expect(raw[0].type).toBe('player_outside_coverage')
+    expect(raw[0].entityIds).toEqual(['s1_0'])
+    expect(raw[0].detail).toBe('coverage_gap')
+  })
+
+  it('notes when the soft backstop is actively clamping', () => {
+    const raw = scanStreamingAnomalies({
+      covered: false,
+      notReady: ['s1_0'],
+      backstopActive: true,
+      healed: [],
+    })
+    expect(raw[0].detail).toBe('backstop_clamping')
+  })
+
+  it('emits a sector_stuck_loading for each watchdog self-heal', () => {
+    const raw = scanStreamingAnomalies({
+      covered: true,
+      notReady: [],
+      backstopActive: false,
+      healed: ['s2_0', 's2_1'],
+    })
+    expect(raw.map((r) => r.type)).toEqual(['sector_stuck_loading', 'sector_stuck_loading'])
+    expect(raw.map((r) => r.entityIds[0])).toEqual(['s2_0', 's2_1'])
   })
 })
 

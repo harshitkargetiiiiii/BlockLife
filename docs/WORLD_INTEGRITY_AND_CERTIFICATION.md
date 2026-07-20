@@ -165,6 +165,39 @@ car wedged behind a road-blocker past the recovery window — the "endless
 blocked/honking" failure mode — without misfiring on normal signal/crosswalk stops
 (live-verified zero at the signalized Harbor Cross crossing).
 
+## 7c. Streaming safety ring — free-locomotion coverage (Slice 3, issue §6)
+
+[`sectorSafetyRing.ts`](../src/game/world/sectors/sectorSafetyRing.ts) extends the
+transactional streaming guarantee — previously teleport-only — to ORDINARY
+walking/driving, so the active subject never reaches an area whose
+floor/colliders/visuals aren't ready ("blank city on a boundary crossing", bug #6).
+Built on the existing lifecycle + generation-safe readiness (the missions-sprint
+wedge fix), reimplementing none of it.
+
+- **Coverage invariant, every frame**: `evaluatePlayerSafetyRing` computes the
+  REQUIRED sectors — the one under the subject + the velocity-projected sector
+  being entered — and checks each `isSectorReadyForGameplay`. The `SectorDirector`
+  runs it after the streaming tick (`stepPlayerSafetyRing`).
+- **Soft boundary backstop** (`clampVelocityToCoverage`): the rare last-resort. If
+  the sector across the boundary the subject is about to cross isn't ready, the
+  crossing velocity component is softly zeroed (the subject slides the edge until
+  it commits, then proceeds) — wired into BOTH the on-foot player and the driven
+  car. Speed-aware prewarm (velocity-lead, already in `computeDesiredLifecycles`)
+  means a subject at speed almost never feels it; when it fires it auto-releases
+  on load. Never freezes the game, never teleports the subject back.
+- **Bounded watchdog self-heal** (`healStuckRequiredSectors` +
+  `forceSectorReload`): a required sector wedged in `loading` past a bounded
+  timeout is force-reloaded (generation bumped → stale callbacks rejected → React
+  remounts fresh). It only touches `loading` sectors, so it never unloads the
+  active ground under the player.
+- **Typed anomalies**: the observe-only scan (`scanStreamingAnomalies`, §4) now
+  produces the previously-declared `player_outside_coverage` (coverage gap /
+  backstop clamping) and `sector_stuck_loading` (watchdog self-heal) records.
+- **DEV controls + test API**: `holdSectorReadiness`/`releaseSectorReadiness`
+  inject delayed readiness (suppress a `ready:true` report), and `getSafetyRing` /
+  `isSectorReady` expose coverage — so the required streaming tests exercise the
+  real runtime, not test-only state jumps.
+
 ## 8. Deferred work (honest scope)
 
 This is a large multi-phase platform; the following are scoped + partially
@@ -175,9 +208,6 @@ scaffolded but NOT yet shipped in this pass, and are the next stretches:
   bulk — are fully clamped. Hard-clamping the AI-driven police pursuit + the
   off-grid interior-civilian scenes is deferred to avoid fighting their bespoke
   logic (they already dismount at validated points / use interior-aware avoid).
-- **Transactional sector streaming safety ring** (bug #6, issue §6): the current
-  teleport coordinator already gates teleports; the free-locomotion safety ring
-  + generation-atomic readiness + watchdog are not yet built.
 - **3D prop/anchor validation** (bug #7, issue §7/§8): base-contact + visual-bounds
   + anchor-clearance validation (which would auto-catch the lockstep defect above).
 - **Per-district certification compiler + generated full-city traversal + visual
@@ -202,7 +232,12 @@ scaffolded but NOT yet shipped in this pass, and are the next stretches:
   mandatory solid clamp ejects an OFF-path person from a building, hard vehicle
   clamp off a car, on-foot player push, an **on-path walker SKIPS the clamps**
   (trusts its validated route), `findClearPlayerSpawn` clears solids/vehicles/people
-  incl. the coincident case), + `personSeparation` universal-spacing cases (3).
+  incl. the coincident case), + `personSeparation` universal-spacing cases (3),
+  [`sectorSafetyRing`](../src/game/world/sectors/sectorSafetyRing.test.ts) (13 —
+  required sectors from velocity, coverage gap on an un-ready entering sector,
+  soft backstop zeroes only the crossing component into an un-ready neighbour
+  within the band + slides along the edge, watchdog self-heals a wedged loading
+  sector with a generation bump).
 - E2E: [`tests/e2e/world-integrity.spec.ts`](../tests/e2e/world-integrity.spec.ts)
   (4) — registry mirrors live actors, idle+moving crowd never sustains overlap,
   every district certifies occlusion parity live, and **no sustained person↔vehicle
@@ -211,6 +246,10 @@ scaffolded but NOT yet shipped in this pass, and are the next stretches:
   (proving `blockedTime` excludes signal/crosswalk stops). Plus the existing
   `citizen-destinations` trip soak proves no occupancy-induced deadlock from the
   solid/vehicle clamps.
+  [`tests/e2e/streaming-safety-ring.spec.ts`](../tests/e2e/streaming-safety-ring.spec.ts)
+  (2) — the coverage invariant holds at spawn AND after a cross-district teleport
+  (backstop inert in normal play), and delayed readiness opens a coverage gap +
+  `player_outside_coverage` anomaly that auto-recovers once readiness commits.
 
 ## 10. Invariants held
 

@@ -11,6 +11,7 @@ import { registry } from '../world/runtimeRegistry'
 import { isGameplayInputBlocked, useGameStore } from '../store/useGameStore'
 import { approach, lerpAngle } from '../utils/math'
 import { blockVelocityTowardCircle } from '../world/trafficAvoidance'
+import { clampVelocityToCoverage, noteBackstop } from '../world/sectors/sectorSafetyRing'
 
 const IDLE_KEYS: MovementKeys = { forward: false, back: false, left: false, right: false, run: false }
 
@@ -122,6 +123,17 @@ export function PlayerController() {
       )
       appliedX = adjusted.x
       appliedZ = adjusted.z
+    }
+
+    // Streaming safety ring (issue §6): the rare last-resort backstop. If the
+    // sector just across the boundary the player is about to cross isn't ready
+    // yet, softly zero the crossing component so they slide the edge until it
+    // commits (prewarm normally readies it long before, so this seldom fires).
+    const safe = clampVelocityToCoverage(t.x, t.z, appliedX, appliedZ)
+    if (safe.clamped) {
+      appliedX = safe.vx
+      appliedZ = safe.vz
+      noteBackstop()
     }
 
     const bodyVel = body.linvel()

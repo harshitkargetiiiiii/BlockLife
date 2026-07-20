@@ -49,8 +49,12 @@ import { routeRuntime } from '../traffic/routing/routeRuntime'
 import { SECTOR_DEFINITIONS, getSectorDefinition } from '../world/sectors/sectorRegistry'
 import {
   getSectorRuntimeState,
+  holdSectorReadiness,
+  isSectorReadyForGameplay,
+  releaseSectorReadiness,
   streamingRuntime,
 } from '../world/sectors/sectorStreaming'
+import { safetyRingRuntime } from '../world/sectors/sectorSafetyRing'
 import { worldToSectorId } from '../world/sectors/worldGrid'
 import { INTERACTABLE_BY_ID } from '../../data/interactables'
 import { NPC_DEFS } from '../../data/npcs'
@@ -336,6 +340,21 @@ export interface GameTestApi {
   getOcclusionParity: () => OcclusionParityReport
   /** Live occluder-registration cross-check: missing + phantom ids. */
   getLiveOcclusionParity: () => LiveOcclusionParity
+  /** Streaming safety-ring status around the active subject (issue §6). */
+  getSafetyRing: () => {
+    covered: boolean
+    currentSector: string
+    enteringSector: string
+    notReady: string[]
+    selfHeals: number
+    backstops: number
+  } | null
+  /** True when a sector's floor + colliders + visuals are gameplay-ready. */
+  isSectorReady: (id: string) => boolean
+  /** DEV: hold a sector mid-load (suppress its ready report) to exercise the
+      safety-ring backstop/watchdog; release restores normal readiness. */
+  holdSectorReadiness: (id: string) => void
+  releaseSectorReadiness: (id: string) => void
   /** Routing: graph counts + content-hash version. */
   getRoadGraphSummary: () => {
     version: number
@@ -1040,6 +1059,21 @@ export function installTestApi(): void {
           .filter((o) => !o.descriptor.linkedTo)
           .map((o) => o.descriptor.id),
       ),
+    getSafetyRing: () => {
+      const s = safetyRingRuntime
+      if (!s.lastStatus) return null
+      return {
+        covered: s.lastStatus.covered,
+        currentSector: s.lastStatus.currentSector,
+        enteringSector: s.lastStatus.enteringSector,
+        notReady: [...s.lastStatus.notReady],
+        selfHeals: s.totalSelfHeals,
+        backstops: s.totalBackstops,
+      }
+    },
+    isSectorReady: (id: string) => isSectorReadyForGameplay(id),
+    holdSectorReadiness: (id: string) => holdSectorReadiness(id),
+    releaseSectorReadiness: (id: string) => releaseSectorReadiness(id),
     // ---- Cross-District Traffic Routing v1 ---------------------------------
     getRoadGraphSummary: () => {
       const graph = getRoadGraph()

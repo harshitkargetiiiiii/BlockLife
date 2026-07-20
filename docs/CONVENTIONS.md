@@ -261,6 +261,20 @@ the actual source of the "person on a car / in a building" bugs. Keep the
 detector's person↔vehicle/solid definition centre-inside too (`embedTolerance`),
 so grazing is never flagged as corruption on either side.
 
+### 19. The streaming safety-ring watchdog must only touch `loading` sectors
+The free-locomotion safety ring (`sectorSafetyRing.ts`) force-reloads a required
+sector wedged in `loading` (bounded self-heal). It must gate on
+`lifecycle === 'loading'` — NEVER force-reload the sector the player is standing
+on. The current sector is always `active`, so that gate excludes it by
+construction; broadening the watchdog to "any un-ready required sector" would
+force-reload the active ground under the player (unloading the floor → a fall),
+violating §6's "do not unload the last valid generation surrounding the player."
+The soft velocity backstop is the tool for an un-ready sector being ENTERED; the
+watchdog is only for one stuck being streamed IN. Also: in a test, `prewarm`
+readies a neighbour before you can `holdSectorReadiness` it, so the hold clears
+the ready flags directly (and release restores them if the roots are still
+mounted) rather than only suppressing future reports.
+
 ---
 
 ## The verification workflow (honest gates)
