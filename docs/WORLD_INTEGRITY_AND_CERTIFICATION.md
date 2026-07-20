@@ -83,9 +83,15 @@ OBSERVE-ONLY (occupancy/streaming own correction — no hidden second authority)
 Pure overlap scans (person↔person / person↔vehicle / person↔solid via the
 occupancy push math, vehicle↔vehicle via SAT) over a registry snapshot, spatially
 indexed by [`spatialHash.ts`](../src/game/world/integrity/spatialHash.ts) (never an
-all-pairs city scan). A stateful `AnomalyTracker` separates **transient contact**
-(tolerated) from **sustained corruption** (reported past ~8 ticks / 2s), dedupes,
-bounds its record set.
+all-pairs city scan), plus a pure **traffic stall / honk-loop scan**
+(`scanTrafficAnomalies`) over the live car runtime: a car whose `blockedTime`
+(seconds obstructed by a road-blocker — a person or the driven car, which
+**resets** on signal/queue/crosswalk waits so a red light never counts) outlives
+the staged traffic recovery reads as `traffic_blocked`, escalating to `honk_loop`
+once it has been stuck long enough to have cycled its honk several times — the
+"intersection pileup / endless blocked-honk" diagnosis. A stateful
+`AnomalyTracker` separates **transient contact** (tolerated) from **sustained
+corruption** (reported past ~8 ticks / 2s), dedupes, bounds its record set.
 
 Driven by [`integrityRuntime.ts`](../src/game/world/integrity/integrityRuntime.ts)
 + the DEV-only [`IntegritySystem`](../src/game/world/integrity/IntegritySystem.tsx)
@@ -121,15 +127,54 @@ On `window.GAME_TEST_API` (all `import.meta.env.DEV`-guarded, **0** strings in
 `runIntegrityScan`, `assertNoPersonVehicleOverlaps`, `assertNoPersonSolidOverlaps`,
 `getOcclusionParity`, `getLiveOcclusionParity`.
 
+## 7b. Live spatial integrity — person↔vehicle + person↔solid (Slice 2)
+
+[`personOccupancy.ts`](../src/game/world/integrity/personOccupancy.ts) composes the
+FULL live contract per actor: person spacing → on-foot player push → **hard
+oriented vehicle push-out** → **mandatory static-solid clamp**. Obstacles come
+from the repo's existing oriented-rectangle sources via
+[`liveObstacles.ts`](../src/game/world/integrity/liveObstacles.ts) — vehicles from
+`trafficRuntime.cars` + `getDrivenCarFootprint()` (rebuilt once per frame),
+buildings/props/water from `collectSolidFootprints()` (indexed once in a spatial
+hash). Wired into **every ambient citizen AND named NPC**, in every state. Runs
+only on live frames (after the pause-snap early-return → no visual-determinism
+impact).
+
+**On-path vs off-path (the key scoping).** Person spacing + the player push apply
+to every actor. The **hard vehicle + solid clamps** apply to **off-path** actors —
+idle, queueing, sitting, frozen, panicking or displaced people, which have no
+per-frame avoidance and are the actual source of the "person on a car / in a
+building" bugs (#2/#3). An actor actively walking an **authored path leg**
+(`onPath`) is skipped: it already gap-crosses roads via `decidePedestrian` and
+steps out of cars via `CAR_CLEARANCE`, on a route validated clear of solids — so
+clamping it every frame would only fight its crossings and add per-citizen CPU
+drag that slows the headless E2E (a cross-district commute regressed to a timeout
+under the always-on clamp; scoping it to off-path actors restored a ~3.3min trip).
+See CONVENTIONS #18. Where a clamp does fire, it fires only when the person's
+**centre is inside** the solid/car (genuine embedding); a body merely grazing an
+edge is tolerated, kept consistent with the detector's `embedTolerance`.
+
+`findClearPlayerSpawn()` clears a vehicle-exit / respawn point of nearby solids,
+vehicles AND people (wired into `exitVehicle`) — the player never exits onto a
+body (bug: invalid vehicle-exit positions). Dismounted **police officers** are
+mirrored into the registry so the detector surfaces police↔civilian / police↔solid
+overlaps; the ambient-vehicle mirror now carries **real headings** so the
+vehicle↔vehicle oriented-SAT overlap check catches genuine pileups. Complementing
+the geometric pileup check, the **traffic stall / honk-loop scan** (§4) flags a
+car wedged behind a road-blocker past the recovery window — the "endless
+blocked/honking" failure mode — without misfiring on normal signal/crosswalk stops
+(live-verified zero at the signalized Harbor Cross crossing).
+
 ## 8. Deferred work (honest scope)
 
 This is a large multi-phase platform; the following are scoped + partially
 scaffolded but NOT yet shipped in this pass, and are the next stretches:
 
-- **Person↔vehicle / person↔solid LIVE clamps** (bugs #2/#3): the pure resolver
-  + detectors exist and measure these overlaps; wiring the hard clamps into every
-  actor runtime (incl. police / interior civilians / ejected drivers) is the next
-  movement stretch (needs a full E2E each).
+- **Police / interior-civilian / ejected-driver movement CLAMPS**: these actors
+  are now DETECTED (police mirrored into the registry), and citizens/NPCs — the
+  bulk — are fully clamped. Hard-clamping the AI-driven police pursuit + the
+  off-grid interior-civilian scenes is deferred to avoid fighting their bespoke
+  logic (they already dismount at validated points / use interior-aware avoid).
 - **Transactional sector streaming safety ring** (bug #6, issue §6): the current
   teleport coordinator already gates teleports; the free-locomotion safety ring
   + generation-atomic readiness + watchdog are not yet built.
@@ -146,14 +191,26 @@ scaffolded but NOT yet shipped in this pass, and are the next stretches:
   [`entityRegistry`](../src/game/world/integrity/entityRegistry.test.ts) (8),
   [`occupancy`](../src/game/world/integrity/occupancy.test.ts) (15),
   [`viewportClamp`](../src/game/world/integrity/viewportClamp.test.ts) (7),
-  [`anomalyDetector`](../src/game/world/integrity/anomalyDetector.test.ts) (14),
+  [`anomalyDetector`](../src/game/world/integrity/anomalyDetector.test.ts) (20 —
+  incl. **police officer overlapping a civilian** since `police_officer` is a
+  person kind, and the **traffic stall / honk-loop** scan: stall past threshold,
+  honk-loop escalation alongside the stall, mixed-fleet isolation, custom
+  thresholds, and no-flag below threshold),
   [`integrityRuntime`](../src/game/world/integrity/integrityRuntime.test.ts) (3),
   [`occlusionParity`](../src/game/world/integrity/occlusionParity.test.ts) (6),
-  + `personSeparation` universal-spacing cases (3).
+  [`personOccupancy`](../src/game/world/integrity/personOccupancy.test.ts) (8 —
+  mandatory solid clamp ejects an OFF-path person from a building, hard vehicle
+  clamp off a car, on-foot player push, an **on-path walker SKIPS the clamps**
+  (trusts its validated route), `findClearPlayerSpawn` clears solids/vehicles/people
+  incl. the coincident case), + `personSeparation` universal-spacing cases (3).
 - E2E: [`tests/e2e/world-integrity.spec.ts`](../tests/e2e/world-integrity.spec.ts)
-  (3) — registry mirrors live actors, idle+moving crowd never sustains overlap,
-  every district certifies occlusion parity live. Plus the existing
-  `citizen-destinations` trip soak proves no occupancy-induced deadlock.
+  (4) — registry mirrors live actors, idle+moving crowd never sustains overlap,
+  every district certifies occlusion parity live, and **no sustained person↔vehicle
+  / person↔solid / vehicle↔vehicle overlap** in a busy crossing (crowds + traffic),
+  with **zero false traffic-stall diagnostics** at the signalized Harbor Cross
+  (proving `blockedTime` excludes signal/crosswalk stops). Plus the existing
+  `citizen-destinations` trip soak proves no occupancy-induced deadlock from the
+  solid/vehicle clamps.
 
 ## 10. Invariants held
 

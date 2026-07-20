@@ -23,12 +23,16 @@ export const MAX_ANOMALY_RECORDS = 256
 export const DEFAULT_SUSTAINED_TICKS = 8
 
 export interface OccupancyScanOptions {
-  /** Overlap deeper than this (world units) is material, not a graze. */
+  /** Person↔person overlap deeper than this (world units) is material, not a graze. */
   overlapTolerance?: number
+  /** Person↔vehicle/solid: flag only when depth exceeds this (centre inside). */
+  embedTolerance?: number
   cellSize?: number
 }
 
 const DEFAULT_TOLERANCE = 0.08
+/** Person↔vehicle/solid: flag only when the centre is inside (depth > radius). */
+const EMBED_TOLERANCE = 0.4
 
 // ---- pure geometry -------------------------------------------------------
 
@@ -105,6 +109,12 @@ export function scanOccupancyAnomalies(
   opts: OccupancyScanOptions = {},
 ): RawAnomaly[] {
   const tol = opts.overlapTolerance ?? DEFAULT_TOLERANCE
+  // Person↔vehicle/solid use a larger tolerance: a body grazing a car or a
+  // wall/door/curb (centre outside → depth ≤ the person radius) is tolerated, so
+  // only a person whose CENTRE is inside (genuine embedding) is flagged. This
+  // matches the live occupancy clamp (personOccupancy), so grazing is never
+  // treated as corruption on either side.
+  const embedTol = opts.embedTolerance ?? EMBED_TOLERANCE
   const cell = opts.cellSize ?? 4
   const people = entities.filter((e) => isPersonKind(e.kind) && e.radius != null)
   const vehicles = entities.filter((e) => isVehicleKind(e.kind) && e.oriented != null)
@@ -153,7 +163,7 @@ export function scanOccupancyAnomalies(
       const v = vehById.get(n.id)
       if (!v?.oriented) continue
       const depth = circleOrientedDepth(p.x, p.z, r, v.oriented)
-      if (depth > tol) {
+      if (depth > embedTol) {
         out.push({
           type: 'person_vehicle_overlap',
           severity: 'error',
@@ -178,7 +188,7 @@ export function scanOccupancyAnomalies(
       const s = solidById.get(n.id)
       if (!s?.footprint) continue
       const depth = circleAabbDepth(p.x, p.z, r, s.footprint)
-      if (depth > tol) {
+      if (depth > embedTol) {
         out.push({
           type: 'person_solid_overlap',
           severity: 'error',
@@ -213,6 +223,75 @@ export function scanOccupancyAnomalies(
     }
   }
 
+  return out
+}
+
+// ---- traffic stall / honk-loop scan --------------------------------------
+
+/** Minimal per-car view the traffic scan needs (a `CarRuntime` satisfies it). */
+export interface TrafficCarView {
+  id: string
+  x: number
+  z: number
+  /** Seconds obstructed by a ROAD-BLOCKER (person / driven car). Resets to 0 on
+   *  signal, queue and crosswalk waits — so a red light never accumulates it. */
+  blockedTime: number
+  reason?: string
+}
+
+export interface TrafficScanOptions {
+  /** blockedTime past this (s) → a stall the staged recovery hasn't cleared. */
+  blockedStallSeconds?: number
+  /** blockedTime past this (s) → an endless honk loop (≥ a few honk cycles). */
+  honkLoopSeconds?: number
+}
+
+/** A car obstructed this long has outlived the staged recovery — a real stall. */
+export const DEFAULT_BLOCKED_STALL_SECONDS = 10
+/** honkCooldown≈6s, honkAfterBlocked≈2.5s → past ~20s the car has honked ≥3×. */
+export const DEFAULT_HONK_LOOP_SECONDS = 20
+
+/**
+ * Detect a car stuck behind a road-blocker far longer than the staged traffic
+ * recovery should take (`traffic_blocked`), escalating to `honk_loop` once it has
+ * been stuck long enough to have cycled its honk several times — an "endless
+ * blocked / honking" pileup. Pure + observe-only: `blockedTime` already excludes
+ * legitimate signal/queue/crosswalk waits, so this never flags a normal red.
+ */
+export function scanTrafficAnomalies(
+  cars: Iterable<TrafficCarView>,
+  opts: TrafficScanOptions = {},
+): RawAnomaly[] {
+  const stall = opts.blockedStallSeconds ?? DEFAULT_BLOCKED_STALL_SECONDS
+  const loop = opts.honkLoopSeconds ?? DEFAULT_HONK_LOOP_SECONDS
+  const out: RawAnomaly[] = []
+  for (const c of cars) {
+    if (c.blockedTime <= stall) continue
+    out.push({
+      type: 'traffic_blocked',
+      severity: 'warning',
+      entityIds: [c.id],
+      sectorId: null,
+      x: c.x,
+      z: c.z,
+      depth: c.blockedTime,
+      detail: c.reason,
+    })
+    // Escalation emitted ALONGSIDE the stall (not instead of it), so the stall
+    // record stays continuously sustained while the loop signal layers on top.
+    if (c.blockedTime > loop) {
+      out.push({
+        type: 'honk_loop',
+        severity: 'warning',
+        entityIds: [c.id],
+        sectorId: null,
+        x: c.x,
+        z: c.z,
+        depth: c.blockedTime,
+        detail: c.reason,
+      })
+    }
+  }
   return out
 }
 

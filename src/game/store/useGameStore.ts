@@ -14,6 +14,7 @@ import { COFFEE_QUEST_ID } from '../../data/quests'
 import { INTERACTABLE_BY_ID } from '../../data/interactables'
 import { registry, teleportPlayer } from '../world/runtimeRegistry'
 import { findClearExitPosition } from '../world/collisionQuery'
+import { findClearPlayerSpawn } from '../world/integrity/liveObstacles'
 import { requestWeather, resetWeatherRuntime, weatherRuntime } from '../weather/weatherSystem'
 import { isWeatherKind, type WeatherKind } from '../weather/weatherTypes'
 import { getCrimeGameTime, resetCrimeSystems } from '../crime/crimeSystem'
@@ -676,7 +677,10 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     // Yaw-only body: rotation quaternion is (0, sin(h/2), 0, cos(h/2)).
     const rot = registry.vehicleBody?.rotation()
     const heading = rot ? 2 * Math.atan2(rot.y, rot.w) : 0
-    const [ex, ez] = findClearExitPosition(carPos.x, carPos.z, heading)
+    const [sx, sz] = findClearExitPosition(carPos.x, carPos.z, heading)
+    // Also clear the exit of dynamic hazards (citizens, ambient cars) that the
+    // static-only findClearExitPosition can't see — no exiting onto a body.
+    const [ex, ez] = findClearPlayerSpawn(sx, sz)
     const exit: [number, number, number] = [ex, 1.2, ez]
     if (playerBody) {
       playerBody.setEnabled(true)

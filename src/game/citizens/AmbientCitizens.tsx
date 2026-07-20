@@ -15,7 +15,7 @@ import { useGameStore } from '../store/useGameStore'
 import { moveTowards } from '../npc/npcBehavior'
 import { lerpAngle } from '../utils/math'
 import { pushOutOfCircle } from '../world/trafficAvoidance'
-import { resolvePersonSpacing } from '../world/personSeparation'
+import { resolvePersonOccupancy } from '../world/integrity/personOccupancy'
 import { panicFleeStep } from '../combat/panicFlee'
 import { getCrimeGameTime } from '../crime/crimeSystem'
 import { CROSSWALKS, SIGNALLED_CROSSWALK_IDS, TRAFFIC_TUNING } from '../traffic/trafficData'
@@ -346,6 +346,10 @@ function Citizen({ def }: { def: AmbientCitizen }) {
         s.heading = lerpAngle(s.heading, shelter.facing, dt * 5)
       }
     }
+    // The authored point this citizen is walking to this frame (a waypoint or
+    // its final door destination) — the occupancy solid clamp is skipped near it
+    // so a door-at-a-building-face stays reachable (see resolvePersonOccupancy).
+    let moveTarget: Vec2 | null = null
     // Crossing-aware destination trips: the plan supplies the waypoints;
     // the SHARED pedestrian etiquette handles every road crossing (legs
     // between crossing curbs pass through the zones by construction).
@@ -382,6 +386,7 @@ function Citizen({ def }: { def: AmbientCitizen }) {
         if (decision.mayMove) {
           const speed = (def.walkSpeed ?? 1.4) * (s.pedState === 'crossing' ? 1.25 : 1)
           const res = moveTowards(s.pos, target, speed * Math.min(dt, 0.1))
+          moveTarget = target
           s.pos = res.position
           s.walking = !res.arrived
           if (!res.arrived) {
@@ -467,6 +472,7 @@ function Citizen({ def }: { def: AmbientCitizen }) {
       if (decision.mayMove) {
         const speed = (def.walkSpeed ?? 1.4) * (s.pedState === 'crossing' ? 1.25 : 1)
         const res = moveTowards(s.pos, target, speed * Math.min(dt, 0.1))
+        moveTarget = target
         s.pos = res.position
         s.walking = !res.arrived
         if (!res.arrived) {
@@ -512,8 +518,16 @@ function Citizen({ def }: { def: AmbientCitizen }) {
     }
 
     // Universal post-movement occupancy: EVERY citizen (walking, idle, queueing,
-    // waiting to cross) separates here, so co-located idlers no longer overlap.
-    resolvePersonSpacing(s.pos, def.id, dt, s.walking)
+    // waiting to cross) runs the full contract here — person spacing + on-foot
+    // player + hard vehicle push-out + mandatory static-solid clamp — so no
+    // citizen ends a frame overlapping another body, standing on a car, or
+    // embedded in a building/prop.
+    // `moveTarget != null` ⇒ the citizen walked an authored path leg this frame,
+    // so it has crossing/car avoidance and a route validated clear of solids —
+    // the hard vehicle/solid clamps are skipped for it (they'd fight its trip).
+    // Idle, queueing and panicking citizens leave moveTarget null → fully clamped.
+    const onPath = moveTarget != null
+    resolvePersonOccupancy(s.pos, def.id, dt, s.walking, onPath)
 
     // Small ambient motion by behavior.
     const wobble =
