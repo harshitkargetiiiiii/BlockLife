@@ -254,13 +254,26 @@ covered automatically.
   `certifyDistrict` produces a machine-readable certificate per district over the
   §11 matrix (identity, bounds, floor/visual, building bounds/colliders/occlusion,
   prop visual/base, anchors, duplicate routes, road-graph, streaming ownership,
-  labels, anomaly coverage…) by AGGREGATING the validators already shipped
-  (occlusion parity, placement report, graph validation) + presence checks — no
-  new authority. A district FAILS on any error-severity check; warnings (a backdrop
-  legitimately lacking streets) never fail the verdict. `certifyCity` runs every
-  `SECTOR_DEFINITIONS` entry (central adapter + kit sectors + backdrops); ALL 9
-  certify. Surfaced in the **debug panel**, `getCityCertification` test API, and a
-  Vitest gate — visible, testable, generated for every district + future ones (§11).
+  signals, references, crosswalks, labels, generated traversal/visual/anomaly
+  coverage…). **Honest-gate contract:** every check is DERIVED from real evidence —
+  a check with no evidence is a `fail` (required capability) or an explicit
+  `skip`/`warn` with a documented reason (a capability that legitimately does not
+  apply), NEVER a hard-coded pass, and the verdict counts only error-severity
+  failures so a `skip` can never stand in for missing evidence. Concretely:
+  `traffic_signals` derives from the compiled intersections' signal plans;
+  `reference_integrity` from the compile-time reference validator (kit) / the
+  global road graph (central); `crosswalk_clearance` from the crossing wait-spots
+  vs. the district's solids; `building_occlusion` FAILS when a district has tall
+  buildings but no parity-report entry (never defaults to pass); `lighting_night_hook`
+  / `weather_hook` are global systems → honest `skip`s; and `traversal_coverage` /
+  `anomaly_probe_coverage` / `visual_coverage` are read from the Automated City
+  Sweeper's own generated output, so a district the generator drops FAILS — a new
+  district cannot be silently un-swept. `certifyCity` runs every `SECTOR_DEFINITIONS`
+  entry (central adapter + kit sectors + backdrops); ALL 9 certify under the real
+  checks. Surfaced in the **debug panel**, `getCityCertification` test API, and a
+  Vitest gate (19 cases incl. a NEGATIVE test per mandatory evidence source, proving
+  certification fails when each is absent) — generated for every district + future
+  ones (§11).
 - **Automated City Sweeper**
   ([`citySweep.ts`](../src/game/world/integrity/citySweep.ts)) generates traversal
   targets + visual-sweep frames from the compiled sector + anchor data (framed at
@@ -346,8 +359,12 @@ And one participant is out of scope BY DESIGN, not deferred:
   [`placementIntegrity`](../src/game/world/integrity/placementIntegrity.test.ts)
   (3 — failure→anomaly mapping, report-only kinds skipped, live city clean),
   [`districtCertification`](../src/game/world/integrity/districtCertification.test.ts)
-  (8 — whole city certifies 9/9 with 0 errors, deterministic, §11 matrix present;
-  fail paths: degenerate building, occlusion miss, prop clip/float, graph errors),
+  (19 — whole city certifies 9/9 with 0 errors under the REAL checks, deterministic,
+  §11 matrix present; a NEGATIVE test per mandatory evidence source proves the
+  verdict FAILS when it is absent: uncovered-by-sweeper traversal/anomaly, missing
+  occlusion entry, dangling reference, embedded crosswalk wait-spot, malformed
+  signal plan, missing visual frame, degenerate building, prop clip/float, graph
+  errors; + global hooks are honest skips),
   [`citySweep`](../src/game/world/integrity/citySweep.test.ts) (4 — every district
   covered, targets in-bounds, deterministic, one visual frame per map-visible
   district).
