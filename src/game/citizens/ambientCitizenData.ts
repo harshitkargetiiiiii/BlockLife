@@ -314,6 +314,10 @@ const EXPANSION_CITIZENS: AmbientCitizen[] = (
     { id: 'cit_i_yard_walker', district: 'industrial', archetype: 'Yard Inspector', behaviorType: 'visit_spot', position: [57.5, -11], waypoints: [[57.5, -11], [57.5, -16]], walkSpeed: 1.2, weatherBehavior: 'work_rain_or_clear' },
 
     // ---- Residential West ----
+    // Shared line with cit_w_jogger (both walked x=-52.2 in OPPOSITE directions →
+    // head-on lockstep at overlapping hours; CONVENTIONS #17). De-conflicted onto
+    // parallel lanes 0.9 apart, BOTH east of prop_tree_w1 (at x=-53) so neither
+    // clips the trunk — this one keeps the proven-clear original line.
     { id: 'cit_w_lane_walker', district: 'residential_west', archetype: 'Lane Walker', behaviorType: 'loop_walk', position: [-52.2, -16], waypoints: [[-52.2, -16], [-52.2, 16]], walkSpeed: 1.3, weatherBehavior: 'shelter_in_rain' },
     { id: 'cit_w_east_stroller', district: 'residential_west', archetype: 'Evening Stroller', behaviorType: 'loop_walk', position: [-43.8, -16], waypoints: [[-43.8, -16], [-43.8, 0], [-43.8, 12]], walkSpeed: 1.1, activeHours: [15, 23], weatherBehavior: 'avoid_rain' },
     { id: 'cit_w_porch_neighbor', district: 'residential_west', archetype: 'Neighbor', behaviorType: 'idle_stand', position: [-53.8, -5], heading: Math.PI / 2, weatherBehavior: 'avoid_rain', bubbleLines: ['quiet out west.'] },
@@ -321,7 +325,7 @@ const EXPANSION_CITIZENS: AmbientCitizen[] = (
     { id: 'cit_w_visitor', district: 'residential_west', archetype: 'Commons Visitor', behaviorType: 'visit_spot', position: [-43.7, -4.4], waypoints: [[-43.7, -4.4], [-43.7, -8.6]], walkSpeed: 1.2, activeHours: [9, 21], weatherBehavior: 'shelter_in_rain' },
     { id: 'cit_w_bench_sitter', district: 'residential_west', archetype: 'Bench Sitter', behaviorType: 'sit', position: [-42.6, -8.6], heading: -Math.PI / 2, activeHours: [9, 20], weatherBehavior: 'avoid_rain' },
     { id: 'cit_w_path_kid', district: 'residential_west', archetype: 'Path Kid', behaviorType: 'visit_spot', position: [-53.6, 9.5], waypoints: [[-53.6, 9.5], [-53.6, -1]], walkSpeed: 1.9, activeHours: [8, 19], weatherBehavior: 'avoid_rain', bubbleLines: ['race you!'] },
-    { id: 'cit_w_jogger', district: 'residential_west', archetype: 'West Jogger', behaviorType: 'loop_walk', position: [-52.2, 18], waypoints: [[-52.2, 18], [-52.2, -18]], walkSpeed: 3.2, activeHours: [6, 11], weatherBehavior: 'avoid_rain', bubbleLines: ['pace, pace…'] },
+    { id: 'cit_w_jogger', district: 'residential_west', archetype: 'West Jogger', behaviorType: 'loop_walk', position: [-51.3, 18], waypoints: [[-51.3, 18], [-51.3, -18]], walkSpeed: 3.2, activeHours: [6, 11], weatherBehavior: 'avoid_rain', bubbleLines: ['pace, pace…'] },
 
     // ---- Residential South ----
     { id: 'cit_s_promenader', district: 'residential_south', archetype: 'Promenader', behaviorType: 'loop_walk', position: [-16, 52.2], waypoints: [[-16, 52.2], [16, 52.2]], walkSpeed: 1.2, weatherBehavior: 'shelter_in_rain' },
@@ -357,7 +361,11 @@ const EXPANSION_CITIZENS: AmbientCitizen[] = (
 const HARBOR_CROSS_CITIZENS: AmbientCitizen[] = (
   [
     { id: 'cit_hc_loop_cw', district: 'downtown_gateway', archetype: 'Harbor Commuter', behaviorType: 'loop_walk', position: [41, -152.9], waypoints: [[41, -152.9], [55, -152.9], [55, -167.1], [41, -167.1]], walkSpeed: 1.4, weatherBehavior: 'any', bubbleLines: ['light’s about to change.'] },
-    { id: 'cit_hc_loop_ccw', district: 'downtown_gateway', archetype: 'Harbor Commuter', behaviorType: 'loop_walk', position: [55, -167.1], waypoints: [[55, -167.1], [55, -152.9], [41, -152.9], [41, -167.1]], walkSpeed: 1.3, weatherBehavior: 'any' },
+    // Concentric INNER lane (shrunk 0.9 off every edge of cit_hc_loop_cw's loop):
+    // the two commuters circle the same plaza in opposite directions but on lanes
+    // ≥0.9 apart (> PERSON_SEP_RADIUS 0.72), so they never meet head-on at a shared
+    // corner — the opposite-direction lockstep the 300s soak caught (CONVENTIONS #17).
+    { id: 'cit_hc_loop_ccw', district: 'downtown_gateway', archetype: 'Harbor Commuter', behaviorType: 'loop_walk', position: [54.1, -166.2], waypoints: [[54.1, -166.2], [54.1, -153.8], [41.9, -153.8], [41.9, -166.2]], walkSpeed: 1.3, weatherBehavior: 'any' },
     { id: 'cit_hc_south_shuttle', district: 'downtown_gateway', archetype: 'Dock Worker', behaviorType: 'visit_spot', position: [41, -154.6], waypoints: [[41, -154.6], [55, -154.6]], walkSpeed: 1.4, weatherBehavior: 'any', carriesBox: true },
     { id: 'cit_hc_east_shuttle', district: 'downtown_gateway', archetype: 'Pier Regular', behaviorType: 'visit_spot', position: [55, -152.9], waypoints: [[55, -152.9], [55, -167.1]], walkSpeed: 1.3, weatherBehavior: 'any', bubbleLines: ['harbor air.'] },
     { id: 'cit_hc_west_shuttle', district: 'downtown_gateway', archetype: 'Evening Walker', behaviorType: 'visit_spot', position: [41, -167.1], waypoints: [[41, -167.1], [41, -152.9]], walkSpeed: 1.2, weatherBehavior: 'any' },

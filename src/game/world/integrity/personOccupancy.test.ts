@@ -52,14 +52,31 @@ describe('live obstacles + person occupancy', () => {
     expect(pos).toEqual([99999, 99999])
   })
 
-  it('SKIPS the vehicle/solid clamps for an on-path walker (trusts its route)', () => {
-    // An on-path walker (onPath=true) already avoids cars via the pedestrian
-    // crossing logic and follows a route validated clear of solids, so the hard
-    // clamps are skipped — clamping every frame would fight its crossings/trip.
+  it('CLAMPS an ON-path walker embedded in a building (its own locomotion can drive it in)', () => {
+    // The contract is universal: no person ever ends a frame embedded in a
+    // building — NOT even an on-path walker. A walker shoved off its route can
+    // walk its OWN centre into a solid (measured in the 300s soak: a plaza
+    // stroller deep inside an apartment, moving=true), which no "was I pushed this
+    // frame" guard catches — so the solid clamp runs unconditionally. See
+    // CONVENTIONS #18.
     const building = collectSolidFootprints().find((s) => s.source === 'building')!
-    const pos: Vec2 = [building.position.x, building.position.z] // dead centre
-    resolvePersonOccupancy(pos, 'p', 1 / 60, true, /* onPath */ true)
-    expect(pos).toEqual([building.position.x, building.position.z]) // NOT clamped
+    const box = toBox(building)
+    const pos: Vec2 = [building.position.x, building.position.z] // dead centre, embedded
+    expect(insideBox(pos[0], pos[1], 0.36, box)).toBe(true) // starts embedded
+    resolvePersonOccupancy(pos, 'p', 1 / 60, /* isMoving */ true, /* onPath */ true)
+    expect(insideBox(pos[0], pos[1], 0.36, box)).toBe(false) // clamped out despite onPath
+  })
+
+  it('does NOT eject an on-path walker off a car (vehicle clamp stays off-path)', () => {
+    // The VEHICLE clamp remains off-path-only: an on-path walker gap-crosses
+    // BETWEEN cars via the pedestrian etiquette, and pushing it out of a car it is
+    // passing would fight that crossing and stall the trip (the commute timeout,
+    // CONVENTIONS #18). A car far from any solid so only the vehicle clamp could act.
+    trafficRuntime.cars.set('car1', { id: 'car1', x: 5000, z: 5000, heading: 0.7, speed: 3 } as never)
+    const box: OrientedBox2D = { x: 5000, z: 5000, halfLength: 1.95, halfWidth: 1.0, headingY: 0.7 }
+    const pos: Vec2 = [5000, 5000] // dead centre of the car
+    resolvePersonOccupancy(pos, 'p', 1 / 60, /* isMoving */ true, /* onPath */ true)
+    expect(insideBox(pos[0], pos[1], 0.36, box)).toBe(true) // NOT clamped off the car (on-path)
   })
 
   it('pushes a person off the on-foot player', () => {

@@ -32,6 +32,7 @@ import { streamingRuntime } from '../game/world/sectors/sectorStreaming'
 import { worldToSectorId } from '../game/world/sectors/worldGrid'
 import { COMPILED_SECTORS } from '../game/world/authoring/compiledSectors'
 import { validateCompiledSectorContent } from '../game/world/authoring/sectorAuthoring'
+import { certifyCity } from '../game/world/integrity/districtCertification'
 
 interface DebugInfo {
   position: string
@@ -50,6 +51,13 @@ function getAuthoringValidation(sectorId: string): string[] {
     authoringValidationCache.set(sectorId, errors)
   }
   return errors
+}
+
+// District certification is derived from immutable authored data — compute once.
+let cityCertCache: ReturnType<typeof certifyCity> | null = null
+function getCityCert(): ReturnType<typeof certifyCity> {
+  if (!cityCertCache) cityCertCache = certifyCity()
+  return cityCertCache
 }
 
 /** Developer readout, toggled with the Debug button or the ` key. */
@@ -360,6 +368,28 @@ export function DebugPanel() {
             if (rows.length === 0) rows.push(['sectors', 'none compiled'])
             return rows.map(([label, value]) => (
               <div className="debug-row" key={`authoring-${label}`}>
+                <span className="debug-label">{label}</span>
+                <span className="debug-value">{value}</span>
+              </div>
+            ))
+          })()}
+          <div className="debug-section" data-testid="debug-certification">
+            certification
+          </div>
+          {(() => {
+            const cert = getCityCert()
+            const rows: [string, string][] = [
+              ['city', `${cert.verdict === 'pass' ? '✓ CERTIFIED' : '✗ FAIL'} · ${cert.passed}/${cert.totalDistricts}`],
+              ...cert.districts.map(
+                (d) =>
+                  [
+                    d.sectorId,
+                    `${d.verdict === 'pass' ? '✓' : `✗ ${d.errors} err`}${d.warnings ? ` · ${d.warnings} warn` : ''}`,
+                  ] as [string, string],
+              ),
+            ]
+            return rows.map(([label, value]) => (
+              <div className="debug-row" key={`cert-${label}`}>
                 <span className="debug-label">{label}</span>
                 <span className="debug-value">{value}</span>
               </div>

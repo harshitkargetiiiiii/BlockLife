@@ -43,11 +43,12 @@ const _solids: OrientedBox2D[] = []
 /**
  * @param isMoving True when the actor moved this frame (movement-priority spacing).
  * @param onPath True when the actor is actively walking an AUTHORED path leg this
- *   frame — it has crossing/car avoidance (`decidePedestrian` / `CAR_CLEARANCE`)
- *   and follows a route validated clear of solids, so the hard vehicle/solid
- *   clamps are skipped (they would fight its crossings and stall its trip). Left
- *   false for idle, queueing, sitting, frozen, panicking or displaced actors —
- *   which have no per-frame avoidance and so are fully clamped off cars/solids.
+ *   frame — it has crossing/car avoidance (`decidePedestrian` / `CAR_CLEARANCE`),
+ *   so the hard VEHICLE push-out is skipped for it (it would fight its road
+ *   crossings and stall its trip). The mandatory static-solid clamp still runs —
+ *   a walker can drive its own centre into a building, so that guarantee is
+ *   universal. Left false for idle, queueing, sitting, frozen, panicking or
+ *   displaced actors — which additionally get the vehicle clamp.
  */
 export function resolvePersonOccupancy(
   pos: Vec2,
@@ -73,28 +74,41 @@ export function resolvePersonOccupancy(
     }
   }
 
-  // (5–6) HARD vehicle + static-solid exclusion apply to actors NOT following an
+  // (5) HARD oriented vehicle push-out applies to actors NOT following an
   // authored path — idle, queueing, sitting, frozen, panicking or displaced
-  // people, which lack per-frame avoidance and can end up on a car or embedded
-  // in a building. An on-path WALKER is skipped: it already avoids cars via the
-  // pedestrian crossing logic (`decidePedestrian` / `CAR_CLEARANCE`) and follows
-  // a route validated clear of solids — clamping it every frame would fight its
-  // crossings and stall long trips. Both clamps fire only when the CENTRE is
-  // inside (genuine embedding); body-grazing an edge is tolerated.
-  if (onPath) return
-
-  const vehicles = getVehicleObstacles()
-  for (let i = 0; i < vehicles.length; i++) {
-    const v = vehicles[i]
-    const dx = pos[0] - v.x
-    const dz = pos[1] - v.z
-    if (dx * dx + dz * dz > VEHICLE_CULL_SQ) continue
-    if (!centreInsideOrientedBox(pos[0], pos[1], v)) continue
-    const [nx, nz] = pushCircleOutOfOrientedBox(pos[0], pos[1], PERSON_RADIUS, v)
-    pos[0] = nx
-    pos[1] = nz
+  // people, which lack per-frame avoidance and can end up standing on a car. An
+  // on-path WALKER is skipped here: it gap-crosses BETWEEN cars via the pedestrian
+  // etiquette (`decidePedestrian` / `CAR_CLEARANCE`), and a per-frame push-out of
+  // a car it is legitimately passing fights that crossing and stalls the trip
+  // (measured: a cross-district commute regressed to a timeout). See CONVENTIONS
+  // #18. Fires only when the CENTRE is inside (genuine embedding).
+  if (!onPath) {
+    const vehicles = getVehicleObstacles()
+    for (let i = 0; i < vehicles.length; i++) {
+      const v = vehicles[i]
+      const dx = pos[0] - v.x
+      const dz = pos[1] - v.z
+      if (dx * dx + dz * dz > VEHICLE_CULL_SQ) continue
+      if (!centreInsideOrientedBox(pos[0], pos[1], v)) continue
+      const [nx, nz] = pushCircleOutOfOrientedBox(pos[0], pos[1], PERSON_RADIUS, v)
+      pos[0] = nx
+      pos[1] = nz
+    }
   }
 
+  // (6) MANDATORY static-solid clamp — for EVERY actor, on-path or not, so the
+  // "no person ever ends a frame embedded in a building/prop" contract actually
+  // holds. It runs UNCONDITIONALLY: a walker can drive its OWN centre into a
+  // building under its own locomotion (measured — a plaza stroller shoved off its
+  // route then walked itself deep into an apartment: inside=1, clampDepth=2.87,
+  // moving=true), which no "was I pushed by spacing/the player this frame" guard
+  // can catch, so gating the clamp on displacement let on-path embeddings persist.
+  // The cost is bounded: `getNearbySolids` is a spatial-hash lookup that returns
+  // empty for a walker in the open (the common case) — the whole-fleet iteration
+  // that regressed the commute is the VEHICLE clamp above, which stays off-path.
+  // Unlike the vehicle push-out this never fights a road crossing (roads carry no
+  // solids). Fires only on genuine centre-embedding; a body grazing an edge is
+  // tolerated (kept consistent with the detector's `embedTolerance`).
   getNearbySolids(pos[0], pos[1], SOLID_QUERY_RADIUS, _solids)
   for (let i = 0; i < _solids.length; i++) {
     if (!centreInsideOrientedBox(pos[0], pos[1], _solids[i])) continue

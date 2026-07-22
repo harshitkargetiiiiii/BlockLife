@@ -561,8 +561,29 @@ export function compileSectorAuthoringSpec(spec: SectorAuthoringSpec): CompiledS
     const template =
       getCitizenZoneTemplate(zone.templateId) ?? bad(`unknown citizen template ${zone.templateId}`)
     const t = template!
+    // Multiple path-FOLLOWING citizens sharing ONE linear path collide head-on at
+    // the midpoint (i=0 starts at one end, i=1 at the other, both on the same line)
+    // and can't separate — path-following overrides the perpendicular nudge, so
+    // the pair stays permanently overlapped (the lockstep class, CONVENTIONS #17).
+    // De-conflict structurally: give each walker its own PARALLEL lane, offset
+    // perpendicular to the path. A per-TEMPLATE fix, so every such zone is safe and
+    // future ones inherit it. Applies to the MOVING behaviors that walk the shared
+    // zone points — `loop_walk` AND `visit_spot` (the 300s soak caught count-2
+    // `visit_spot` freight/dock workers colliding, which the loop-only guard
+    // missed). Stationary behaviors (`sit`/`queue`/`idle_stand`) place differently
+    // and are left alone; `destination_trips` leave the zone for the ped graph.
+    const laneGap = 0.9
+    const pathFollowing = t.behaviorType === 'loop_walk' || t.behaviorType === 'visit_spot'
+    const usesLanes = pathFollowing && t.count > 1 && zone.points.length >= 2
+    const [ax, az] = zone.points[0]
+    const [bx, bz] = zone.points[1] ?? zone.points[0]
+    const segLen = Math.hypot(bx - ax, bz - az) || 1
+    const perpX = -(bz - az) / segLen
+    const perpZ = (bx - ax) / segLen
     for (let i = 0; i < t.count; i++) {
-      const start = zone.points[i % zone.points.length]
+      const lane = usesLanes ? (i - (t.count - 1) / 2) * laneGap : 0
+      const points = zone.points.map((p) => [p[0] + perpX * lane, p[1] + perpZ * lane] as Vec2)
+      const start = points[i % points.length]
       const id = `${spec.sectorId}_${zone.localId}_${i}`
       citizens.push({
         id,
@@ -570,7 +591,7 @@ export function compileSectorAuthoringSpec(spec: SectorAuthoringSpec): CompiledS
         archetype: t.archetype,
         behaviorType: t.behaviorType,
         position: [start[0], start[1]],
-        waypoints: zone.points.map((p) => [p[0], p[1]] as Vec2),
+        waypoints: points,
         walkSpeed: t.walkSpeed,
         activeHours: t.activeHours,
         weatherBehavior: t.weatherBehavior,
