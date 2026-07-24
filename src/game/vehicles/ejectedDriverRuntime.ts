@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import type { Vec2 } from '../world/worldTypes'
 import { registry } from '../world/runtimeRegistry'
 import { avoidSolids } from '../police/policeAvoidance'
+import { resolvePersonOccupancy } from '../world/integrity/personOccupancy'
 
 /**
  * Drivers carjacked out of an occupied vehicle. Each is ejected EXACTLY ONCE
@@ -70,7 +71,13 @@ export function stepEjectedDrivers(dt: number, gameTime: number): void {
     const len = Math.hypot(dx, dz) || 1
     const step = DRIVER_FLEE_SPEED * Math.min(dt, 0.05)
     const next: Vec2 = [d.pos[0] + (dx / len) * step, d.pos[1] + (dz / len) * step]
-    d.pos = avoidSolids(next) // never flee through a wall
+    d.pos = avoidSolids(next) // best-effort: never flee through a wall
+    // Hard occupancy safety net (World Integrity §8): route the fleeing driver
+    // through the SAME per-actor contract citizens use, so it never ends a frame
+    // embedded in a building, standing on a car, or stacked on a pedestrian. It is
+    // already registered in npcPositions, so the shared spacing separates it from
+    // citizens and other drivers too. Off-path (a direct flee, no crossing logic).
+    resolvePersonOccupancy(d.pos, id, Math.min(dt, 0.05), /* isMoving */ true, /* onPath */ false)
     d.heading = Math.atan2(d.pos[0] - d.fleeFrom[0], d.pos[1] - d.fleeFrom[1])
     registry.npcPositions.get(id)?.set(d.pos[0], 0, d.pos[1])
     registry.movingPersonIds.add(id)

@@ -10,6 +10,7 @@ import { CarMesh } from '../vehicles/CarMesh'
 import { policeRuntime } from './policeRuntime'
 import { POLICE_CAPS } from './policeTypes'
 import { stepPoliceDirector } from './policeStep'
+import { resolvePoliceOccupancy } from './policeOccupancy'
 import { avoidSolids } from './policeAvoidance'
 import { getContainmentTarget } from '../criminalActivities/activityRuntime'
 import { cruiserExit } from './policeDismount'
@@ -103,6 +104,12 @@ export function PoliceUnits() {
         findSafeExit,
       })
       if (result.arrested && !store.recovery) store.respawnAfterIncident('arrest')
+
+      // Hard occupancy safety net (World Integrity §8): after the director moves
+      // every officer, route each through the shared person-occupancy contract +
+      // a police↔police pass, so a converging cluster never ends a frame stacked
+      // on another officer, standing on a car, or embedded in a building.
+      resolvePoliceOccupancy(dt)
     }
 
     // Map active units → mesh pools (stable order by id) — runs even when

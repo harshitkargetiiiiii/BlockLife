@@ -148,9 +148,15 @@ drive one into a wall. Fixed in `personOccupancy.ts`: the VEHICLE push-out stays
 off-path-only (crossing-safe), but the static-solid clamp is now UNIVERSAL,
 guarded so an UNDISTURBED walker still skips the query (commute perf preserved) —
 so no citizen, on-path or not, ends a frame embedded in a solid (CONVENTIONS #18,
-§7b). **All six phases of issue #6 are now shipped + gated.** Only remaining (a
-narrow, DETECTED, documented gap): police/interior/ejected-driver movement CLAMPS.
-See [`docs/WORLD_INTEGRITY_AND_CERTIFICATION.md`](docs/WORLD_INTEGRITY_AND_CERTIFICATION.md).
+§7b). **All six phases of issue #6 are now shipped + gated.** The final deferred
+item — hard movement CLAMPS for police/interior/ejected-driver actors — is now
+CLOSED: police route through `resolvePoliceOccupancy` (shared contract + a
+police↔police pass) after their pursuit director, ejected drivers run the hard
+clamp after their flee avoid, interior civilians were already `avoidInterior`-clamped;
+the 300s soak now asserts zero sustained corruption with **police IN scope** (no
+`police_*` filter). The `player` is the sole by-design exception (NPCs yield to it;
+the platform never repositions it). See
+[`docs/WORLD_INTEGRITY_AND_CERTIFICATION.md`](docs/WORLD_INTEGRITY_AND_CERTIFICATION.md).
 
 Prior sprint: **Personal Economy, Inventory & Shopping v1** — a reusable
 life-sandbox commerce loop ON TOP of the existing economy/inventory/store-interior/
