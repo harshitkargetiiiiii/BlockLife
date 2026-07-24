@@ -108,20 +108,17 @@ async function sampleIntegrity(page: import('@playwright/test').Page) {
     const api = window.GAME_TEST_API!
     api.runIntegrityScan()
     const snap = api.getIntegritySnapshot()
-    // Sustained corruption among the actors the world-integrity platform actually
-    // CLAMPS — citizens, named NPCs, ambient vehicles vs each other and vs solids.
-    // Two participants are out of that scope and excluded:
-    //   • Police (`police_*`) / ejected-driver / interior movers — a DOCUMENTED
-    //     deferred gap (platform §8): DETECTED but not yet clamped; a burst of
-    //     officers converging on a suspect can transiently cluster.
-    //   • The `player` — a USER-controlled entity the platform never repositions.
-    //     The contract is "citizens/NPCs YIELD to the on-foot player" (a soft
-    //     push), NOT "the player never overlaps anyone": the player can walk (or,
-    //     here, be TELEPORTED by the harness) onto a fixed-routine NPC's spot, and
-    //     a stationary player parked there is the player controller's domain, not
-    //     this platform's. NPC↔citizen / NPC↔NPC overlaps are still caught.
-    // The soak still RUNS + observes all that activity (§14); it only ASSERTS zero
-    // sustained corruption for what the platform guarantees.
+    // Sustained corruption among the actors the world-integrity platform CLAMPS.
+    // Police officers ARE now clamped (policeOccupancy — §8 gap closed), so
+    // `police_*` overlaps are held to the same bar as everyone else and are no
+    // longer filtered. Ejected drivers + interior civilians are clamped too
+    // (ejectedDriverRuntime / avoidInterior). The ONLY participant excluded is the
+    // `player` — a USER-controlled entity the platform never repositions: the
+    // contract is "citizens/NPCs YIELD to the on-foot player" (a soft push), NOT
+    // "the player never overlaps anyone", so a stationary player TELEPORTED by the
+    // harness onto a fixed-routine NPC's spot is the player controller's domain,
+    // not this platform's. NPC↔citizen / NPC↔NPC / police↔anything overlaps are all
+    // caught. The soak still RUNS + observes every actor (§14).
     const corrupt = api
       .getIntegrityAnomalies()
       .filter(
@@ -130,7 +127,7 @@ async function sampleIntegrity(page: import('@playwright/test').Page) {
           ['person_person_overlap', 'person_vehicle_overlap', 'person_solid_overlap', 'vehicle_vehicle_overlap'].includes(
             a.type,
           ) &&
-          !a.entityIds.some((id) => id.startsWith('police_') || id === 'player'),
+          !a.entityIds.some((id) => id === 'player'),
       )
     return {
       sustained: corrupt.length,

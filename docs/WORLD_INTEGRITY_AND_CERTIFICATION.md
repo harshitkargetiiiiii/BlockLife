@@ -308,14 +308,28 @@ Integrity (#10), and the District Certification compiler + Automated City Sweepe
 + 300s soak (Slice 5). Every authored district certifies; the whole-city gate,
 generated traversal, generated visual sweep and integrity soak are green.
 
-One item stays intentionally DEFERRED (detected, not yet hard-clamped):
+The previously-deferred **actor-clamp gap is now CLOSED** — every AI-driven person
+is held to the same contract:
 
-- **Police / interior-civilian / ejected-driver movement CLAMPS**: these actors
-  are DETECTED (police mirrored into the registry + surfaced by the anomaly scan),
-  and citizens/NPCs — the bulk — are fully clamped. Hard-clamping the AI-driven
-  police pursuit + the off-grid interior-civilian scenes is left out to avoid
-  fighting their bespoke logic (they already dismount at validated points / use an
-  interior-aware avoid). This is a narrow, documented gap, not a missing phase.
+- **Police officers** route through `resolvePoliceOccupancy`
+  ([`policeOccupancy.ts`](../src/game/police/policeOccupancy.ts)) after the pursuit
+  director moves them each live frame: the shared `resolvePersonOccupancy` contract
+  (citizen spacing → player push → hard vehicle push-out → mandatory solid clamp,
+  off-path) PLUS a **police↔police** spacing pass — officers have their own runtime
+  (not `npcPositions`), so the shared spacing separated them from citizens but not
+  from EACH OTHER; a burst converging on one suspect is exactly the cluster the soak
+  used to filter. The best-effort `avoid` in the director still shapes the path;
+  this is the hard safety net.
+- **Ejected drivers** already registered as first-class pedestrians in
+  `npcPositions`; their flee step now runs the hard `resolvePersonOccupancy` clamp
+  after its best-effort avoid ([`ejectedDriverRuntime.ts`](../src/game/vehicles/ejectedDriverRuntime.ts)).
+- **Interior civilians** were ALREADY hard-clamped: `avoidInterior` ejects an actor
+  out of the counter/shelf rects and clamps it to the perimeter walls (unit-tested
+  `insideSolid === false`). Off-grid, distinct flee/hide/freeze anchors → no stacking.
+
+The 300 s integrity soak now asserts zero sustained corruption with **police IN
+scope** (the `police_*` filter is removed). No runtime person ends a frame embedded
+in a solid, standing on a car, or stacked on another person.
 
 And one participant is out of scope BY DESIGN, not deferred:
 

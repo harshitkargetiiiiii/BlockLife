@@ -51,10 +51,11 @@ export function collectPeopleEntities(out: EntityDescriptor[]): void {
       sourceRef: 'runtimeRegistry.npcPositions',
     })
   }
-  // Dismounted police officers (own runtime, not npcPositions) — mirrored so
-  // the detector surfaces police↔civilian and police↔solid overlaps. Their
-  // movement is AI-driven from validated curbside dismount points; hard-clamping
-  // it is deferred to avoid fighting pursuit (documented in the feature doc).
+  // Dismounted police officers (own runtime, not npcPositions) — mirrored so the
+  // detector surfaces police↔civilian and police↔solid overlaps. Their movement is
+  // hard-clamped through the shared contract by `resolvePoliceOccupancy` (police
+  // spacing + vehicle/solid clamps), so these overlaps are held to the same bar as
+  // citizens — the 300s soak covers police with no `police_*` filter (§8).
   for (const unit of policeRuntime.units.values()) {
     if (unit.kind !== 'officer') continue
     out.push({
