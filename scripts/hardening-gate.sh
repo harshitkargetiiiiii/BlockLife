@@ -27,7 +27,12 @@ trap 'rm -rf "$LOG"' EXIT
 FAIL=0
 hr() { printf -- '========================================\n'; }
 num() { grep -oE "$2" "$1" | grep -oE '[0-9]+' | tail -1; }
-defined_dir() { grep -rhcE '^\s*test\(' "$1"/*.spec.ts | awk '{s+=$1} END {print s}'; }
+# Authoritative test count via Playwright's own collection (`--list`), so a spec
+# that GENERATES tests from data (e.g. one `test()` per district in a loop) is
+# counted for what it actually runs — a plain `grep 'test('` undercounts those.
+# Still derived from the spec files, never hardcoded; the .only/.skip guard above
+# is independent.
+defined_dir() { npx playwright test "$1" --list 2>/dev/null | grep -oE 'Total: [0-9]+ test' | grep -oE '[0-9]+' | tail -1; }
 
 # Skip/only guard across the WHOLE suite — either would silently mask tests.
 hr; echo "[0/8] .only / .skip / .fixme guard"

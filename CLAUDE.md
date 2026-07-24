@@ -130,11 +130,27 @@ runtime anomalies ([`placementIntegrity.ts`](src/game/world/integrity/placementI
 wall-abutting AC (`abutsBuilding`) are narrow per-TYPE intents, NEVER per-coordinate
 exemptions (CONVENTIONS #20). The authored city was already clean — no data moved,
 no baseline churn.
-**Deferred** (scoped, next stretches): police/interior/ejected movement clamps
-(now DETECTED), full per-district certification compiler + generated
-traversal/visual/300s soak.
-Do NOT commit until reviewed (issue mandate). See
-[`docs/WORLD_INTEGRITY_AND_CERTIFICATION.md`](docs/WORLD_INTEGRITY_AND_CERTIFICATION.md).
+**Slice 5 (District Certification + Automated City Sweeper, issue §11–14)** is the
+capstone: a deterministic per-district **certificate**
+([`districtCertification.ts`](src/game/world/integrity/districtCertification.ts):
+`certifyCity` aggregates occlusion parity + placement + road-graph + presence
+checks over the §11 matrix — all 9 districts certify; surfaced in the debug panel
++ `getCityCertification`) and a GENERATED suite
+([`citySweep.ts`](src/game/world/integrity/citySweep.ts)) that traverses,
+photographs (content-centroid framed), and 300s-soaks the whole city so a new
+district is covered automatically. The sweeper **found a real lockstep bug**
+(`s1_-1_walkers_0/1` head-on on a shared 2-point path) no hand-authored test
+caught → fixed at the COMPILER with parallel walker lanes (CONVENTIONS #21). The
+300s soak **found a second real bug**: police pathing through the central plaza
+pinned ON-path citizens (`cit_plaza_roamer`/`cit_c_window_shopper`) into
+buildings — Slice 2 had skipped BOTH clamps for on-path walkers, but a shove can
+drive one into a wall. Fixed in `personOccupancy.ts`: the VEHICLE push-out stays
+off-path-only (crossing-safe), but the static-solid clamp is now UNIVERSAL,
+guarded so an UNDISTURBED walker still skips the query (commute perf preserved) —
+so no citizen, on-path or not, ends a frame embedded in a solid (CONVENTIONS #18,
+§7b). **All six phases of issue #6 are now shipped + gated.** Only remaining (a
+narrow, DETECTED, documented gap): police/interior/ejected-driver movement CLAMPS.
+See [`docs/WORLD_INTEGRITY_AND_CERTIFICATION.md`](docs/WORLD_INTEGRITY_AND_CERTIFICATION.md).
 
 Prior sprint: **Personal Economy, Inventory & Shopping v1** — a reusable
 life-sandbox commerce loop ON TOP of the existing economy/inventory/store-interior/

@@ -231,7 +231,7 @@ issue is explicit: "do not grandfather screenshot defects" — fix the data. The
 structural prevention is anchor-clearance validation (a later World Integrity
 phase) that flags co-located authored anchors at build time.
 
-### 18. Don't clamp on-path walkers to cars/solids — they already avoid them
+### 18. On-path walkers: never clamp to cars; clamp to solids only once displaced
 A HARD per-frame person↔vehicle/solid clamp on a WALKING citizen fights the
 pedestrian logic it duplicates. Two failure modes, both surfaced only by the
 **full E2E** (`citizen-destinations`, the `cit_dd_yard_worker` cross-district
@@ -251,15 +251,33 @@ commute); `tsc` + unit pass regardless:
    takes longer wall-clock time — the same commute drifted 3.3min → 4.9min → a
    6.3min timeout as clamp work was added, with no logic change.
 
-Root fix (both modes): a walking citizen is `onPath` — it already gap-crosses via
-`decidePedestrian` and steps out of cars via `CAR_CLEARANCE`, on a route
-validated clear of solids — so `resolvePersonOccupancy` **skips the vehicle/solid
-clamps entirely** for it (keeping only the cheap trip-safe person-spacing + player
-push). The hard clamps are the safety net for OFF-path actors (idle, queueing,
-sitting, frozen, panicking, displaced) that have no per-frame avoidance and are
-the actual source of the "person on a car / in a building" bugs. Keep the
-detector's person↔vehicle/solid definition centre-inside too (`embedTolerance`),
-so grazing is never flagged as corruption on either side.
+Root fix: a walking citizen is `onPath` — it already gap-crosses via
+`decidePedestrian` and steps out of cars via `CAR_CLEARANCE`, on a route validated
+clear of solids. `resolvePersonOccupancy` therefore splits the two clamps rather
+than skipping both:
+- It **skips the VEHICLE push-out entirely** for an on-path walker. That is the
+  clamp which duplicates the crossing logic (shoving it out of a car it is
+  legitimately passing between) AND runs the whole-fleet loop — i.e. it is the
+  source of BOTH failure modes above.
+- It **still applies the MANDATORY static-solid clamp — but only once the actor
+  was actually displaced this frame** (`(pos-start)² > DISPLACED_SQ`) by some
+  other force (person spacing, the on-foot player push, an un-clamped police
+  shove). An undisturbed walker on a validated route can't have entered a solid
+  under its own steam, so it skips even the (cheap, spatial-hash) solid query —
+  no grazing friction, no per-frame drag, commute perf unchanged. But a shove
+  CAN drive an on-path walker's centre into a building just as easily as an idle
+  one, and the "no person ever ends a frame embedded in a solid" contract must
+  hold for it too. (Found by the 300 s integrity soak: police pathing through a
+  plaza stroller / window shopper pinned them into `building_apartment_01` /
+  `building_shop_01` — an on-path `person_solid_overlap` the old skip-both let
+  persist.)
+
+The hard clamps otherwise remain the safety net for OFF-path actors (idle,
+queueing, sitting, frozen, panicking, displaced) that have no per-frame avoidance.
+Keep the detector's person↔vehicle/solid definition centre-inside too
+(`embedTolerance`), so grazing is never flagged as corruption on either side — and
+the solid clamp's ejection matches it (centre-inside → push to tangent → depth 0),
+so a clamp always clears the anomaly it would otherwise raise.
 
 ### 19. The streaming safety-ring watchdog must only touch `loading` sectors
 The free-locomotion safety ring (`sectorSafetyRing.ts`) force-reloads a required
@@ -291,6 +309,36 @@ city validates to ZERO defects (no data moved, no baseline churn). When you add 
 prop type, transcribe its real `Props.tsx` mesh into `propPlacement` (visual
 bounds ≠ collision) and run `cityPlacement.test.ts` — a failure names the exact
 entity + reason; fix the DATA or add a per-type model, never a coordinate skip.
+
+### 21. Multiple loop-walkers on one linear path collide head-on — give them lanes
+`sidewalk_walkers` zones author a 2-point back-and-forth path and a `count`. The
+compiler used to start walker `i` at `points[i % len]` — so with count 2 they
+start at OPPOSITE ends of the SAME line, walk toward each other, and meet head-on
+at the midpoint where neither can pass (path-following overrides the perpendicular
+separation nudge each frame) → a permanent overlap: the lockstep class again
+(gotcha #17), but authored by the compiler, not the data. The Automated City
+Sweeper found it (`s1_-1_walkers_0/1` co-located, never resolving) where no
+hand-authored test had. Fix at the COMPILER: offset each walker into its own
+PARALLEL LANE (perpendicular to the path), so a template fix protects every
+`sidewalk_walkers` zone and future ones. **Lane EVERY path-following mover, not
+just `loop_walk`:** the 300s soak later caught count-2 **`visit_spot`** freight/
+dock workers (`s-1_-2_freight_0/1`) colliding the same way — the loop-only guard
+missed them — so the lane condition covers `loop_walk` AND `visit_spot` (stationary
+`sit`/`queue`/`idle_stand` place differently; `destination_trips` leave for the ped
+graph). Hand-authored opposite-direction loops are the same class, fixed in the
+DATA the same way: two commuters circling one plaza rectangle → concentric
+inner/outer lanes; two walkers sharing a street line at overlapping hours →
+parallel lanes (gotcha #17). A compile-time pairwise **path-proximity audit**
+(every ambient + compiled citizen, min segment distance < body width) is the way to
+find them all at once instead of one soak cycle at a time. Two more City-Sweeper
+lessons: (a)
+teleporting far faster than gameplay mass-respawns a district's idle citizens at
+once, and the CAPPED separation nudge takes ~1-2s to open small spawn overlaps —
+so a traversal test must **poll-until-settled** (a transient resolves; only real
+corruption survives), never assert on the first post-teleport frame; (b) frame a
+generated visual sweep at the district's **content centroid** (its buildings),
+NOT the geometric sector centre — a district whose streetscape sits in one corner
+of its 144u sector would otherwise photograph empty void.
 
 ---
 

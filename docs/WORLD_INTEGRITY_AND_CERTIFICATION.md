@@ -141,18 +141,29 @@ only on live frames (after the pause-snap early-return → no visual-determinism
 impact).
 
 **On-path vs off-path (the key scoping).** Person spacing + the player push apply
-to every actor. The **hard vehicle + solid clamps** apply to **off-path** actors —
-idle, queueing, sitting, frozen, panicking or displaced people, which have no
-per-frame avoidance and are the actual source of the "person on a car / in a
-building" bugs (#2/#3). An actor actively walking an **authored path leg**
-(`onPath`) is skipped: it already gap-crosses roads via `decidePedestrian` and
-steps out of cars via `CAR_CLEARANCE`, on a route validated clear of solids — so
-clamping it every frame would only fight its crossings and add per-citizen CPU
-drag that slows the headless E2E (a cross-district commute regressed to a timeout
-under the always-on clamp; scoping it to off-path actors restored a ~3.3min trip).
-See CONVENTIONS #18. Where a clamp does fire, it fires only when the person's
-**centre is inside** the solid/car (genuine embedding); a body merely grazing an
-edge is tolerated, kept consistent with the detector's `embedTolerance`.
+to every actor. The **hard oriented vehicle push-out** applies to **off-path**
+actors only — idle, queueing, sitting, frozen, panicking or displaced people,
+which have no per-frame avoidance and are the actual source of the "person on a
+car" bug (#2). An actor actively walking an **authored path leg** (`onPath`) skips
+the vehicle clamp: it already gap-crosses roads via `decidePedestrian` and steps
+out of cars via `CAR_CLEARANCE`, so a per-frame push-out of a car it is passing
+between would only fight its crossings and add whole-fleet CPU drag that slows the
+headless E2E (a cross-district commute regressed to a timeout under the always-on
+clamp; scoping it to off-path restored a ~3.3min trip). The **mandatory
+static-solid clamp**, by contrast, is **universal** — a solid never lies on a
+validated route, so a walker moving under its own steam is never inside one, but
+once some OTHER force (person spacing, the player push, an un-clamped police shove)
+drives an on-path walker's **centre into a building** it is clamped straight back
+out, so the "no person ever embedded in a solid" contract (#3) holds for on-path
+and off-path alike. To keep the commute perf, an on-path walker that was **not
+displaced this frame** skips even the (cheap, spatial-hash) solid query — its
+centre cannot have entered a solid on its own. See CONVENTIONS #18. Where a clamp
+does fire, it fires only when the person's **centre is inside** the solid/car
+(genuine embedding); a body merely grazing an edge is tolerated, kept consistent
+with the detector's `embedTolerance` (so the clamp's tangent ejection always
+clears the anomaly it would raise). The 300 s integrity soak (§14) caught the
+on-path gap: police pathing through a plaza stroller / window shopper pinned them
+into `building_apartment_01` / `building_shop_01` — now clamped out.
 
 `findClearPlayerSpawn()` clears a vehicle-exit / respawn point of nearby solids,
 vehicles AND people (wired into `exitVehicle`) — the player never exits onto a
@@ -232,20 +243,88 @@ placement model + pure validators + a whole-city gate, reimplementing no rendere
   authored defect surfaces live, not only in the unit gate. `getPlacementReport`
   exposes the per-district report.
 
-## 8. Deferred work (honest scope)
+## 7e. District certification + Automated City Sweeper (Slice 5, issue §11–14)
 
-This is a large multi-phase platform; the following are scoped + partially
-scaffolded but NOT yet shipped in this pass, and are the next stretches:
+The capstone: every authored district gets a deterministic **certificate**, and a
+GENERATED suite explores + photographs + soaks the whole city so a new district is
+covered automatically.
+
+- **Certification compiler**
+  ([`districtCertification.ts`](../src/game/world/integrity/districtCertification.ts)):
+  `certifyDistrict` produces a machine-readable certificate per district over the
+  §11 matrix (identity, bounds, floor/visual, building bounds/colliders/occlusion,
+  prop visual/base, anchors, duplicate routes, road-graph, streaming ownership,
+  signals, references, crosswalks, labels, generated traversal/visual/anomaly
+  coverage…). **Honest-gate contract:** every check is DERIVED from real evidence —
+  a check with no evidence is a `fail` (required capability) or an explicit
+  `skip`/`warn` with a documented reason (a capability that legitimately does not
+  apply), NEVER a hard-coded pass, and the verdict counts only error-severity
+  failures so a `skip` can never stand in for missing evidence. Concretely:
+  `traffic_signals` derives from the compiled intersections' signal plans;
+  `reference_integrity` from the compile-time reference validator (kit) / the
+  global road graph (central); `crosswalk_clearance` from the crossing wait-spots
+  vs. the district's solids; `building_occlusion` FAILS when a district has tall
+  buildings but no parity-report entry (never defaults to pass); `lighting_night_hook`
+  / `weather_hook` are global systems → honest `skip`s; and `traversal_coverage` /
+  `anomaly_probe_coverage` / `visual_coverage` are read from the Automated City
+  Sweeper's own generated output, so a district the generator drops FAILS — a new
+  district cannot be silently un-swept. `certifyCity` runs every `SECTOR_DEFINITIONS`
+  entry (central adapter + kit sectors + backdrops); ALL 9 certify under the real
+  checks. Surfaced in the **debug panel**, `getCityCertification` test API, and a
+  Vitest gate (19 cases incl. a NEGATIVE test per mandatory evidence source, proving
+  certification fails when each is absent) — generated for every district + future
+  ones (§11).
+- **Automated City Sweeper**
+  ([`citySweep.ts`](../src/game/world/integrity/citySweep.ts)) generates traversal
+  targets + visual-sweep frames from the compiled sector + anchor data (framed at
+  the district's CONTENT centroid, not the empty sector centre). The generated E2E
+  ([`tests/e2e/city-sweep.spec.ts`](../tests/e2e/city-sweep.spec.ts)) visits every
+  district asserting coverage + zero sustained corruption + no page errors +
+  bounded self-heal; the generated visual sweep
+  ([`tests/visual/city-sweep-visuals.spec.ts`](../tests/visual/city-sweep-visuals.spec.ts))
+  captures one deterministic overview per map-visible district. **The sweeper found
+  a real lockstep bug** (`s1_-1_walkers_0/1` permanently overlapped) that no
+  hand-authored test covered — fixed at the compiler with parallel walker lanes
+  (CONVENTIONS #21).
+- **300-second integrity soak**
+  ([`tests/e2e/integrity-soak.spec.ts`](../tests/e2e/integrity-soak.spec.ts))
+  cycles every district + time/weather + police-panic + interiors + unload/reload
+  for 300s (§14), sampling the observe-only scan: zero sustained corruption, no
+  registry duplicate IDs, bounded entity/self-heal growth, no page errors. It
+  earned its keep, driving out several latent defects no hand-authored test hit —
+  on-path citizens walking their own centre into a building (→ the solid clamp is
+  now unconditional, §7b), and three opposite-direction lockstep pairs
+  de-conflicted in the data/compiler (`cit_hc_loop_cw/ccw`, `cit_w_lane_walker`/
+  `cit_w_jogger`, count-2 `visit_spot` freight/dock workers — CONVENTIONS #17/#21).
+  It asserts zero sustained corruption only among the actors the platform CLAMPS
+  (citizens / named NPCs / ambient vehicles vs each other + solids); police and the
+  user-controlled `player` are out-of-scope participants it filters (see §8).
+
+## 8. Status + remaining scope (honest)
+
+All six phases of issue #6 are now SHIPPED + gated: Phase 0–3 (foundation, #7),
+Live Spatial Integrity (#8), Streaming Safety Ring (#9), 3D Placement & Authoring
+Integrity (#10), and the District Certification compiler + Automated City Sweeper
++ 300s soak (Slice 5). Every authored district certifies; the whole-city gate,
+generated traversal, generated visual sweep and integrity soak are green.
+
+One item stays intentionally DEFERRED (detected, not yet hard-clamped):
 
 - **Police / interior-civilian / ejected-driver movement CLAMPS**: these actors
-  are now DETECTED (police mirrored into the registry), and citizens/NPCs — the
-  bulk — are fully clamped. Hard-clamping the AI-driven police pursuit + the
-  off-grid interior-civilian scenes is deferred to avoid fighting their bespoke
-  logic (they already dismount at validated points / use interior-aware avoid).
-- **Per-district certification compiler + generated full-city traversal + visual
-  sweep + 300s integrity soak** (issue §11–14): the occlusion + occupancy +
-  placement pieces are the first certified capabilities; the full certificate +
-  generated suites are the remaining structural-prevention layer.
+  are DETECTED (police mirrored into the registry + surfaced by the anomaly scan),
+  and citizens/NPCs — the bulk — are fully clamped. Hard-clamping the AI-driven
+  police pursuit + the off-grid interior-civilian scenes is left out to avoid
+  fighting their bespoke logic (they already dismount at validated points / use an
+  interior-aware avoid). This is a narrow, documented gap, not a missing phase.
+
+And one participant is out of scope BY DESIGN, not deferred:
+
+- **The `player`**: the platform makes citizens/NPCs YIELD to the on-foot player
+  (a soft push) but never repositions the player itself — that's the player
+  controller's domain, and walking onto an NPC to interact is normal gameplay. So
+  the contract is "NPCs yield to the player", not "the player never overlaps an
+  NPC". The soak (which teleports the player around aggressively) filters overlaps
+  where `player` is a participant; NPC↔citizen / NPC↔NPC overlaps stay in scope.
 
 ## 9. Coverage
 
@@ -260,10 +339,11 @@ scaffolded but NOT yet shipped in this pass, and are the next stretches:
   thresholds, and no-flag below threshold),
   [`integrityRuntime`](../src/game/world/integrity/integrityRuntime.test.ts) (3),
   [`occlusionParity`](../src/game/world/integrity/occlusionParity.test.ts) (6),
-  [`personOccupancy`](../src/game/world/integrity/personOccupancy.test.ts) (8 —
+  [`personOccupancy`](../src/game/world/integrity/personOccupancy.test.ts) (9 —
   mandatory solid clamp ejects an OFF-path person from a building, hard vehicle
-  clamp off a car, on-foot player push, an **on-path walker SKIPS the clamps**
-  (trusts its validated route), `findClearPlayerSpawn` clears solids/vehicles/people
+  clamp off a car, on-foot player push, an **UNDISTURBED on-path walker skips the
+  clamp** (trusts its validated route) while a **DISPLACED on-path walker is still
+  clamped out** of a solid, `findClearPlayerSpawn` clears solids/vehicles/people
   incl. the coincident case), + `personSeparation` universal-spacing cases (3),
   [`sectorSafetyRing`](../src/game/world/sectors/sectorSafetyRing.test.ts) (13 —
   required sectors from velocity, coverage gap on an un-ready entering sector,
@@ -277,7 +357,17 @@ scaffolded but NOT yet shipped in this pass, and are the next stretches:
   [`cityPlacement`](../src/game/world/integrity/cityPlacement.test.ts) (7 — every
   district's real authored data validated, all zero defects),
   [`placementIntegrity`](../src/game/world/integrity/placementIntegrity.test.ts)
-  (3 — failure→anomaly mapping, report-only kinds skipped, live city clean).
+  (3 — failure→anomaly mapping, report-only kinds skipped, live city clean),
+  [`districtCertification`](../src/game/world/integrity/districtCertification.test.ts)
+  (19 — whole city certifies 9/9 with 0 errors under the REAL checks, deterministic,
+  §11 matrix present; a NEGATIVE test per mandatory evidence source proves the
+  verdict FAILS when it is absent: uncovered-by-sweeper traversal/anomaly, missing
+  occlusion entry, dangling reference, embedded crosswalk wait-spot, malformed
+  signal plan, missing visual frame, degenerate building, prop clip/float, graph
+  errors; + global hooks are honest skips),
+  [`citySweep`](../src/game/world/integrity/citySweep.test.ts) (4 — every district
+  covered, targets in-bounds, deterministic, one visual frame per map-visible
+  district).
 - E2E: [`tests/e2e/world-integrity.spec.ts`](../tests/e2e/world-integrity.spec.ts)
   (5) — registry mirrors live actors, idle+moving crowd never sustains overlap,
   every district certifies occlusion parity live, **no sustained person↔vehicle

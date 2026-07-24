@@ -56,6 +56,8 @@ import {
 } from '../world/sectors/sectorStreaming'
 import { safetyRingRuntime } from '../world/sectors/sectorSafetyRing'
 import { getCityPlacementReports } from '../world/integrity/placementIntegrity'
+import { certifyCity } from '../world/integrity/districtCertification'
+import { generateTraversalTargets } from '../world/integrity/citySweep'
 import { worldToSectorId } from '../world/sectors/worldGrid'
 import { INTERACTABLE_BY_ID } from '../../data/interactables'
 import { NPC_DEFS } from '../../data/npcs'
@@ -363,6 +365,24 @@ export interface GameTestApi {
     failures: { kind: string; entityId: string; otherId?: string; reason: string; correction?: number }[]
     counts: { props: number; citizens: number; anchors: number; solids: number }
   }[]
+  /** Generated full-city traversal targets (issue §13): a safe sample point per
+      district (centre + citizen anchors) for the automated sweeper. */
+  getTraversalTargets: () => { sectorId: string; displayName: string; x: number; z: number; kind: string }[]
+  /** Machine-readable district certification (issue §11): per-district capability
+      matrix + pass/fail verdict, aggregated from authored data. */
+  getCityCertification: () => {
+    verdict: 'pass' | 'fail'
+    passed: number
+    totalDistricts: number
+    districts: {
+      sectorId: string
+      displayName: string
+      verdict: 'pass' | 'fail'
+      errors: number
+      warnings: number
+      checks: { name: string; status: string; severity: string }[]
+    }[]
+  }
   /** Routing: graph counts + content-hash version. */
   getRoadGraphSummary: () => {
     version: number
@@ -1094,6 +1114,23 @@ export function installTestApi(): void {
         })),
         counts: r.counts,
       })),
+    getTraversalTargets: () => generateTraversalTargets().map((t) => ({ ...t })),
+    getCityCertification: () => {
+      const c = certifyCity()
+      return {
+        verdict: c.verdict,
+        passed: c.passed,
+        totalDistricts: c.totalDistricts,
+        districts: c.districts.map((d) => ({
+          sectorId: d.sectorId,
+          displayName: d.displayName,
+          verdict: d.verdict,
+          errors: d.errors,
+          warnings: d.warnings,
+          checks: d.checks.map((x) => ({ name: x.name, status: x.status, severity: x.severity })),
+        })),
+      }
+    },
     // ---- Cross-District Traffic Routing v1 ---------------------------------
     getRoadGraphSummary: () => {
       const graph = getRoadGraph()

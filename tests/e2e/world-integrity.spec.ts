@@ -144,4 +144,21 @@ test.describe('world integrity', () => {
     expect(result.totalFailures, JSON.stringify(result.sample)).toBe(0)
     expect(result.placementAnoms).toBe(0)
   })
+
+  test('district certification: every district certifies, and the debug panel renders it', async ({ page }) => {
+    await gotoGame(page)
+    const cert = await page.evaluate(() => window.GAME_TEST_API!.getCityCertification())
+    // Machine-readable certificate: every district certifies with zero errors.
+    expect(cert.totalDistricts).toBeGreaterThan(3)
+    expect(cert.verdict).toBe('pass')
+    expect(cert.passed).toBe(cert.totalDistricts)
+    const failing = cert.districts.filter((d) => d.verdict === 'fail').map((d) => d.sectorId)
+    expect(failing, JSON.stringify(failing)).toEqual([])
+
+    // …and it's visible in the debug panel (the section renders without error).
+    await page.getByTestId('debug-toggle').click()
+    const section = page.getByTestId('debug-certification')
+    await expect(section).toBeVisible()
+    await expect(page.getByTestId('debug-panel')).toContainText('CERTIFIED')
+  })
 })
