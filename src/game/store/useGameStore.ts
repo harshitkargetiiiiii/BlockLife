@@ -60,6 +60,37 @@ import { missionRuntime, resetMissionRuntime } from '../missions/missionRuntime'
 import { MISSION_DEFINITIONS, getMissionDefinition } from '../missions/missionDefinitions'
 import { dismissMissionResult as engineDismissResult } from '../missions/missionEngine'
 import { applyMissionSave, serializeMissions } from '../missions/missionPersistence'
+import { applySocialSave, serializeSocial } from '../social/socialPersistence'
+import {
+  beginActivity,
+  cancelActivity as cancelActivityRt,
+  getActiveActivity,
+  getDerivedRelationship,
+  getInvitations,
+  getRelationship,
+  hasMet as socialHasMet,
+  ingestSocialEvent,
+  markContactRead as markContactReadRt,
+  reconcileOutreach,
+  resetSocial,
+  respondToInvitation as respondToInvitationRt,
+  sendPlayerInvite as sendPlayerInviteRt,
+  socialRuntime,
+  stepActivity,
+} from '../social/socialRuntime'
+import { activityFromInvitation, activityPrompt, favorActivity } from '../social/socialActivities'
+import { noteArrestWitnessed, noteCrimeWitnessed, vendorDiscountPct } from '../social/socialConsequences'
+import type { InvitationActivityKind } from '../social/socialTypes'
+import { getSocialActor, isSocialActor } from '../social/socialActors'
+import {
+  availableSocialActions,
+  giftableBackpackItems,
+  resolveSocialAction,
+  type SocialActionContext,
+  type SocialActionId,
+  type SocialActionOption,
+} from '../social/socialInteraction'
+import { socialActionResponse } from '../social/socialDialogue'
 import { getInterior } from '../interiors/interiorRegistry'
 import type { ActivityView } from '../criminalActivities/activityTypes'
 import {
@@ -179,6 +210,9 @@ interface GameDataState {
   audioEnabled: boolean
   debugOpen: boolean
   toast: { text: string; seq: number } | null
+  /** Bumps on every social-state mutation so social-reading UI re-renders
+   *  (the social runtime lives outside zustand; §13 two-tier state). */
+  socialVersion: number
   saveStatus: string | null
   /** Player health 0–100 (HUD-reactive). Persists across save/load. */
   playerHealth: number
@@ -217,6 +251,18 @@ export interface GameStore extends GameDataState {
   toggleAudio: () => void
   performActivityAction: (actionId: string) => void
   performDialogueAction: (npcId: string, actionId: string) => void
+  /** Contextual social actions offered for a named social actor (Slice 2). */
+  getSocialMenu: (npcId: string) => { actions: SocialActionOption[]; giftableItemIds: string[] } | null
+  performSocialAction: (npcId: string, actionId: SocialActionId, opts?: { itemId?: string }) => void
+  /** Phone: answer an open invitation / send one / mark a thread read (Slice 3). */
+  respondToInvitation: (invitationId: string, status: 'accepted' | 'declined' | 'suggested_later') => void
+  sendPlayerInvite: (npcId: string, activityKind?: InvitationActivityKind) => void
+  markContactRead: (npcId: string) => void
+  /** Social activities (Slice 4): start from an accepted invite / a favor, advance, cancel. */
+  startSocialActivity: (invitationId: string) => void
+  startFavorFor: (npcId: string) => void
+  advanceSocialActivity: () => void
+  cancelSocialActivity: () => void
   enterVehicle: () => void
   exitVehicle: () => void
   /** Set player health directly (clamped); toggles incapacitation. */
@@ -317,6 +363,7 @@ export function createInitialGameState(): GameDataState {
     audioEnabled: false,
     debugOpen: false,
     toast: null,
+    socialVersion: 0,
     saveStatus: null,
     playerHealth: PLAYER_MAX_HEALTH,
     playerIncapacitated: false,
@@ -452,6 +499,26 @@ function handleMissionInteract(
   get().showToast(active ? 'Nothing to do here right now.' : 'Come back when you have a job.')
 }
 
+/** Gather the read-only context the pure social resolver needs (Slice 2). Reads
+ *  the social runtime + weapon pose; never mutates. */
+function buildSocialActionContext(
+  inventory: Record<string, number>,
+  day: number,
+  hour: number,
+  npcId: string,
+): SocialActionContext {
+  return {
+    rel: getRelationship(npcId),
+    derived: getDerivedRelationship(npcId),
+    hasMet: socialHasMet(npcId),
+    gameDay: Math.trunc(day),
+    gameHour: hour,
+    giftableItemIds: giftableBackpackItems(inventory),
+    armed: getWeaponSnapshot().pose !== 'holstered',
+    appliedEventIds: socialRuntime.state.appliedEventIds,
+  }
+}
+
 export const useGameStore = create<GameStore>()((set, get) => ({
   ...createInitialGameState(),
 
@@ -537,8 +604,25 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     }
   },
 
-  openDialogue: (npcId) =>
-    set((s) => ({ ui: { ...s.ui, panel: 'dialogue', dialogueNpcId: npcId, activityId: null } })),
+  openDialogue: (npcId) => {
+    const s = get()
+    // Meeting a named social actor for the first time seeds social state and may
+    // unlock them as a phone contact — the "first unlock" consequence (§2/§4).
+    if (isSocialActor(npcId) && !socialHasMet(npcId)) {
+      const met = ingestSocialEvent({
+        id: `social:met:${npcId}`,
+        kind: 'met',
+        actorId: npcId,
+        gameDay: Math.trunc(s.stats.day),
+        gameHour: s.stats.hour,
+      })
+      if (met.contactUnlocked) {
+        get().showToast(`${getSocialActor(npcId)?.displayName ?? 'New contact'} added to your phone contacts`)
+      }
+      set((st) => ({ socialVersion: st.socialVersion + 1 }))
+    }
+    set((st) => ({ ui: { ...st.ui, panel: 'dialogue', dialogueNpcId: npcId, activityId: null } }))
+  },
 
   openActivity: (interactableId) =>
     set((s) => ({
@@ -556,6 +640,11 @@ export const useGameStore = create<GameStore>()((set, get) => ({
       return
     }
     audioManager.playClick()
+    // Opening the phone lazily reconciles NPC follow-ups (never per-frame — §14).
+    if (s.ui.panel !== 'phone') {
+      reconcileOutreach(s.stats.day, s.stats.hour)
+      set((st) => ({ socialVersion: st.socialVersion + 1 }))
+    }
     set({
       ui: {
         ...s.ui,
@@ -579,9 +668,12 @@ export const useGameStore = create<GameStore>()((set, get) => ({
 
   performActivityAction: (actionId) => {
     const s = get()
+    // Loyalty discount at Maya's food truck (buy_coffee/buy_meal are hers alone):
+    // a friendly Maya charges you less (§ economy consequence).
     const outcome = performAction(
       { stats: s.stats, inventory: s.inventory, questStates: s.questStates },
       actionId,
+      vendorDiscountPct('npc_maya_01'),
     )
     // One capacity authority: if an action would grow the backpack past its slot
     // budget (e.g. buying coffee with a full bag), refuse rather than overflow.
@@ -621,7 +713,157 @@ export const useGameStore = create<GameStore>()((set, get) => ({
       npcMemory: outcome.state.npcMemory,
     })
     if (outcome.message) get().showToast(outcome.message)
+    // Coffee for Ravi (legacy quest) feeds the social system: a successful
+    // hand-off is remembered as a gift Ravi loved (§ Coffee-for-Ravi compat).
+    if (actionId === 'deliver_coffee' && outcome.close && npcId === 'npc_ravi_01') {
+      ingestSocialEvent({ id: 'coffee_for_ravi:complete', kind: 'gift_liked', actorId: 'npc_ravi_01', gameDay: s.stats.day, gameHour: s.stats.hour })
+      set((st) => ({ socialVersion: st.socialVersion + 1 }))
+    }
     if (outcome.close) get().closePanel()
+  },
+
+  getSocialMenu: (npcId) => {
+    if (!isSocialActor(npcId)) return null
+    const actor = getSocialActor(npcId)
+    if (!actor) return null
+    const s = get()
+    const ctx = buildSocialActionContext(s.inventory, s.stats.day, s.stats.hour, npcId)
+    return { actions: availableSocialActions(actor, ctx), giftableItemIds: ctx.giftableItemIds }
+  },
+
+  performSocialAction: (npcId, actionId, opts = {}) => {
+    const s = get()
+    const actor = getSocialActor(npcId)
+    if (!actor) return
+    const ctx = buildSocialActionContext(s.inventory, s.stats.day, s.stats.hour, npcId)
+    const res = resolveSocialAction(actor, actionId, ctx, opts)
+    audioManager.playClick()
+
+    // Gift: consume the real catalog item atomically BEFORE applying the effect,
+    // so a gift is never free and a failed removal never half-applies (§ gifts).
+    if (res.ok && res.consumeItemId) {
+      const removal = removeStack(s.inventory, res.consumeItemId, 1)
+      if (!removal.ok) {
+        get().showToast('You no longer have that to give.')
+        return
+      }
+      set({ inventory: removal.stacks })
+    }
+
+    let unlocked = false
+    if (res.event) unlocked = ingestSocialEvent(res.event).contactUnlocked
+
+    const line = socialActionResponse(actor, res.responseToken, ctx.gameDay)
+    get().showToast(unlocked ? `${line} — ${actor.displayName} added to Contacts` : line)
+    set((st) => ({ socialVersion: st.socialVersion + 1 }))
+  },
+
+  respondToInvitation: (invitationId, status) => {
+    const s = get()
+    const ok = respondToInvitationRt(invitationId, status, s.stats.day, s.stats.hour)
+    if (!ok) return
+    audioManager.playClick()
+    set((st) => ({ socialVersion: st.socialVersion + 1 }))
+    get().showToast(
+      status === 'accepted' ? 'Plans set! 🎉' : status === 'declined' ? 'Maybe another time.' : 'Suggested a later time.',
+    )
+  },
+
+  sendPlayerInvite: (npcId, activityKind) => {
+    const s = get()
+    const res = sendPlayerInviteRt(npcId, s.stats.day, s.stats.hour, {
+      activityKind,
+      missionBusy: missionRuntime.active !== null,
+    })
+    audioManager.playClick()
+    set((st) => ({ socialVersion: st.socialVersion + 1 }))
+    get().showToast(res.ok ? 'Invitation sent!' : res.reason ?? 'Can’t invite right now')
+  },
+
+  markContactRead: (npcId) => {
+    markContactReadRt(npcId)
+    set((st) => ({ socialVersion: st.socialVersion + 1 }))
+  },
+
+  startSocialActivity: (invitationId) => {
+    const s = get()
+    if (getActiveActivity()) {
+      get().showToast('Wrap up your current plans first.')
+      return
+    }
+    const inv = getInvitations().find((i) => i.id === invitationId && i.status === 'accepted')
+    if (!inv) {
+      get().showToast('No confirmed plans to start.')
+      return
+    }
+    const act = activityFromInvitation(inv.id, inv.actorId, inv.activityKind, s.stats.day)
+    beginActivity(act)
+    audioManager.playClick()
+    set((st) => ({ socialVersion: st.socialVersion + 1 }))
+    get().showToast(activityPrompt(act, getSocialActor(inv.actorId)?.displayName ?? 'them'))
+  },
+
+  startFavorFor: (npcId) => {
+    const s = get()
+    const actor = getSocialActor(npcId)
+    if (!actor) return
+    if (getActiveActivity()) {
+      get().showToast('Wrap up your current plans first.')
+      return
+    }
+    const tier = getDerivedRelationship(npcId).tier
+    if (tier === 'stranger' || tier === 'acquaintance') {
+      get().showToast(`${actor.displayName} wouldn’t ask you a favor yet.`)
+      return
+    }
+    // Deterministic errand cargo: a giftable item the NPC likes (else a snack).
+    const itemId =
+      actor.giftLikes.find((id) => {
+        const def = getItemDefinition(id)
+        return def && def.discardable && !def.questReserved
+      }) ?? 'snack'
+    const act = favorActivity(npcId, itemId, { id: 'apartment', label: `${actor.displayName}'s place` }, s.stats.day, s.stats.hour)
+    beginActivity(act)
+    audioManager.playClick()
+    set((st) => ({ socialVersion: st.socialVersion + 1 }))
+    get().showToast(`Favor for ${actor.displayName}: bring a ${getItemDefinition(itemId)?.name ?? itemId} to ${act.venueLabel}`)
+  },
+
+  advanceSocialActivity: () => {
+    const s = get()
+    const act = getActiveActivity()
+    if (!act) return
+    // A favor's delivery step hands over a REAL item — consume it atomically first.
+    if (act.step === 'deliver' && act.requiredItemId) {
+      const removal = removeStack(s.inventory, act.requiredItemId, 1)
+      if (!removal.ok) {
+        get().showToast(`You need a ${getItemDefinition(act.requiredItemId)?.name ?? 'item'} to hand over.`)
+        return
+      }
+      set({ inventory: removal.stacks })
+    }
+    const result = stepActivity(s.stats.day, s.stats.hour)
+    audioManager.playClick()
+    set((st) => ({ socialVersion: st.socialVersion + 1 }))
+    const actor = getSocialActor(act.actorId)
+    if (result === null) {
+      get().showToast(
+        act.template === 'favor'
+          ? `Favor done for ${actor?.displayName ?? 'them'} — they won’t forget it.`
+          : `Great ${act.activityKind} with ${actor?.displayName ?? 'them'}!`,
+      )
+    } else {
+      get().showToast(activityPrompt(result, actor?.displayName ?? 'them'))
+    }
+  },
+
+  cancelSocialActivity: () => {
+    const s = get()
+    if (!getActiveActivity()) return
+    cancelActivityRt(s.stats.day, s.stats.hour)
+    audioManager.playClick()
+    set((st) => ({ socialVersion: st.socialVersion + 1 }))
+    get().showToast('You bailed on your plans.')
   },
 
   enterApartment: () => get().enterInterior('apartment'),
@@ -718,6 +960,12 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     // (if inside a store) fall back out to the street.
     onPlayerIncident(kind)
     if (s.location !== 'city') set({ location: 'city', currentInteriorId: null })
+    // Social consequence: a public arrest is seen by nearby named NPCs (a trust
+    // ding) — note it at the player's position BEFORE the reset + respawn.
+    if (kind === 'arrest') {
+      const t = registry.playerBody?.translation()
+      if (t) noteArrestWitnessed([t.x, t.y, t.z], s.stats.day, s.stats.hour)
+    }
     const penalty = Math.min(s.stats.money, kind === 'arrest' ? 150 : 100)
     if (s.mode === 'driving') get().exitVehicle()
     // Wanted, police, incidents, stolen-vehicle state, weapon, panic all clear.
@@ -795,6 +1043,13 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     // owner reaction → wanted), rather than waiting on an organic witness.
     if (occupied && crime && target?.driverId) {
       fileReport(crime, target.driverId, gameTime)
+    }
+    // Social consequence: any named NPC who sees the theft remembers it
+    // (Officer Kim reacts hardest — crime_witnessed scales with sensitivity).
+    if (crime) {
+      const { day, hour } = get().stats
+      const witnessed = noteCrimeWitnessed(crime.id, pos, day, hour)
+      if (witnessed.length > 0) set((st) => ({ socialVersion: st.socialVersion + 1 }))
     }
     // The player takes control; hide the on-foot body like enterVehicle.
     registry.playerBody?.setEnabled(false)
@@ -1064,6 +1319,7 @@ export const useGameStore = create<GameStore>()((set, get) => ({
       storage: s.storage,
       wardrobe: { unlocked: s.wardrobeUnlocks },
       commerce: serializeCommerce(),
+      social: serializeSocial(),
     })
     try {
       await persistSave(snapshot)
@@ -1110,6 +1366,7 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     resetActivityRuntime() // robbery cooldowns/history/proceeds clear on reset
     resetInteriorCivilians() // store cashier/customers snap home on reset
     resetCommerceRuntime() // store stock back to full defaults
+    resetSocial() // relationships/memories/contacts back to canonical defaults
     resetIntegrityRuntime() // clear mirrored entities + anomaly history on reset
     set({ ...createInitialGameState() })
     teleportPlayer(PLAYER_SPAWN)
@@ -1138,6 +1395,9 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     applyActivitySave(snapshot.activities)
     resetInteriorCivilians() // no heist loads → civilians start home
     clearTransientActivity() // drop any transient robbery + containment on load
+    // Social: restore relationships/memories/contacts (sanitized, idempotent);
+    // an old save (no `social` field) resets to canonical strangers.
+    applySocialSave(snapshot.social)
     // Commerce: restore persistent store stock + restock clocks + receipts;
     // old saves (no field) get deterministic full stock.
     applyCommerceSave(snapshot.commerce)
@@ -1146,6 +1406,7 @@ export const useGameStore = create<GameStore>()((set, get) => ({
         ? Math.max(0, Math.min(PLAYER_MAX_HEALTH, snapshot.playerHealth))
         : PLAYER_MAX_HEALTH
     set({
+      socialVersion: get().socialVersion + 1, // refresh social-reading UI after load
       stats: { ...snapshot.stats },
       // Migrate the legacy inventory Record → sanitised backpack stacks (drops
       // unknown ids, floors quantities, trims to capacity; coffee is preserved).

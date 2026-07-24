@@ -11,6 +11,7 @@ import { isPlayerAppearance } from '../interiors/interiorTypes'
 import { isValidMissionSave, type MissionSaveData } from '../missions/missionPersistence'
 import { isValidActivitySave, type ActivitySaveData } from '../criminalActivities/activityPersistence'
 import type { CommerceSaveData } from '../commerce/commercePersistence'
+import type { SocialSaveData } from '../social/socialTypes'
 
 export interface SnapshotInput {
   stats: PlayerStats
@@ -26,6 +27,7 @@ export interface SnapshotInput {
   storage?: Inventory
   wardrobe?: { unlocked: string[] }
   commerce?: CommerceSaveData
+  social?: SocialSaveData
 }
 
 export function createSnapshot(input: SnapshotInput): SaveData {
@@ -46,6 +48,7 @@ export function createSnapshot(input: SnapshotInput): SaveData {
     storage: input.storage,
     wardrobe: input.wardrobe,
     commerce: input.commerce,
+    social: input.social,
   })
 }
 

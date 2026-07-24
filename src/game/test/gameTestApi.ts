@@ -1,5 +1,10 @@
 import { useGameStore } from '../store/useGameStore'
 import { registry } from '../world/runtimeRegistry'
+import { socialSnapshot, getRelationship as getSocialRel, getDerivedRelationship as getSocialDerived, getMemories as getSocialMems, getContacts as getSocialContactsRt, ingestSocialEvent as ingestSocialEventRt, getInvitations as getSocialInvitationsRt, getMessages as getSocialMessagesRt, getTotalUnread as getSocialUnreadRt, reconcileOutreach as reconcileOutreachRt, getActiveActivity as getActiveActivityRt } from '../social/socialRuntime'
+import type { SocialEvent } from '../social/socialEvents'
+import type { SocialActionId } from '../social/socialInteraction'
+import type { InvitationActivityKind } from '../social/socialTypes'
+import { noteCrimeWitnessed as noteCrimeWitnessedRt } from '../social/socialConsequences'
 import { listEntities } from '../world/integrity/entityRegistry'
 import {
   getActiveAnomalies,
@@ -383,6 +388,42 @@ export interface GameTestApi {
       checks: { name: string; status: string; severity: string }[]
     }[]
   }
+  /** Social Life, Relationships & NPC Memory v1 (§13 observability). */
+  getSocialSnapshot: () => {
+    actors: { id: string; name: string; tier: string; hostile: boolean; afraid: boolean; rel: { familiarity: number; affinity: number; trust: number; fear: number; lastMeaningfulInteractionDay: number }; memoryCount: number; contact: boolean }[]
+    contactCount: number
+    appliedEventCount: number
+    totalMemories: number
+  }
+  getSocialRelationship: (id: string) => { familiarity: number; affinity: number; trust: number; fear: number; lastMeaningfulInteractionDay: number; tier: string; hostile: boolean; afraid: boolean }
+  getSocialMemories: (id: string) => { id: string; kind: string; salience: number; valence: number; pinned: boolean; summaryToken: string; gameDay: number }[]
+  getSocialContacts: () => string[]
+  /** DEV/E2E: inject a typed social event through the exact-once pipeline. */
+  ingestSocialEvent: (event: { id: string; kind: string; actorId: string; gameDay: number; gameHour?: number; district?: string; counterpartyId?: string }) => { applied: boolean; contactUnlocked: boolean }
+  /** DEV/E2E: open a conversation with a named NPC (fires the first-meeting). */
+  openDialogueWith: (npcId: string) => void
+  /** DEV/E2E: the contextual social actions currently offered for an NPC. */
+  getSocialMenu: (npcId: string) => { actions: { id: string; label: string; enabled: boolean; hint?: string }[]; giftableItemIds: string[] } | null
+  /** DEV/E2E: perform one contextual social action (talk / gift / apologize / …). */
+  performSocialAction: (npcId: string, actionId: string, itemId?: string) => void
+  /** DEV/E2E: lazily generate due NPC follow-ups (message / invitation). */
+  reconcileSocialOutreach: (gameDay: number, gameHour: number) => number
+  /** DEV/E2E: send / answer an invitation; read the phone's social state. */
+  sendSocialInvite: (npcId: string, activityKind?: string) => void
+  respondToInvitation: (invitationId: string, status: string) => void
+  getSocialInvitations: () => { id: string; actorId: string; source: string; activityKind: string; status: string; proposedDay: number }[]
+  getSocialMessages: (npcId: string) => { id: string; dir: string; token: string; read: boolean; gameDay: number }[]
+  getSocialUnread: () => number
+  /** DEV/E2E: reusable social activities (Slice 4). */
+  getActiveSocialActivity: () => { id: string; actorId: string; template: string; step: string; venueLabel: string; requiredItemId?: string } | null
+  startSocialActivity: (invitationId: string) => void
+  startFavorFor: (npcId: string) => void
+  advanceSocialActivity: () => void
+  cancelSocialActivity: () => void
+  /** DEV/E2E: drive the REAL crime-witness consequence at a named NPC's live
+   *  world position (exercises `noteCrimeWitnessed` + registry proximity + the
+   *  social pipeline). The crime AUTHORITY itself is covered by crime.spec.ts. */
+  devWitnessCrimeAt: (npcId: string) => boolean
   /** Routing: graph counts + content-hash version. */
   getRoadGraphSummary: () => {
     version: number
@@ -1130,6 +1171,49 @@ export function installTestApi(): void {
           checks: d.checks.map((x) => ({ name: x.name, status: x.status, severity: x.severity })),
         })),
       }
+    },
+    // ---- Social Life, Relationships & NPC Memory v1 ------------------------
+    getSocialSnapshot: () => socialSnapshot(),
+    getSocialRelationship: (id: string) => {
+      const rel = getSocialRel(id)
+      const d = getSocialDerived(id)
+      return { ...rel, tier: d.tier, hostile: d.hostile, afraid: d.afraid }
+    },
+    getSocialMemories: (id: string) =>
+      getSocialMems(id).map((m) => ({ id: m.id, kind: m.kind, salience: m.salience, valence: m.valence, pinned: m.pinned, summaryToken: m.summaryToken, gameDay: m.gameDay })),
+    getSocialContacts: () => [...getSocialContactsRt()],
+    ingestSocialEvent: (event) => {
+      const r = ingestSocialEventRt(event as SocialEvent)
+      return { applied: r.applied, contactUnlocked: r.contactUnlocked }
+    },
+    openDialogueWith: (npcId: string) => useGameStore.getState().openDialogue(npcId),
+    getSocialMenu: (npcId: string) => useGameStore.getState().getSocialMenu(npcId),
+    performSocialAction: (npcId: string, actionId: string, itemId?: string) =>
+      useGameStore.getState().performSocialAction(npcId, actionId as SocialActionId, itemId ? { itemId } : undefined),
+    reconcileSocialOutreach: (gameDay: number, gameHour: number) => reconcileOutreachRt(gameDay, gameHour),
+    sendSocialInvite: (npcId: string, activityKind?: string) =>
+      useGameStore.getState().sendPlayerInvite(npcId, activityKind as InvitationActivityKind | undefined),
+    respondToInvitation: (invitationId: string, status: string) =>
+      useGameStore.getState().respondToInvitation(invitationId, status as 'accepted' | 'declined' | 'suggested_later'),
+    getSocialInvitations: () =>
+      getSocialInvitationsRt().map((i) => ({ id: i.id, actorId: i.actorId, source: i.source, activityKind: i.activityKind, status: i.status, proposedDay: i.proposedDay })),
+    getSocialMessages: (npcId: string) =>
+      getSocialMessagesRt(npcId).map((m) => ({ id: m.id, dir: m.dir, token: m.token, read: m.read, gameDay: m.gameDay })),
+    getSocialUnread: () => getSocialUnreadRt(),
+    getActiveSocialActivity: () => {
+      const a = getActiveActivityRt()
+      return a ? { id: a.id, actorId: a.actorId, template: a.template, step: a.step, venueLabel: a.venueLabel, requiredItemId: a.requiredItemId } : null
+    },
+    startSocialActivity: (invitationId: string) => useGameStore.getState().startSocialActivity(invitationId),
+    startFavorFor: (npcId: string) => useGameStore.getState().startFavorFor(npcId),
+    advanceSocialActivity: () => useGameStore.getState().advanceSocialActivity(),
+    cancelSocialActivity: () => useGameStore.getState().cancelSocialActivity(),
+    devWitnessCrimeAt: (npcId: string) => {
+      const pos = registry.npcPositions.get(npcId)
+      if (!pos) return false
+      const { day, hour } = useGameStore.getState().stats
+      const seen = noteCrimeWitnessedRt(`devcrime:${npcId}:${day}:${Math.round(hour)}`, [pos.x, pos.y, pos.z], day, hour)
+      return seen.includes(npcId)
     },
     // ---- Cross-District Traffic Routing v1 ---------------------------------
     getRoadGraphSummary: () => {

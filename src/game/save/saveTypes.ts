@@ -5,6 +5,7 @@ import type { Inventory } from '../interactables/interactionHandlers'
 import type { MissionSaveData } from '../missions/missionPersistence'
 import type { ActivitySaveData } from '../criminalActivities/activityPersistence'
 import type { CommerceSaveData } from '../commerce/commercePersistence'
+import type { SocialSaveData } from '../social/socialTypes'
 
 export const SAVE_KEY = 'blocklife-save-v1'
 export const SAVE_VERSION = 1
@@ -54,4 +55,11 @@ export interface SaveData {
   storage?: Inventory
   wardrobe?: { unlocked: string[] }
   commerce?: CommerceSaveData
+  /**
+   * Social Life, Relationships & NPC Memory v1 (additive, optional): per-NPC
+   * relationships, bounded memory ledgers, unlocked contacts, and the exact-once
+   * event id ledger. Older saves lack it and load as strangers; malformed social
+   * data is sanitized field-by-field and can never corrupt the wider save.
+   */
+  social?: SocialSaveData
 }

@@ -11,6 +11,7 @@ import { PhoneJobs } from './PhoneJobs'
 import { PhoneMissions } from './PhoneMissions'
 import { PhoneBag } from './PhoneBag'
 import { PhoneSettings } from './PhoneSettings'
+import { getTotalUnread } from '../../game/social/socialRuntime'
 
 function PhoneStatusBar() {
   const stats = useGameStore((s) => s.stats)
@@ -63,6 +64,9 @@ export function Phone() {
   const activeApp = useGameStore((s) => s.ui.activePhoneApp)
   const setPhoneApp = useGameStore((s) => s.setPhoneApp)
   const togglePhone = useGameStore((s) => s.togglePhone)
+  // Re-read the unread badge whenever social state mutates.
+  useGameStore((s) => s.socialVersion)
+  const unread = getTotalUnread()
 
   if (!isOpen) return null
 
@@ -85,6 +89,11 @@ export function Phone() {
             >
               <span className="phone-nav-icon">{app.icon}</span>
               <span className="phone-nav-label">{app.label}</span>
+              {app.id === 'messages' && unread > 0 && (
+                <span className="phone-nav-badge" data-testid="phone-unread-badge">
+                  {unread}
+                </span>
+              )}
             </button>
           ))}
         </nav>

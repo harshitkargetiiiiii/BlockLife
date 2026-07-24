@@ -76,7 +76,30 @@ regression) and `scripts/crime-gate.sh`.
 compiles 0 files and always passes. Only `-b --force` really typechecks.
 
 ## Current state
-In progress: **World Integrity & City Certification Platform v1** (issue #6) —
+In progress: **Social Life, Relationships & NPC Memory v1** (issue #13) — a staged,
+**deterministic** social platform under [`src/game/social/`](src/game/social/) on
+top of the existing NPC/phone/mission/inventory/crime/save stacks (reimplementing
+none). Core loop: meet a named NPC → interact → bounded structured **memory** →
+multidimensional **relationship** → visible **consequence**. Shipped across 5
+slices: (1) the six-actor **registry** (id == world/save NPC id; Ravi
+Coffee-compatible), an integer-bounded **relationship** model + derived tiers +
+ONE mutation path, a **bounded memory ledger** (dedupe/salience/derived-decay/pins),
+the ONE **event pipeline** (exact-once → memory → data-driven effect → unlock),
+additive fail-safe **save** slice, DEV observability; (2) a contextual conversation
+menu (talk/check-in/**gift**/ask-favor/apologize/threaten) with **anti-farming**
+(once-per-NPC-per-day + real-item gifts via the inventory service), deterministic
+dialogue templates, first-meeting **contact unlock**; (3) phone **contacts /
+messages / invitations** (accept/decline/**suggest-later**) + availability +
+**scheduling** + deterministic lazy NPC **outreach** (never per-frame); (4) three
+reusable **activity** templates (meet / hangout / delivery-favor) + a HUD tracker +
+**Coffee-for-Ravi** feeding the social system; (5) observe-only **consequences** —
+crime **witness** reactions (Officer Kim hardest), a friendly Maya's food-truck
+**discount**, public-arrest trust dings — plus a bounded **social lifecycle soak**
+(200 game-days, whole cast, all bounds hold) and docs. UI re-renders via a
+`socialVersion` store counter (the social runtime lives outside zustand). See
+[`docs/SOCIAL_RELATIONSHIPS_AND_MEMORY.md`](docs/SOCIAL_RELATIONSHIPS_AND_MEMORY.md).
+
+Prior sprint: **World Integrity & City Certification Platform v1** (issue #6) —
 a foundational reliability platform under `src/game/world/integrity/` giving every
 runtime entity ONE integrity contract. **Shipped + gated so far** (a staged
 migration): a semantic entity **registry** (IDs/scalars only, generation-safe,

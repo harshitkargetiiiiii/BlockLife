@@ -4,6 +4,7 @@ import type { ActivityAction, InteractableKind } from './interactableTypes'
 import {
   buyCoffee,
   buyMeal,
+  discountedPrice,
   sleep,
   train,
   workShift,
@@ -37,25 +38,32 @@ export function addItem(inventory: Inventory, itemId: string, quantity = 1): Inv
 }
 
 /** Available actions for an activity panel, with affordability baked in. */
-export function getActionsFor(kind: InteractableKind, state: GameLogicState): ActivityAction[] {
+export function getActionsFor(
+  kind: InteractableKind,
+  state: GameLogicState,
+  foodDiscountPct = 0,
+): ActivityAction[] {
   const { stats } = state
   switch (kind) {
     case 'food_truck': {
       const questActive = state.questStates[COFFEE_QUEST_ID] === 'active'
+      const mealCost = discountedPrice(MEAL_COST, foodDiscountPct)
+      const coffeeCost = discountedPrice(COFFEE_COST, foodDiscountPct)
+      const loyal = foodDiscountPct > 0 ? ' · friend price' : ''
       return [
         {
           id: 'buy_meal',
-          label: `🍜 Eat a hot meal — $${MEAL_COST}`,
-          detail: 'Hunger −25',
-          disabled: stats.money < MEAL_COST,
-          disabledReason: `Need $${MEAL_COST}`,
+          label: `🍜 Eat a hot meal — $${mealCost}`,
+          detail: `Hunger −25${loyal}`,
+          disabled: stats.money < mealCost,
+          disabledReason: `Need $${mealCost}`,
         },
         {
           id: 'buy_coffee',
-          label: `☕ Buy a coffee — $${COFFEE_COST}`,
-          detail: questActive ? 'Ravi is waiting for this!' : 'Goes in your bag',
-          disabled: stats.money < COFFEE_COST,
-          disabledReason: `Need $${COFFEE_COST}`,
+          label: `☕ Buy a coffee — $${coffeeCost}`,
+          detail: (questActive ? 'Ravi is waiting for this!' : 'Goes in your bag') + loyal,
+          disabled: stats.money < coffeeCost,
+          disabledReason: `Need $${coffeeCost}`,
         },
       ]
     }
@@ -95,15 +103,15 @@ export function getActionsFor(kind: InteractableKind, state: GameLogicState): Ac
 }
 
 /** Applies an activity action to pure game state. Never mutates its input. */
-export function performAction(state: GameLogicState, actionId: string): ActionOutcome {
+export function performAction(state: GameLogicState, actionId: string, foodDiscountPct = 0): ActionOutcome {
   switch (actionId) {
     case 'buy_meal': {
-      const r = buyMeal(state.stats)
+      const r = buyMeal(state.stats, foodDiscountPct)
       if (!r.ok) return { ok: false, message: r.error, state }
       return { ok: true, message: r.message, state: { ...state, stats: r.stats } }
     }
     case 'buy_coffee': {
-      const r = buyCoffee(state.stats)
+      const r = buyCoffee(state.stats, foodDiscountPct)
       if (!r.ok) return { ok: false, message: r.error, state }
       const questState = state.questStates[COFFEE_QUEST_ID] ?? 'not_started'
       const nextQuest = questTransition(questState, 'GET_COFFEE')

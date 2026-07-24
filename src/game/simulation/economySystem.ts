@@ -14,25 +14,32 @@ export type EconomyResult =
   | { ok: true; stats: PlayerStats; message: string }
   | { ok: false; error: string }
 
-export function buyMeal(stats: PlayerStats): EconomyResult {
-  if (stats.money < MEAL_COST) return { ok: false, error: 'Not enough money for a meal.' }
+/** Apply a 0..1 loyalty discount to a base price (rounded, never below 0). */
+export function discountedPrice(base: number, discountPct = 0): number {
+  return Math.max(0, Math.round(base * (1 - Math.max(0, Math.min(1, discountPct)))))
+}
+
+export function buyMeal(stats: PlayerStats, discountPct = 0): EconomyResult {
+  const cost = discountedPrice(MEAL_COST, discountPct)
+  if (stats.money < cost) return { ok: false, error: 'Not enough money for a meal.' }
   return {
     ok: true,
     stats: {
       ...stats,
-      money: stats.money - MEAL_COST,
+      money: stats.money - cost,
       hunger: clampStat(stats.hunger - MEAL_HUNGER_RESTORE),
     },
-    message: `Ate a hot meal (-$${MEAL_COST}).`,
+    message: `Ate a hot meal (-$${cost}).`,
   }
 }
 
-export function buyCoffee(stats: PlayerStats): EconomyResult {
-  if (stats.money < COFFEE_COST) return { ok: false, error: 'Not enough money for coffee.' }
+export function buyCoffee(stats: PlayerStats, discountPct = 0): EconomyResult {
+  const cost = discountedPrice(COFFEE_COST, discountPct)
+  if (stats.money < cost) return { ok: false, error: 'Not enough money for coffee.' }
   return {
     ok: true,
-    stats: { ...stats, money: stats.money - COFFEE_COST },
-    message: `Bought a coffee (-$${COFFEE_COST}).`,
+    stats: { ...stats, money: stats.money - cost },
+    message: `Bought a coffee (-$${cost}).`,
   }
 }
 

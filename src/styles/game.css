@@ -647,6 +647,77 @@ body,
   flex-direction: column;
 }
 
+.social-activity-tracker {
+  position: absolute;
+  left: 16px;
+  bottom: 16px;
+  width: 260px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(18, 22, 34, 0.86);
+  border: 1px solid var(--accent-2);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+  z-index: 30;
+}
+.sat-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent-2);
+  margin-bottom: 4px;
+}
+.sat-prompt {
+  font-size: 13px;
+  line-height: 1.45;
+  margin-bottom: 10px;
+}
+.sat-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.social-menu {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--panel-border);
+}
+
+.social-menu-title {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin-bottom: 8px;
+}
+
+.social-actions {
+  gap: 8px;
+}
+
+.social-action-wrap {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+}
+
+.social-action-reason {
+  font-size: 10px;
+  color: var(--text-dim);
+  font-style: italic;
+  max-width: 130px;
+  line-height: 1.2;
+}
+
+.btn-social {
+  background: rgba(127, 212, 193, 0.14);
+  border-color: var(--accent-2);
+  font-size: 13px;
+}
+
+.btn-social:hover:not(:disabled) {
+  background: rgba(127, 212, 193, 0.26);
+}
+
 .activity-title {
   font-size: 18px;
   font-weight: 700;
@@ -1321,6 +1392,89 @@ body,
   font-size: 10.5px;
   color: var(--accent-2);
   margin-top: 2px;
+}
+
+/* Social: memory line, plans, flags, unread, invite (Slice 3) */
+
+.phone-contact-memory {
+  font-size: 10.5px;
+  color: var(--text-dim);
+  font-style: italic;
+  margin-top: 3px;
+}
+
+.phone-contact-plans {
+  font-size: 10.5px;
+  color: var(--accent);
+  margin-top: 3px;
+}
+
+.contact-flag {
+  font-size: 10px;
+  font-weight: 600;
+}
+.flag-hostile {
+  color: #ff8f7a;
+}
+.flag-afraid {
+  color: #ffcf8f;
+}
+
+.contact-unread,
+.phone-nav-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: #ff5a4d;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+}
+.phone-nav-badge {
+  position: absolute;
+  top: 2px;
+  right: 8px;
+}
+.phone-nav-btn {
+  position: relative;
+}
+
+.contact-invite {
+  margin-top: 6px;
+}
+
+.phone-invitation {
+  display: block;
+}
+.phone-invitation-text {
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+
+.phone-thread {
+  display: block;
+}
+.phone-thread-name {
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+.phone-thread-line {
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text-dim);
+}
+.thread-out {
+  color: var(--accent-2);
+  text-align: right;
+}
+.thread-unread {
+  color: #fff;
+  font-weight: 600;
 }
 
 /* Jobs */

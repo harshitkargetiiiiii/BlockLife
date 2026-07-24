@@ -1,10 +1,14 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import { Phone } from './Phone'
 import { useGameStore, createInitialGameState } from '../../game/store/useGameStore'
 
 function openPhone() {
-  useGameStore.setState((s) => ({ ui: { ...s.ui, panel: 'phone' as const } }))
+  // act() so a store change that re-renders an already-mounted <Phone/> (it now
+  // also subscribes to the social unread badge) is flushed inside React's batch.
+  act(() => {
+    useGameStore.setState((s) => ({ ui: { ...s.ui, panel: 'phone' as const } }))
+  })
 }
 
 describe('Phone', () => {

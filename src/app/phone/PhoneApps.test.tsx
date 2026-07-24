@@ -13,9 +13,11 @@ import { useGameStore, createInitialGameState } from '../../game/store/useGameSt
 import { INITIAL_STATS } from '../../game/player/playerTypes'
 import { NPC_DEFS } from '../../data/npcs'
 import { COFFEE_QUEST_ID } from '../../data/quests'
+import { ingestSocialEvent, reconcileOutreach, resetSocial, getInvitations } from '../../game/social/socialRuntime'
 
 beforeEach(() => {
   useGameStore.setState(createInitialGameState())
+  resetSocial()
 })
 
 describe('PhoneHome', () => {
@@ -62,22 +64,29 @@ describe('PhoneQuests', () => {
 })
 
 describe('PhoneContacts', () => {
-  it('lists all six residents with role and memory info', () => {
-    useGameStore.setState((s) => ({
-      npcMemory: {
-        ...s.npcMemory,
-        npc_maya_01: { greetedPlayer: true, completedQuestIds: [], trust: 2, lastInteractionDay: 3 },
-      },
-    }))
+  it('reflects the social relationship: met status, tier, hearts, last day', () => {
+    // Maya: met on day 3 + a gift she liked → known, some affinity.
+    ingestSocialEvent({ id: 'met:npc_maya_01', kind: 'met', actorId: 'npc_maya_01', gameDay: 3, gameHour: 12 })
+    ingestSocialEvent({ id: 'g:maya', kind: 'gift_liked', actorId: 'npc_maya_01', gameDay: 3, gameHour: 12 })
     render(<PhoneContacts />)
     for (const npc of NPC_DEFS) {
       expect(screen.getByTestId(`phone-contact-${npc.id}`)).toHaveTextContent(npc.name)
     }
     const maya = screen.getByTestId('phone-contact-npc_maya_01')
     expect(maya).toHaveTextContent('✓ Met')
-    expect(maya).toHaveTextContent('♥♥')
-    expect(maya).toHaveTextContent('Last talked day 3')
+    expect(maya).toHaveTextContent('♥')
+    expect(maya).toHaveTextContent('Day 3')
+    // Ravi has had no social contact → still a stranger.
     expect(screen.getByTestId('phone-contact-npc_ravi_01')).toHaveTextContent('Not met yet')
+  })
+
+  it('an unlocked contact can be invited out from their card', () => {
+    ingestSocialEvent({ id: 'met:npc_ravi_01', kind: 'met', actorId: 'npc_ravi_01', gameDay: 1, gameHour: 10 })
+    useGameStore.setState((s) => ({ stats: { ...s.stats, day: 1, hour: 10 } }))
+    render(<PhoneContacts />)
+    const invite = screen.getByTestId('contact-invite-npc_ravi_01')
+    fireEvent.click(invite)
+    expect(getInvitations().some((i) => i.actorId === 'npc_ravi_01' && i.source === 'player')).toBe(true)
   })
 })
 
@@ -184,6 +193,18 @@ describe('PhoneMessages', () => {
     for (const npc of NPC_DEFS) {
       expect(screen.getByTestId(`phone-message-${npc.id}`)).toHaveTextContent(npc.name)
     }
+  })
+
+  it('surfaces an incoming invitation and lets the player accept it', () => {
+    // Ravi (met, friendly) reaches out with an invite after a few quiet days.
+    ingestSocialEvent({ id: 'met:npc_ravi_01', kind: 'met', actorId: 'npc_ravi_01', gameDay: 1, gameHour: 10 })
+    reconcileOutreach(4, 9)
+    useGameStore.setState((s) => ({ stats: { ...s.stats, day: 4, hour: 9 } }))
+    render(<PhoneMessages />)
+    expect(screen.getByTestId('phone-invitations')).toBeInTheDocument()
+    const inv = getInvitations().find((i) => i.actorId === 'npc_ravi_01')!
+    fireEvent.click(screen.getByTestId(`invite-accept-${inv.id}`))
+    expect(getInvitations().find((i) => i.id === inv.id)!.status).toBe('accepted')
   })
 })
 

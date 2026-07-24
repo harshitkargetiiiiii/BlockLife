@@ -1,226 +1,413 @@
 {
-  "generatedFor": "World Integrity & City Certification Platform v1 (partial; supersedes prior sprints; this file is the repo-wide test inventory despite its historical name)",
-  "worldIntegrityV1": {
-    "date": "2026-07-19",
-    "status": "Slices 1-5 shipped + gated. Slice 5 (District Certification + Automated City Sweeper): certifyCity machine-readable per-district capability matrix (all 9 districts certify) + debug-panel + getCityCertification; generated full-city traversal E2E + generated visual sweep (content-centroid framed) + 300s integrity soak. The sweeper FOUND a real lockstep bug (s1_-1_walkers_0/1 head-on collision on a shared 2-point path) -> fixed at the compiler with parallel walker lanes (CONVENTIONS #21). Only deferred: police/interior/ejected movement clamps (detected, not clamped). Issue #6 essentially complete.",
-    "slice5Specs": {
-      "src/game/world/integrity/districtCertification.ts": "certifyDistrict/certifyCity/certifyDistrictById — deterministic machine-readable certificate per district over the §11 matrix, AGGREGATING occlusion parity + placement report + road-graph validation + presence checks; central adapter + kit sectors + backdrops; fail on any error-severity check",
-      "src/game/world/integrity/districtCertification.test.ts": "8 unit — whole city certifies (9/9, 0 errors), deterministic, matrix present; fail paths (degenerate building, occlusion miss, prop clip/float, graph errors)",
-      "src/game/world/integrity/citySweep.ts": "generateTraversalTargets + generateVisualSweepFrames from compiled sector/anchor data, framed at the district CONTENT centroid (not empty sector centre)",
-      "src/game/world/integrity/citySweep.test.ts": "4 unit — every district covered, targets in-bounds, deterministic, one visual frame per map-visible district",
-      "src/game/world/authoring/sectorAuthoring.ts": "COMPILER FIX: multi-count loop_walk zones now get PARALLEL LANES (perpendicular offset) so walkers don't collide head-on on a shared linear path (the lockstep class the sweeper found)",
-      "tests/e2e/city-sweep.spec.ts": "generated traversal — visits every district, poll-until-settled, asserts coverage + zero sustained corruption + no page errors + bounded self-heal",
-      "tests/visual/city-sweep-visuals.spec.ts": "generated visual sweep — 7 deterministic district overviews (manually reviewed: all render correct placement, one captures occlusion fading)",
-      "tests/e2e/integrity-soak.spec.ts": "300s integrity soak — cycles districts + time/weather + police-panic + interiors + unload/reload; zero sustained corruption, no duplicate IDs, bounded growth, no errors",
-      "surfacing": "getCityCertification + getTraversalTargets test API; DebugPanel 'certification' section (verified rendering CERTIFIED live via world-integrity E2E test 6)"
-    },
-    "slice4Specs": {
-      "src/game/world/propPlacement.ts": "canonical PER-TYPE visual envelope + [minY,maxY] + support mode (LEAF, matches Props.tsx meshes), SEPARATE from PROP_SOLIDITY collision. porch_light=wall mount; canopy (trees, foliage overhangs → trunk-checked) + abutsBuilding (AC condenser flush to host wall) are narrow per-TYPE intents (§7), never per-coordinate exemptions",
-      "src/game/world/integrity/placementValidation.ts": "pure validators: base-contact (float/sink), visual-clip (penetration not adjacency), anchor-clearance (real body radius), duplicate-citizen (lockstep class), route-corridor, GLB<->fallback ground-contact drift",
-      "src/game/world/integrity/placementValidation.test.ts": "13 unit — geometry helpers + ONE fixture per regression proof #1-7 (rooftop-float, awning-clip, citizen-in-wall, duplicate route, crosswalk-in-furniture, doorway-too-close, GLB/fallback drift)",
-      "src/game/world/integrity/sectorPlacementReport.ts": "per-sector orchestrator: buildings+solid-prop footprints, canopy trunk-check, wall/abut exemption",
-      "src/game/world/integrity/cityPlacement.test.ts": "7 unit — EVERY district's real authored data validated to 0 defects (central + 6 kit sectors); a regression names the exact entity+reason. City was already clean → no data moved, no baseline churn",
-      "src/game/world/integrity/placementIntegrity.ts": "memoized whole-city failures + scanPlacementAnomalies → prop_floating/prop_clipping/anchor_invalid, folded into runIntegrityScan's single ingest",
-      "src/game/world/integrity/placementIntegrity.test.ts": "3 unit — failure->anomaly mapping, report-only kinds skipped, live city clean",
-      "tests/e2e/world-integrity.spec.ts": "+1 E2E (now 5) — every district placement-clean live (>100 props, 0 failures, 0 runtime placement anomalies) via getPlacementReport",
-      "anchorNote": "audit found 4 apparent clips (3 tree foliage + 1 AC); all resolved as non-defects via the canopy + abutsBuilding per-type models. Zero real placement defects citywide."
-    },
-    "slice3Specs": {
-      "src/game/world/sectors/sectorSafetyRing.ts": "pure evaluatePlayerSafetyRing (current + velocity-projected entering sector) + clampVelocityToCoverage (soft crossing-component zero into an un-ready neighbour within the band) + healStuckRequiredSectors (bounded watchdog, LOADING sectors only so the active ground under the player is never unloaded); wired into SectorDirector (stepPlayerSafetyRing) + PlayerController + VehicleController backstop",
-      "src/game/world/sectors/sectorStreaming.ts": "forceSectorReload (generation-safe self-heal) + selfHeals metric + DEV readinessHold (holdSectorReadiness clears flags + suppresses ready; release restores)",
-      "src/game/world/integrity/anomalyDetector.ts": "scanStreamingAnomalies wires the declared player_outside_coverage + sector_stuck_loading types; folded into runIntegrityScan's single ingest",
-      "src/game/world/sectors/sectorSafetyRing.test.ts": "13 unit — requiredSectors, coverage gap, soft backstop (crossing zeroed / not clamped when ready / not near edge / parallel axis preserved), watchdog self-heal + not-before-timeout + not-when-ready",
-      "src/game/world/integrity/anomalyDetector.test.ts": "+4 (streaming safety scan: null/covered no-op, player_outside_coverage w/ ids, backstop_clamping detail, sector_stuck_loading per heal)",
-      "tests/e2e/streaming-safety-ring.spec.ts": "2 E2E — coverage invariant at spawn + after cross-district teleport (backstop inert); delayed readiness -> coverage gap + player_outside_coverage anomaly + auto-recovery"
-    },
-    "slice2Specs": {
-      "src/game/world/integrity/personOccupancy.test.ts": "8 unit — mandatory solid clamp ejects an OFF-path person from a building, hard vehicle clamp off a car, on-foot player push, open-space no-op, an ON-PATH walker SKIPS the clamps (trusts its validated route), findClearPlayerSpawn clears solids/vehicles/people incl. coincident case",
-      "src/game/world/integrity/anomalyDetector.test.ts": "+6 (now 20) — police officer overlapping a civilian surfaces as person-person (police_officer is a person kind); traffic stall/honk-loop scan: below-threshold no-flag, stall past threshold, honk_loop escalation ALONGSIDE the stall, mixed-fleet isolation, custom thresholds",
-      "src/game/world/integrity/anomalyDetector.ts": "scanTrafficAnomalies — pure observe-only scan over CarRuntime.blockedTime (which resets on signal/queue/crosswalk waits) → traffic_blocked past a stall threshold, honk_loop escalation once stuck long enough to have honk-cycled; wires the previously-declared traffic_blocked/honk_loop anomaly types",
-      "src/game/world/integrity/integrityRuntime.ts": "runIntegrityScan now folds scanTrafficAnomalies(trafficRuntime.cars) into the SAME ingest (one tick advance) as the occupancy scan",
-      "src/game/world/integrity/liveObstacles.ts": "frame-cached vehicle obstacles + static solid spatial index + findClearPlayerSpawn (no store dep)",
-      "src/game/world/integrity/personOccupancy.ts": "composed live contract wired into AmbientCitizens + NPC. ON-PATH walkers (moveTarget set / rt.walking) use their existing decidePedestrian+CAR_CLEARANCE avoidance and SKIP the hard vehicle/solid clamps; OFF-path actors (idle/queueing/sitting/frozen/panicking/displaced) get the clamps — this both prevents the bug and removes per-frame clamp cost that was slowing the headless yard-worker commute to a timeout (CONVENTIONS #18)",
-      "tests/e2e/world-integrity.spec.ts": "+1 E2E (now 4) — no sustained person-vehicle/person-solid/vehicle-vehicle overlap in a busy crossing, AND zero false traffic-stall/honk-loop diagnostics at the signalized Harbor Cross (proves blockedTime excludes signal/crosswalk stops)",
-      "regressionCoverage": "user's 5 required cases all covered: (1) citizen on a car — personOccupancy vehicle clamp + detector person_vehicle; (2) citizen in a building — personOccupancy solid clamp + occupancy contract + detector person_solid; (3) multiple citizens one body — occupancy person-spacing + detector person_person + world-integrity E2E; (4) police/civilians overlapping — anomalyDetector police-vs-civilian; (5) invalid vehicle-exit positions — findClearPlayerSpawn (building/citizen/coincident). Plus pileup/endless-blocked-honk diagnosis via scanTrafficAnomalies (traffic_blocked/honk_loop).",
-      "yardWorkerTiming": "the cross-district commute (citizen-destinations.spec.ts:165) regressed to a 6.3min timeout under an always-on per-frame vehicle/solid clamp (grazing friction + per-citizen CPU drag lowering the headless frame rate). Fixed by scoping the clamps to OFF-path actors only (on-path walkers use their existing decidePedestrian+CAR_CLEARANCE avoidance) — trip back to ~3.3min with comfortable margin (CONVENTIONS #18)."
-    },
-    "summary": "Semantic entity registry (mirror) + spatial hash + universal person occupancy (idle citizens separate; yieldAroundStationary=false keeps waypoint trips deadlock-safe) + observe-only anomaly detection (~4Hz DEV) + viewport-clamped speech bubbles + occlusion-parity certification. Fixes screenshot bugs #1 (crowd phasing), #4 (off-screen bubbles), #5 (occlusion parity); Harbor Cross lockstep data defect de-conflicted.",
-    "newUnitSpecs": {
-      "src/game/world/integrity/spatialHash.test.ts": "6 — bounded neighbour queries, determinism, negative coords",
-      "src/game/world/integrity/entityRegistry.test.ts": "8 — register/update/remove, generation-stale cleanup, dynamic mirror, deterministic order, reset",
-      "src/game/world/integrity/occupancy.test.ts": "15 — AABB/oriented push-out, movement-priority weighting, yieldAroundStationary trip-safe mode, full ordered contract (never in vehicle/solid)",
-      "src/game/world/integrity/viewportClamp.test.ts": "7 — edge clamps, hide behind camera, alignment flip, degenerate viewport",
-      "src/game/world/integrity/anomalyDetector.test.ts": "15 — 4 overlap scans + SAT, tolerance, police-vs-civilian, transient-vs-sustained tracker, dedup, bounded",
-      "src/game/world/integrity/integrityRuntime.test.ts": "3 — live mirror+scan, spaced scene clean, reset",
-      "src/game/world/integrity/occlusionParity.test.ts": "6 — certify all districts, expected set, live missing/phantom detection",
-      "src/game/world/personSeparation.test.ts": "+3 — universal spacing: idle-vs-idle repair, deadlock-safe idler-hold, dense-cluster cap"
-    },
-    "newE2E": {
-      "tests/e2e/world-integrity.spec.ts": "3 — registry mirrors live actors (86 entities), idle+moving crowd never sustains overlap (bug #1: 4->0 live), every district certifies occlusion parity live (central + gateway)"
-    },
-    "realDefectsFound": "1 authored data defect: cit_hc_south_shuttle/north_shuttle shared start position + waypoints + speed with the loop citizens (lockstep) -> permanent co-location; de-conflicted onto parallel interior lanes. 1 self-inflicted regression caught by the FULL E2E: the universal resolver's mover-yields-around-idler rule stranded waypoint trips (citizen-destinations 150s soak: cit_g_plaza_stroller stranded) -> fixed with yieldAroundStationary=false. 1 visual-churn issue: routing fixed building WorldLabels through the viewport clamp shifted comfortably-on-screen labels (violates spec) -> reverted WorldLabel to plain positioning, kept SpeechBubble clamped (bubbles are hidden in paused snapshots, zero churn).",
-    "invariantsHeld": "observe-only detector (correction owned by occupancy); IDs/scalars only in registry; deterministic+bounded+generation-safe; spatial index (no all-pairs per-frame); real clamped delta; never throws from useFrame; no per-frame Zustand writes; DEV-only test API, 0 dist leak; waypoint trips never stranded; pause determinism preserved (resolvePersonSpacing runs after the pause-snap early-return)."
+ "generatedFor": "Social Life, Relationships & NPC Memory v1 (issue #13) + prior sprints; this file is the repo-wide test inventory despite its historical name",
+ "worldIntegrityV1": {
+  "date": "2026-07-19",
+  "status": "Slices 1-5 shipped + gated. Slice 5 (District Certification + Automated City Sweeper): certifyCity machine-readable per-district capability matrix (all 9 districts certify) + debug-panel + getCityCertification; generated full-city traversal E2E + generated visual sweep (content-centroid framed) + 300s integrity soak. The sweeper FOUND a real lockstep bug (s1_-1_walkers_0/1 head-on collision on a shared 2-point path) -> fixed at the compiler with parallel walker lanes (CONVENTIONS #21). Only deferred: police/interior/ejected movement clamps (detected, not clamped). Issue #6 essentially complete.",
+  "slice5Specs": {
+   "src/game/world/integrity/districtCertification.ts": "certifyDistrict/certifyCity/certifyDistrictById — deterministic machine-readable certificate per district over the §11 matrix, AGGREGATING occlusion parity + placement report + road-graph validation + presence checks; central adapter + kit sectors + backdrops; fail on any error-severity check",
+   "src/game/world/integrity/districtCertification.test.ts": "8 unit — whole city certifies (9/9, 0 errors), deterministic, matrix present; fail paths (degenerate building, occlusion miss, prop clip/float, graph errors)",
+   "src/game/world/integrity/citySweep.ts": "generateTraversalTargets + generateVisualSweepFrames from compiled sector/anchor data, framed at the district CONTENT centroid (not empty sector centre)",
+   "src/game/world/integrity/citySweep.test.ts": "4 unit — every district covered, targets in-bounds, deterministic, one visual frame per map-visible district",
+   "src/game/world/authoring/sectorAuthoring.ts": "COMPILER FIX: multi-count loop_walk zones now get PARALLEL LANES (perpendicular offset) so walkers don't collide head-on on a shared linear path (the lockstep class the sweeper found)",
+   "tests/e2e/city-sweep.spec.ts": "generated traversal — visits every district, poll-until-settled, asserts coverage + zero sustained corruption + no page errors + bounded self-heal",
+   "tests/visual/city-sweep-visuals.spec.ts": "generated visual sweep — 7 deterministic district overviews (manually reviewed: all render correct placement, one captures occlusion fading)",
+   "tests/e2e/integrity-soak.spec.ts": "300s integrity soak — cycles districts + time/weather + police-panic + interiors + unload/reload; zero sustained corruption, no duplicate IDs, bounded growth, no errors",
+   "surfacing": "getCityCertification + getTraversalTargets test API; DebugPanel 'certification' section (verified rendering CERTIFIED live via world-integrity E2E test 6)"
   },
-  "personalEconomyV1": {
-    "date": "2026-07-18",
-    "summary": "Typed item catalog + pure inventory service (stacks, occupied-slot capacity) + pure item effects; one reusable commerce engine with deterministic persistent stock + lazy game-hour restock + robbery-recovery gate; apartment storage transfer; phone Bag + Shop panels; wardrobe-colour unlocks; Shelf Run lawful supply mission; additive save migration.",
-    "totals": { "unitTests": 844, "e2eTests": 194, "e2eSpecs": 31, "visualBaselines": 95, "visualSpecs": 14 },
-    "newSpecs": {
-      "src/game/items/inventory.test.ts": "12 unit — catalog validation, coffee migration, slots/capacity, atomic add/remove, transfer rollback, listStacks, sanitize",
-      "src/game/items/itemEffects.test.ts": "6 unit — feed/refresh/heal/ammo/unlock bounds + refuse-without-consume + quest not-usable",
-      "src/game/commerce/commerce.test.ts": "13 unit — store validation, multi-interval lazy restock, purchase gate failures, runtime sale/restock/idempotent-receipt/bounded",
-      "src/game/commerce/commercePersistence.test.ts": "4 unit — round-trip, default full stock, malformed fail-safe, inventory migration",
-      "src/app/phone/PhoneBag.test.tsx": "5 component — list + effect summary + Use, quest lock, valuable-discard confirm, cheap-discard instant",
-      "src/game/missions/missionEngine.test.ts": "+4 Shelf Run flow (collect→deliver via deliver_restock/store_restocked, pay once + cooldown, stray restock no re-grant, arrest fail, available-from-start)",
-      "src/app/WardrobePanel.test.ts": "StoragePanel rewritten to a transfer UI (deposit atomic, quest-lock, empty states)",
-      "tests/e2e/economy.spec.ts": "13 E2E — validation, real Shop buy-once, unaffordable/sold-out, restock, use effects + full-stat negatives, storage deposit/withdraw + save/load, robbery-recovery refusal, kiosk reuse, wardrobe unlock, full Shelf Run, old-save migration",
-      "tests/e2e/economy-soak.spec.ts": "1 E2E — 180s buy/use/transfer/restock/save-load/Shelf-Run/robbery cycling under streaming",
-      "tests/visual/economy-visuals.spec.ts": "5 baselines — shop, sold-out, phone Bag, storage transfer, wardrobe lock"
-    },
-    "realDefectsFound": "None pre-existing in touched systems; the sprint added new code. Integration hardening during build: the store_register interaction was overloaded (robbery loot vs shop vs Shelf-Run delivery) and prioritised cleanly; the legacy buy_coffee reducer was kept but wrapped by a store-layer capacity guard so there is ONE effective capacity authority; StoragePanel + PhoneBag component tests updated for the new transfer UI.",
-    "invariantsHeld": "Backpack + storage keep the legacy Record<itemId,qty> shape (no inventory migration); capacity = occupied slots; ONE mutation path via the pure inventory service; effects are typed data → a patch the store applies (health via setPlayerHealth, ammo via setAmmo, no second counters); commerce never mutates money/bag outside one atomic transaction; deterministic lazy restock (no per-frame writes, no paused advance); Shelf Run OBSERVES a generic deliver_restock/store_restocked, owns no stock/money/inventory; Coffee for Ravi preserved; additive fail-safe save; dist test-API strings = 0."
+  "slice4Specs": {
+   "src/game/world/propPlacement.ts": "canonical PER-TYPE visual envelope + [minY,maxY] + support mode (LEAF, matches Props.tsx meshes), SEPARATE from PROP_SOLIDITY collision. porch_light=wall mount; canopy (trees, foliage overhangs → trunk-checked) + abutsBuilding (AC condenser flush to host wall) are narrow per-TYPE intents (§7), never per-coordinate exemptions",
+   "src/game/world/integrity/placementValidation.ts": "pure validators: base-contact (float/sink), visual-clip (penetration not adjacency), anchor-clearance (real body radius), duplicate-citizen (lockstep class), route-corridor, GLB<->fallback ground-contact drift",
+   "src/game/world/integrity/placementValidation.test.ts": "13 unit — geometry helpers + ONE fixture per regression proof #1-7 (rooftop-float, awning-clip, citizen-in-wall, duplicate route, crosswalk-in-furniture, doorway-too-close, GLB/fallback drift)",
+   "src/game/world/integrity/sectorPlacementReport.ts": "per-sector orchestrator: buildings+solid-prop footprints, canopy trunk-check, wall/abut exemption",
+   "src/game/world/integrity/cityPlacement.test.ts": "7 unit — EVERY district's real authored data validated to 0 defects (central + 6 kit sectors); a regression names the exact entity+reason. City was already clean → no data moved, no baseline churn",
+   "src/game/world/integrity/placementIntegrity.ts": "memoized whole-city failures + scanPlacementAnomalies → prop_floating/prop_clipping/anchor_invalid, folded into runIntegrityScan's single ingest",
+   "src/game/world/integrity/placementIntegrity.test.ts": "3 unit — failure->anomaly mapping, report-only kinds skipped, live city clean",
+   "tests/e2e/world-integrity.spec.ts": "+1 E2E (now 5) — every district placement-clean live (>100 props, 0 failures, 0 runtime placement anomalies) via getPlacementReport",
+   "anchorNote": "audit found 4 apparent clips (3 tree foliage + 1 AC); all resolved as non-defects via the canopy + abutsBuilding per-type models. Zero real placement defects citywide."
   },
-  "getawayPolishV1": {
-    "date": "2026-07-18",
-    "summary": "Police containment/breach phase machine, routed store civilians (flee/hide/freeze + witness report), reusable getaway vehicle (exact stolen-vehicle identity + preferParked + requireClean staging), and the Fast Exit mission that observes robbery/vehicle/wanted/proceeds events. Pursuit/breach HUD + audio hooks.",
-    "totals": { "unitTests": 799, "e2eTests": 180, "e2eSpecs": 29, "visualBaselines": 90, "visualSpecs": 13 },
-    "newSpecs": {
-      "src/game/criminalActivities/containmentLogic.test.ts": "9 unit — containment phase machine (none→responding→contained→warning→breach), fallback vs responder timing, single idempotent breach, stand-down/reset, store-switch restart, breachCountdown, deterministic containment positions",
-      "src/game/interiors/interiorCivilianLogic.test.ts": "13 unit — seeded reaction (customer 0 always bolts), exit/hide anchors, interior avoid (eject solids, walls, open doorway), flee/hide/freeze step + report-after-safety idempotency, recover home, no-phasing-into-solids",
-      "src/app/RobberyHUD.test.tsx": "5 component — containment warning phases (none/responding/warning countdown/breached) + proceeds badge independence",
-      "tests/e2e/getaway-pursuit.spec.ts": "8 E2E — containment arm+advance, breach forced-exit, civilian reactions, kiosk witness alarm, full Fast Exit + bonus, exact getaway re-entry, save-block, parked target",
-      "tests/e2e/getaway-soak.spec.ts": "1 E2E — 180s soak: repeated containment/civilian/Fast-Exit cycles under sector streaming; asserts baseline + no page errors",
-      "missionEngine.test.ts": "+8 Fast Exit unit tests (preferParked selection, requireClean staging, full loop pays bonus once + cooldown, exact re-entry, sub-min take, disable/arrest fail, save-blocking)",
-      "tests/visual/robbery-visuals.spec.ts": "+2 baselines (police containment HUD, store civilians routing to cover); robbery-in-progress + looted regenerated for the new routed civilians"
-    },
-    "realDefectsFound": "1 real bug caught by E2E + fixed: a useFrame that CAPTURED the module-runtime civilian array at render time went stale after resetActivities() rebuilt it (StoreRoom stepped an orphaned array while the UI/test-API read a fresh unstepped one) — civilians silently stopped reacting after any reset. Fix: fetch getCivilians() fresh INSIDE the frame (CONVENTIONS gotcha #14). Also filled a gameplay hole: with all-freeze seeded civilians the no-alarm kiosk had no report path — customer 0 now always bolts (a guaranteed witness).",
-    "invariantsHeld": "Reuses (never reimplements) crime/police/mission/vehicle/interior/streaming stacks; deterministic seeded state + real clamped delta; exact stolen-vehicle identity (wrong car rejected, cleared on terminal/reset/load); containment is a pure phase machine, breach is a fair forced-exit (police never enter the off-grid interior); Fast Exit OBSERVES typed events and owns no robbery/wanted/police/loot; save blocked through pursuit/containment/Fast-Exit/unsecured; best-effort civilian seek (no nav stack); dist test-API strings = 0."
+  "slice3Specs": {
+   "src/game/world/sectors/sectorSafetyRing.ts": "pure evaluatePlayerSafetyRing (current + velocity-projected entering sector) + clampVelocityToCoverage (soft crossing-component zero into an un-ready neighbour within the band) + healStuckRequiredSectors (bounded watchdog, LOADING sectors only so the active ground under the player is never unloaded); wired into SectorDirector (stepPlayerSafetyRing) + PlayerController + VehicleController backstop",
+   "src/game/world/sectors/sectorStreaming.ts": "forceSectorReload (generation-safe self-heal) + selfHeals metric + DEV readinessHold (holdSectorReadiness clears flags + suppresses ready; release restores)",
+   "src/game/world/integrity/anomalyDetector.ts": "scanStreamingAnomalies wires the declared player_outside_coverage + sector_stuck_loading types; folded into runIntegrityScan's single ingest",
+   "src/game/world/sectors/sectorSafetyRing.test.ts": "13 unit — requiredSectors, coverage gap, soft backstop (crossing zeroed / not clamped when ready / not near edge / parallel axis preserved), watchdog self-heal + not-before-timeout + not-when-ready",
+   "src/game/world/integrity/anomalyDetector.test.ts": "+4 (streaming safety scan: null/covered no-op, player_outside_coverage w/ ids, backstop_clamping detail, sector_stuck_loading per heal)",
+   "tests/e2e/streaming-safety-ring.spec.ts": "2 E2E — coverage invariant at spawn + after cross-district teleport (backstop inert); delayed readiness -> coverage gap + player_outside_coverage anomaly + auto-recovery"
   },
-  "storeRobberyV1": {
-    "date": "2026-07-18",
-    "summary": "Reusable criminalActivities subsystem + two robbable locations (Main St Convenience, Waterfront Kiosk) + Corner Take mission wrapper + reusable interior registry.",
-    "totals": { "unitTests": 764, "e2eTests": 171, "e2eSpecs": 27, "visualBaselines": 88, "visualSpecs": 13 },
-    "newSpecs": {
-      "src/game/criminalActivities/robberyEngine.test.ts": "18 unit — definitions/validation, seeded cashier+loot+LOS, engine begin/loot-once/alarm-idempotent/abandon/secure-gated/lose-once, persistence",
-      "tests/e2e/store-robbery.spec.ts": "11 E2E — full loop, holstered/outside/blocked-LOS negatives, pay-once, arrest loss, cooldown, wanted-clear anti-exploit, kiosk reuse, Corner Take, save-block",
-      "tests/e2e/robbery-soak.spec.ts": "1 E2E — 180s repeated-cycle soak + sector cycling",
-      "tests/visual/robbery-visuals.spec.ts": "5 baselines — store exterior/interior, robbery-in-progress HUD, looted proceeds, kiosk interior",
-      "missionEngine.test.ts": "+2 Corner Take unit tests (observe register_looted min-take + proceeds_secured; fails on arrest)"
-    },
-    "realDefectsFound": "None pre-existing in touched systems; the sprint added new code. Integration caught + fixed during build: the store's syncActivityUI initially had a tangled def-resolution (rewritten); the register-behind-counter collider needed a doorway gap so the player can reach the register.",
-    "invariantsHeld": "Module-singleton runtime (ids/scalars only); bounded ~4Hz zustand projection; seeded determinism (no Math.random); real clamped delta; idempotent loot+secure receipts; robbery code never sets wanted or spawns police (reports via crime stack); no interior wanted-clear exploit (crime director suppresses decay while location==='store'); Corner Take wraps via typed activity_event, owns no robbery internals; dist test-API strings = 0."
+  "slice2Specs": {
+   "src/game/world/integrity/personOccupancy.test.ts": "8 unit — mandatory solid clamp ejects an OFF-path person from a building, hard vehicle clamp off a car, on-foot player push, open-space no-op, an ON-PATH walker SKIPS the clamps (trusts its validated route), findClearPlayerSpawn clears solids/vehicles/people incl. coincident case",
+   "src/game/world/integrity/anomalyDetector.test.ts": "+6 (now 20) — police officer overlapping a civilian surfaces as person-person (police_officer is a person kind); traffic stall/honk-loop scan: below-threshold no-flag, stall past threshold, honk_loop escalation ALONGSIDE the stall, mixed-fleet isolation, custom thresholds",
+   "src/game/world/integrity/anomalyDetector.ts": "scanTrafficAnomalies — pure observe-only scan over CarRuntime.blockedTime (which resets on signal/queue/crosswalk waits) → traffic_blocked past a stall threshold, honk_loop escalation once stuck long enough to have honk-cycled; wires the previously-declared traffic_blocked/honk_loop anomaly types",
+   "src/game/world/integrity/integrityRuntime.ts": "runIntegrityScan now folds scanTrafficAnomalies(trafficRuntime.cars) into the SAME ingest (one tick advance) as the occupancy scan",
+   "src/game/world/integrity/liveObstacles.ts": "frame-cached vehicle obstacles + static solid spatial index + findClearPlayerSpawn (no store dep)",
+   "src/game/world/integrity/personOccupancy.ts": "composed live contract wired into AmbientCitizens + NPC. ON-PATH walkers (moveTarget set / rt.walking) use their existing decidePedestrian+CAR_CLEARANCE avoidance and SKIP the hard vehicle/solid clamps; OFF-path actors (idle/queueing/sitting/frozen/panicking/displaced) get the clamps — this both prevents the bug and removes per-frame clamp cost that was slowing the headless yard-worker commute to a timeout (CONVENTIONS #18)",
+   "tests/e2e/world-integrity.spec.ts": "+1 E2E (now 4) — no sustained person-vehicle/person-solid/vehicle-vehicle overlap in a busy crossing, AND zero false traffic-stall/honk-loop diagnostics at the signalized Harbor Cross (proves blockedTime excludes signal/crosswalk stops)",
+   "regressionCoverage": "user's 5 required cases all covered: (1) citizen on a car — personOccupancy vehicle clamp + detector person_vehicle; (2) citizen in a building — personOccupancy solid clamp + occupancy contract + detector person_solid; (3) multiple citizens one body — occupancy person-spacing + detector person_person + world-integrity E2E; (4) police/civilians overlapping — anomalyDetector police-vs-civilian; (5) invalid vehicle-exit positions — findClearPlayerSpawn (building/citizen/coincident). Plus pileup/endless-blocked-honk diagnosis via scanTrafficAnomalies (traffic_blocked/honk_loop).",
+   "yardWorkerTiming": "the cross-district commute (citizen-destinations.spec.ts:165) regressed to a 6.3min timeout under an always-on per-frame vehicle/solid clamp (grazing friction + per-citizen CPU drag lowering the headless frame rate). Fixed by scoping the clamps to OFF-path actors only (on-path walkers use their existing decidePedestrian+CAR_CLEARANCE avoidance) — trip back to ~3.3min with comfortable margin (CONVENTIONS #18)."
   },
-  "priorGeneratedFor": "Mission & Open-World Activity Framework v1 — M7 final gate (this file is the repo-wide test inventory despite its historical name)",
-  "date": "2026-07-16",
-  "node": "v23.3.0",
-  "commands": {
-    "typecheck": "npx tsc -b --force",
-    "typecheckWarning": "`npx tsc --noEmit` is VACUOUS in this repo — the root tsconfig.json is a solution file (\"files\": [], references only), so it compiles 0 files and always passes. Measured: --noEmit --listFiles = 0 files; tsconfig.app.json = 1556 files. Use -b --force (--force also defeats a stale .tsbuildinfo PASS).",
-    "build": "npm run build",
-    "unit": "npm run test",
-    "e2e_all": "npx playwright test tests/e2e",
-    "visual_all": "npx playwright test tests/visual",
-    "lint": "npm run lint",
-    "crimeGate": "bash scripts/crime-gate.sh",
-    "hardeningGate": "bash scripts/hardening-gate.sh"
+  "summary": "Semantic entity registry (mirror) + spatial hash + universal person occupancy (idle citizens separate; yieldAroundStationary=false keeps waypoint trips deadlock-safe) + observe-only anomaly detection (~4Hz DEV) + viewport-clamped speech bubbles + occlusion-parity certification. Fixes screenshot bugs #1 (crowd phasing), #4 (off-screen bubbles), #5 (occlusion parity); Harbor Cross lockstep data defect de-conflicted.",
+  "newUnitSpecs": {
+   "src/game/world/integrity/spatialHash.test.ts": "6 — bounded neighbour queries, determinism, negative coords",
+   "src/game/world/integrity/entityRegistry.test.ts": "8 — register/update/remove, generation-stale cleanup, dynamic mirror, deterministic order, reset",
+   "src/game/world/integrity/occupancy.test.ts": "15 — AABB/oriented push-out, movement-priority weighting, yieldAroundStationary trip-safe mode, full ordered contract (never in vehicle/solid)",
+   "src/game/world/integrity/viewportClamp.test.ts": "7 — edge clamps, hide behind camera, alignment flip, degenerate viewport",
+   "src/game/world/integrity/anomalyDetector.test.ts": "15 — 4 overlap scans + SAT, tolerance, police-vs-civilian, transient-vs-sustained tracker, dedup, bounded",
+   "src/game/world/integrity/integrityRuntime.test.ts": "3 — live mirror+scan, spaced scene clean, reset",
+   "src/game/world/integrity/occlusionParity.test.ts": "6 — certify all districts, expected set, live missing/phantom detection",
+   "src/game/world/personSeparation.test.ts": "+3 — universal spacing: idle-vs-idle repair, deadlock-safe idler-hold, dense-cluster cap"
   },
+  "newE2E": {
+   "tests/e2e/world-integrity.spec.ts": "3 — registry mirrors live actors (86 entities), idle+moving crowd never sustains overlap (bug #1: 4->0 live), every district certifies occlusion parity live (central + gateway)"
+  },
+  "realDefectsFound": "1 authored data defect: cit_hc_south_shuttle/north_shuttle shared start position + waypoints + speed with the loop citizens (lockstep) -> permanent co-location; de-conflicted onto parallel interior lanes. 1 self-inflicted regression caught by the FULL E2E: the universal resolver's mover-yields-around-idler rule stranded waypoint trips (citizen-destinations 150s soak: cit_g_plaza_stroller stranded) -> fixed with yieldAroundStationary=false. 1 visual-churn issue: routing fixed building WorldLabels through the viewport clamp shifted comfortably-on-screen labels (violates spec) -> reverted WorldLabel to plain positioning, kept SpeechBubble clamped (bubbles are hidden in paused snapshots, zero churn).",
+  "invariantsHeld": "observe-only detector (correction owned by occupancy); IDs/scalars only in registry; deterministic+bounded+generation-safe; spatial index (no all-pairs per-frame); real clamped delta; never throws from useFrame; no per-frame Zustand writes; DEV-only test API, 0 dist leak; waypoint trips never stranded; pause determinism preserved (resolvePersonSpacing runs after the pause-snap early-return)."
+ },
+ "personalEconomyV1": {
+  "date": "2026-07-18",
+  "summary": "Typed item catalog + pure inventory service (stacks, occupied-slot capacity) + pure item effects; one reusable commerce engine with deterministic persistent stock + lazy game-hour restock + robbery-recovery gate; apartment storage transfer; phone Bag + Shop panels; wardrobe-colour unlocks; Shelf Run lawful supply mission; additive save migration.",
   "totals": {
-    "unitFiles": 91,
-    "unitTests": 764,
-    "e2eFiles": 27,
-    "e2eDefined": 171,
-    "e2eRunnable": 171,
-    "e2eSkipped": 0,
-    "visualFiles": 13,
-    "visualDefined": 88,
-    "visualRunnable": 88,
-    "visualSkipped": 0,
-    "onlyMarkers": 0
+   "unitTests": 844,
+   "e2eTests": 194,
+   "e2eSpecs": 31,
+   "visualBaselines": 95,
+   "visualSpecs": 14
   },
-  "e2eSuites": [
-    { "file": "apartment.spec.ts", "defined": 5 },
-    { "file": "authoring.spec.ts", "defined": 4 },
-    { "file": "characters.spec.ts", "defined": 10 },
-    { "file": "citizen-destinations.spec.ts", "defined": 10 },
-    { "file": "city-expansion.spec.ts", "defined": 3 },
-    { "file": "crime-soak.spec.ts", "defined": 1, "notes": "180s soak" },
-    { "file": "crime.spec.ts", "defined": 19, "notes": "M2 occupied-theft (8,8b), M3 road-graph pursuit (13), M4 dismount (14,15), M5 panic/apartment/streaming (16,17,18)" },
-    { "file": "crosswalk-art.spec.ts", "defined": 6 },
-    { "file": "density.spec.ts", "defined": 5 },
-    { "file": "districts.spec.ts", "defined": 6 },
-    { "file": "expansion.spec.ts", "defined": 10, "notes": "contains 150s soak" },
-    { "file": "game-load.spec.ts", "defined": 3 },
-    { "file": "gameplay-flow.spec.ts", "defined": 6, "notes": "Coffee for Ravi" },
-    { "file": "intersections.spec.ts", "defined": 5 },
-    { "file": "mission-soak.spec.ts", "defined": 1, "notes": "NEW — 180s mission soak: repeated courier/hot-cargo attempts + mid-mission sector cycling + fail/retry/cancel; asserts zero pageerrors, reward-paid-once (totalEarned == completions*reward), no stale ownedEntities, validation empty, police <= 3, crimes <= 64" },
-    { "file": "missions.spec.ts", "defined": 16, "notes": "both missions end-to-end through real gameplay; +15 replacement stolen car cannot complete Hot Cargo (target_vehicle_lost), +16 save/load never duplicates a reward or reuses an attempt id (hardening fixes 2/3/4)" },
-    { "file": "occlusion.spec.ts", "defined": 7 },
-    { "file": "pedestrian-crossings.spec.ts", "defined": 7 },
-    { "file": "phone.spec.ts", "defined": 4 },
-    { "file": "polish.spec.ts", "defined": 2 },
-    { "file": "save-load.spec.ts", "defined": 4 },
-    { "file": "sectors.spec.ts", "defined": 6 },
-    { "file": "traffic-routing.spec.ts", "defined": 8, "notes": "contains 120s soak" },
-    { "file": "traffic.spec.ts", "defined": 5 },
-    { "file": "weather.spec.ts", "defined": 6 }
-  ],
-  "visualSuites": [
-    { "file": "apartment-visuals.spec.ts", "defined": 4 },
-    { "file": "authoring-visuals.spec.ts", "defined": 2 },
-    { "file": "character-visuals.spec.ts", "defined": 7 },
-    { "file": "city-expansion-visuals.spec.ts", "defined": 4 },
-    { "file": "city-visuals.spec.ts", "defined": 11 },
-    { "file": "crime-visuals.spec.ts", "defined": 13, "notes": "+occupied-cars, +carjack-flee (M2/M3), +dismounted-officers (M4)" },
-    { "file": "expansion-visuals.spec.ts", "defined": 19 },
-    { "file": "mission-visuals.spec.ts", "defined": 7, "notes": "NEW — courier pickup + waterfront markers, hot-cargo marked target, fixer garage, complete banner, failed banner, phone Jobs+ board" },
-    { "file": "occlusion-visuals.spec.ts", "defined": 5 },
-    { "file": "routing-visuals.spec.ts", "defined": 3 },
-    { "file": "sector-visuals.spec.ts", "defined": 3 },
-    { "file": "weather-visuals.spec.ts", "defined": 5 }
-  ],
-  "missionSprintFindings": {
-    "vacuousTypecheck": "The documented stage-1 gate (`tsc --noEmit`) compiles ZERO files and had been reporting PASS unconditionally for every prior sprint — the root tsconfig.json is references-only. Found when hardening-gate stage [1/8] said PASS while stage [4/8] `npm run build` (tsc -b) failed on src/game/missions/MissionMarkers.tsx TS6133 (unused import). Both gate scripts + CLAUDE.md + CONVENTIONS.md now use `tsc -b --force`; the corrected stage was verified to FAIL on a deliberately injected type error before being trusted. Same failure family as the historical `playwright | tail` truncation bug. Note: noUnusedLocals/noUnusedParameters live only in tsconfig.app.json, so unused-symbol errors are invisible to both the vacuous form and oxlint.",
-    "useFrameThrowFreeze": "MissionMarkers read streamingRuntime.sectors (real field: .states) and threw every frame once a mission went active — which froze the ENTIRE R3F loop, so unrelated systems (interaction prompts, teleports) appeared broken. Diagnosed only via page.on('pageerror'). Recorded as CONVENTIONS gotcha 13.",
-    "anchorPlacement": "Two mission anchors were authored at plausible-looking but wrong coordinates — the courier depot inside the Nook Offices building, the fixer garage 2m from a live traffic lane. Both were invisible to tests and caught only by screenshots. Anchors must be visually verified.",
-    "soakIterationLimit": "The 180s mission soak completes only ~1 courier + ~2 hot-cargo attempts because 6h/20h in-game cooldowns do not clear in 3 real minutes and setTime() moves the hour, not the day. The soak proves its invariants but is not a high-iteration fuzzer. A day-skip test API would be needed for that.",
-    "sectorWedgeBug": "REAL PRODUCT BUG found by missions E2E test 12 (~1 run in 8, surfaced as a gate E2E failure). A sector could wedge in `loading` FOREVER after an unload→reload — no colliders, a hole in the world, and silently blocked teleports into it (teleportCoordinator only commits once the destination reports ready). Two independent defects: (1) React identity for sector roots was `key={id}` with effect deps `[id]`, so an unload→reload could coalesce into 'no membership change' — the roots never remounted, the readiness effect never re-ran, and nobody reported readiness for the new generation (signature: lifecycle=loading, visualsReady=false, staleCompletions=0, queue=1). Fixed with getMountedSectorEntries() + key=`${id}:${generation}` + generation passed as a prop. (2) reportSectorVisuals/Colliders guarded staleness only on ready===true, so a passive (async) useEffect cleanup from generation N could clear generation N+1's live flags. Fixed by guarding both directions. Both pinned by unit tests in sectorStreaming.test.ts (each verified to FAIL against the old code). Test 12 then passed 16/16 in isolation vs ~1-in-8 before. NOTE: this was pre-existing, not a mission regression — missions merely provided the first test that force-cycled a sector while ambient routed-vehicle prewarm concurrently demanded it.",
-    "missionTestUnderBudget": "Mission E2E test 12 used fixed 900ms sleeps around a forced sector unload/reload. Measured reality: unload 0.9-7.3s (it must wait out an in-flight prewarm load plus the 3s unloadDelayMs) and remount→ready 1.5-4.9s. Besides tipping over 15s under full-suite load, an early-expiring sleep would let a slow unload silently SKIP the cycle the test exists to prove (a false pass). Rewritten to wait on the real sector lifecycle (matching the established tests/e2e/sectors.spec.ts pattern), with 20s budgets ~4x the measured worst case."
+  "newSpecs": {
+   "src/game/items/inventory.test.ts": "12 unit — catalog validation, coffee migration, slots/capacity, atomic add/remove, transfer rollback, listStacks, sanitize",
+   "src/game/items/itemEffects.test.ts": "6 unit — feed/refresh/heal/ammo/unlock bounds + refuse-without-consume + quest not-usable",
+   "src/game/commerce/commerce.test.ts": "13 unit — store validation, multi-interval lazy restock, purchase gate failures, runtime sale/restock/idempotent-receipt/bounded",
+   "src/game/commerce/commercePersistence.test.ts": "4 unit — round-trip, default full stock, malformed fail-safe, inventory migration",
+   "src/app/phone/PhoneBag.test.tsx": "5 component — list + effect summary + Use, quest lock, valuable-discard confirm, cheap-discard instant",
+   "src/game/missions/missionEngine.test.ts": "+4 Shelf Run flow (collect→deliver via deliver_restock/store_restocked, pay once + cooldown, stray restock no re-grant, arrest fail, available-from-start)",
+   "src/app/WardrobePanel.test.ts": "StoragePanel rewritten to a transfer UI (deposit atomic, quest-lock, empty states)",
+   "tests/e2e/economy.spec.ts": "13 E2E — validation, real Shop buy-once, unaffordable/sold-out, restock, use effects + full-stat negatives, storage deposit/withdraw + save/load, robbery-recovery refusal, kiosk reuse, wardrobe unlock, full Shelf Run, old-save migration",
+   "tests/e2e/economy-soak.spec.ts": "1 E2E — 180s buy/use/transfer/restock/save-load/Shelf-Run/robbery cycling under streaming",
+   "tests/visual/economy-visuals.spec.ts": "5 baselines — shop, sold-out, phone Bag, storage transfer, wardrobe lock"
   },
-  "repoHardeningFixes": {
-    "date": "2026-07-17",
-    "summary": "Six targeted repo-hardening fixes after the mission sprint. Unit 729→744, E2E 157→159 (missions.spec 14→16).",
-    "fix1_portableGate": "scripts/hardening-gate.sh + crime-gate.sh had hardcoded `/Users/harshitkargeti/GTABrowser` and a Claude scratchpad log path. Now: repo root resolved from the script location (SCRIPT_DIR/..), logs via `mktemp -d` with `trap ... EXIT` cleanup, Node pin applied only when the nvm dir exists (else falls back to PATH node for CI). Verified by running the FULL gate from a different path (/private/tmp/blocklife-altpath, node_modules symlinked).",
-    "fix2_exactVehicleIdentity": "drive_vehicle_to_zone (MissionDirector) and deliver_vehicle (engine) only checked isPlayerCarStolen()/the interactable — NOT that the delivered car was the exact assigned target. A player could boost the target, then boost a replacement and deliver the decoy. Fix: vehicleCrimeState records the player car's `sourceVehicleId` (getPlayerCarSourceId); the Director gates drive_vehicle_to_zone on source===targetVehicle, and the engine gates deliver_vehicle via ctx.drivenVehicleSourceId===target. Identity cleared on handoff/terminal (bridge) and on arrest/incap/reset/load (resetVehicleCrimeRuntime). Unit + E2E (missions.spec:15) prove a replacement cannot complete Hot Cargo.",
-    "fix3_vehicleLost": "The `target_vehicle_lost` failure rule was declared but unreachable (failureReasonFor never produced it). Implemented a typed `vehicle_lost` event with deterministic detection: boosting a DIFFERENT vehicle while driving the mission target emits vehicle_lost(target) (store.stealVehicle → bridge.notifyVehicleStolen), which failureReasonFor maps to target_vehicle_lost (only for the mission's own target). Unit + E2E.",
-    "fix4_persistenceHardening": "serializeMissions now persists `receipts` and `attemptSeq`; applyMissionSave restores them, keeps attemptSeq monotonic across sessions (max of saved/receipt-derived/active), and RE-MINTS a restored active mission's attemptId so a reloaded pre-completion save is a distinct attempt — a reward can't be duplicated and attempt ids can't repeat. Rigorous nested validation (history/cooldowns/receipts/active objectiveStates+variables+ownedEntityIds). Old saves (no receipts/attemptSeq) remain valid. Unit tests prove no double-pay and no id reuse; E2E (missions.spec:16) round-trips save/load.",
-    "fix5_ci": ".github/workflows/ci.yml (push + PR): Node from .nvmrc (23.3.0), npm ci, tsc -b --force, lint, unit, production build, and a dist test-API leak check. Browser/visual suites intentionally excluded from CI; README documents the full local `scripts/hardening-gate.sh`.",
-    "fix6_readme": "Player-facing intro rewritten (streamed multi-district city + jobs/crime). Corrected the false 'everything on screen is procedural' claim (CC0-1.0 Quaternius GLBs are used, each with a procedural fallback). Linked docs/MISSIONS_AND_ACTIVITIES.md; added a missions feature bullet + CI/local-gate verification section.",
-    "gateFromDifferentPath": "Full hardening-gate.sh executed from /private/tmp/blocklife-altpath (not the original /Users path) — proves portability."
+  "realDefectsFound": "None pre-existing in touched systems; the sprint added new code. Integration hardening during build: the store_register interaction was overloaded (robbery loot vs shop vs Shelf-Run delivery) and prioritised cleanly; the legacy buy_coffee reducer was kept but wrapped by a store-layer capacity guard so there is ONE effective capacity authority; StoragePanel + PhoneBag component tests updated for the new transfer UI.",
+  "invariantsHeld": "Backpack + storage keep the legacy Record<itemId,qty> shape (no inventory migration); capacity = occupied slots; ONE mutation path via the pure inventory service; effects are typed data → a patch the store applies (health via setPlayerHealth, ammo via setAmmo, no second counters); commerce never mutates money/bag outside one atomic transaction; deterministic lazy restock (no per-frame writes, no paused advance); Shelf Run OBSERVES a generic deliver_restock/store_restocked, owns no stock/money/inventory; Coffee for Ravi preserved; additive fail-safe save; dist test-API strings = 0."
+ },
+ "getawayPolishV1": {
+  "date": "2026-07-18",
+  "summary": "Police containment/breach phase machine, routed store civilians (flee/hide/freeze + witness report), reusable getaway vehicle (exact stolen-vehicle identity + preferParked + requireClean staging), and the Fast Exit mission that observes robbery/vehicle/wanted/proceeds events. Pursuit/breach HUD + audio hooks.",
+  "totals": {
+   "unitTests": 799,
+   "e2eTests": 180,
+   "e2eSpecs": 29,
+   "visualBaselines": 90,
+   "visualSpecs": 13
   },
-  "missionFinalRun": {
-    "date": "2026-07-16",
-    "gate": "scripts/hardening-gate.sh (sequential, derived counts, .only/.skip guard, pipefail, tsc -b --force)",
-    "result": "see the sprint final report — this run followed the MissionMarkers unused-import fix",
-    "supersedes": "hardeningFinalRun below (Crime v1: 693 unit / 142 E2E / 76 visual)"
+  "newSpecs": {
+   "src/game/criminalActivities/containmentLogic.test.ts": "9 unit — containment phase machine (none→responding→contained→warning→breach), fallback vs responder timing, single idempotent breach, stand-down/reset, store-switch restart, breachCountdown, deterministic containment positions",
+   "src/game/interiors/interiorCivilianLogic.test.ts": "13 unit — seeded reaction (customer 0 always bolts), exit/hide anchors, interior avoid (eject solids, walls, open doorway), flee/hide/freeze step + report-after-safety idempotency, recover home, no-phasing-into-solids",
+   "src/app/RobberyHUD.test.tsx": "5 component — containment warning phases (none/responding/warning countdown/breached) + proceeds badge independence",
+   "tests/e2e/getaway-pursuit.spec.ts": "8 E2E — containment arm+advance, breach forced-exit, civilian reactions, kiosk witness alarm, full Fast Exit + bonus, exact getaway re-entry, save-block, parked target",
+   "tests/e2e/getaway-soak.spec.ts": "1 E2E — 180s soak: repeated containment/civilian/Fast-Exit cycles under sector streaming; asserts baseline + no page errors",
+   "missionEngine.test.ts": "+8 Fast Exit unit tests (preferParked selection, requireClean staging, full loop pays bonus once + cooldown, exact re-entry, sub-min take, disable/arrest fail, save-blocking)",
+   "tests/visual/robbery-visuals.spec.ts": "+2 baselines (police containment HUD, store civilians routing to cover); robbery-in-progress + looted regenerated for the new routed civilians"
   },
-  "hardeningFinalRun": {
-    "date": "2026-07-16",
-    "gate": "scripts/hardening-gate.sh (sequential, derived counts, .only/.skip guard, pipefail)",
-    "result": "HARDENING GATE: PASS",
-    "tsc": "reported clean — but see missionSprintFindings.vacuousTypecheck: this stage was checking 0 files",
-    "lint": "0 errors / 0 warnings",
-    "unit": "693 passed / 0 failed",
-    "distTestApiLeak": 0,
-    "e2e": "142 passed / 0 failed / 0 skipped (all 23 specs, incl. crime 19 + three soak tests)",
-    "visualPass1": "76 passed / 0 failed",
-    "visualPass2": "76 passed / 0 failed (stability)",
-    "notes": "Sequential run (no two Playwright suites at once) — the earlier contended run had produced one false arrest-timeout on crime.spec.ts:6, which passes 3/3 in isolation. See memory parallel-playwright-contention.",
-    "hardeningMilestones": {
-      "M2": "Occupied vehicle carjacking end-to-end (driver eject/flee/report, no duplicate driver, streaming-safe)",
-      "M3": "Road-graph-aware police vehicle pursuit (reuses routing stack, bounded replan, emergency priority, direct-pursuit fallback)",
-      "M4": "Real dismounted police officers (separate actors: model/health/weapon/foot-AI/arrest/combat, safe dismount, cruiser-linked lifecycle, no duplication)",
-      "M5": "Integration hardening (quest-NPC panic + self-recovery incl. Coffee-for-Ravi, apartment/wanted policy, multi-sector pursuit streaming proof)",
-      "M6": "Full-regression gate + docs"
-    }
+  "realDefectsFound": "1 real bug caught by E2E + fixed: a useFrame that CAPTURED the module-runtime civilian array at render time went stale after resetActivities() rebuilt it (StoreRoom stepped an orphaned array while the UI/test-API read a fresh unstepped one) — civilians silently stopped reacting after any reset. Fix: fetch getCivilians() fresh INSIDE the frame (CONVENTIONS gotcha #14). Also filled a gameplay hole: with all-freeze seeded civilians the no-alarm kiosk had no report path — customer 0 now always bolts (a guaranteed witness).",
+  "invariantsHeld": "Reuses (never reimplements) crime/police/mission/vehicle/interior/streaming stacks; deterministic seeded state + real clamped delta; exact stolen-vehicle identity (wrong car rejected, cleared on terminal/reset/load); containment is a pure phase machine, breach is a fair forced-exit (police never enter the off-grid interior); Fast Exit OBSERVES typed events and owns no robbery/wanted/police/loot; save blocked through pursuit/containment/Fast-Exit/unsecured; best-effort civilian seek (no nav stack); dist test-API strings = 0."
+ },
+ "storeRobberyV1": {
+  "date": "2026-07-18",
+  "summary": "Reusable criminalActivities subsystem + two robbable locations (Main St Convenience, Waterfront Kiosk) + Corner Take mission wrapper + reusable interior registry.",
+  "totals": {
+   "unitTests": 764,
+   "e2eTests": 171,
+   "e2eSpecs": 27,
+   "visualBaselines": 88,
+   "visualSpecs": 13
+  },
+  "newSpecs": {
+   "src/game/criminalActivities/robberyEngine.test.ts": "18 unit — definitions/validation, seeded cashier+loot+LOS, engine begin/loot-once/alarm-idempotent/abandon/secure-gated/lose-once, persistence",
+   "tests/e2e/store-robbery.spec.ts": "11 E2E — full loop, holstered/outside/blocked-LOS negatives, pay-once, arrest loss, cooldown, wanted-clear anti-exploit, kiosk reuse, Corner Take, save-block",
+   "tests/e2e/robbery-soak.spec.ts": "1 E2E — 180s repeated-cycle soak + sector cycling",
+   "tests/visual/robbery-visuals.spec.ts": "5 baselines — store exterior/interior, robbery-in-progress HUD, looted proceeds, kiosk interior",
+   "missionEngine.test.ts": "+2 Corner Take unit tests (observe register_looted min-take + proceeds_secured; fails on arrest)"
+  },
+  "realDefectsFound": "None pre-existing in touched systems; the sprint added new code. Integration caught + fixed during build: the store's syncActivityUI initially had a tangled def-resolution (rewritten); the register-behind-counter collider needed a doorway gap so the player can reach the register.",
+  "invariantsHeld": "Module-singleton runtime (ids/scalars only); bounded ~4Hz zustand projection; seeded determinism (no Math.random); real clamped delta; idempotent loot+secure receipts; robbery code never sets wanted or spawns police (reports via crime stack); no interior wanted-clear exploit (crime director suppresses decay while location==='store'); Corner Take wraps via typed activity_event, owns no robbery internals; dist test-API strings = 0."
+ },
+ "priorGeneratedFor": "Mission & Open-World Activity Framework v1 — M7 final gate (this file is the repo-wide test inventory despite its historical name)",
+ "date": "2026-07-16",
+ "node": "v23.3.0",
+ "commands": {
+  "typecheck": "npx tsc -b --force",
+  "typecheckWarning": "`npx tsc --noEmit` is VACUOUS in this repo — the root tsconfig.json is a solution file (\"files\": [], references only), so it compiles 0 files and always passes. Measured: --noEmit --listFiles = 0 files; tsconfig.app.json = 1556 files. Use -b --force (--force also defeats a stale .tsbuildinfo PASS).",
+  "build": "npm run build",
+  "unit": "npm run test",
+  "e2e_all": "npx playwright test tests/e2e",
+  "visual_all": "npx playwright test tests/visual",
+  "lint": "npm run lint",
+  "crimeGate": "bash scripts/crime-gate.sh",
+  "hardeningGate": "bash scripts/hardening-gate.sh"
+ },
+ "totals": {
+  "unitFiles": 91,
+  "unitTests": 764,
+  "e2eFiles": 27,
+  "e2eDefined": 171,
+  "e2eRunnable": 171,
+  "e2eSkipped": 0,
+  "visualFiles": 13,
+  "visualDefined": 88,
+  "visualRunnable": 88,
+  "visualSkipped": 0,
+  "onlyMarkers": 0
+ },
+ "e2eSuites": [
+  {
+   "file": "apartment.spec.ts",
+   "defined": 5
+  },
+  {
+   "file": "authoring.spec.ts",
+   "defined": 4
+  },
+  {
+   "file": "characters.spec.ts",
+   "defined": 10
+  },
+  {
+   "file": "citizen-destinations.spec.ts",
+   "defined": 10
+  },
+  {
+   "file": "city-expansion.spec.ts",
+   "defined": 3
+  },
+  {
+   "file": "crime-soak.spec.ts",
+   "defined": 1,
+   "notes": "180s soak"
+  },
+  {
+   "file": "crime.spec.ts",
+   "defined": 19,
+   "notes": "M2 occupied-theft (8,8b), M3 road-graph pursuit (13), M4 dismount (14,15), M5 panic/apartment/streaming (16,17,18)"
+  },
+  {
+   "file": "crosswalk-art.spec.ts",
+   "defined": 6
+  },
+  {
+   "file": "density.spec.ts",
+   "defined": 5
+  },
+  {
+   "file": "districts.spec.ts",
+   "defined": 6
+  },
+  {
+   "file": "expansion.spec.ts",
+   "defined": 10,
+   "notes": "contains 150s soak"
+  },
+  {
+   "file": "game-load.spec.ts",
+   "defined": 3
+  },
+  {
+   "file": "gameplay-flow.spec.ts",
+   "defined": 6,
+   "notes": "Coffee for Ravi"
+  },
+  {
+   "file": "intersections.spec.ts",
+   "defined": 5
+  },
+  {
+   "file": "mission-soak.spec.ts",
+   "defined": 1,
+   "notes": "NEW — 180s mission soak: repeated courier/hot-cargo attempts + mid-mission sector cycling + fail/retry/cancel; asserts zero pageerrors, reward-paid-once (totalEarned == completions*reward), no stale ownedEntities, validation empty, police <= 3, crimes <= 64"
+  },
+  {
+   "file": "missions.spec.ts",
+   "defined": 16,
+   "notes": "both missions end-to-end through real gameplay; +15 replacement stolen car cannot complete Hot Cargo (target_vehicle_lost), +16 save/load never duplicates a reward or reuses an attempt id (hardening fixes 2/3/4)"
+  },
+  {
+   "file": "occlusion.spec.ts",
+   "defined": 7
+  },
+  {
+   "file": "pedestrian-crossings.spec.ts",
+   "defined": 7
+  },
+  {
+   "file": "phone.spec.ts",
+   "defined": 4
+  },
+  {
+   "file": "polish.spec.ts",
+   "defined": 2
+  },
+  {
+   "file": "save-load.spec.ts",
+   "defined": 4
+  },
+  {
+   "file": "sectors.spec.ts",
+   "defined": 6
+  },
+  {
+   "file": "traffic-routing.spec.ts",
+   "defined": 8,
+   "notes": "contains 120s soak"
+  },
+  {
+   "file": "traffic.spec.ts",
+   "defined": 5
+  },
+  {
+   "file": "weather.spec.ts",
+   "defined": 6
   }
+ ],
+ "visualSuites": [
+  {
+   "file": "apartment-visuals.spec.ts",
+   "defined": 4
+  },
+  {
+   "file": "authoring-visuals.spec.ts",
+   "defined": 2
+  },
+  {
+   "file": "character-visuals.spec.ts",
+   "defined": 7
+  },
+  {
+   "file": "city-expansion-visuals.spec.ts",
+   "defined": 4
+  },
+  {
+   "file": "city-visuals.spec.ts",
+   "defined": 11
+  },
+  {
+   "file": "crime-visuals.spec.ts",
+   "defined": 13,
+   "notes": "+occupied-cars, +carjack-flee (M2/M3), +dismounted-officers (M4)"
+  },
+  {
+   "file": "expansion-visuals.spec.ts",
+   "defined": 19
+  },
+  {
+   "file": "mission-visuals.spec.ts",
+   "defined": 7,
+   "notes": "NEW — courier pickup + waterfront markers, hot-cargo marked target, fixer garage, complete banner, failed banner, phone Jobs+ board"
+  },
+  {
+   "file": "occlusion-visuals.spec.ts",
+   "defined": 5
+  },
+  {
+   "file": "routing-visuals.spec.ts",
+   "defined": 3
+  },
+  {
+   "file": "sector-visuals.spec.ts",
+   "defined": 3
+  },
+  {
+   "file": "weather-visuals.spec.ts",
+   "defined": 5
+  }
+ ],
+ "missionSprintFindings": {
+  "vacuousTypecheck": "The documented stage-1 gate (`tsc --noEmit`) compiles ZERO files and had been reporting PASS unconditionally for every prior sprint — the root tsconfig.json is references-only. Found when hardening-gate stage [1/8] said PASS while stage [4/8] `npm run build` (tsc -b) failed on src/game/missions/MissionMarkers.tsx TS6133 (unused import). Both gate scripts + CLAUDE.md + CONVENTIONS.md now use `tsc -b --force`; the corrected stage was verified to FAIL on a deliberately injected type error before being trusted. Same failure family as the historical `playwright | tail` truncation bug. Note: noUnusedLocals/noUnusedParameters live only in tsconfig.app.json, so unused-symbol errors are invisible to both the vacuous form and oxlint.",
+  "useFrameThrowFreeze": "MissionMarkers read streamingRuntime.sectors (real field: .states) and threw every frame once a mission went active — which froze the ENTIRE R3F loop, so unrelated systems (interaction prompts, teleports) appeared broken. Diagnosed only via page.on('pageerror'). Recorded as CONVENTIONS gotcha 13.",
+  "anchorPlacement": "Two mission anchors were authored at plausible-looking but wrong coordinates — the courier depot inside the Nook Offices building, the fixer garage 2m from a live traffic lane. Both were invisible to tests and caught only by screenshots. Anchors must be visually verified.",
+  "soakIterationLimit": "The 180s mission soak completes only ~1 courier + ~2 hot-cargo attempts because 6h/20h in-game cooldowns do not clear in 3 real minutes and setTime() moves the hour, not the day. The soak proves its invariants but is not a high-iteration fuzzer. A day-skip test API would be needed for that.",
+  "sectorWedgeBug": "REAL PRODUCT BUG found by missions E2E test 12 (~1 run in 8, surfaced as a gate E2E failure). A sector could wedge in `loading` FOREVER after an unload→reload — no colliders, a hole in the world, and silently blocked teleports into it (teleportCoordinator only commits once the destination reports ready). Two independent defects: (1) React identity for sector roots was `key={id}` with effect deps `[id]`, so an unload→reload could coalesce into 'no membership change' — the roots never remounted, the readiness effect never re-ran, and nobody reported readiness for the new generation (signature: lifecycle=loading, visualsReady=false, staleCompletions=0, queue=1). Fixed with getMountedSectorEntries() + key=`${id}:${generation}` + generation passed as a prop. (2) reportSectorVisuals/Colliders guarded staleness only on ready===true, so a passive (async) useEffect cleanup from generation N could clear generation N+1's live flags. Fixed by guarding both directions. Both pinned by unit tests in sectorStreaming.test.ts (each verified to FAIL against the old code). Test 12 then passed 16/16 in isolation vs ~1-in-8 before. NOTE: this was pre-existing, not a mission regression — missions merely provided the first test that force-cycled a sector while ambient routed-vehicle prewarm concurrently demanded it.",
+  "missionTestUnderBudget": "Mission E2E test 12 used fixed 900ms sleeps around a forced sector unload/reload. Measured reality: unload 0.9-7.3s (it must wait out an in-flight prewarm load plus the 3s unloadDelayMs) and remount→ready 1.5-4.9s. Besides tipping over 15s under full-suite load, an early-expiring sleep would let a slow unload silently SKIP the cycle the test exists to prove (a false pass). Rewritten to wait on the real sector lifecycle (matching the established tests/e2e/sectors.spec.ts pattern), with 20s budgets ~4x the measured worst case."
+ },
+ "repoHardeningFixes": {
+  "date": "2026-07-17",
+  "summary": "Six targeted repo-hardening fixes after the mission sprint. Unit 729→744, E2E 157→159 (missions.spec 14→16).",
+  "fix1_portableGate": "scripts/hardening-gate.sh + crime-gate.sh had hardcoded `/Users/harshitkargeti/GTABrowser` and a Claude scratchpad log path. Now: repo root resolved from the script location (SCRIPT_DIR/..), logs via `mktemp -d` with `trap ... EXIT` cleanup, Node pin applied only when the nvm dir exists (else falls back to PATH node for CI). Verified by running the FULL gate from a different path (/private/tmp/blocklife-altpath, node_modules symlinked).",
+  "fix2_exactVehicleIdentity": "drive_vehicle_to_zone (MissionDirector) and deliver_vehicle (engine) only checked isPlayerCarStolen()/the interactable — NOT that the delivered car was the exact assigned target. A player could boost the target, then boost a replacement and deliver the decoy. Fix: vehicleCrimeState records the player car's `sourceVehicleId` (getPlayerCarSourceId); the Director gates drive_vehicle_to_zone on source===targetVehicle, and the engine gates deliver_vehicle via ctx.drivenVehicleSourceId===target. Identity cleared on handoff/terminal (bridge) and on arrest/incap/reset/load (resetVehicleCrimeRuntime). Unit + E2E (missions.spec:15) prove a replacement cannot complete Hot Cargo.",
+  "fix3_vehicleLost": "The `target_vehicle_lost` failure rule was declared but unreachable (failureReasonFor never produced it). Implemented a typed `vehicle_lost` event with deterministic detection: boosting a DIFFERENT vehicle while driving the mission target emits vehicle_lost(target) (store.stealVehicle → bridge.notifyVehicleStolen), which failureReasonFor maps to target_vehicle_lost (only for the mission's own target). Unit + E2E.",
+  "fix4_persistenceHardening": "serializeMissions now persists `receipts` and `attemptSeq`; applyMissionSave restores them, keeps attemptSeq monotonic across sessions (max of saved/receipt-derived/active), and RE-MINTS a restored active mission's attemptId so a reloaded pre-completion save is a distinct attempt — a reward can't be duplicated and attempt ids can't repeat. Rigorous nested validation (history/cooldowns/receipts/active objectiveStates+variables+ownedEntityIds). Old saves (no receipts/attemptSeq) remain valid. Unit tests prove no double-pay and no id reuse; E2E (missions.spec:16) round-trips save/load.",
+  "fix5_ci": ".github/workflows/ci.yml (push + PR): Node from .nvmrc (23.3.0), npm ci, tsc -b --force, lint, unit, production build, and a dist test-API leak check. Browser/visual suites intentionally excluded from CI; README documents the full local `scripts/hardening-gate.sh`.",
+  "fix6_readme": "Player-facing intro rewritten (streamed multi-district city + jobs/crime). Corrected the false 'everything on screen is procedural' claim (CC0-1.0 Quaternius GLBs are used, each with a procedural fallback). Linked docs/MISSIONS_AND_ACTIVITIES.md; added a missions feature bullet + CI/local-gate verification section.",
+  "gateFromDifferentPath": "Full hardening-gate.sh executed from /private/tmp/blocklife-altpath (not the original /Users path) — proves portability."
+ },
+ "missionFinalRun": {
+  "date": "2026-07-16",
+  "gate": "scripts/hardening-gate.sh (sequential, derived counts, .only/.skip guard, pipefail, tsc -b --force)",
+  "result": "see the sprint final report — this run followed the MissionMarkers unused-import fix",
+  "supersedes": "hardeningFinalRun below (Crime v1: 693 unit / 142 E2E / 76 visual)"
+ },
+ "hardeningFinalRun": {
+  "date": "2026-07-16",
+  "gate": "scripts/hardening-gate.sh (sequential, derived counts, .only/.skip guard, pipefail)",
+  "result": "HARDENING GATE: PASS",
+  "tsc": "reported clean — but see missionSprintFindings.vacuousTypecheck: this stage was checking 0 files",
+  "lint": "0 errors / 0 warnings",
+  "unit": "693 passed / 0 failed",
+  "distTestApiLeak": 0,
+  "e2e": "142 passed / 0 failed / 0 skipped (all 23 specs, incl. crime 19 + three soak tests)",
+  "visualPass1": "76 passed / 0 failed",
+  "visualPass2": "76 passed / 0 failed (stability)",
+  "notes": "Sequential run (no two Playwright suites at once) — the earlier contended run had produced one false arrest-timeout on crime.spec.ts:6, which passes 3/3 in isolation. See memory parallel-playwright-contention.",
+  "hardeningMilestones": {
+   "M2": "Occupied vehicle carjacking end-to-end (driver eject/flee/report, no duplicate driver, streaming-safe)",
+   "M3": "Road-graph-aware police vehicle pursuit (reuses routing stack, bounded replan, emergency priority, direct-pursuit fallback)",
+   "M4": "Real dismounted police officers (separate actors: model/health/weapon/foot-AI/arrest/combat, safe dismount, cruiser-linked lifecycle, no duplication)",
+   "M5": "Integration hardening (quest-NPC panic + self-recovery incl. Coffee-for-Ravi, apartment/wanted policy, multi-sector pursuit streaming proof)",
+   "M6": "Full-regression gate + docs"
+  }
+ },
+ "socialLifeV1": {
+  "date": "2026-07-24",
+  "summary": "Deterministic social platform under src/game/social/ (13 source modules). Reuses NPC/phone/mission/inventory/crime/save stacks; adds relationships, bounded memory, one exact-once event pipeline, interactions+gifts, phone contacts/messages/invitations/scheduling, 3 reusable activity templates, observe-only crime/economy consequences, additive save. All new tests below; existing baselines unchanged except dialogue-ravi (intentional new social menu).",
+  "unitSpecs": {
+   "src/game/social/relationship.test.ts": "7 — clamp, bounded dims, applyRelationshipDelta reasons, derived tiers + hostile/afraid",
+   "src/game/social/memoryLedger.test.ts": "7 — insert/dedupe/reinforce, salience eviction, derived decay (idempotent), pin protection, sanitize",
+   "src/game/social/socialActors.test.ts": "6 — six-actor registry, id==NPC id mapping, gift refs, defaults",
+   "src/game/social/socialEvents.test.ts": "7 — exact-once pipeline, data-driven effects, memory dedupe, contact unlock, bounded applied ids",
+   "src/game/social/socialInteraction.test.ts": "13 — contextual action gating, resolve talk/check_in/gift(like/dislike/neutral)/ask_favor/apologize/threaten, per-day anti-farm",
+   "src/game/social/socialDialogue.test.ts": "7 — deterministic greeting by tier, response tokens, memory summary, message templates",
+   "src/game/social/socialScheduling.test.ts": "10 — availability windows (+wrap), next-slot, invite gating, NPC invite response, outreach eligibility",
+   "src/game/social/socialMessaging.test.ts": "8 — bounded thread push/trim, unread, invitation reducers (open/pending/add/setStatus)",
+   "src/game/social/socialRuntimeMessaging.test.ts": "5 — outreach idempotency, mark-read, respond accept/decline/later, player invite gate",
+   "src/game/social/socialActivities.test.ts": "5 — 3 templates, step machine, favor delivery beat, prompts",
+   "src/game/social/socialRuntimeActivities.test.ts": "3 — begin/step/cancel lifecycle, activity_completed / favor_completed / no_show",
+   "src/game/social/socialConsequences.test.ts": "5 — namedActorsNear, crime witness scales with sensitivity (exact-once), arrest ding, loyalty discount, vendor tier",
+   "src/game/social/socialPersistence.test.ts": "5 — additive round-trip (relationships/memories/contacts/messages/invitations/activity), field-by-field sanitize, canonical defaults",
+   "src/game/social/socialSoak.test.ts": "1 — 200-game-day whole-cast unit soak; all bounds hold, full cast coverage",
+   "src/app/DialoguePanel.test.tsx": "9 (incl. social menu, first-meeting unlock, gift consume, talk memory, offer-help favor)",
+   "src/app/SocialActivityTracker.test.tsx": "5 — HUD tracker, hangout run, favor item consume, blocked-without-item, Coffee-for-Ravi bridge",
+   "src/app/phone/PhoneApps.test.tsx": "15 (incl. social-driven contacts + player invite + incoming-invitation accept)"
+  },
+  "unitCountNew": 89,
+  "e2eSpecs": {
+   "tests/e2e/social.spec.ts": "12 — the twelve required §15 scenarios, each independently named + isolated: (1) meet→contact unlock→persist, (2) favor→memory/trust/follow-up message, (3) abandoned favor no-show + low-tier refusal, (4) preferred gift + anti-farm, (5) phone invite→activity→persist, (6) missed invitation no-show, (7) crime witnessed by named NPC (real noteCrimeWitnessed at NPC world pos), (8) save/load relationships+memories+contacts+messages+invitations, (9) reset→canonical defaults, (10) Coffee-for-Ravi via real dialogue UI, (11) cross-district activity preserves streaming+occupancy (no new anomalies/overlaps after settle), (12) repeated delivery no-duplicate",
+   "tests/e2e/social-soak.spec.ts": "1 — bounded Playwright social lifecycle soak (30 game-days, whole cast): conversations/gifts/favors/invitations+responses/completed+missed activities/phone messages/district travel+interior/save-load+reset; asserts no dup memories-messages-rewards-deltas, bounded ledgers/messages/invitations/applied-events, no leaked activity, zero page/console errors, no social-caused person_solid/person_vehicle overlaps at steady state"
+  },
+  "e2eCountNew": 13,
+  "visualSpecs": {
+   "tests/visual/social-visuals.spec.ts": "6 — element-scoped deterministic baselines (all reviewed): social-interaction-menu, social-refused-action (visible readable reasons), phone-contacts, phone-contact-detail (relationship summary + plan + unread), phone-invitation-state (accept/later/decline), phone-messages (threads incl. follow-up)",
+   "tests/visual/city-visuals.spec.ts": "dialogue-ravi.png regenerated (intentional: adds the SOCIAL menu below the Coffee-for-Ravi quest) — reviewed"
+  },
+  "visualCountNew": 6,
+  "devTestApiNote": "All social DEV hooks (getSocialSnapshot/getSocialRelationship/getSocialMemories/getSocialContacts/ingestSocialEvent/openDialogueWith/getSocialMenu/performSocialAction/reconcileSocialOutreach/sendSocialInvite/respondToInvitation/getSocialInvitations/getSocialMessages/getSocialUnread/getActiveSocialActivity/startSocialActivity/startFavorFor/advanceSocialActivity/cancelSocialActivity/devWitnessCrimeAt) are import.meta.env.DEV-guarded; production dist test-API strings grep to 0.",
+  "socialFinalRun": "recorded by scripts/hardening-gate.sh in the final compliance run — see the compliance report"
+ },
+ "socialFinalRun": {
+  "date": "2026-07-24",
+  "gate": "scripts/hardening-gate.sh (sequential, derived counts, .only/.skip guard, pipefail, tsc -b --force) + a full-E2E confirmation under the repo CI retry policy",
+  "tsc": "PASS",
+  "lint": "0 warnings / 0 errors",
+  "unit": "1092 passed / 0 failed (incl. the 200-day social unit soak)",
+  "distTestApiLeak": 0,
+  "e2e": "217/217 passed / 0 failed / 0 skipped (all specs incl. the 12 social scenarios + social lifecycle soak + the existing 180s/300s soaks). Confirmed green under the repo's configured CI retry policy (playwright.config retries: CI?1:0).",
+  "visualPass1": "108 passed / 0 failed",
+  "visualPass2": "108 passed / 0 failed (stability; the 6 new social baselines + regenerated dialogue-ravi are stable across both passes)",
+  "preexistingFlake": "tests/e2e/citizen-destinations.spec.ts '150s mixed soak ... occupancy never leaks' is a PRE-EXISTING timing-sensitive citizen-occupancy soak (untouched by this sprint). It intermittently fails at retries:0 with different signatures across runs (overlaps toEqual [] / a 380s waitForFunction timeout) and fails in ISOLATION with all social code dormant — categorically not a social regression. Not weakened or timeout-raised (per instructions); it passes under the repo's own CI retry:1 policy, so the full E2E is 217/217 green.",
+  "acceptanceCriteria": "All issue #13 §18 criteria met: 6 named NPCs in one registry, multidimensional relationships, bounded memory ledgers, centralized exact-once event pipeline, contacts/messaging/invitations/gifting/activities/save-migration, mission+economy+crime/witness+refusal consequences, DEV observability, zero production GAME_TEST_API leakage; baseline counts exceeded (unit 991->1092, e2e 204->217, visual 102->108)."
+ }
 }
