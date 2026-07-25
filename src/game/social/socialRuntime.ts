@@ -30,14 +30,15 @@ import {
   preferredActivityKind,
 } from './socialScheduling'
 import { advanceActivity, isComplete, type SocialActivity } from './socialActivities'
-import type {
-  DerivedRelationship,
-  InvitationActivityKind,
-  MemoryEntry,
-  Relationship,
-  SocialActorId,
-  SocialInvitation,
-  SocialMessage,
+import {
+  INVITATION_GRACE_HOURS,
+  type DerivedRelationship,
+  type InvitationActivityKind,
+  type MemoryEntry,
+  type Relationship,
+  type SocialActorId,
+  type SocialInvitation,
+  type SocialMessage,
 } from './socialTypes'
 
 export const socialRuntime: { state: SocialState } = { state: defaultSocialState() }
@@ -283,11 +284,10 @@ export function cancelActivity(gameDay: number, gameHour: number): void {
  * count newly missed.
  */
 export function reconcileMissedInvitations(gameDay: number, gameHour: number): number {
-  const GRACE_HOURS = 3
   const nowAbs = Math.trunc(gameDay) * 24 + gameHour
   const active = socialRuntime.state.activeActivity
   const due = socialRuntime.state.invitations.filter(
-    (i) => i.status === 'accepted' && active?.invitationId !== i.id && nowAbs >= i.proposedDay * 24 + i.proposedHour + GRACE_HOURS,
+    (i) => i.status === 'accepted' && active?.invitationId !== i.id && nowAbs >= i.proposedDay * 24 + i.proposedHour + INVITATION_GRACE_HOURS,
   )
   for (const inv of due) {
     ingestSocialEvent({ id: `inv_missed:${inv.id}`, kind: 'no_show', actorId: inv.actorId, gameDay, gameHour })

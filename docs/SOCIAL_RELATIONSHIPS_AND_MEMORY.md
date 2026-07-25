@@ -106,13 +106,20 @@ rewards / multi-instance persistence).
 
 **Invitation lifecycle:** an invitation moves `pending → accepted → active →
 completed` (or `missed` / `cancelled`) and each transition is applied **atomically**
-with the linked activity, so a completed plan can never be restarted. Accepted
-invitations the player ignores past their window are reconciled to **no-show** off
-the **real clock** (`reconcileMissedInvitations`, a 3-hour grace) — lazily on
-time-advance / phone-open, never per-frame — feeding a `no_show` memory through the
-ONE pipeline. Phone-message ids carry a **persisted** monotonic `msgSeq` so a reload
-can never mint a colliding id (the same reload-safety pattern as the mission
-`attemptSeq`).
+with the linked activity, so a completed plan can never be restarted.
+
+**Start window:** a confirmed plan is startable only from `INVITATION_START_EARLY_HOURS`
+(1h) **before** its proposed slot through `INVITATION_GRACE_HOURS` (3h) **after** —
+the same grace the no-show reconciler uses. The pure `invitationStartWindow` decides
+it; the phone **disables Start** outside the window with a readable reason (`Available
+on day X at HH:00` / `This plan has expired.`) and `startSocialActivity` **revalidates**
+it (not only the UI), so a future appointment can never be completed days early and
+the scheduling / no-show model can't be bypassed. Accepted invitations the player
+ignores past the window are reconciled to **no-show** off the **real clock**
+(`reconcileMissedInvitations`) — lazily on time-advance / phone-open, never per-frame —
+feeding a `no_show` memory through the ONE pipeline. Phone-message ids carry a
+**persisted** monotonic `msgSeq` so a reload can never mint a colliding id (the same
+reload-safety pattern as the mission `attemptSeq`).
 
 **Coffee-for-Ravi compatibility:** the legacy coffee quest is untouched; a
 successful `deliver_coffee` additionally feeds the social system as a gift Ravi

@@ -115,6 +115,8 @@ test.describe('social platform', () => {
       api.openDialogueWith('npc_ravi_01')
       api.sendSocialInvite('npc_ravi_01', 'coffee')
       const inv = api.getSocialInvitations().find((i) => i.source === 'player' && i.status === 'accepted')
+      // A coffee invite proposes the next hour, so the plan is already inside its
+      // start window (opens 1h before) — start it straight away, no clock advance.
       const a0 = api.getSocialRelationship('npc_ravi_01').affinity
       if (inv) api.startSocialActivity(inv.id)
       api.advanceSocialActivity() // travel (at truck) → together
@@ -248,6 +250,7 @@ test.describe('social platform', () => {
       api.openDialogueWith('npc_ravi_01')
       api.sendSocialInvite('npc_ravi_01', 'coffee')
       const inv = api.getSocialInvitations().find((i) => i.status === 'accepted')
+      // The coffee plan is proposed for the next hour → already inside its window.
       if (inv) api.startSocialActivity(inv.id)
     })
     await teleport(page, [53, 1.2, -108]) // far district (activity can't complete here)
@@ -299,20 +302,39 @@ test.describe('social platform', () => {
 
   test('13. accept + start + complete an invitation entirely through the production UI', async ({ page }) => {
     await arriveAtFoodTruck(page)
-    // Set up an INCOMING coffee invitation (the accept/start/complete below are all
-    // real DOM clicks — no GAME_TEST_API.respondToInvitation / startSocialActivity).
-    const invId = await page.evaluate(() => {
+    // Set up an INCOMING coffee invitation proposed for a FUTURE day (the clock is
+    // still day 1). The accept/start/complete below are all real DOM clicks — no
+    // GAME_TEST_API.respondToInvitation / startSocialActivity on the happy path.
+    const plan = await page.evaluate(() => {
       const api = window.GAME_TEST_API!
       api.ingestSocialEvent({ id: 'met:npc_ravi_01', kind: 'met', actorId: 'npc_ravi_01', gameDay: 1, gameHour: 10 })
       api.ingestSocialEvent({ id: 'seed', kind: 'conversation', actorId: 'npc_ravi_01', gameDay: 1, gameHour: 10 })
-      api.reconcileSocialOutreach(5, 9)
+      api.reconcileSocialOutreach(5, 9) // Ravi proposes a plan several days out
       api.openTestPhoneApp('messages')
-      return api.getSocialInvitations().find((i) => i.source === 'npc' && i.status === 'pending')!.id
+      const inv = api.getSocialInvitations().find((i) => i.source === 'npc' && i.status === 'pending')!
+      return { id: inv.id, day: inv.proposedDay, hour: inv.proposedHour }
     })
-    // Accept via the phone button, then Start the confirmed plan via its button.
-    await page.click(`[data-testid="invite-accept-${invId}"]`)
+    // Accept via the phone button → the plan is now confirmed.
+    await page.click(`[data-testid="invite-accept-${plan.id}"]`)
     await expect(page.getByTestId('phone-plans')).toBeVisible()
-    await page.click(`[data-testid="plan-start-${invId}"]`)
+    // BEFORE its window: production UI refuses to start it — the Start button is
+    // disabled with a readable reason, and the store revalidates too (not only the UI).
+    await expect(page.getByTestId(`plan-start-${plan.id}`)).toBeDisabled()
+    await expect(page.getByTestId(`plan-reason-${plan.id}`)).toBeVisible()
+    const refusedEarly = await page.evaluate((id) => {
+      const api = window.GAME_TEST_API!
+      api.startSocialActivity(id) // revalidated in the store action, not just the disabled button
+      return api.getActiveSocialActivity() === null
+    }, plan.id)
+    expect(refusedEarly).toBe(true)
+    // Advance the REAL game clock into the plan's window → Start becomes available.
+    await page.evaluate(({ day, hour }) => {
+      const api = window.GAME_TEST_API!
+      api.setGameDay(day)
+      api.setTime(hour)
+    }, plan)
+    await expect(page.getByTestId(`plan-start-${plan.id}`)).toBeEnabled()
+    await page.click(`[data-testid="plan-start-${plan.id}"]`)
     // Complete via the HUD tracker buttons (we're already at the food truck).
     await expect(page.getByTestId('social-activity-tracker')).toBeVisible()
     await page.click('[data-testid="sat-continue"]') // travel → together
@@ -333,7 +355,7 @@ test.describe('social platform', () => {
       api.openDialogueWith('npc_ravi_01')
       api.sendSocialInvite('npc_ravi_01', 'coffee')
       const inv = api.getSocialInvitations().find((i) => i.status === 'accepted')!
-      api.startSocialActivity(inv.id)
+      api.startSocialActivity(inv.id) // proposed next hour → already inside its window
       api.advanceSocialActivity()
       api.advanceSocialActivity() // completed
       // No confirmed plan remains, and trying to restart it does nothing.

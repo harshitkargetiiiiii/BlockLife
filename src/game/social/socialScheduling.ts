@@ -5,7 +5,7 @@
  * no per-frame use — callers reconcile lazily (like commerce restock). Nothing
  * here mutates state or owns dialogue text.
  */
-import type { InvitationActivityKind, MemoryEntry, Relationship, RelationshipTier, SocialActor } from './socialTypes'
+import { INVITATION_GRACE_HOURS, INVITATION_START_EARLY_HOURS, type InvitationActivityKind, type MemoryEntry, type Relationship, type RelationshipTier, type SocialActor, type SocialInvitation } from './socialTypes'
 
 /** True when `hour` falls inside `[from, to)`, correctly handling a wrap past midnight. */
 export function isWithinWindow(hour: number, window: [number, number]): boolean {
@@ -29,6 +29,45 @@ export function nextAvailableSlot(actor: SocialActor, day: number, hour: number)
     if (isAvailable(actor, hod)) return { day: Math.trunc(day) + Math.floor(abs / 24), hour: hod }
   }
   return { day: Math.trunc(day), hour: Math.trunc(hour) }
+}
+
+// ---- confirmed-plan start window (PR#14 review) ---------------------------
+
+export type StartWindowKind = 'ok' | 'too_early' | 'expired' | 'active' | 'not_accepted'
+export interface StartWindowResult {
+  startable: boolean
+  kind: StartWindowKind
+  /** A readable reason to show on a disabled Start control (absent when startable). */
+  reason?: string
+}
+
+const pad2 = (n: number): string => String(Math.trunc(n)).padStart(2, '0')
+
+/**
+ * Can this confirmed plan be STARTED at the current game time? Pure + deterministic.
+ * The window opens {@link INVITATION_START_EARLY_HOURS} before the proposed slot and
+ * closes {@link INVITATION_GRACE_HOURS} after it (the same grace
+ * `reconcileMissedInvitations` uses to mark a no-show). Uses the SAME absolute-hour
+ * basis as that reconciler (`trunc(day)*24 + hour`). The store revalidates with this
+ * (not only the UI), and the phone disables Start with the returned reason — so a
+ * future appointment can't be completed early and the no-show model can't be bypassed.
+ */
+export function invitationStartWindow(
+  inv: Pick<SocialInvitation, 'status' | 'proposedDay' | 'proposedHour'>,
+  gameDay: number,
+  gameHour: number,
+): StartWindowResult {
+  if (inv.status === 'active') return { startable: false, kind: 'active', reason: 'In progress' }
+  if (inv.status !== 'accepted') return { startable: false, kind: 'not_accepted' }
+  const proposedAbs = inv.proposedDay * 24 + inv.proposedHour
+  const nowAbs = Math.trunc(gameDay) * 24 + gameHour
+  if (nowAbs < proposedAbs - INVITATION_START_EARLY_HOURS) {
+    return { startable: false, kind: 'too_early', reason: `Available on day ${inv.proposedDay} at ${pad2(inv.proposedHour)}:00` }
+  }
+  if (nowAbs >= proposedAbs + INVITATION_GRACE_HOURS) {
+    return { startable: false, kind: 'expired', reason: 'This plan has expired.' }
+  }
+  return { startable: true, kind: 'ok' }
 }
 
 /** The activity an NPC prefers to invite the player to (from their categories). */

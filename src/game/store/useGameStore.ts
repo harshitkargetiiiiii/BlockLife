@@ -80,6 +80,7 @@ import {
   stepActivity,
 } from '../social/socialRuntime'
 import { activityFromInvitation, activityPrompt, favorActivity } from '../social/socialActivities'
+import { invitationStartWindow } from '../social/socialScheduling'
 import { noteArrestWitnessed, noteCrimeWitnessed, vendorDiscountPct } from '../social/socialConsequences'
 import type { InvitationActivityKind } from '../social/socialTypes'
 import { getSocialActor, isSocialActor } from '../social/socialActors'
@@ -802,6 +803,15 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     const inv = getInvitations().find((i) => i.id === invitationId && i.status === 'accepted')
     if (!inv) {
       get().showToast('No confirmed plans to start.')
+      return
+    }
+    // Scheduling gate (PR#14 review): a confirmed plan can only be started inside its
+    // window (from 1h before the proposed slot through the 3h no-show grace). Revalidate
+    // HERE (the production entry point), not just in the disabled Start button, so a
+    // future appointment can't be completed days early or the no-show model bypassed.
+    const win = invitationStartWindow(inv, s.stats.day, s.stats.hour)
+    if (!win.startable) {
+      get().showToast(win.reason ?? 'You can’t start that plan yet.')
       return
     }
     const act = activityFromInvitation(inv.id, inv.actorId, inv.activityKind, s.stats.day)

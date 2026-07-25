@@ -235,6 +235,17 @@ export interface SocialInvitation {
 export const MESSAGES_MAX_PER_CONTACT = 12
 export const INVITATIONS_MAX = 16
 
+/**
+ * A confirmed plan's start window (PR#14 review): it can be started from
+ * {@link INVITATION_START_EARLY_HOURS} before its proposed slot through
+ * {@link INVITATION_GRACE_HOURS} after it — the SAME grace past which
+ * `reconcileMissedInvitations` marks it a no-show. Starting outside the window is
+ * refused (too early / expired), so a future appointment can't be completed days
+ * early and the scheduling / no-show model can't be bypassed.
+ */
+export const INVITATION_START_EARLY_HOURS = 1
+export const INVITATION_GRACE_HOURS = 3
+
 // ---- reusable social activities (§ activities, Slice 4) ------------------
 
 export type SocialActivityTemplate = 'meet' | 'hangout' | 'favor'

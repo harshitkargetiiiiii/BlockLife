@@ -385,6 +385,19 @@ slice** (like the mission `attemptSeq`), or a fresh module load restarts it at 0
 re-mints ids that already exist. Prove it with a reload test, not just an in-session
 uniqueness check.
 
+### 25. Measure a relationship delta at the interaction, not across a clock jump
+Relationships carry time-based derived decay (older memories fade). A test that
+teleports the game clock forward (e.g. `setGameDay`/`setTime` to reach a scheduled
+plan's start window) and then asserts `affinityAfter > affinityBefore` across that
+jump — or across a save/load that re-settles decay — conflates the interaction's
+lift with the days of decay the jump legitimately applies, and the assertion flakes
+or inverts (a +10 hangout read as −5). **Fix:** capture the before/after around the
+interaction ONLY, at one clock; assert persistence separately (invitation status,
+contact present) via the save/load round-trip. Better still, don't jump at all when
+you don't need to: a next-hour proposal is already inside its 1h-early window, so
+only genuinely far-future plans need the clock advanced (see the start window,
+gotcha-adjacent to the destination gate).
+
 ---
 
 ## The verification workflow (honest gates)

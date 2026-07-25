@@ -6,6 +6,7 @@ import { getMood } from '../../game/simulation/worldMoodSystem'
 import { COFFEE_QUEST_ID } from '../../data/quests'
 import { getConfirmedPlans, getContacts, getMessages, getPendingInvitations } from '../../game/social/socialRuntime'
 import { getSocialActor } from '../../game/social/socialActors'
+import { invitationStartWindow } from '../../game/social/socialScheduling'
 import { invitationLabel, messageText } from '../../game/social/socialDialogue'
 
 interface PhoneMessage {
@@ -124,6 +125,8 @@ export function PhoneMessages() {
               const actor = getSocialActor(inv.actorId)
               const npc = NPC_BY_ID[inv.actorId]
               const inProgress = inv.status === 'active'
+              // A plan can only be started inside its window (1h before → 3h grace).
+              const win = invitationStartWindow(inv, stats.day, stats.hour)
               return (
                 <div key={inv.id} className="phone-card phone-plan" data-testid={`plan-${inv.id}`}>
                   <div className="phone-invitation-text">
@@ -132,9 +135,19 @@ export function PhoneMessages() {
                   </div>
                   {!inProgress && (
                     <div className="panel-actions social-actions">
-                      <button className="btn btn-small btn-social" data-testid={`plan-start-${inv.id}`} onClick={() => startSocialActivity(inv.id)}>
+                      <button
+                        className="btn btn-small btn-social"
+                        data-testid={`plan-start-${inv.id}`}
+                        disabled={!win.startable}
+                        onClick={() => startSocialActivity(inv.id)}
+                      >
                         Start plan
                       </button>
+                      {!win.startable && win.reason && (
+                        <span className="social-action-reason" data-testid={`plan-reason-${inv.id}`}>
+                          {win.reason}
+                        </span>
+                      )}
                     </div>
                   )}
                 </div>

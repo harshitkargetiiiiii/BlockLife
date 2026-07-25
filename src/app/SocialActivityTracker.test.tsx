@@ -29,9 +29,15 @@ describe('SocialActivityTracker + activity flow (Slice 4)', () => {
 
   it('runs a hangout to completion from the HUD, lifting the relationship', () => {
     meetRavi()
-    // A player invite to a friend is accepted → gives us a confirmed plan.
+    // Invite late enough that the accepted plan is proposed for tomorrow morning.
+    act(() => useGameStore.setState((s) => ({ stats: { ...s.stats, day: 1, hour: 23 } })))
     useGameStore.getState().sendPlayerInvite('npc_ravi_01', 'coffee')
     const inv = getInvitations().find((i) => i.source === 'player' && i.status === 'accepted')!
+    // Scheduling gate (PR#14 review): starting before the plan's window is refused.
+    useGameStore.getState().startSocialActivity(inv.id)
+    expect(getActiveActivity()).toBeNull()
+    // Advance the real clock into the plan's window → now it starts.
+    act(() => useGameStore.setState((s) => ({ stats: { ...s.stats, day: inv.proposedDay, hour: inv.proposedHour } })))
     useGameStore.getState().startSocialActivity(inv.id)
 
     render(<SocialActivityTracker />)

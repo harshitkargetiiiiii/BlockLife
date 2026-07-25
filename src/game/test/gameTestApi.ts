@@ -922,6 +922,8 @@ export interface GameTestApi {
   /** Manifest info for the default character asset. */
   getCharacterAssetInfo: () => { id: string; modelPath: string; clips: string[]; bounds: unknown }
   setTime: (hour: number) => void
+  /** Set the game-clock DAY (advance the real clock, e.g. into a plan's start window). */
+  setGameDay: (day: number) => void
   setTimeScale: (scale: number) => void
   pauseWorld: (paused: boolean) => void
   setQuestState: (questId: string, state: QuestState) => void
@@ -2121,6 +2123,7 @@ export function installTestApi(): void {
       }
     },
     setTime: (hour) => useGameStore.getState().setHour(hour),
+    setGameDay: (day) => useGameStore.setState((s) => ({ stats: { ...s.stats, day: Math.max(1, Math.trunc(day)) } })),
     setTimeScale: (scale) => useGameStore.getState().setTimeScale(scale),
     pauseWorld: (paused) => useGameStore.getState().setWorldPaused(paused),
     setQuestState: (questId, state) => useGameStore.getState().setQuestState(questId, state),

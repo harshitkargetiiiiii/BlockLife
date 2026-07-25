@@ -363,7 +363,7 @@
   },
   "socialLifeV1": {
     "date": "2026-07-24",
-    "summary": "Deterministic social platform under src/game/social/ (13 source modules). Reuses NPC/phone/mission/inventory/crime/save stacks; adds relationships, bounded memory, one exact-once event pipeline, interactions+gifts, phone contacts/messages/invitations/scheduling, 3 reusable activity templates, observe-only crime/economy consequences, additive save. PR #14 review closed five gaps: accepted invitations are startable in the production UI (confirmed-plans surface), the full invitation lifecycle (active/completed/missed/cancelled) transitions atomically with the linked activity, missed invitations reconcile off the real clock, msgSeq is persisted for collision-safe ids, and the travel step is gated on real venue proximity. All new tests below; existing baselines unchanged except dialogue-ravi (intentional new social menu).",
+    "summary": "Deterministic social platform under src/game/social/ (13 source modules). Reuses NPC/phone/mission/inventory/crime/save stacks; adds relationships, bounded memory, one exact-once event pipeline, interactions+gifts, phone contacts/messages/invitations/scheduling, 3 reusable activity templates, observe-only crime/economy consequences, additive save. PR #14 review closed five gaps: accepted invitations are startable in the production UI (confirmed-plans surface), the full invitation lifecycle (active/completed/missed/cancelled) transitions atomically with the linked activity, missed invitations reconcile off the real clock, msgSeq is persisted for collision-safe ids, the travel step is gated on real venue proximity, and a confirmed plan is startable only inside its scheduled window (1h before → 3h grace, revalidated in the store not just the UI) so a future appointment cannot be completed early. All new tests below; existing baselines unchanged except dialogue-ravi (intentional new social menu).",
     "unitSpecs": {
       "src/game/social/relationship.test.ts": "7 — clamp, bounded dims, applyRelationshipDelta reasons, derived tiers + hostile/afraid",
       "src/game/social/memoryLedger.test.ts": "7 — insert/dedupe/reinforce, salience eviction, derived decay (idempotent), pin protection, sanitize",
@@ -371,7 +371,7 @@
       "src/game/social/socialEvents.test.ts": "7 — exact-once pipeline, data-driven effects, memory dedupe, contact unlock, bounded applied ids",
       "src/game/social/socialInteraction.test.ts": "13 — contextual action gating, resolve talk/check_in/gift(like/dislike/neutral)/ask_favor/apologize/threaten, per-day anti-farm",
       "src/game/social/socialDialogue.test.ts": "7 — deterministic greeting by tier, response tokens, memory summary, message templates",
-      "src/game/social/socialScheduling.test.ts": "10 — availability windows (+wrap), next-slot, invite gating, NPC invite response, outreach eligibility",
+      "src/game/social/socialScheduling.test.ts": "14 — availability windows (+wrap), next-slot, invite gating, NPC invite response, outreach eligibility, and the invitationStartWindow start-window rule (too-early / on-time / grace / expired / not-accepted)",
       "src/game/social/socialMessaging.test.ts": "8 — bounded thread push/trim, unread, invitation reducers (open/pending/add/setStatus)",
       "src/game/social/socialRuntimeMessaging.test.ts": "5 — outreach idempotency, mark-read, respond accept/decline/later, player invite gate",
       "src/game/social/socialActivities.test.ts": "5 — 3 templates, step machine, favor delivery beat, prompts",
@@ -383,9 +383,9 @@
       "src/app/SocialActivityTracker.test.tsx": "5 — HUD tracker, hangout run, favor item consume, blocked-without-item, Coffee-for-Ravi bridge",
       "src/app/phone/PhoneApps.test.tsx": "15 (incl. social-driven contacts + player invite + incoming-invitation accept)"
     },
-    "unitCountNew": 92,
+    "unitCountNew": 96,
     "e2eSpecs": {
-      "tests/e2e/social.spec.ts": "15 — the §15 scenarios, each independently named + isolated: (1) meet->contact unlock->persist, (2) favor->memory/trust/follow-up message, (3) abandoned favor no-show + low-tier refusal, (4) preferred gift + anti-farm, (5) phone invite->activity completes AT THE VENUE->persist (destination gate), (6) accepted invitation ignored past its window becomes a no-show via the REAL clock (reconcileMissedInvitations, no manual start/cancel), (7) crime witnessed by named NPC (real noteCrimeWitnessed at NPC world pos), (8) save/load relationships+memories+contacts+messages+invitations, (9) reset->canonical defaults, (10) Coffee-for-Ravi via real dialogue UI, (11) cross-district activity travels to the ACTUAL venue: advance blocked while off-venue (step stays travel), arrive, complete; asserts streaming safety-ring + occupancy hold (no new anomalies/overlaps), (12) repeated delivery no-duplicate, (13) accept+start+complete an invitation ENTIRELY through production UI (DOM clicks: invitation accept, confirmed-plan Start, HUD arrive x2) with NO GAME_TEST_API activity control, (14) a completed invitation cannot be restarted through the production path, (15) a full page reload preserves messages without minting duplicate ids",
+      "tests/e2e/social.spec.ts": "15 — the §15 scenarios, each independently named + isolated: (1) meet->contact unlock->persist, (2) favor->memory/trust/follow-up message, (3) abandoned favor no-show + low-tier refusal, (4) preferred gift + anti-farm, (5) phone invite->activity completes AT THE VENUE->persist (destination gate), (6) accepted invitation ignored past its window becomes a no-show via the REAL clock (reconcileMissedInvitations, no manual start/cancel), (7) crime witnessed by named NPC (real noteCrimeWitnessed at NPC world pos), (8) save/load relationships+memories+contacts+messages+invitations, (9) reset->canonical defaults, (10) Coffee-for-Ravi via real dialogue UI, (11) cross-district activity travels to the ACTUAL venue: advance blocked while off-venue (step stays travel), arrive, complete; asserts streaming safety-ring + occupancy hold (no new anomalies/overlaps), (12) repeated delivery no-duplicate, (13) accept+start+complete an invitation ENTIRELY through production UI (DOM clicks: invitation accept, confirmed-plan Start, HUD arrive x2) with NO GAME_TEST_API activity control — including that a plan proposed for a future day is REFUSED before its window (Start disabled + reason, store-revalidated) then starts after the real clock advances into the window, (14) a completed invitation cannot be restarted through the production path, (15) a full page reload preserves messages without minting duplicate ids",
       "tests/e2e/social-soak.spec.ts": "1 — bounded Playwright social lifecycle soak (30 game-days, whole cast): conversations/gifts/favors/invitations+responses/completed+missed activities/phone messages/district travel+interior/save-load+reset; asserts no dup memories-messages-rewards-deltas, bounded ledgers/messages/invitations/applied-events, no leaked activity, zero page/console errors, no social-caused person_solid/person_vehicle overlaps at steady state"
     },
     "e2eCountNew": 16,
@@ -394,28 +394,29 @@
       "tests/visual/city-visuals.spec.ts": "dialogue-ravi.png regenerated (intentional: adds the SOCIAL menu below the Coffee-for-Ravi quest) — reviewed"
     },
     "visualCountNew": 7,
-    "devTestApiNote": "All social DEV hooks (getSocialSnapshot/getSocialRelationship/getSocialMemories/getSocialContacts/ingestSocialEvent/openDialogueWith/getSocialMenu/performSocialAction/reconcileSocialOutreach/sendSocialInvite/respondToInvitation/getSocialInvitations/getSocialMessages/getSocialUnread/getActiveSocialActivity/startSocialActivity/startFavorFor/advanceSocialActivity/cancelSocialActivity/devWitnessCrimeAt/getSocialConfirmedPlans/reconcileMissedInvitations/setActiveInteractable) are import.meta.env.DEV-guarded; production dist test-API strings grep to 0.",
+    "devTestApiNote": "All social DEV hooks (getSocialSnapshot/getSocialRelationship/getSocialMemories/getSocialContacts/ingestSocialEvent/openDialogueWith/getSocialMenu/performSocialAction/reconcileSocialOutreach/sendSocialInvite/respondToInvitation/getSocialInvitations/getSocialMessages/getSocialUnread/getActiveSocialActivity/startSocialActivity/startFavorFor/advanceSocialActivity/cancelSocialActivity/devWitnessCrimeAt/getSocialConfirmedPlans/reconcileMissedInvitations/setActiveInteractable/setGameDay) are import.meta.env.DEV-guarded; production dist test-API strings grep to 0.",
     "socialFinalRun": "recorded by scripts/hardening-gate.sh in the final compliance run — see the compliance report"
   },
   "socialFinalRun": {
-    "date": "2026-07-24",
-    "context": "PR #14 review pass — the five review blockers closed on the branch, then the full portable gate re-run.",
+    "date": "2026-07-25",
+    "context": "PR #14 review, second pass — the start-time-window scheduling loophole closed on the branch, then the full portable gate re-run.",
     "gate": "scripts/hardening-gate.sh (sequential, derived counts, .only/.skip guard, pipefail, tsc -b --force)",
     "tsc": "PASS",
     "lint": "0 warnings / 0 errors",
-    "unit": "1095 passed / 0 failed (incl. the 200-day social unit soak; +3 vs the compliance pass: two invitation-lifecycle tests + one msgSeq reload test)",
+    "unit": "1099 passed / 0 failed (+4 vs the first review pass: the invitationStartWindow scheduling suite)",
     "distTestApiLeak": 0,
-    "e2e": "220/220 passed / 0 failed / 0 skipped at retries:0 (all specs incl. the 15 social scenarios + social lifecycle soak + the existing 180s/300s soaks). This run the pre-existing citizen soak did NOT flake, so the full suite is green with no retries.",
+    "e2e": "220/220 passed / 0 failed / 0 skipped at retries:0 (incl. the reworked production-UI #13 that refuses an early start then advances the real clock into the window). The citizen soak did not flake this run.",
     "visualPass1": "109 passed / 0 failed",
-    "visualPass2": "109 passed / 0 failed (stability; the 7 social baselines — incl. the new phone-confirmed-plans — are stable across both passes)",
+    "visualPass2": "109 passed / 0 failed (the 7 social baselines unchanged — a coffee plan proposed for the next hour is already inside its 1h-early window, so the enabled Start button renders identically)",
     "preexistingFlake": "tests/e2e/citizen-destinations.spec.ts '150s mixed soak ... occupancy never leaks' is a PRE-EXISTING timing-sensitive citizen-occupancy soak (untouched by this sprint). It intermittently fails at retries:0 with different signatures across runs and fails in ISOLATION with all social code dormant — categorically not a social regression. It passed cleanly this gate run; it was not weakened or timeout-raised (per instructions), and the repo CI policy (playwright.config retries: CI?1:0) covers it if it recurs.",
     "reviewBlockersClosed": [
       "1 — accepted invitations are now startable in the production UI: a Confirmed-plans section in Chats with a Start button; proven by E2E #13 (DOM-only accept+start+complete, no GAME_TEST_API activity control) + the new phone-confirmed-plans visual baseline.",
       "2 — full invitation lifecycle (active/completed/missed/cancelled) transitions atomically with the linked activity; a completed plan cannot restart (E2E #14 + unit).",
       "3 — missed invitations reconcile off the REAL clock via reconcileMissedInvitations (3h grace, lazy on time-advance/phone-open); E2E #6 advances the clock without any manual start/cancel.",
       "4 — the activity travel step is gated on real venue proximity (activeInteractableId === venueId) with a readable out-of-range reason; cross-district E2E #11 travels to the actual venue and asserts streaming safety-ring + occupancy hold.",
-      "5 — message ids carry a persisted monotonic msgSeq (collision-safe across reload); unit round-trip + E2E #15 page-reload persistence."
+      "5 — message ids carry a persisted monotonic msgSeq (collision-safe across reload); unit round-trip + E2E #15 page-reload persistence.",
+      "6 (2nd pass) — a confirmed plan is startable only inside its scheduled window (1h before proposed → 3h grace), revalidated in startSocialActivity (not only the disabled Start button); E2E #13 proves an early start is refused through the production UI then works after the real clock advances into the window; late plans still reconcile to a no-show exactly once."
     ],
-    "acceptanceCriteria": "All issue #13 §18 criteria remain met with the review gaps closed; baseline counts exceeded (unit 991->1095, e2e 204->220, visual 102->109)."
+    "acceptanceCriteria": "All issue #13 §18 criteria met with every review gap closed; baseline counts exceeded (unit 991->1099, e2e 204->220, visual 102->109)."
   }
 }

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   canPlayerInvite,
   decideNpcInviteResponse,
+  invitationStartWindow,
   isAvailable,
   isWithinWindow,
   nextAvailableSlot,
@@ -10,7 +11,7 @@ import {
   preferredActivityKind,
 } from './socialScheduling'
 import { getSocialActor } from './socialActors'
-import type { MemoryEntry, Relationship, SocialActor } from './socialTypes'
+import type { MemoryEntry, Relationship, SocialActor, SocialInvitation } from './socialTypes'
 
 const ravi = getSocialActor('npc_ravi_01') as SocialActor // availability [[6,22]]
 const bruno = getSocialActor('npc_bruno_01') as SocialActor // fitness
@@ -66,6 +67,40 @@ describe('decideNpcInviteResponse — deterministic reply', () => {
     expect(decideNpcInviteResponse('friendly', false)).toBe('suggested_later')
     expect(decideNpcInviteResponse('acquaintance', true)).toBe('suggested_later')
     expect(decideNpcInviteResponse('stranger', true)).toBe('declined')
+  })
+})
+
+describe('invitationStartWindow — a plan is startable only inside its window (PR#14 review)', () => {
+  const inv = (over: Partial<SocialInvitation> = {}): SocialInvitation => ({
+    id: 'i', actorId: 'npc_ravi_01', source: 'player', activityKind: 'coffee', proposedDay: 5, proposedHour: 9, status: 'accepted', createdDay: 1, ...over,
+  })
+
+  it('refuses starting too early (before 1h ahead of the proposed slot)', () => {
+    // proposed day5 09:00 → window opens day5 08:00. On day 1 it is far too early.
+    const r = invitationStartWindow(inv(), 1, 12)
+    expect(r.startable).toBe(false)
+    expect(r.kind).toBe('too_early')
+    expect(r.reason).toBe('Available on day 5 at 09:00')
+  })
+
+  it('opens exactly 1h before the proposed slot and stays open through the 3h grace', () => {
+    expect(invitationStartWindow(inv(), 5, 8).startable).toBe(true) // 1h before
+    expect(invitationStartWindow(inv(), 5, 9).startable).toBe(true) // on time
+    expect(invitationStartWindow(inv(), 5, 11).startable).toBe(true) // +2h, inside grace
+    expect(invitationStartWindow(inv(), 5, 7).kind).toBe('too_early') // 2h before → still closed
+  })
+
+  it('expires once past the proposed slot + the grace window (the no-show boundary)', () => {
+    const r = invitationStartWindow(inv(), 5, 12) // +3h == grace → expired
+    expect(r.startable).toBe(false)
+    expect(r.kind).toBe('expired')
+    expect(r.reason).toBe('This plan has expired.')
+  })
+
+  it('is never startable unless the invitation is accepted', () => {
+    expect(invitationStartWindow(inv({ status: 'active' }), 5, 9).kind).toBe('active')
+    expect(invitationStartWindow(inv({ status: 'completed' }), 5, 9).kind).toBe('not_accepted')
+    expect(invitationStartWindow(inv({ status: 'pending' }), 5, 9).startable).toBe(false)
   })
 })
 

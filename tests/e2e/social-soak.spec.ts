@@ -74,6 +74,8 @@ test.describe('social lifecycle soak', () => {
             api.sendSocialInvite(actor, 'coffee')
             const inv = api.getSocialInvitations().find((i) => i.source === 'player' && i.status === 'accepted')
             if (inv) {
+              api.setGameDay(inv.proposedDay) // advance the clock into the plan's window
+              api.setTime(inv.proposedHour)
               api.startSocialActivity(inv.id)
               api.setActiveInteractable(api.getActiveSocialActivity()?.venueId ?? null) // arrive
               api.advanceSocialActivity()
