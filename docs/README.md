@@ -38,6 +38,12 @@ Start here. Every doc, what it's for, and the order to read them in.
   subsystem: threat detection, deterministic cashier + loot, unsecured proceeds +
   securing, alarm→crime reporting, the wanted-decay anti-exploit, the reusable
   interior registry, and the Corner Take mission that observes (not owns) it.
+- **[SOCIAL_RELATIONSHIPS_AND_MEMORY.md](SOCIAL_RELATIONSHIPS_AND_MEMORY.md)** — the
+  deterministic social platform: the six-actor registry, the integer-bounded
+  relationship model + bounded memory ledger, the ONE exact-once event pipeline,
+  contextual interactions + gifts + anti-farming, phone contacts/messages/
+  invitations + scheduling, reusable activity templates + Coffee-for-Ravi compat,
+  observe-only crime/economy consequences, and the additive fail-safe save slice.
 
 ## Reference data
 

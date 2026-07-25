@@ -1,6 +1,7 @@
 import { useGameStore } from '../game/store/useGameStore'
 import { getActionsFor } from '../game/interactables/interactionHandlers'
 import { INTERACTABLE_BY_ID } from '../data/interactables'
+import { vendorDiscountPct } from '../game/social/socialConsequences'
 
 /** Action menu for places: food truck, gym, job board, apartment. */
 export function ActivityPanel() {
@@ -10,12 +11,16 @@ export function ActivityPanel() {
   const questStates = useGameStore((s) => s.questStates)
   const performActivityAction = useGameStore((s) => s.performActivityAction)
   const closePanel = useGameStore((s) => s.closePanel)
+  // Re-render on relationship changes so Maya's friend-price shows live.
+  useGameStore((s) => s.socialVersion)
 
   if (ui.panel !== 'activity' || !ui.activityId) return null
   const def = INTERACTABLE_BY_ID[ui.activityId]
   if (!def) return null
 
-  const actions = getActionsFor(def.kind, { stats, inventory, questStates })
+  // The food truck is Maya's — her loyalty discount adjusts the menu prices.
+  const foodDiscount = def.kind === 'food_truck' ? vendorDiscountPct('npc_maya_01') : 0
+  const actions = getActionsFor(def.kind, { stats, inventory, questStates }, foodDiscount)
 
   return (
     <div className="center-panel-wrap">

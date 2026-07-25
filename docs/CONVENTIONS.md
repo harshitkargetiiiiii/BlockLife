@@ -340,6 +340,64 @@ generated visual sweep at the district's **content centroid** (its buildings),
 NOT the geometric sector centre — a district whose streetscape sits in one corner
 of its 144u sector would otherwise photograph empty void.
 
+### 22. UI that reads a module-singleton runtime needs a zustand re-render bridge
+The social runtime (issue #13) lives OUTSIDE zustand (two-tier state: it's
+event-driven module state, like `missionRuntime`/`commerceRuntime`). But React UI
+that reads it — the dialogue social menu, phone contacts/chats, the activity
+tracker — won't re-render when that runtime mutates, because nothing it subscribes
+to changed. The fix is a single **`socialVersion` counter on the store**, bumped by
+every store action that mutates social state; the readers `useGameStore((s) =>
+s.socialVersion)` purely to subscribe. Do this deliberately — relying on an
+incidental `toast` bump (an earlier hack) is fragile and surfaces `act()` warnings
+in tests (a store change re-rendering an already-mounted component outside React's
+batch — wrap post-render `setState` in `act`). Also: a store action that is ONLY
+reachable from the DEV test API is **dead in production** — it bundles but no player
+path hits it. That's not a `GAME_TEST_API` leak (the test-API wrapper is
+DEV-stripped), but it means the FEATURE isn't wired. Give it a real affordance
+(the favor activity got an "Offer to help" dialogue button) or the slice is
+incomplete.
+
+### 23. A social "activity" is a feature, not a second mission engine
+Issue #13's reusable activity templates (meet / hangout / delivery-favor) look
+like missions, and the mission framework HAS `reach_zone`/`interact`/`collect`
+objectives — but its defs are STATIC and offer/anchor/cooldown/money-reward driven,
+so binding one dynamically to "whichever friend you invited" fights the grain.
+Coupling to it would be over-engineering, not the "reuse existing systems"
+mandate (which forbids DUPLICATING a general engine, not building a focused
+feature). A social activity is a tiny linear step machine whose only reward is a
+relationship event through the ONE social pipeline, reusing the invitation entry,
+the inventory service (favor cargo), and existing world venues — no anchors, no
+cooldowns, no money, no multi-instance persistence. Reuse the VOCABULARY + the
+adjacent systems, not the whole engine, when the engine's shape doesn't fit.
+
+### 24. Don't mutate runtime state inside a helper the caller then spreads over
+The social runtime uses the immutable idiom `const s = runtime.state;` … `runtime.state
+= { ...s, relationships, memories, … }`. If a helper called mid-way ALSO mutates
+`runtime.state` directly (e.g. an id-minting helper doing `runtime.state.msgSeq++`),
+the caller's `{ ...s, … }` — built from the snapshot `s` captured BEFORE the helper
+ran — silently clobbers that bump back to its old value. The message-id counter
+looked like it advanced (ids were unique within a call) but reset every turn, so
+across a reload it re-minted colliding ids. **Fix:** thread the value through — pass
+the current seq IN, return/spread the incremented seq in the SAME state object the
+caller writes — never let a helper and its caller both own one field. And any
+monotonic counter used to build persistent ids must live in the **serialized save
+slice** (like the mission `attemptSeq`), or a fresh module load restarts it at 0 and
+re-mints ids that already exist. Prove it with a reload test, not just an in-session
+uniqueness check.
+
+### 25. Measure a relationship delta at the interaction, not across a clock jump
+Relationships carry time-based derived decay (older memories fade). A test that
+teleports the game clock forward (e.g. `setGameDay`/`setTime` to reach a scheduled
+plan's start window) and then asserts `affinityAfter > affinityBefore` across that
+jump — or across a save/load that re-settles decay — conflates the interaction's
+lift with the days of decay the jump legitimately applies, and the assertion flakes
+or inverts (a +10 hangout read as −5). **Fix:** capture the before/after around the
+interaction ONLY, at one clock; assert persistence separately (invitation status,
+contact present) via the save/load round-trip. Better still, don't jump at all when
+you don't need to: a next-hour proposal is already inside its 1h-early window, so
+only genuinely far-future plans need the clock advanced (see the start window,
+gotcha-adjacent to the destination gate).
+
 ---
 
 ## The verification workflow (honest gates)

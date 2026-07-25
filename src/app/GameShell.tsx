@@ -7,6 +7,7 @@ import { WardrobePanel } from './WardrobePanel'
 import { StoragePanel } from './StoragePanel'
 import { ShopPanel } from './ShopPanel'
 import { Phone } from './phone/Phone'
+import { SocialActivityTracker } from './SocialActivityTracker'
 import { useActionKeys } from './useActionKeys'
 import { useKeyboardControls } from '../game/controls/useKeyboardControls'
 import { registry } from '../game/world/runtimeRegistry'
@@ -40,6 +41,7 @@ export function GameShell() {
     <div className="game-root">
       <CanvasRoot />
       <HUD />
+      <SocialActivityTracker />
       <DialoguePanel />
       <ActivityPanel />
       <WardrobePanel />
