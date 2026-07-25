@@ -674,6 +674,20 @@ body,
   display: flex;
   gap: 8px;
 }
+.sat-reason {
+  margin-top: 6px;
+  font-size: 10.5px;
+  font-style: italic;
+  color: var(--text-dim);
+}
+
+.phone-plan {
+  display: block;
+}
+.plan-inprogress {
+  color: var(--accent-2);
+  font-weight: 600;
+}
 
 .social-menu {
   margin-top: 16px;

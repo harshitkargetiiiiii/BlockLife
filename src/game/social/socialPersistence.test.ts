@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { applySocialSave, sanitizeSocialSave, serializeSocial } from './socialPersistence'
-import { ingestSocialEvent, resetSocial, socialRuntime, getRelationship, getContacts, getMessages, getInvitations, reconcileOutreach } from './socialRuntime'
+import { ingestSocialEvent, resetSocial, socialRuntime, getRelationship, getContacts, getMessages, getInvitations, reconcileOutreach, sendPlayerInvite } from './socialRuntime'
 import { defaultSocialState, type SocialEvent } from './socialEvents'
 
 let n = 0
@@ -36,6 +36,28 @@ describe('social persistence — additive, fail-safe, round-trip (§12)', () => 
     expect(getMessages('npc_ravi_01').length).toBeGreaterThan(0)
     expect(getInvitations().length).toBeGreaterThan(0)
     expect(socialRuntime.state.lastInitiatedDay['npc_ravi_01']).toBe(4)
+  })
+
+  it('persists the message-id counter so a reload cannot mint duplicate ids (PR#14)', () => {
+    ingestSocialEvent(ev({ id: 'met', kind: 'met', actorId: 'npc_ravi_01', gameDay: 1 }))
+    sendPlayerInvite('npc_ravi_01', 2, 10) // posts messages → bumps msgSeq
+    const seqAfter = socialRuntime.state.msgSeq
+    expect(seqAfter).toBeGreaterThan(0)
+    const saved = serializeSocial()
+    expect(saved.msgSeq).toBe(seqAfter)
+
+    // Simulate a full reload: the module resets, then loads the save back.
+    resetSocial()
+    expect(socialRuntime.state.msgSeq).toBe(0)
+    applySocialSave(saved)
+    expect(socialRuntime.state.msgSeq).toBe(seqAfter) // restored, NOT reset to 0
+
+    // A brand-new message after the reload cannot collide with a loaded one.
+    const ids = new Set(getMessages('npc_ravi_01').map((m) => m.id))
+    sendPlayerInvite('npc_ravi_01', 3, 10)
+    const all = getMessages('npc_ravi_01').map((m) => m.id)
+    expect(new Set(all).size).toBe(all.length) // every id unique
+    expect(all.filter((id) => ids.has(id)).length).toBe(ids.size) // old ids preserved
   })
 
   it('an old save (no social field) resets to canonical strangers', () => {

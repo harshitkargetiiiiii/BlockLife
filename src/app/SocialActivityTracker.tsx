@@ -10,12 +10,16 @@ import { activityPrompt } from '../game/social/socialActivities'
  */
 export function SocialActivityTracker() {
   useGameStore((s) => s.socialVersion)
+  const activeInteractableId = useGameStore((s) => s.activeInteractableId)
   const advance = useGameStore((s) => s.advanceSocialActivity)
   const cancel = useGameStore((s) => s.cancelSocialActivity)
 
   const activity = getActiveActivity()
   if (!activity) return null
   const name = getSocialActor(activity.actorId)?.displayName ?? 'them'
+  // Destination integration (PR#14 blocker 4): the "I'm here" step only unlocks
+  // once the player has actually reached the venue (reuses the proximity scanner).
+  const outOfRange = activity.step === 'travel' && activeInteractableId !== activity.venueId
 
   return (
     <div className="social-activity-tracker" data-testid="social-activity-tracker">
@@ -24,13 +28,18 @@ export function SocialActivityTracker() {
         {activityPrompt(activity, name)}
       </div>
       <div className="sat-actions">
-        <button className="btn btn-small btn-primary" data-testid="sat-continue" onClick={advance}>
+        <button className="btn btn-small btn-primary" data-testid="sat-continue" disabled={outOfRange} onClick={advance}>
           {activity.step === 'together' ? 'Wrap up' : activity.step === 'deliver' ? 'Hand over' : 'I’m here'}
         </button>
         <button className="btn btn-small btn-ghost" data-testid="sat-cancel" onClick={cancel}>
           Cancel
         </button>
       </div>
+      {outOfRange && (
+        <div className="sat-reason" data-testid="sat-reason">
+          Go to {activity.venueLabel} first.
+        </div>
+      )}
     </div>
   )
 }

@@ -205,7 +205,17 @@ export interface SocialMessage {
 /** Reusable social activity kinds an invitation can be about (run in Slice 4). */
 export type InvitationActivityKind = 'coffee' | 'food' | 'workout' | 'hangout' | 'walk'
 
-export type InvitationStatus = 'pending' | 'accepted' | 'declined' | 'suggested_later'
+export type InvitationStatus =
+  | 'pending'
+  | 'accepted'
+  | 'declined'
+  | 'suggested_later'
+  // ---- activity lifecycle (linked instance) ----
+  | 'active' // the player started the meet-up
+  | 'completed' // the hangout/favor finished
+  | 'missed' // the arrival window lapsed with no show
+  | 'cancelled' // the player bailed after starting
+  | 'failed' // an activity ended in failure (reserved)
 
 /** A scheduled meet-up proposal, from either side. */
 export interface SocialInvitation {
@@ -242,6 +252,8 @@ export interface SocialActivity {
   venueLabel: string
   /** For `favor`: a real catalog item the player carries + hands over. */
   requiredItemId?: string
+  /** The invitation this activity fulfils, if it came from one (lifecycle link). */
+  invitationId?: string
   step: SocialActivityStep
   startedDay: number
 }
@@ -271,6 +283,8 @@ export interface SocialSaveData {
   lastInitiatedDay?: Record<SocialActorId, number>
   /** Slice 4: the single in-progress social activity (or omitted/null). */
   activeActivity?: SocialActivity | null
+  /** Persisted message-id counter (PR#14 hardening; old saves default to 0). */
+  msgSeq?: number
 }
 
 export const SOCIAL_SAVE_VERSION = 1

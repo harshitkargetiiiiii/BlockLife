@@ -1,6 +1,6 @@
 import { useGameStore } from '../store/useGameStore'
 import { registry } from '../world/runtimeRegistry'
-import { socialSnapshot, getRelationship as getSocialRel, getDerivedRelationship as getSocialDerived, getMemories as getSocialMems, getContacts as getSocialContactsRt, ingestSocialEvent as ingestSocialEventRt, getInvitations as getSocialInvitationsRt, getMessages as getSocialMessagesRt, getTotalUnread as getSocialUnreadRt, reconcileOutreach as reconcileOutreachRt, getActiveActivity as getActiveActivityRt } from '../social/socialRuntime'
+import { socialSnapshot, getRelationship as getSocialRel, getDerivedRelationship as getSocialDerived, getMemories as getSocialMems, getContacts as getSocialContactsRt, ingestSocialEvent as ingestSocialEventRt, getInvitations as getSocialInvitationsRt, getMessages as getSocialMessagesRt, getTotalUnread as getSocialUnreadRt, reconcileOutreach as reconcileOutreachRt, getActiveActivity as getActiveActivityRt, getConfirmedPlans as getConfirmedPlansRt, reconcileMissedInvitations as reconcileMissedInvitationsRt } from '../social/socialRuntime'
 import type { SocialEvent } from '../social/socialEvents'
 import type { SocialActionId } from '../social/socialInteraction'
 import type { InvitationActivityKind } from '../social/socialTypes'
@@ -424,6 +424,11 @@ export interface GameTestApi {
    *  world position (exercises `noteCrimeWitnessed` + registry proximity + the
    *  social pipeline). The crime AUTHORITY itself is covered by crime.spec.ts. */
   devWitnessCrimeAt: (npcId: string) => boolean
+  /** DEV/E2E: confirmed (accepted/active) plans; time-out ignored accepted plans. */
+  getSocialConfirmedPlans: () => { id: string; actorId: string; activityKind: string; status: string; proposedDay: number; proposedHour: number }[]
+  reconcileMissedInvitations: (gameDay: number, gameHour: number) => number
+  /** DEV/E2E: simulate arriving at a venue (the proximity scanner does this live). */
+  setActiveInteractable: (id: string | null) => void
   /** Routing: graph counts + content-hash version. */
   getRoadGraphSummary: () => {
     version: number
@@ -1215,6 +1220,12 @@ export function installTestApi(): void {
       const seen = noteCrimeWitnessedRt(`devcrime:${npcId}:${day}:${Math.round(hour)}`, [pos.x, pos.y, pos.z], day, hour)
       return seen.includes(npcId)
     },
+    getSocialConfirmedPlans: () =>
+      getConfirmedPlansRt().map((i) => ({ id: i.id, actorId: i.actorId, activityKind: i.activityKind, status: i.status, proposedDay: i.proposedDay, proposedHour: i.proposedHour })),
+    reconcileMissedInvitations: (gameDay: number, gameHour: number) => reconcileMissedInvitationsRt(gameDay, gameHour),
+    /** DEV/E2E: simulate arrival at a venue (the real proximity scanner sets this
+     *  in live play; a headless test can set it directly to exercise the gate). */
+    setActiveInteractable: (id: string | null) => useGameStore.getState().setActiveInteractable(id),
     // ---- Cross-District Traffic Routing v1 ---------------------------------
     getRoadGraphSummary: () => {
       const graph = getRoadGraph()

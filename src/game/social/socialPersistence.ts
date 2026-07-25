@@ -39,6 +39,7 @@ export function serializeSocial(): SocialSaveData {
     invitations: s.invitations.map((i) => ({ ...i })),
     lastInitiatedDay: { ...s.lastInitiatedDay },
     activeActivity: s.activeActivity ? { ...s.activeActivity } : null,
+    msgSeq: s.msgSeq,
   }
 }
 
@@ -62,13 +63,14 @@ function sanitizeActivity(raw: unknown): SocialActivity | null {
     venueId: a.venueId,
     venueLabel: a.venueLabel,
     requiredItemId: typeof a.requiredItemId === 'string' ? a.requiredItemId : undefined,
+    invitationId: typeof a.invitationId === 'string' ? a.invitationId : undefined,
     step: a.step as SocialActivityStep,
     startedDay: Number.isFinite(a.startedDay) ? Math.trunc(a.startedDay as number) : 0,
   }
 }
 
 const INVITATION_KINDS: InvitationActivityKind[] = ['coffee', 'food', 'workout', 'hangout', 'walk']
-const INVITATION_STATUSES: InvitationStatus[] = ['pending', 'accepted', 'declined', 'suggested_later']
+const INVITATION_STATUSES: InvitationStatus[] = ['pending', 'accepted', 'declined', 'suggested_later', 'active', 'completed', 'missed', 'cancelled', 'failed']
 
 /** Sanitize one contact's message thread (drop malformed, bound the length). */
 function sanitizeMessages(raw: unknown, actorId: string): SocialMessage[] {
@@ -188,7 +190,8 @@ export function sanitizeSocialSave(raw: unknown): SocialState {
     }
   }
 
-  return { relationships, memories, contacts, appliedEventIds, messages, invitations, lastInitiatedDay, activeActivity: sanitizeActivity(data.activeActivity) }
+  const msgSeq = Number.isFinite(data.msgSeq) && (data.msgSeq as number) >= 0 ? Math.trunc(data.msgSeq as number) : 0
+  return { relationships, memories, contacts, appliedEventIds, messages, invitations, lastInitiatedDay, activeActivity: sanitizeActivity(data.activeActivity), msgSeq }
 }
 
 /** Apply a save blob to the runtime (sanitized). Missing field → canonical reset. */

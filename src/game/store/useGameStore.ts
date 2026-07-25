@@ -71,6 +71,7 @@ import {
   hasMet as socialHasMet,
   ingestSocialEvent,
   markContactRead as markContactReadRt,
+  reconcileMissedInvitations,
   reconcileOutreach,
   resetSocial,
   respondToInvitation as respondToInvitationRt,
@@ -640,9 +641,11 @@ export const useGameStore = create<GameStore>()((set, get) => ({
       return
     }
     audioManager.playClick()
-    // Opening the phone lazily reconciles NPC follow-ups (never per-frame — §14).
+    // Opening the phone lazily reconciles NPC follow-ups + times out ignored
+    // accepted plans into no-shows (never per-frame — §14; PR#14 blocker 3).
     if (s.ui.panel !== 'phone') {
       reconcileOutreach(s.stats.day, s.stats.hour)
+      reconcileMissedInvitations(s.stats.day, s.stats.hour)
       set((st) => ({ socialVersion: st.socialVersion + 1 }))
     }
     set({
@@ -688,8 +691,13 @@ export const useGameStore = create<GameStore>()((set, get) => ({
       questStates: outcome.state.questStates,
     })
     get().showToast(outcome.message)
-    // Sleeping closes the panel so the player sees the new morning.
-    if (outcome.ok && actionId === 'sleep') get().closePanel()
+    // Sleeping advances the day — reconcile any accepted plan whose window lapsed
+    // overnight into a no-show (PR#14 blocker 3), then close the panel.
+    if (outcome.ok && actionId === 'sleep') {
+      reconcileMissedInvitations(outcome.state.stats.day, outcome.state.stats.hour)
+      set((st) => ({ socialVersion: st.socialVersion + 1 }))
+      get().closePanel()
+    }
   },
 
   performDialogueAction: (npcId, actionId) => {
@@ -833,6 +841,12 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     const s = get()
     const act = getActiveActivity()
     if (!act) return
+    // Destination integration (PR#14 blocker 4): you can't "arrive" until you're
+    // actually AT the venue — reuse the existing proximity scanner's activeInteractableId.
+    if (act.step === 'travel' && s.activeInteractableId !== act.venueId) {
+      get().showToast(`Head to ${act.venueLabel} to meet ${getSocialActor(act.actorId)?.displayName ?? 'them'}.`)
+      return
+    }
     // A favor's delivery step hands over a REAL item — consume it atomically first.
     if (act.step === 'deliver' && act.requiredItemId) {
       const removal = removeStack(s.inventory, act.requiredItemId, 1)

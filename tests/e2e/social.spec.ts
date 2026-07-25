@@ -1,12 +1,20 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
 import { gotoGame, teleport } from './helpers'
 
 /**
- * Social Life, Relationships & NPC Memory v1 (issue #13) — the twelve required
- * end-to-end scenarios (§15), each independently named + isolated so a failure
- * points at exactly one flow. Every test starts from a reset so state can't leak
- * between them.
+ * Social Life, Relationships & NPC Memory v1 (issue #13) + PR#14 lifecycle
+ * hardening — the required end-to-end scenarios, each independently named +
+ * isolated. Every test starts from a reset.
  */
+
+/** Walk up to Maya's food truck so the proximity scanner marks us "arrived". */
+async function arriveAtFoodTruck(page: Page): Promise<void> {
+  await teleport(page, [1.5, 1.2, -4.4])
+  await page.waitForFunction(() => window.GAME_TEST_API!.getStats().activeInteractableId === 'food_truck_01', undefined, {
+    timeout: 8000,
+  })
+}
+
 test.describe('social platform', () => {
   test.beforeEach(async ({ page }) => {
     await gotoGame(page)
@@ -30,13 +38,16 @@ test.describe('social platform', () => {
   })
 
   test('2. a completed favor writes memory, trust, a follow-up message', async ({ page }) => {
+    // The favor errand venue is the apartment — arrive there first.
+    await teleport(page, [-12.5, 1.2, -9])
+    await page.waitForFunction(() => window.GAME_TEST_API!.getStats().activeInteractableId === 'apartment', undefined, { timeout: 8000 })
     const r = await page.evaluate(() => {
       const api = window.GAME_TEST_API!
-      api.openDialogueWith('npc_ravi_01') // friendly after meeting → will ask a favor
+      api.openDialogueWith('npc_ravi_01')
       api.giveItem('snack', 1)
       const trust0 = api.getSocialRelationship('npc_ravi_01').trust
       api.startFavorFor('npc_ravi_01')
-      api.advanceSocialActivity() // travel → deliver
+      api.advanceSocialActivity() // travel (at venue) → deliver
       api.advanceSocialActivity() // deliver (consumes snack)
       api.advanceSocialActivity() // together → done
       return {
@@ -61,7 +72,6 @@ test.describe('social platform', () => {
       const trust0 = api.getSocialRelationship('npc_ravi_01').trust
       api.startFavorFor('npc_ravi_01')
       api.cancelSocialActivity() // bail → no_show
-      // A stranger refuses a favor request (relationship-gated refusal).
       api.openDialogueWith('npc_kim_01')
       const kimMenu = api.getSocialMenu('npc_kim_01')
       api.performSocialAction('npc_kim_01', 'ask_favor')
@@ -77,7 +87,7 @@ test.describe('social platform', () => {
     expect(r.trustDropped).toBe(true)
     expect(r.noShowMsg).toBe(true)
     expect(r.kimHadFavorAction).toBe(true)
-    expect(r.kimFavorNoTrustMem).toBe(true) // refused → no favor reward
+    expect(r.kimFavorNoTrustMem).toBe(true)
   })
 
   test('4. a preferred gift lifts affinity; a repeat same-day gift is anti-farmed', async ({ page }) => {
@@ -93,12 +103,13 @@ test.describe('social platform', () => {
       const giftMems = api.getSocialMemories('npc_ravi_01').filter((m) => m.kind === 'gift_given').length
       return { a0, a1, a2, giftMems }
     })
-    expect(r.a1).toBeGreaterThan(r.a0) // liked gift
-    expect(r.a2).toBe(r.a1) // second gift the same day changed nothing
-    expect(r.giftMems).toBe(1) // exactly one gift memory
+    expect(r.a1).toBeGreaterThan(r.a0)
+    expect(r.a2).toBe(r.a1)
+    expect(r.giftMems).toBe(1)
   })
 
-  test('5. a phone invitation → activity completes and persists', async ({ page }) => {
+  test('5. a phone invitation → activity completes at the venue and persists', async ({ page }) => {
+    await arriveAtFoodTruck(page)
     const r = await page.evaluate(async () => {
       const api = window.GAME_TEST_API!
       api.openDialogueWith('npc_ravi_01')
@@ -106,51 +117,53 @@ test.describe('social platform', () => {
       const inv = api.getSocialInvitations().find((i) => i.source === 'player' && i.status === 'accepted')
       const a0 = api.getSocialRelationship('npc_ravi_01').affinity
       if (inv) api.startSocialActivity(inv.id)
-      api.advanceSocialActivity()
-      api.advanceSocialActivity()
+      api.advanceSocialActivity() // travel (at truck) → together
+      api.advanceSocialActivity() // together → done
+      const invAfter = api.getSocialInvitations().find((i) => i.id === inv?.id)
       await api.saveGame()
       api.resetGame()
       await api.loadGame()
-      return { hadInvite: !!inv, a0, a1: api.getSocialRelationship('npc_ravi_01').affinity }
+      return { hadInvite: !!inv, a0, a1: api.getSocialRelationship('npc_ravi_01').affinity, invStatus: invAfter?.status }
     })
     expect(r.hadInvite).toBe(true)
+    expect(r.invStatus).toBe('completed') // linked invitation resolved
     expect(r.a1).toBeGreaterThan(r.a0)
   })
 
-  test('6. missing an accepted invitation is a no-show consequence', async ({ page }) => {
+  test('6. an accepted invitation ignored past its window becomes a no-show (real clock)', async ({ page }) => {
     const r = await page.evaluate(() => {
       const api = window.GAME_TEST_API!
       api.openDialogueWith('npc_ravi_01')
       api.sendSocialInvite('npc_ravi_01', 'coffee')
-      const inv = api.getSocialInvitations().find((i) => i.status === 'accepted')
+      const inv = api.getSocialInvitations().find((i) => i.status === 'accepted')!
       const t0 = api.getSocialRelationship('npc_ravi_01').trust
-      if (inv) api.startSocialActivity(inv.id)
-      api.cancelSocialActivity() // stood them up
+      // Never start it; let the clock roll two days past the appointment.
+      const missed = api.reconcileMissedInvitations(inv.proposedDay + 2, 12)
+      const invAfter = api.getSocialInvitations().find((i) => i.id === inv.id)!
       return {
-        t0,
+        missed,
+        status: invAfter.status,
         t1: api.getSocialRelationship('npc_ravi_01').trust,
+        t0,
         noShow: api.getSocialMemories('npc_ravi_01').some((m) => m.kind === 'no_show'),
+        idempotent: api.reconcileMissedInvitations(inv.proposedDay + 3, 12), // already missed
       }
     })
+    expect(r.missed).toBe(1)
+    expect(r.status).toBe('missed')
     expect(r.noShow).toBe(true)
     expect(r.t1).toBeLessThan(r.t0)
+    expect(r.idempotent).toBe(0)
   })
 
   test('7. a crime witnessed by a named NPC hits fear/trust (real consequence)', async ({ page }) => {
-    // Ensure the named NPCs are live in the registry, then drive the real
-    // witness consequence at Officer Kim's world position (highest sensitivity).
     await teleport(page, [0, 1.2, 0])
     const r = await page.evaluate(() => {
       const api = window.GAME_TEST_API!
       api.openDialogueWith('npc_kim_01')
       const f0 = api.getSocialRelationship('npc_kim_01').fear
       const witnessed = api.devWitnessCrimeAt('npc_kim_01')
-      return {
-        witnessed,
-        f1: api.getSocialRelationship('npc_kim_01').fear,
-        f0,
-        mem: api.getSocialMemories('npc_kim_01').some((m) => m.kind === 'crime_witnessed'),
-      }
+      return { witnessed, f1: api.getSocialRelationship('npc_kim_01').fear, f0, mem: api.getSocialMemories('npc_kim_01').some((m) => m.kind === 'crime_witnessed') }
     })
     expect(r.witnessed).toBe(true)
     expect(r.f1).toBeGreaterThan(r.f0)
@@ -162,9 +175,9 @@ test.describe('social platform', () => {
       const api = window.GAME_TEST_API!
       api.openDialogueWith('npc_ravi_01')
       api.giveItem('snack', 1)
-      api.performSocialAction('npc_ravi_01', 'gift', 'snack') // memory + affinity
+      api.performSocialAction('npc_ravi_01', 'gift', 'snack')
       api.ingestSocialEvent({ id: 'seed', kind: 'conversation', actorId: 'npc_ravi_01', gameDay: 1, gameHour: 10 })
-      api.reconcileSocialOutreach(5, 9) // message + invitation
+      api.reconcileSocialOutreach(5, 9)
       const before = {
         aff: api.getSocialRelationship('npc_ravi_01').affinity,
         mems: api.getSocialMemories('npc_ravi_01').length,
@@ -202,16 +215,11 @@ test.describe('social platform', () => {
       api.ingestSocialEvent({ id: 'g', kind: 'gift_liked', actorId: 'npc_ravi_01', gameDay: 1 })
       const populated = api.getSocialContacts().length
       api.resetGame()
-      return {
-        populated,
-        contacts: api.getSocialContacts().length,
-        raviAff: api.getSocialRelationship('npc_ravi_01').affinity,
-        mems: api.getSocialMemories('npc_ravi_01').length,
-      }
+      return { populated, contacts: api.getSocialContacts().length, raviAff: api.getSocialRelationship('npc_ravi_01').affinity, mems: api.getSocialMemories('npc_ravi_01').length }
     })
     expect(r.populated).toBeGreaterThan(0)
     expect(r.contacts).toBe(0)
-    expect(r.raviAff).toBe(25) // Ravi's canonical default affinity
+    expect(r.raviAff).toBe(25)
     expect(r.mems).toBe(0)
   })
 
@@ -222,48 +230,52 @@ test.describe('social platform', () => {
       api.giveItem('coffee', 1)
       api.openDialogueWith('npc_ravi_01')
     })
-    // Drive the REAL dialogue UI: hand Ravi the coffee.
     await expect(page.getByTestId('dialogue-panel')).toBeVisible()
     await page.click('[data-action-id="deliver_coffee"]')
     const r = await page.evaluate(() => {
       const api = window.GAME_TEST_API!
-      return {
-        quest: api.getStats().questStates['coffee_for_ravi'],
-        socialMem: api.getSocialMemories('npc_ravi_01').some((m) => m.kind === 'gift_given'),
-      }
+      return { quest: api.getStats().questStates['coffee_for_ravi'], socialMem: api.getSocialMemories('npc_ravi_01').some((m) => m.kind === 'gift_given') }
     })
     expect(r.quest).toBe('completed')
-    expect(r.socialMem).toBe(true) // legacy quest now nourishes the relationship
+    expect(r.socialMem).toBe(true)
   })
 
-  test('11. a cross-district activity preserves streaming + occupancy integrity', async ({ page }) => {
-    await teleport(page, [53, 1.2, -108]) // jump to a far authored district
-    // Let the teleport-respawned crowd settle (the capped separation nudge takes
-    // ~1-2s), so the baseline reflects steady state, not a transient.
-    await page.waitForTimeout(1600)
-    const r = await page.evaluate(() => {
+  test('11. an activity crossing districts to the venue preserves streaming + occupancy', async ({ page }) => {
+    // Accept a coffee plan, journey to a far district, then travel BACK to the
+    // real venue (the food truck) to complete it — proving the trip is clean.
+    await page.evaluate(() => {
       const api = window.GAME_TEST_API!
-      api.runIntegrityScan()
-      const baseAnoms = api.getIntegrityAnomalies().length
-      // Run a whole social activity here in the far district.
       api.openDialogueWith('npc_ravi_01')
       api.sendSocialInvite('npc_ravi_01', 'coffee')
       const inv = api.getSocialInvitations().find((i) => i.status === 'accepted')
       if (inv) api.startSocialActivity(inv.id)
-      api.advanceSocialActivity()
-      api.advanceSocialActivity()
+    })
+    await teleport(page, [53, 1.2, -108]) // far district (activity can't complete here)
+    const blocked = await page.evaluate(() => {
+      const api = window.GAME_TEST_API!
+      api.advanceSocialActivity() // out of range → no-op
+      return api.getActiveSocialActivity()?.step
+    })
+    expect(blocked).toBe('travel') // destination gating held during the journey
+    await arriveAtFoodTruck(page) // travel to the actual venue
+    await page.waitForTimeout(1200) // let the crowd settle before the scan
+    const r = await page.evaluate(() => {
+      const api = window.GAME_TEST_API!
+      api.runIntegrityScan()
+      const baseAnoms = api.getIntegrityAnomalies().length
+      api.advanceSocialActivity() // now at the venue → travel → together
+      api.advanceSocialActivity() // together → done
       api.runIntegrityScan()
       const ring = api.getSafetyRing()
       return {
-        baseAnoms,
+        activityDone: api.getActiveSocialActivity() === null,
         afterAnoms: api.getIntegrityAnomalies().length,
+        baseAnoms,
         solidOverlaps: api.assertNoPersonSolidOverlaps().length,
         ringCovered: ring ? ring.covered : true,
-        activityDone: api.getActiveSocialActivity() === null,
       }
     })
     expect(r.activityDone).toBe(true)
-    // The social activity introduced NO new anomalies + no embedded actors.
     expect(r.afterAnoms).toBeLessThanOrEqual(r.baseAnoms)
     expect(r.solidOverlaps).toBe(0)
     expect(r.ringCovered).toBe(true)
@@ -277,16 +289,84 @@ test.describe('social platform', () => {
       const t1 = api.getSocialRelationship('npc_ravi_01').trust
       const m1 = api.getSocialMemories('npc_ravi_01').length
       const second = api.ingestSocialEvent({ id: 'dup', kind: 'favor_completed', actorId: 'npc_ravi_01', gameDay: 2, gameHour: 9 })
-      return {
-        firstApplied: first.applied,
-        secondApplied: second.applied,
-        trustSame: api.getSocialRelationship('npc_ravi_01').trust === t1,
-        memsSame: api.getSocialMemories('npc_ravi_01').length === m1,
-      }
+      return { firstApplied: first.applied, secondApplied: second.applied, trustSame: api.getSocialRelationship('npc_ravi_01').trust === t1, memsSame: api.getSocialMemories('npc_ravi_01').length === m1 }
     })
     expect(r.firstApplied).toBe(true)
-    expect(r.secondApplied).toBe(false) // exact-once
+    expect(r.secondApplied).toBe(false)
     expect(r.trustSame).toBe(true)
     expect(r.memsSame).toBe(true)
+  })
+
+  test('13. accept + start + complete an invitation entirely through the production UI', async ({ page }) => {
+    await arriveAtFoodTruck(page)
+    // Set up an INCOMING coffee invitation (the accept/start/complete below are all
+    // real DOM clicks — no GAME_TEST_API.respondToInvitation / startSocialActivity).
+    const invId = await page.evaluate(() => {
+      const api = window.GAME_TEST_API!
+      api.ingestSocialEvent({ id: 'met:npc_ravi_01', kind: 'met', actorId: 'npc_ravi_01', gameDay: 1, gameHour: 10 })
+      api.ingestSocialEvent({ id: 'seed', kind: 'conversation', actorId: 'npc_ravi_01', gameDay: 1, gameHour: 10 })
+      api.reconcileSocialOutreach(5, 9)
+      api.openTestPhoneApp('messages')
+      return api.getSocialInvitations().find((i) => i.source === 'npc' && i.status === 'pending')!.id
+    })
+    // Accept via the phone button, then Start the confirmed plan via its button.
+    await page.click(`[data-testid="invite-accept-${invId}"]`)
+    await expect(page.getByTestId('phone-plans')).toBeVisible()
+    await page.click(`[data-testid="plan-start-${invId}"]`)
+    // Complete via the HUD tracker buttons (we're already at the food truck).
+    await expect(page.getByTestId('social-activity-tracker')).toBeVisible()
+    await page.click('[data-testid="sat-continue"]') // travel → together
+    await page.click('[data-testid="sat-continue"]') // together → done
+    const r = await page.evaluate(() => {
+      const api = window.GAME_TEST_API!
+      return { active: api.getActiveSocialActivity(), status: api.getSocialInvitations().find((i) => i.status === 'completed') ? 'completed' : 'other', mem: api.getSocialMemories('npc_ravi_01').some((m) => m.summaryToken === 'hung_out') }
+    })
+    expect(r.active).toBeNull()
+    expect(r.status).toBe('completed')
+    expect(r.mem).toBe(true)
+  })
+
+  test('14. a completed invitation cannot be restarted through the production path', async ({ page }) => {
+    await arriveAtFoodTruck(page)
+    const r = await page.evaluate(() => {
+      const api = window.GAME_TEST_API!
+      api.openDialogueWith('npc_ravi_01')
+      api.sendSocialInvite('npc_ravi_01', 'coffee')
+      const inv = api.getSocialInvitations().find((i) => i.status === 'accepted')!
+      api.startSocialActivity(inv.id)
+      api.advanceSocialActivity()
+      api.advanceSocialActivity() // completed
+      // No confirmed plan remains, and trying to restart it does nothing.
+      const confirmedIds = api.getSocialConfirmedPlans().map((p) => p.id)
+      api.startSocialActivity(inv.id) // refused (invitation is completed)
+      return { completedGone: !confirmedIds.includes(inv.id), noActivity: api.getActiveSocialActivity() === null }
+    })
+    expect(r.completedGone).toBe(true)
+    expect(r.noActivity).toBe(true)
+  })
+
+  test('15. a full page reload preserves messages without minting duplicate ids', async ({ page }) => {
+    // Build messages + save, then RELOAD the page (resets the module) and load.
+    const invId = await page.evaluate(async () => {
+      const api = window.GAME_TEST_API!
+      api.ingestSocialEvent({ id: 'met:npc_ravi_01', kind: 'met', actorId: 'npc_ravi_01', gameDay: 1, gameHour: 10 })
+      api.sendSocialInvite('npc_ravi_01', 2, 10) // posts several messages
+      await api.saveGame()
+      return api.getSocialMessages('npc_ravi_01')[0]?.id ?? ''
+    })
+    expect(invId).not.toBe('')
+    await page.reload()
+    await page.waitForFunction(() => window.GAME_TEST_API?.ready() === true, undefined, { timeout: 45_000 })
+    const r = await page.evaluate(async () => {
+      const api = window.GAME_TEST_API!
+      await api.loadGame()
+      const loadedIds = api.getSocialMessages('npc_ravi_01').map((m) => m.id)
+      // A new message after the reload must not collide with a loaded id.
+      api.sendSocialInvite('npc_ravi_01', 3, 10)
+      const allIds = api.getSocialMessages('npc_ravi_01').map((m) => m.id)
+      return { loadedCount: loadedIds.length, unique: new Set(allIds).size === allIds.length }
+    })
+    expect(r.loadedCount).toBeGreaterThan(0)
+    expect(r.unique).toBe(true) // no duplicate message ids across the reload boundary
   })
 })

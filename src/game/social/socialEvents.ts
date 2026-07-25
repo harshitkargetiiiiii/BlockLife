@@ -77,10 +77,13 @@ export interface SocialState {
   lastInitiatedDay: Record<SocialActorId, number>
   /** The single in-progress social activity (Slice 4), or null. */
   activeActivity: SocialActivity | null
+  /** Monotonic message-id counter — PERSISTED so a reload can't reset it and mint
+   *  duplicate ids/React keys against already-loaded messages (PR#14 hardening). */
+  msgSeq: number
 }
 
 export function defaultSocialState(): SocialState {
-  return { relationships: {}, memories: {}, contacts: [], appliedEventIds: [], messages: {}, invitations: [], lastInitiatedDay: {}, activeActivity: null }
+  return { relationships: {}, memories: {}, contacts: [], appliedEventIds: [], messages: {}, invitations: [], lastInitiatedDay: {}, activeActivity: null, msgSeq: 0 }
 }
 
 // ---- effect table (§4: effects are DATA) ---------------------------------

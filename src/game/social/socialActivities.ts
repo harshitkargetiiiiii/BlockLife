@@ -60,6 +60,7 @@ export function activityFromInvitation(
     activityKind,
     venueId: plan.venue.id,
     venueLabel: plan.venue.label,
+    invitationId,
     step: 'travel',
     startedDay: Math.trunc(startedDay),
   }

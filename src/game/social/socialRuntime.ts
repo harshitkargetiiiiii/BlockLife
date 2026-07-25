@@ -81,9 +81,11 @@ export function hasMet(id: SocialActorId): boolean {
 
 // ---- phone: messages + invitations + scheduling (Slice 3) ----------------
 
-let msgSeq = 0
-function mkMsg(actorId: SocialActorId, dir: 'in' | 'out', token: string, gameDay: number, gameHour: number): SocialMessage {
-  return { id: `m:${actorId}:${Math.trunc(gameDay)}:${dir}:${token}:${msgSeq++}`, actorId, dir, token, gameDay: Math.trunc(gameDay), gameHour, read: dir === 'out' }
+/** Mint a message with an explicit persisted `seq` (the caller bumps state.msgSeq).
+ *  The id is collision-safe across a reload because `seq` comes from + advances the
+ *  PERSISTED counter, never a module-local one (PR#14 hardening). */
+function mkMsg(actorId: SocialActorId, dir: 'in' | 'out', token: string, gameDay: number, gameHour: number, seq: number): SocialMessage {
+  return { id: `m:${actorId}:${Math.trunc(gameDay)}:${dir}:${token}:${seq}`, actorId, dir, token, gameDay: Math.trunc(gameDay), gameHour, read: dir === 'out' }
 }
 
 /** The most salient stored memory for an actor (pins win), for outreach nods. */
@@ -144,8 +146,9 @@ export function respondToInvitation(
   const s = socialRuntime.state // fresh (ingest may have replaced it)
   socialRuntime.state = {
     ...s,
+    msgSeq: s.msgSeq + 1,
     invitations: setInvitationStatus(s.invitations, id, status, reslot),
-    messages: { ...s.messages, [inv.actorId]: pushMessage(s.messages[inv.actorId] ?? [], mkMsg(inv.actorId, 'out', token, gameDay, gameHour)) },
+    messages: { ...s.messages, [inv.actorId]: pushMessage(s.messages[inv.actorId] ?? [], mkMsg(inv.actorId, 'out', token, gameDay, gameHour, s.msgSeq)) },
   }
   return true
 }
@@ -184,9 +187,9 @@ export function sendPlayerInvite(
   const s = socialRuntime.state
   const inv: SocialInvitation = { id: invId, actorId, source: 'player', activityKind: kind, proposedDay: slot.day, proposedHour: slot.hour, status: response, createdDay: Math.trunc(gameDay) }
   const replyToken = response === 'accepted' ? 'accept' : response === 'declined' ? 'decline' : 'later'
-  const t1 = pushMessage(s.messages[actorId] ?? [], mkMsg(actorId, 'out', `invite_${kind}`, gameDay, gameHour))
-  const t2 = pushMessage(t1, mkMsg(actorId, 'in', replyToken, gameDay, gameHour))
-  socialRuntime.state = { ...s, invitations: addInvitation(s.invitations, inv), messages: { ...s.messages, [actorId]: t2 } }
+  const t1 = pushMessage(s.messages[actorId] ?? [], mkMsg(actorId, 'out', `invite_${kind}`, gameDay, gameHour, s.msgSeq))
+  const t2 = pushMessage(t1, mkMsg(actorId, 'in', replyToken, gameDay, gameHour, s.msgSeq + 1))
+  socialRuntime.state = { ...s, msgSeq: s.msgSeq + 2, invitations: addInvitation(s.invitations, inv), messages: { ...s.messages, [actorId]: t2 } }
   return { ok: true }
 }
 
@@ -196,10 +199,26 @@ export function getActiveActivity(): SocialActivity | null {
   return socialRuntime.state.activeActivity
 }
 
-/** Start a social activity (no-op if one is already running). */
+/** Confirmed (accepted / in-progress) plans the player can start / is doing. */
+export function getConfirmedPlans(): SocialInvitation[] {
+  return socialRuntime.state.invitations.filter((i) => i.status === 'accepted' || i.status === 'active')
+}
+
+/** Start a social activity (no-op if one is running). A linked invitation must be
+ *  `accepted` (never restartable once completed/missed/cancelled) and flips to
+ *  `active` atomically (PR#14 lifecycle). */
 export function beginActivity(activity: SocialActivity): boolean {
-  if (socialRuntime.state.activeActivity) return false
-  socialRuntime.state = { ...socialRuntime.state, activeActivity: activity }
+  const s = socialRuntime.state
+  if (s.activeActivity) return false
+  if (activity.invitationId) {
+    const inv = s.invitations.find((i) => i.id === activity.invitationId)
+    if (!inv || inv.status !== 'accepted') return false
+  }
+  socialRuntime.state = {
+    ...s,
+    activeActivity: activity,
+    invitations: activity.invitationId ? setInvitationStatus(s.invitations, activity.invitationId, 'active') : s.invitations,
+  }
   return true
 }
 
@@ -220,7 +239,12 @@ export function stepActivity(gameDay: number, gameHour: number): SocialActivity 
     ingestSocialEvent({ id: `${next.template}_done:${next.id}`, kind, actorId: next.actorId, gameDay, gameHour })
     // Follow-up thank-you message (§6 "message after a favor / completed hangout").
     postFollowUp(next.actorId, next.template === 'favor' ? 'followup_favor' : 'followup_hangout', `fu:${next.id}`, gameDay, gameHour)
-    socialRuntime.state = { ...socialRuntime.state, activeActivity: null }
+    const s = socialRuntime.state
+    socialRuntime.state = {
+      ...s,
+      activeActivity: null,
+      invitations: next.invitationId ? setInvitationStatus(s.invitations, next.invitationId, 'completed') : s.invitations,
+    }
     return null
   }
   socialRuntime.state = { ...socialRuntime.state, activeActivity: next }
@@ -235,14 +259,43 @@ function postFollowUp(actorId: SocialActorId, token: string, id: string, gameDay
   socialRuntime.state = { ...s, messages: { ...s.messages, [actorId]: pushMessage(s.messages[actorId] ?? [], msg) } }
 }
 
-/** Abandon the active activity (a mild let-down: a `no_show` for a meet-up). */
+/** Abandon the active activity (a mild let-down: a `no_show` for a meet-up). A
+ *  linked invitation flips to `cancelled` (never restartable). */
 export function cancelActivity(gameDay: number, gameHour: number): void {
   const cur = socialRuntime.state.activeActivity
   if (!cur) return
   ingestSocialEvent({ id: `activity_cancel:${cur.id}`, kind: 'no_show', actorId: cur.actorId, gameDay, gameHour })
   // Follow-up "you didn't show" message (§6 message after a no-show).
   postFollowUp(cur.actorId, 'followup_noshow', `funs:${cur.id}`, gameDay, gameHour)
-  socialRuntime.state = { ...socialRuntime.state, activeActivity: null }
+  const s = socialRuntime.state
+  socialRuntime.state = {
+    ...s,
+    activeActivity: null,
+    invitations: cur.invitationId ? setInvitationStatus(s.invitations, cur.invitationId, 'cancelled') : s.invitations,
+  }
+}
+
+/**
+ * Lazily mark ACCEPTED plans the player ignored past their arrival window as
+ * `missed` — a real no-show consequence without ever starting the activity
+ * (PR#14 blocker 3). Deterministic + exact-once (id keyed on the invitation);
+ * called on game-time advancement / phone open, NEVER per frame. Returns the
+ * count newly missed.
+ */
+export function reconcileMissedInvitations(gameDay: number, gameHour: number): number {
+  const GRACE_HOURS = 3
+  const nowAbs = Math.trunc(gameDay) * 24 + gameHour
+  const active = socialRuntime.state.activeActivity
+  const due = socialRuntime.state.invitations.filter(
+    (i) => i.status === 'accepted' && active?.invitationId !== i.id && nowAbs >= i.proposedDay * 24 + i.proposedHour + GRACE_HOURS,
+  )
+  for (const inv of due) {
+    ingestSocialEvent({ id: `inv_missed:${inv.id}`, kind: 'no_show', actorId: inv.actorId, gameDay, gameHour })
+    postFollowUp(inv.actorId, 'followup_noshow', `funs:missed:${inv.id}`, gameDay, gameHour)
+    const s = socialRuntime.state
+    socialRuntime.state = { ...s, invitations: setInvitationStatus(s.invitations, inv.id, 'missed') }
+  }
+  return due.length
 }
 
 /**

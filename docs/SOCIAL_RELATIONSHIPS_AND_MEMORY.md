@@ -74,8 +74,10 @@ that express state but own no logic
 
 Reuses the existing phone. **People** shows the live relationship (tier, memory
 nod, hostile/afraid flags, unread badge, Invite). **Chats** shows pending
-invitations (accept / decline / **suggest later**) + bounded per-contact threads
-(`≤12`, unread count) above the ambient flavor feed.
+invitations (accept / decline / **suggest later**), a **Confirmed plans** section
+(every `accepted`/`active` invitation as a startable plan with a **Start plan**
+button — the production surface for launching an activity, no dev API needed), and
+bounded per-contact threads (`≤12`, unread count) above the ambient flavor feed.
 [`socialScheduling.ts`](../src/game/social/socialScheduling.ts) owns availability
 windows, invite gating (relationship + cooldown + mission-busy), a next-slot
 proposer, and **deterministic** NPC-outreach eligibility.
@@ -90,12 +92,27 @@ templates: **meet** (go to a destination), **hangout** (coffee / food / shopping
 workout at a real venue), **favor** (carry a real item to / accompany the NPC).
 A small linear step machine (`travel → [deliver] → together → done`); completion
 fires `activity_completed` (or `favor_completed` for an errand) through the ONE
-pipeline. Entry points: accept a phone invitation, or **Offer to help** a friend
-in conversation. The active activity is a single bounded, serializable record with
-a HUD tracker
+pipeline. Entry points: **Start** a confirmed plan / accept a phone invitation, or
+**Offer to help** a friend in conversation. The active activity is a single bounded,
+serializable record with a HUD tracker
 ([`SocialActivityTracker.tsx`](../src/app/SocialActivityTracker.tsx)). This is a
 social feature, **not** a second mission engine (no anchors / cooldowns / money
 rewards / multi-instance persistence).
+
+**Destination gate:** the `travel` step only advances when the player is actually
+**at the venue** (the existing proximity scanner's `activeInteractableId` ==
+`activity.venueId`); off-venue, both the HUD **I'm here** button and
+`advanceSocialActivity` are refused with a readable reason (`Go to {venue} first.`).
+
+**Invitation lifecycle:** an invitation moves `pending → accepted → active →
+completed` (or `missed` / `cancelled`) and each transition is applied **atomically**
+with the linked activity, so a completed plan can never be restarted. Accepted
+invitations the player ignores past their window are reconciled to **no-show** off
+the **real clock** (`reconcileMissedInvitations`, a 3-hour grace) — lazily on
+time-advance / phone-open, never per-frame — feeding a `no_show` memory through the
+ONE pipeline. Phone-message ids carry a **persisted** monotonic `msgSeq` so a reload
+can never mint a colliding id (the same reload-safety pattern as the mission
+`attemptSeq`).
 
 **Coffee-for-Ravi compatibility:** the legacy coffee quest is untouched; a
 successful `deliver_coffee` additionally feeds the social system as a gift Ravi

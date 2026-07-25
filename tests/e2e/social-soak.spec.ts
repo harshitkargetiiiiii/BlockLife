@@ -68,26 +68,31 @@ test.describe('social lifecycle soak', () => {
             api.respondToInvitation(inv.id, day % 3 === 0 ? 'declined' : day % 3 === 1 ? 'suggested_later' : 'accepted')
           }
 
-          // Every 3rd day: a full player-invited hangout to COMPLETION.
+          // Every 3rd day: a full player-invited hangout to COMPLETION (arrive at
+          // the venue first — the destination gate requires it).
           if (day % 3 === 0) {
             api.sendSocialInvite(actor, 'coffee')
             const inv = api.getSocialInvitations().find((i) => i.source === 'player' && i.status === 'accepted')
             if (inv) {
               api.startSocialActivity(inv.id)
+              api.setActiveInteractable(api.getActiveSocialActivity()?.venueId ?? null) // arrive
               api.advanceSocialActivity()
               api.advanceSocialActivity()
+              api.setActiveInteractable(null)
             }
           }
           // Every 4th day: a favor errand, sometimes MISSED (cancelled → no-show).
           if (day % 4 === 0) {
             api.giveItem('snack', 1)
             api.startFavorFor(actor)
+            api.setActiveInteractable(api.getActiveSocialActivity()?.venueId ?? null) // arrive
             if (day % 8 === 0) api.cancelSocialActivity()
             else {
               api.advanceSocialActivity()
               api.advanceSocialActivity()
               api.advanceSocialActivity()
             }
+            api.setActiveInteractable(null)
           }
 
           // District travel + an interior visit on a cadence (lifecycle churn).

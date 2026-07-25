@@ -370,6 +370,21 @@ the inventory service (favor cargo), and existing world venues — no anchors, n
 cooldowns, no money, no multi-instance persistence. Reuse the VOCABULARY + the
 adjacent systems, not the whole engine, when the engine's shape doesn't fit.
 
+### 24. Don't mutate runtime state inside a helper the caller then spreads over
+The social runtime uses the immutable idiom `const s = runtime.state;` … `runtime.state
+= { ...s, relationships, memories, … }`. If a helper called mid-way ALSO mutates
+`runtime.state` directly (e.g. an id-minting helper doing `runtime.state.msgSeq++`),
+the caller's `{ ...s, … }` — built from the snapshot `s` captured BEFORE the helper
+ran — silently clobbers that bump back to its old value. The message-id counter
+looked like it advanced (ids were unique within a call) but reset every turn, so
+across a reload it re-minted colliding ids. **Fix:** thread the value through — pass
+the current seq IN, return/spread the incremented seq in the SAME state object the
+caller writes — never let a helper and its caller both own one field. And any
+monotonic counter used to build persistent ids must live in the **serialized save
+slice** (like the mission `attemptSeq`), or a fresh module load restarts it at 0 and
+re-mints ids that already exist. Prove it with a reload test, not just an in-session
+uniqueness check.
+
 ---
 
 ## The verification workflow (honest gates)

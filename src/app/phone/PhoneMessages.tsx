@@ -4,7 +4,7 @@ import type { PlayerStats } from '../../game/player/playerTypes'
 import type { QuestState } from '../../game/quests/questTypes'
 import { getMood } from '../../game/simulation/worldMoodSystem'
 import { COFFEE_QUEST_ID } from '../../data/quests'
-import { getContacts, getMessages, getPendingInvitations } from '../../game/social/socialRuntime'
+import { getConfirmedPlans, getContacts, getMessages, getPendingInvitations } from '../../game/social/socialRuntime'
 import { getSocialActor } from '../../game/social/socialActors'
 import { invitationLabel, messageText } from '../../game/social/socialDialogue'
 
@@ -77,9 +77,11 @@ export function PhoneMessages() {
   useGameStore((s) => s.socialVersion)
   const respondToInvitation = useGameStore((s) => s.respondToInvitation)
   const markContactRead = useGameStore((s) => s.markContactRead)
+  const startSocialActivity = useGameStore((s) => s.startSocialActivity)
 
   const messages = buildMessages(stats, questStates)
   const pending = getPendingInvitations()
+  const confirmed = getConfirmedPlans()
   const threadedContacts = getContacts().filter((id) => getMessages(id).length > 0)
 
   return (
@@ -107,6 +109,34 @@ export function PhoneMessages() {
                       Decline
                     </button>
                   </div>
+                </div>
+              )
+            })}
+          </div>
+        </>
+      )}
+
+      {confirmed.length > 0 && (
+        <>
+          <div className="phone-section-title">Confirmed plans</div>
+          <div className="phone-plans" data-testid="phone-plans">
+            {confirmed.map((inv) => {
+              const actor = getSocialActor(inv.actorId)
+              const npc = NPC_BY_ID[inv.actorId]
+              const inProgress = inv.status === 'active'
+              return (
+                <div key={inv.id} className="phone-card phone-plan" data-testid={`plan-${inv.id}`}>
+                  <div className="phone-invitation-text">
+                    📅 {invitationLabel(inv.activityKind)} with <strong>{actor?.displayName ?? npc?.name}</strong> — day {inv.proposedDay}
+                    {inProgress && <span className="plan-inprogress"> · in progress</span>}
+                  </div>
+                  {!inProgress && (
+                    <div className="panel-actions social-actions">
+                      <button className="btn btn-small btn-social" data-testid={`plan-start-${inv.id}`} onClick={() => startSocialActivity(inv.id)}>
+                        Start plan
+                      </button>
+                    </div>
+                  )}
                 </div>
               )
             })}

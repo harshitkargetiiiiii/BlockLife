@@ -101,16 +101,32 @@ test.describe('social visuals', () => {
     await page.evaluate(() => {
       const api = window.GAME_TEST_API!
       api.openDialogueWith('npc_ravi_01')
-      // A completed hangout leaves a follow-up thank-you in the thread.
+      // A completed hangout leaves a follow-up thank-you in the thread. The
+      // destination gate needs the player AT the venue to complete it.
       api.sendSocialInvite('npc_ravi_01', 'coffee')
       const inv = api.getSocialInvitations().find((i) => i.status === 'accepted')
       if (inv) api.startSocialActivity(inv.id)
+      api.setActiveInteractable('food_truck_01') // arrive at Maya's truck
       api.advanceSocialActivity()
       api.advanceSocialActivity()
+      api.setActiveInteractable(null)
       api.openTestPhoneApp('messages')
     })
     await freeze(page)
     await expect(page.getByTestId('phone-threads')).toBeVisible()
     await expect(page.getByTestId('phone')).toHaveScreenshot('phone-messages.png')
+  })
+
+  test('phone confirmed plans (start a hangout)', async ({ page }) => {
+    await ready(page)
+    await page.evaluate(() => {
+      const api = window.GAME_TEST_API!
+      api.openDialogueWith('npc_ravi_01')
+      api.sendSocialInvite('npc_ravi_01', 'coffee') // accepted → a confirmed plan
+      api.openTestPhoneApp('messages')
+    })
+    await freeze(page)
+    await expect(page.getByTestId('phone-plans')).toBeVisible()
+    await expect(page.getByTestId('phone')).toHaveScreenshot('phone-confirmed-plans.png')
   })
 })
