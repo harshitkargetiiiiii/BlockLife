@@ -12,6 +12,7 @@ import { isValidMissionSave, type MissionSaveData } from '../missions/missionPer
 import { isValidActivitySave, type ActivitySaveData } from '../criminalActivities/activityPersistence'
 import type { CommerceSaveData } from '../commerce/commercePersistence'
 import type { SocialSaveData } from '../social/socialTypes'
+import type { CareerSaveData } from '../careers/careerTypes'
 
 export interface SnapshotInput {
   stats: PlayerStats
@@ -28,6 +29,7 @@ export interface SnapshotInput {
   wardrobe?: { unlocked: string[] }
   commerce?: CommerceSaveData
   social?: SocialSaveData
+  career?: CareerSaveData
 }
 
 export function createSnapshot(input: SnapshotInput): SaveData {
@@ -49,6 +51,7 @@ export function createSnapshot(input: SnapshotInput): SaveData {
     wardrobe: input.wardrobe,
     commerce: input.commerce,
     social: input.social,
+    career: input.career,
   })
 }
 

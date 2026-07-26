@@ -260,6 +260,17 @@ function postFollowUp(actorId: SocialActorId, token: string, id: string, gameDay
   socialRuntime.state = { ...s, messages: { ...s.messages, [actorId]: pushMessage(s.messages[actorId] ?? [], msg) } }
 }
 
+/**
+ * Post an incoming message from a named contact through the ONE messaging authority
+ * (bounded, exact-once by id). The PUBLIC entry other systems (e.g. the careers
+ * employer adapter, issue #15 §10) use so they never touch the message arrays or
+ * relationship numbers directly — the social system stays the single owner.
+ */
+export function postContactMessage(actorId: SocialActorId, token: string, id: string, gameDay: number, gameHour: number): void {
+  if (!getSocialActor(actorId)) return
+  postFollowUp(actorId, token, id, gameDay, gameHour)
+}
+
 /** Abandon the active activity (a mild let-down: a `no_show` for a meet-up). A
  *  linked invitation flips to `cancelled` (never restartable). */
 export function cancelActivity(gameDay: number, gameHour: number): void {

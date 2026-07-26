@@ -398,6 +398,21 @@ you don't need to: a next-hour proposal is already inside its 1h-early window, s
 only genuinely far-future plans need the clock advanced (see the start window,
 gotcha-adjacent to the destination gate).
 
+### 26. `setActiveInteractable` is overwritten by the proximity scanner every frame
+The DEV `setActiveInteractable(id)` hook sets `activeInteractableId`, but the live
+proximity scanner recomputes it from the PLAYER'S REAL POSITION on the next
+`useFrame`. So in an E2E, `setActiveInteractable(x)` only holds for code that runs
+SYNCHRONOUSLY before the next frame — i.e. inside the SAME `page.evaluate`. A career
+shift whose steps you advance across separate DOM clicks (each a fresh frame) sees
+the scanner's value, not yours, and the workplace gate refuses — the shift never
+completes (careers E2E #5–#8 failed exactly this way). **Fix:** drive a multi-step,
+location-gated flow either (a) synchronously inside one `page.evaluate` (arrange +
+advance in a loop — the scanner doesn't tick mid-evaluate), or (b) with a REAL
+`teleport` to the target so the scanner itself sets `activeInteractableId` and keeps
+it there while the player stands still (used for the café production-DOM proof, whose
+steps all sit at one workplace). Don't mix `setActiveInteractable` with cross-frame
+clicks.
+
 ---
 
 ## The verification workflow (honest gates)

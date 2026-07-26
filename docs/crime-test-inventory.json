@@ -418,5 +418,31 @@
       "6 (2nd pass) — a confirmed plan is startable only inside its scheduled window (1h before proposed → 3h grace), revalidated in startSocialActivity (not only the disabled Start button); E2E #13 proves an early start is refused through the production UI then works after the real clock advances into the window; late plans still reconcile to a no-show exactly once."
     ],
     "acceptanceCriteria": "All issue #13 §18 criteria met with every review gap closed; baseline counts exceeded (unit 991->1099, e2e 204->220, visual 102->109)."
+  },
+  "careersV1": {
+    "date": "2026-07-25",
+    "summary": "Career, Skills & Life Progression v1 (issue #15). Deterministic career platform under src/game/careers/ (13 modules). Reuses economy/inventory/mission-vocab/social/crime/save/streaming; adds a 4-career registry, 5-skill model, applications+recommendations, shift scheduling/lifecycle, 4 reusable shift templates, performance/pay/promotions/unlocks, employer standing + typed social integration, additive save. Starting SHA e8077bb.",
+    "unitSpecs": {
+      "src/game/careers/skills.test.ts": "11 — XP bounds/clamp, derived levels (monotonic), daily anti-farm caps, batch+prune, sanitize",
+      "src/game/careers/careerRegistry.test.ts": "8 — 4 careers x 4 ranks, rising pay, unlocks, employer actors real, lenient/strict split, recommendation path, validation=0 problems",
+      "src/game/careers/careerEvents.test.ts": "6 — exact-once XP funnel, duplicate no-op, multi-skill, bounded ledger, purity, snapshot",
+      "src/game/careers/careerServices.test.ts": "14 — eligibility+readable refusals, recommendation relaxes, hire/switch/quit, first shift, missed reconciliation (lazy, standing ding, idempotent)",
+      "src/game/careers/careerScheduling.test.ts": "10 — game-time start window, full start gate (wanted/incap/conflict/workplace), buildShift same-day/tomorrow, missed detection, plan conflict",
+      "src/game/careers/careerShifts.test.ts": "9 — 4 templates instantiate, anchors are real interactables, performance scoring, pay (base×rank×perf) + failed pay, skill awards, full lifecycle begin/step/finalize/fail/cancel exact-once",
+      "src/game/careers/careerPromotion.test.ts": "4 — requirement rows, recent performance avg, promote-when-met + unlock once + idempotent, attendance blocks",
+      "src/game/careers/careerSocial.test.ts": "5 — employer hire/promotion/good-shift/missed messages + memories exact-once, earned recommendation from a warm employer",
+      "src/game/careers/careerPersistence.test.ts": "6 — additive round-trip, old save defaults, active shift never restores, reload-safe shiftSeq, field-by-field sanitize, garbage=defaults"
+    },
+    "unitCountNew": 73,
+    "e2eSpecs": {
+      "tests/e2e/careers.spec.ts": "15 — discover/apply/hire (production UI), refusal reason, recommendation relaxes, start refused before window/off-site, complete delivery (pay+XP once), cafe performance, gym skills, trade cleanup, missed shift consequence, wanted blocks start, no duplicate pay on replay, promotion gating, save/load, cross-district streaming+occupancy integrity, reset defaults",
+      "tests/e2e/careers-soak.spec.ts": "1 — bounded career lifecycle soak (24 game-days, all 4 careers): applications, completed+missed shifts, XP, promotions, employer messages, travel+interior, save/load+reset; asserts no dup pay/XP, bounded shifts(8)/perf(20)/applied(256)/paid(64)/unlocks(64)/skill-XP(1000), no leaked active shift, zero page/console errors, no person_solid/person_vehicle overlaps from work routes"
+    },
+    "note": "E2E/visual/soak counts + final gate recorded on the capstone run.",
+    "e2eCountNew": 16,
+    "visualSpecs": {
+      "tests/visual/career-visuals.spec.ts": "8 — element-scoped deterministic baselines (all reviewed): career-discovery, career-refusal (readable reason), career-profile (active job + 5 skills), career-next-shift (startable window), career-shift-tracker (HUD), career-promotion (progress rows), career-unlocks (promoted rank + benefit), career-shift-result (pay in the money HUD)"
+    },
+    "visualCountNew": 8
   }
 }
