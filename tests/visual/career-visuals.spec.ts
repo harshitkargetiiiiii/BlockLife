@@ -136,13 +136,15 @@ test.describe('career visuals', () => {
     await expect(page.getByTestId('phone')).toHaveScreenshot('career-unlocks.png')
   })
 
-  test('shift result — pay + performance in the money HUD', async ({ page }) => {
+  test('shift result — full pay decomposition + score breakdown', async ({ page }) => {
     await ready(page)
-    // A completed shift pays through the money authority — the HUD money reflects it.
+    // A completed shift records a real result: base × rank × performance = pay, every
+    // score dimension, and the readable notes (issue #15 §16, F5) — not a re-shot HUD.
     await runDeliveryShifts(page, 1)
     await page.evaluate(() => window.GAME_TEST_API!.openTestPhoneApp('jobs'))
     await freeze(page)
-    await expect(page.getByTestId('career-active')).toBeVisible()
-    await expect(page.getByTestId('phone')).toHaveScreenshot('career-shift-result.png')
+    await expect(page.getByTestId('career-results')).toBeVisible()
+    await expect(page.getByTestId('career-result-pay')).toContainText('base')
+    await expect(page.getByTestId('career-results')).toHaveScreenshot('career-shift-result.png')
   })
 })

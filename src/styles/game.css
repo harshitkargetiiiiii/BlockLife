@@ -1854,3 +1854,15 @@ body,
 .career-promo-row { display: flex; justify-content: space-between; opacity: 0.75; }
 .career-promo-row.ok { opacity: 1; color: #8fe08f; }
 .career-unlocks { margin-top: 4px; font-size: 11px; color: #7fd7ff; }
+.career-conflict { margin-top: 4px; font-size: 11px; color: #ffb454; }
+/* Shift results + recent history surface (§16). */
+.career-results { border-left: 3px solid #8fe08f; }
+.career-result-head { display: flex; justify-content: space-between; font-size: 13px; font-weight: 600; }
+.career-result-verdict { color: #ffb454; }
+.career-result-verdict.ok { color: #8fe08f; }
+.career-result-score { font-size: 12px; color: #cfe8ff; margin-top: 2px; }
+.career-result-pay { font-size: 12px; margin-top: 2px; }
+.career-result-breakdown { display: flex; flex-wrap: wrap; gap: 8px; font-size: 10px; opacity: 0.8; margin-top: 3px; }
+.career-result-notes { font-size: 10px; opacity: 0.7; margin-top: 3px; font-style: italic; }
+.career-history { margin-top: 6px; border-top: 1px solid rgba(255, 255, 255, 0.1); padding-top: 4px; }
+.career-history-row { display: flex; justify-content: space-between; font-size: 11px; opacity: 0.7; }

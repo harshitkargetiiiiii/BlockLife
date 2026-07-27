@@ -59,10 +59,19 @@ Five persistent skills — **Fitness, Driving, Social, Street Smarts, Work Ethic
 each a bounded integer XP (0–1000) with a derived 0–10 level from an inspectable
 threshold table. `applySkillAward` is the centralized reducer: XP only goes **up**
 (no loss / decay in v1), and farmable reasons carry a **per-day cap** (a
-`${day}:${reason}` ledger, pruned to a few days): `crime_escaped` 12, `crime_witnessed`
-8, `social_activity` 20, `customer_served` 24. All XP flows through the ONE
-`applyCareerEvent` funnel, deduped by a stable event id — so overlapping career /
-mission / social adapters can never double-award.
+`${day}:${reason}` ledger, pruned to a few days): `gym_workout` 16, `crime_escaped` 12,
+`crime_witnessed` 8, `social_activity` 20, `customer_served` 24. All XP flows through
+the ONE `applyCareerEvent` funnel, deduped by a stable event id — so overlapping career
+/ mission / social adapters can never double-award.
+
+**Non-shift sources are wired to real production paths** ([`careerLifeEvents.ts`](../src/game/careers/careerLifeEvents.ts)),
+not just shift completion: a gym **workout** (the store's `train` action) builds Fitness
+(`gym_workout`); a completed **social activity / favor** builds Social (`social_activity`);
+**shaking a police pursuit** (a wanted level that decays to clear — an *evasion*, distinct
+from an arrest) builds Street Smarts (`crime_escaped`), consumed lazily from a monotonic
+evasion queue on the wanted runtime (never per-frame). Each is exact-once + daily-capped.
+`training_milestone` is intentionally **uncapped** — it is the reason used to arrange
+one-off skill prerequisites (DEV/tests), separate from the capped in-world `gym_workout`.
 
 ## Applications + recommendations (§3)
 
@@ -72,8 +81,11 @@ A **social recommendation** from a career's `recommendationRelaxesFrom` employer
 waives its skill + reputation gates — earned when the player's relationship with that
 employer NPC reaches `friendly` (Bruno → Gym Trainer), granted lazily via the typed
 `careerSocial` adapter, never scattered relationship-number checks. One active
-**primary** job at a time; switching preserves each career's rank + history; re-applying
-resumes the highest held rank.
+**primary** job at a time; **switching jobs is atomic** — every previously-attendable
+(scheduled/available) shift of the old career is dropped so a stale shift can never
+surface as the new job's "next shift" or be started (ownership is also enforced at
+`beginShift`), while each career's rank + history are preserved and re-applying resumes
+the highest held rank.
 
 ## Shift scheduling + lifecycle (§4)
 
@@ -87,6 +99,18 @@ proximity scanner). Missed shifts reconcile **lazily** (phone / job-board open,
 sleep) — never per frame — with no pay, a missed-count bump, a standing ding, and an
 employer follow-up. Reload-safe shift ids come from a **persisted** `shiftSeq`.
 
+**Every terminal outcome keeps the loop alive.** `ensureNextScheduled` runs after a
+shift is completed / **missed** / **failed** (arrest or incapacitation) / **cancelled**
+so a still-employed player is never dead-ended at "No shift scheduled" — exactly one
+next shift is scheduled (a no-op when one is already pending). An arrest/incapacitation
+mid-shift produces a typed **failed** outcome (reduced pay, standing ding, **no criminal
+record**) *and* fires the required failed-shift employer follow-up (`job_failed_shift`).
+
+**Schedule conflicts are surfaced, never silent.** `findShiftConflict` compares the
+next shift against the player's accepted social plans (a typed read-only adapter,
+`getCareerCommitmentSlots`, over the social authority) and Phone Jobs shows a
+deterministic warning when a plan overlaps the shift window — the player decides.
+
 ## Shift templates (§5)
 
 Four reusable templates, a small LINEAR step machine over REUSED world primitives
@@ -96,7 +120,16 @@ workplace for anchorless tasks); cargo flows through the real inventory authorit
 (`giveItem` / `removeItem`). Templates: **delivery route** (depot → parcels → drops
 → return), **café service** (report → serve / stock / clean), **gym trainer**
 (report → warm-up / circuit), **trade work** (report → collect → job sites → sign off).
-Each has one optional quality/safety objective.
+
+**Objectives can't be cheesed** (§16): the **collect** step is BLOCKED when the
+backpack is full (the player must make room, or carry cargo via the equipment unlock —
+see §8) — never a free advance with a phantom mistake. Cargo-dependent stops
+(`requiresCargoItemId`: delivery drops, trade job sites) VALIDATE the player is still
+holding the collected cargo, and the wrap step consumes it; cargo is cleaned on every
+terminal path (finalize / fail / cancel / discarded-on-load). The one **optional
+quality objective** is **derived** from the run — a flawless (zero-mistake), on-time,
+fully-completed shift — not a free "bonus" button (which is removed); the HUD shows it
+as an earned outcome.
 
 ## Performance + pay (§6/§7)
 
@@ -107,7 +140,10 @@ efficiency) with a readable breakdown + typed notes — no hidden randomness. Pa
 event through the economy authority (`stats.money`), guarded by the shift's
 `attemptKey` (a reload / repeat finalize reports total 0). Failed shifts pay a
 reduced fraction for work done; missed / cancelled pay nothing. Performance history
-is bounded (20).
+is bounded (20). A bounded **rich result** (`recentResults`, last 5) records the full
+pay decomposition + score breakdown + notes for each resolved shift; Phone Jobs renders
+a **results + recent-history surface** (`base × rank × performance = pay`, every score
+dimension, notes) — a real screen, not a re-shot money HUD.
 
 ## Ranks, promotions, unlocks (§8)
 
@@ -116,8 +152,12 @@ Every career ships **Trainee → Regular → Experienced → Senior**. The ONE
 (completed shifts, skill levels, rolling recent performance, missed-shift limit, and
 an optional employer-standing gate) — with a per-requirement progress breakdown in
 the phone. Each rank grants a **higher pay modifier** plus at least one **visible
-unlock** (e.g. `delivery_thermal_bag`, `cafe_staff_discount`, `gym_free_access`,
-`trade_toolbelt`), granted exactly once. Demotions are out of scope.
+unlock**, granted exactly once. The first-promotion unlock of each career is a **real,
+immediate gameplay benefit** (not a decorative label): **`delivery_thermal_bag`** /
+**`trade_toolbelt`** (equipment) let cargo ride separately from the backpack, so a full
+bag no longer blocks the collect step; **`cafe_staff_discount`** stacks a real discount
+onto Maya's counter prices (via the vendor-discount path); **`gym_free_access`** waives
+the gym `train` energy gate (train off the clock). Demotions are out of scope.
 
 ## Social + crime integration (§10/§11)
 
@@ -133,12 +173,17 @@ Career-specific **employer standing** (0–100) is distinct from global reputati
 ## Save / reload (§13)
 
 An additive, fail-safe `career` slice inside `SaveData`: employment, ranks, skill XP,
-employer standing, scheduled shifts, performance history, unlocks, exact-once
-event/pay ledgers, and the reload-safe `shiftSeq`. Old saves load unemployed with
-zero skills; malformed data is sanitized field-by-field (skills clamped, unknown
-career/rank/template ids dropped, collections bounded). An **active shift never
-restores mid-flight** — it migrates to a cancelled record with no duplicate pay. The
-`shiftSeq` is kept ahead of any loaded shift id, so a full reload can never mint a
+employer standing, scheduled shifts, performance history, rich results, unlocks,
+exact-once event/pay ledgers, and the reload-safe `shiftSeq`. Old saves load unemployed
+with zero skills; malformed data is sanitized field-by-field (skills clamped, unknown
+career/rank ids dropped, collections bounded). A shift whose `templateId` is unknown
+**or doesn't match its career's authored template** is **dropped** (not cast to a
+default), and the scheduled queue is filtered to attendable statuses only — so a
+pre-fix save's stranded `active`-status twin can never resurface. An **active shift
+never restores mid-flight**: it is discarded with no pay/XP, its cargo is cleaned, and
+the store schedules a **fresh next shift** for the still-employed player
+(`reconcileEmploymentAfterLoad`) so the loop resumes without a stranded/duplicate shift.
+The `shiftSeq` is kept ahead of any loaded shift id, so a full reload can never mint a
 duplicate id / pay / XP / promotion. Reset returns canonical defaults.
 
 ## DEV observability (§14)

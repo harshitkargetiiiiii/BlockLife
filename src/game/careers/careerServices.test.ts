@@ -100,8 +100,13 @@ describe('reconcileMissedShifts — lazy, real-clock, employer consequence (§4)
     expect(missed).toHaveLength(1)
     expect(careerRuntime.state.history.delivery_driver!.missedShifts).toBe(1)
     expect(careerRuntime.state.employerStanding.courier_dispatch).toBeLessThan(standingBefore!)
-    // Idempotent: reconciling again finds nothing new.
-    expect(reconcileMissedShifts(shift.scheduledDay + 3, 12)).toHaveLength(0)
+    // A miss never dead-ends the loop (F2): a fresh next shift is scheduled for the
+    // still-employed player, dated after the reconcile clock (not yet missed).
+    const replacement = getNextShift()
+    expect(replacement).toBeDefined()
+    expect(replacement!.id).not.toBe(shift.id)
+    // Idempotent at the SAME clock: the replacement isn't missed yet → nothing new.
+    expect(reconcileMissedShifts(shift.scheduledDay + 2, 12)).toHaveLength(0)
   })
 
   it('does not miss a shift still inside its window', () => {
@@ -114,5 +119,39 @@ describe('reconcileMissedShifts — lazy, real-clock, employer consequence (§4)
     ingestCareerEvent({ id: 'z', kind: 'shift_completed', gameDay: 1, skillAwards: [{ skill: 'driving', amount: 10, reason: 'delivery_completed' }] })
     ingestCareerEvent({ id: 'z', kind: 'shift_completed', gameDay: 1, skillAwards: [{ skill: 'driving', amount: 10, reason: 'delivery_completed' }] })
     expect(careerRuntime.state.skills.driving).toBe(10)
+  })
+})
+
+describe('atomic job switching + active-job ownership (§4, F1)', () => {
+  beforeEach(() => resetCareers())
+
+  it('switching to a new career drops the old career’s attendable shifts', () => {
+    applyToCareer('delivery_driver', ctx(), 2, 8)
+    const deliveryId = getNextShift()!.id
+    ingestCareerEvent({ id: 's', kind: 'training_milestone', gameDay: 2, skillAwards: [{ skill: 'social', amount: 60, reason: 'training_milestone' }] })
+    // Switch to café (eligible via the seeded Social).
+    applyToCareer('cafe_retail', ctx({ activeJob: careerRuntime.state.activeJob, skills: careerRuntime.state.skills }), 2, 8)
+    expect(careerRuntime.state.activeJob).toBe('cafe_retail')
+    // The old delivery shift is gone; the next shift belongs to the current job only.
+    const deliveryLeft = getScheduledShifts().filter((s) => s.careerId === 'delivery_driver' && (s.status === 'scheduled' || s.status === 'available'))
+    expect(deliveryLeft).toHaveLength(0)
+    expect(getNextShift()!.careerId).toBe('cafe_retail')
+    expect(getNextShift()!.id).not.toBe(deliveryId)
+    // Switching preserves the old career's rank + history.
+    expect(careerRuntime.state.ranks.delivery_driver).toBe('trainee')
+    expect(careerRuntime.state.history.delivery_driver).toBeDefined()
+  })
+
+  it('getNextShift only ever returns the ACTIVE job’s shifts', () => {
+    applyToCareer('delivery_driver', ctx(), 2, 8)
+    // A stray shift from another career left in the queue is never selected.
+    careerRuntime.state = {
+      ...careerRuntime.state,
+      scheduledShifts: [
+        ...careerRuntime.state.scheduledShifts,
+        { id: 'stray:9', careerId: 'trade_worker', employerId: 'trade_crew', rank: 'trainee', templateId: 'trade_work', scheduledDay: 2, startHour: 9, graceHours: 3, durationHours: 4, workplaceInteractableId: 'shelf_depot', status: 'scheduled', attemptKey: 'att:9' },
+      ],
+    }
+    expect(getNextShift()!.careerId).toBe('delivery_driver')
   })
 })

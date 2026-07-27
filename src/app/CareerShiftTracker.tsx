@@ -13,7 +13,6 @@ export function CareerShiftTracker() {
   const activeInteractableId = useGameStore((s) => s.activeInteractableId)
   const advanceCareerShift = useGameStore((s) => s.advanceCareerShift)
   const cancelCareerShift = useGameStore((s) => s.cancelCareerShift)
-  const completeCareerShiftBonus = useGameStore((s) => s.completeCareerShiftBonus)
 
   const shift = getActiveShift()
   if (!shift || !shift.objectives) return null
@@ -39,12 +38,13 @@ export function CareerShiftTracker() {
             <button className="btn btn-small btn-social" data-testid="cst-advance" disabled={!atTarget} onClick={advanceCareerShift}>
               {step.kind === 'report' ? 'Clock in' : step.kind === 'collect' ? 'Load up' : step.kind === 'wrap' ? 'Clock out' : "I'm on it"}
             </button>
-            {bonus && !bonus.done && (
-              <button className="btn btn-small" data-testid="cst-bonus" onClick={completeCareerShiftBonus}>
-                Bonus
-              </button>
-            )}
           </div>
+          {/* The quality bonus is EARNED by a flawless, on-time shift — not a button (§16). */}
+          {bonus && (
+            <span className="sat-reason" data-testid="cst-bonus-note">
+              Bonus: {bonus.description.toLowerCase()} — a clean, on-time shift.
+            </span>
+          )}
           {!atTarget && (
             <span className="sat-reason" data-testid="cst-reason">
               Head to the workplace/stop first.

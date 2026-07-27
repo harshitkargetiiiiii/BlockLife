@@ -234,6 +234,13 @@ export function entryRank(careerId: CareerId): RankDefinition {
   return CAREERS[careerId].ranks[0]
 }
 
+/** The id of a career's cargo-carrying EQUIPMENT unlock (thermal bag / toolbelt), if
+ *  any — the insulated bag/toolbelt that carries shift cargo separately from the
+ *  backpack, so a full bag no longer blocks the collect step (§8 unlock effect). */
+export function cargoEquipmentUnlockId(careerId: CareerId): string | undefined {
+  return CAREERS[careerId]?.ranks.flatMap((r) => r.unlocks).find((u) => u.kind === 'equipment')?.id
+}
+
 /** The next rank up from `rankId`, or undefined at the top (Senior). */
 export function nextRank(careerId: CareerId, rankId: string): RankDefinition | undefined {
   const idx = RANK_ORDER.indexOf(rankId as (typeof RANK_ORDER)[number])

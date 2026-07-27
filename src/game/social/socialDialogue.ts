@@ -159,6 +159,7 @@ export function messageText(token: string, actor: SocialActor, gameDay: number):
     job_promoted: [`great work — you've earned a promotion! more pay, more responsibility.`, `you've been promoted. keep it up! 💪`],
     job_good_shift: [`solid shift today — the customers noticed. nice work.`, `you crushed that shift. see you next time!`],
     job_missed_shift: [`you missed your shift today — that's not like you. everything okay?`, `we needed you on the floor and you were a no-show 😕`],
+    job_failed_shift: [`heard your shift got cut short — get yourself sorted and we'll talk.`, `rough one out there today. take care of yourself, then come back.`],
     job_recommendation: [`i put in a good word for you — go talk to them, they're expecting you.`, `told them you're solid. the job's yours if you want it.`],
   }
   return pick(lines[token] ?? [`…`], gameDay)

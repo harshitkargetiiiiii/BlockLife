@@ -21,6 +21,7 @@ import {
   type PerformanceRecord,
   type RankId,
   type ScheduledShift,
+  type ShiftResultRecord,
   type SkillAward,
   type SkillMap,
 } from './careerTypes'
@@ -46,6 +47,8 @@ export interface CareerState {
   activeShift: ScheduledShift | null
   /** Bounded rolling performance history for promotion math. */
   performanceHistory: PerformanceRecord[]
+  /** Bounded rich results of the most recent resolved shifts (the results UI). */
+  recentResults: ShiftResultRecord[]
   /** Unlock ids the player has earned (bounded). */
   unlocks: string[]
   /** Bounded FIFO of applied career-event ids (exact-once XP guard). */
@@ -70,6 +73,7 @@ export function defaultCareerState(): CareerState {
     scheduledShifts: [],
     activeShift: null,
     performanceHistory: [],
+    recentResults: [],
     unlocks: [],
     appliedEventIds: [],
     paidAttemptKeys: [],

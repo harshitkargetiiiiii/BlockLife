@@ -9,12 +9,15 @@
  */
 import {
   type CareerDefinition,
+  type CareerId,
   type PerformanceBreakdown,
   type PerformanceResult,
   type PayResult,
   type RankDefinition,
   type ScheduledShift,
+  type ShiftCompletionReason,
   type ShiftObjectiveState,
+  type ShiftResultRecord,
   type ShiftStepKind,
   type ShiftTemplateId,
 } from './careerTypes'
@@ -27,6 +30,9 @@ interface ShiftStepDef {
   /** collect real cargo through the inventory authority. */
   itemId?: string
   quantity?: number
+  /** A step that can't be done empty-handed — the player must still be holding this
+   *  earlier-collected cargo (validated live), or carrying it via a cargo-equipment unlock. */
+  requiresCargoItemId?: string
   optional?: boolean
 }
 
@@ -50,7 +56,7 @@ const TEMPLATES: Record<ShiftTemplateId, ShiftTemplateDef> = {
     buildSteps: (career, dests) => [
       { kind: 'report', description: `Clock in at ${career.employerDisplayName}`, anchorId: career.workplaceInteractableId },
       { kind: 'collect', description: 'Load the parcels', itemId: 'restock_crate', quantity: 1 },
-      ...dests.map((d, i) => ({ kind: 'deliver' as ShiftStepKind, description: `Deliver parcel ${i + 1}`, anchorId: d })),
+      ...dests.map((d, i) => ({ kind: 'deliver' as ShiftStepKind, description: `Deliver parcel ${i + 1}`, anchorId: d, requiresCargoItemId: 'restock_crate' })),
       { kind: 'wrap', description: `Return to the depot`, anchorId: career.workplaceInteractableId },
     ],
     optional: { kind: 'task', description: 'Deliver every parcel on time', optional: true },
@@ -82,7 +88,7 @@ const TEMPLATES: Record<ShiftTemplateId, ShiftTemplateDef> = {
     buildSteps: (career, dests) => [
       { kind: 'report', description: `Clock in at ${career.employerDisplayName}`, anchorId: career.workplaceInteractableId },
       { kind: 'collect', description: 'Grab your tools + materials', itemId: 'restock_crate', quantity: 1 },
-      ...dests.map((d, i) => ({ kind: 'task' as ShiftStepKind, description: `Job site ${i + 1}: fit + finish`, anchorId: d })),
+      ...dests.map((d, i) => ({ kind: 'task' as ShiftStepKind, description: `Job site ${i + 1}: fit + finish`, anchorId: d, requiresCargoItemId: 'restock_crate' })),
       { kind: 'wrap', description: `Sign off at the yard`, anchorId: career.workplaceInteractableId },
     ],
     optional: { kind: 'task', description: 'Pass the safety check', optional: true },
@@ -104,9 +110,13 @@ export function instantiateShiftObjectives(career: CareerDefinition): ShiftObjec
     interactableId: s.anchorId,
     itemId: s.itemId,
     quantity: s.quantity,
+    requiresCargoItemId: s.requiresCargoItemId,
     optional: false,
     done: false,
   }))
+  // The optional/quality objective is DERIVED from the run (a flawless, on-time
+  // shift) at scoring time — not a free button — so it can't be cheesed (§16). Its
+  // `done` flag is display-only here and is recomputed by scorePerformance.
   const optional: ShiftObjectiveState = { id: 'opt_0', kind: tpl.optional.kind, description: tpl.optional.description, optional: true, done: false }
   return [...required, optional]
 }
@@ -128,8 +138,11 @@ export function scorePerformance(career: CareerDefinition, objectives: ShiftObje
   const required = objectives.filter((o) => !o.optional)
   const optional = objectives.filter((o) => o.optional)
   const requiredDone = required.filter((o) => o.done).length
-  const optionalDone = optional.filter((o) => o.done).length
   const mistakes = objectives.filter((o) => o.mistake).length
+  // The optional/quality objective is EARNED, not clicked: a flawless (zero-mistake),
+  // on-time shift with every required duty done. Purely derived from the run (§16).
+  const optionalAchieved = onTime && mistakes === 0 && requiredDone === required.length
+  const optionalDone = optionalAchieved ? optional.length : 0
 
   const w = career.performanceWeights
   const attendance = onTime ? 1 : 0.4
@@ -187,4 +200,30 @@ export function shiftSkillAwards(career: CareerDefinition, perf: PerformanceResu
 /** True once every required step of an active shift is complete. */
 export function shiftReadyToFinalize(shift: ScheduledShift): boolean {
   return !!shift.objectives && allRequiredDone(shift.objectives)
+}
+
+/** Build the bounded RICH result record the phone's results/history surface renders
+ *  (§12) from a resolved shift's performance + pay. Pure. */
+export function buildResultRecord(
+  careerId: CareerId,
+  shiftId: string,
+  reason: ShiftCompletionReason,
+  perf: PerformanceResult,
+  pay: PayResult,
+  day: number,
+): ShiftResultRecord {
+  return {
+    careerId,
+    shiftId,
+    reason,
+    score: perf.score,
+    breakdown: perf.breakdown,
+    notes: perf.notes,
+    onTime: perf.onTime,
+    base: pay.base,
+    rankModifier: pay.rankModifier,
+    performanceModifier: pay.performanceModifier,
+    pay: pay.total,
+    day: Math.trunc(day),
+  }
 }

@@ -131,3 +131,23 @@ export function shiftsConflict(a: Pick<ScheduledShift, 'scheduledDay' | 'startHo
   const b = otherDay * 24 + otherHour
   return b >= aStart - SHIFT_START_EARLY_HOURS && b < aEnd
 }
+
+/** A confirmed commitment (an accepted social plan) the conflict check reads. Supplied
+ *  by a typed read-only adapter over the social authority — careers never own plans. */
+export interface CommitmentSlot {
+  day: number
+  hour: number
+  label: string
+}
+
+/**
+ * The FIRST accepted plan that overlaps a scheduled shift's window (§4). Deterministic;
+ * returns the clashing commitment (for a readable warning) or null. Future work vs.
+ * social plans is surfaced, never silently resolved — the player decides.
+ */
+export function findShiftConflict(shift: Pick<ScheduledShift, 'scheduledDay' | 'startHour' | 'durationHours'>, commitments: readonly CommitmentSlot[]): CommitmentSlot | null {
+  for (const c of commitments) {
+    if (shiftsConflict(shift, c.day, c.hour)) return c
+  }
+  return null
+}

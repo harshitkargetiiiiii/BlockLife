@@ -2,10 +2,11 @@ import { useGameStore } from '../../game/store/useGameStore'
 import { getWantedLevel } from '../../game/crime/wantedRuntime'
 import { allCareers, getCareer, getRank } from '../../game/careers/careerRegistry'
 import { checkEligibility, type EligibilityContext } from '../../game/careers/careerApplications'
-import { getActiveShift, getCareerState, getNextShift, getPromotionProgress } from '../../game/careers/careerRuntime'
-import { shiftTimeWindow } from '../../game/careers/careerScheduling'
+import { getActiveShift, getCareerState, getNextShift, getPromotionProgress, getRecentResults } from '../../game/careers/careerRuntime'
+import { findShiftConflict, shiftTimeWindow } from '../../game/careers/careerScheduling'
+import { getCareerCommitmentSlots } from '../../game/careers/careerSocial'
 import { skillProgress } from '../../game/careers/skills'
-import { SKILL_IDS, type SkillId } from '../../game/careers/careerTypes'
+import { SKILL_IDS, type ShiftResultRecord, type SkillId } from '../../game/careers/careerTypes'
 
 const SKILL_LABEL: Record<SkillId, string> = {
   fitness: 'Fitness',
@@ -13,6 +14,15 @@ const SKILL_LABEL: Record<SkillId, string> = {
   social: 'Social',
   street_smarts: 'Street Smarts',
   work_ethic: 'Work Ethic',
+}
+
+const RESULT_LABEL: Record<string, string> = {
+  completed: 'Completed',
+  arrested: 'Cut short (arrest)',
+  incapacitated: 'Cut short (injury)',
+  cancelled_by_player: 'Walked off',
+  missed_window: 'Missed',
+  abandoned: 'Abandoned',
 }
 
 function SkillRow({ id, xp }: { id: SkillId; xp: number }) {
@@ -31,11 +41,39 @@ function SkillRow({ id, xp }: { id: SkillId; xp: number }) {
   )
 }
 
+/** The latest resolved shift's full pay + performance breakdown — the results screen the
+ *  review asked for (§16, F5): base × rank × performance = pay, every score dimension,
+ *  and the readable notes. Not a re-screenshot of the money HUD. */
+function ShiftResult({ r }: { r: ShiftResultRecord }) {
+  const career = getCareer(r.careerId)
+  return (
+    <div className="career-result" data-testid="career-result-latest">
+      <div className="career-result-head">
+        <span>{career?.displayName ?? r.careerId}</span>
+        <span className={`career-result-verdict ${r.reason === 'completed' ? 'ok' : ''}`}>{RESULT_LABEL[r.reason] ?? r.reason}</span>
+      </div>
+      <div className="career-result-score" data-testid="career-result-score">Performance {r.score}/100</div>
+      <div className="career-result-pay" data-testid="career-result-pay">
+        Pay: ${r.base} base × {r.rankModifier.toFixed(2)} rank × {r.performanceModifier.toFixed(2)} perf = <strong>${r.pay}</strong>
+      </div>
+      <div className="career-result-breakdown" data-testid="career-result-breakdown">
+        <span>Attendance {r.breakdown.attendance}</span>
+        <span>Duties {r.breakdown.requiredObjectives}</span>
+        <span>Bonus {r.breakdown.optionalObjectives}</span>
+        <span>Care {r.breakdown.mistakes}</span>
+        <span>Time {r.breakdown.timeEfficiency}</span>
+      </div>
+      {r.notes.length > 0 && <div className="career-result-notes">{r.notes.join(' · ')}</div>}
+    </div>
+  )
+}
+
 /**
  * Phone → Jobs. The career discovery + status surface (issue #15 §12): five skills,
- * the active job + rank + next shift, and every career's eligibility with a readable
- * refusal reason. Consumes the career runtime through `careerVersion` (the runtime
- * lives outside zustand). The world job board reads the SAME state — no second truth.
+ * the active job + rank + next shift (with a deterministic schedule-conflict warning),
+ * a real shift-results + recent-history panel, and every career's eligibility with a
+ * readable refusal reason. Consumes the career runtime through `careerVersion` (the
+ * runtime lives outside zustand). The world job board reads the SAME state.
  */
 export function PhoneJobs() {
   useGameStore((s) => s.careerVersion) // re-render on any career mutation
@@ -49,8 +87,12 @@ export function PhoneJobs() {
   const nextShift = getNextShift()
   const onShift = getActiveShift() !== null
   const nextWindow = nextShift ? shiftTimeWindow(nextShift, stats.day, stats.hour) : null
+  // Deterministic schedule conflict: does an accepted social plan overlap the next shift?
+  const conflict = nextShift ? findShiftConflict(nextShift, getCareerCommitmentSlots()) : null
   const activeCareer = activeJob ? getCareer(activeJob) : undefined
   const activeRank = activeJob ? getRank(activeJob, state.ranks[activeJob] ?? 'trainee') : undefined
+  const results = getRecentResults()
+  const latestResult = results.length > 0 ? results[results.length - 1] : null
 
   const ctx: EligibilityContext = {
     skills: state.skills,
@@ -84,6 +126,11 @@ export function PhoneJobs() {
                 <div>
                   Next shift: day {nextShift.scheduledDay} at {String(nextShift.startHour).padStart(2, '0')}:00 · report to {activeCareer.employerDisplayName}
                 </div>
+                {conflict && (
+                  <div className="career-conflict" data-testid="career-shift-conflict">
+                    ⚠ Clashes with your plans with {conflict.label} (day {conflict.day} at {String(conflict.hour).padStart(2, '0')}:00).
+                  </div>
+                )}
                 <div className="panel-actions">
                   <button
                     className="btn btn-small btn-social"
@@ -128,6 +175,25 @@ export function PhoneJobs() {
                 Leave job
               </button>
             </div>
+          </div>
+        </>
+      )}
+
+      {latestResult && (
+        <>
+          <div className="phone-section-title">Last shift</div>
+          <div className="phone-card career-results" data-testid="career-results">
+            <ShiftResult r={latestResult} />
+            {results.length > 1 && (
+              <div className="career-history" data-testid="career-history">
+                {[...results].slice(0, -1).reverse().map((r, i) => (
+                  <div key={`${r.shiftId}_${i}`} className="career-history-row">
+                    <span>Day {r.day} · {getCareer(r.careerId)?.displayName ?? r.careerId}</span>
+                    <span>{r.score}/100 · ${r.pay}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </>
       )}

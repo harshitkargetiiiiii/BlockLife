@@ -12,8 +12,9 @@ import { SKILL_IDS, type CareerId, type EmployerId, type RankId, type ScheduledS
 import { applyCareerEvent, defaultCareerState, type CareerEvent, type CareerState } from './careerEvents'
 import { skillLevel, skillProgress } from './skills'
 import { getCareer, getRank, entryRank } from './careerRegistry'
-import { applyForCareer, nextScheduledShift, recordHighestRank, reconcileMissedShifts as reconcileMissedShiftsPure, scheduleNextShift, quitActiveJob, withRecommendation } from './careerServices'
-import { beginShift, cancelShift, completeOptional, completeStep, failShift, finalizeShift } from './careerShiftService'
+import { applyForCareer, ensureNextScheduled, nextScheduledShift, recordHighestRank, reconcileMissedShifts as reconcileMissedShiftsPure, scheduleNextShift, quitActiveJob, withRecommendation } from './careerServices'
+import { beginShift, cancelShift, completeStep, failShift, finalizeShift } from './careerShiftService'
+import type { ShiftResultRecord } from './careerTypes'
 import { allRequiredDone, currentStep } from './careerShifts'
 import { evaluatePromotion, promoteIfEligible, type PromotionProgress } from './careerPromotion'
 import type { CareerDefinition, CareerUnlock, PayResult, PerformanceResult, RankDefinition, ShiftCompletionReason, ShiftObjectiveState } from './careerTypes'
@@ -78,11 +79,34 @@ export function scheduleNext(careerId: CareerId, gameDay: number, gameHour: numb
   return res.shift
 }
 
-/** Lazily mark shifts past their window as missed. Returns the newly-missed set. */
+/** Lazily mark shifts past their window as missed. Returns the newly-missed set. A
+ *  missed shift for the active job never dead-ends the loop — the next one is scheduled. */
 export function reconcileMissedShifts(gameDay: number, gameHour: number): ScheduledShift[] {
   const res = reconcileMissedShiftsPure(careerRuntime.state, gameDay, gameHour)
   careerRuntime.state = res.state
+  if (res.missed.length > 0) ensureNextForActiveJob(gameDay, gameHour)
   return res.missed
+}
+
+/** After ANY terminal shift outcome, guarantee the still-employed player has a next
+ *  shift to attend (F2) — one place, exact-once via the pending-shift check. */
+function ensureNextForActiveJob(gameDay: number, gameHour: number): ScheduledShift | undefined {
+  const job = careerRuntime.state.activeJob
+  if (!job) return undefined
+  const career = getCareer(job)
+  if (!career) return undefined
+  const res = ensureNextScheduled(careerRuntime.state, career, gameDay, gameHour)
+  careerRuntime.state = res.state
+  return res.shift
+}
+
+/**
+ * Reconcile employment after a load (§13/F3): an active shift never restores
+ * mid-flight, so a still-employed player is left with no in-progress shift — schedule
+ * their next one exactly once so the loop resumes cleanly. Returns the new shift, if any.
+ */
+export function reconcileEmploymentAfterLoad(gameDay: number, gameHour: number): ScheduledShift | undefined {
+  return ensureNextForActiveJob(gameDay, gameHour)
 }
 
 export function getScheduledShifts(): readonly ScheduledShift[] {
@@ -127,11 +151,6 @@ export function advanceShift(mistake = false): ShiftObjectiveState | null {
   return after?.objectives ? currentStep(after.objectives) ?? null : null
 }
 
-/** Mark the optional bonus objective done. */
-export function completeShiftOptional(): void {
-  careerRuntime.state = completeOptional(careerRuntime.state)
-}
-
 export function activeShiftReadyToFinalize(): boolean {
   const shift = careerRuntime.state.activeShift
   return !!shift?.objectives && allRequiredDone(shift.objectives)
@@ -143,6 +162,8 @@ export interface ShiftFinalizeOutcome {
   careerId: CareerId
   employerId: EmployerId
   alreadyFinalized: boolean
+  /** The resolved shift's id (for the social follow-up key). */
+  shiftId?: string
   /** Set when the completed shift triggered a promotion (§8). */
   promotedTo?: RankDefinition
   unlocks?: CareerUnlock[]
@@ -179,19 +200,24 @@ export function getPromotionProgress(careerId: CareerId): PromotionProgress | nu
   return career ? evaluatePromotion(careerRuntime.state, career) : null
 }
 
-/** Fail the active shift (arrest/incapacitation) — typed failure, reduced pay. */
-export function failActiveShift(reason: ShiftCompletionReason, gameDay: number): ShiftFinalizeOutcome | null {
+/** Fail the active shift (arrest/incapacitation) — typed failure, reduced pay. Then
+ *  schedule the next shift so the failure never dead-ends the career loop (F2). */
+export function failActiveShift(reason: ShiftCompletionReason, gameDay: number, gameHour = 9): ShiftFinalizeOutcome | null {
   const ctx = activeCareerAndRank()
   const shift = careerRuntime.state.activeShift
   if (!ctx || !ctx.rankDef || !shift) return null
   const res = failShift(careerRuntime.state, ctx.career, ctx.rankDef, reason, gameDay)
   careerRuntime.state = res.state
-  return { pay: res.pay, performance: res.performance, careerId: ctx.career.id, employerId: ctx.career.employerId, alreadyFinalized: res.alreadyFinalized }
+  const shiftId = shift.id
+  ensureNextForActiveJob(gameDay, gameHour)
+  return { pay: res.pay, performance: res.performance, careerId: ctx.career.id, employerId: ctx.career.employerId, alreadyFinalized: res.alreadyFinalized, shiftId }
 }
 
-/** Cancel the active shift (player bailed): no pay, standing ding. */
-export function cancelActiveShift(): void {
-  careerRuntime.state = cancelShift(careerRuntime.state)
+/** Cancel the active shift (player bailed): no pay, standing ding. Then schedule the
+ *  next shift so a walk-off never dead-ends the loop (F2). */
+export function cancelActiveShift(gameDay = 0, gameHour = 9): void {
+  careerRuntime.state = cancelShift(careerRuntime.state, gameDay)
+  ensureNextForActiveJob(gameDay, gameHour)
 }
 
 /** Record a promotion's highest-rank bump (used by the promotion service, Slice 4). */
@@ -229,6 +255,11 @@ export function getUnlocks(): readonly string[] {
   return careerRuntime.state.unlocks
 }
 
+/** The bounded rich results of recent resolved shifts (the phone results/history UI). */
+export function getRecentResults(): readonly ShiftResultRecord[] {
+  return careerRuntime.state.recentResults
+}
+
 export function hasUnlock(unlockId: string): boolean {
   return careerRuntime.state.unlocks.includes(unlockId)
 }
@@ -247,6 +278,7 @@ export interface CareerSnapshot {
   scheduledShiftCount: number
   activeShiftStatus: string | null
   performanceHistorySize: number
+  recentResultsSize: number
   unlockCount: number
   appliedEventCount: number
   paidAttemptCount: number
@@ -269,6 +301,7 @@ export function careerSnapshot(): CareerSnapshot {
     scheduledShiftCount: s.scheduledShifts.length,
     activeShiftStatus: s.activeShift ? s.activeShift.status : null,
     performanceHistorySize: s.performanceHistory.length,
+    recentResultsSize: s.recentResults.length,
     unlockCount: s.unlocks.length,
     appliedEventCount: s.appliedEventIds.length,
     paidAttemptCount: s.paidAttemptKeys.length,

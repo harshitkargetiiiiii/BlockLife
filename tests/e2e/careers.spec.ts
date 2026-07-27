@@ -45,6 +45,29 @@ async function startShiftViaApi(page: Page, careerId: string): Promise<void> {
   }, careerId)
 }
 
+/** Attend + complete the ACTIVE job's next delivery shift end to end (start → all
+ *  stops → finalize), synchronously inside one evaluate. Assumes delivery_driver. */
+async function runOneDeliveryShift(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    const api = window.GAME_TEST_API!
+    const shift = api.getCareerNextShift()
+    if (!shift || shift.careerId !== 'delivery_driver') return
+    api.setGameDay(shift.scheduledDay)
+    api.setTime(shift.startHour)
+    api.setActiveInteractable(shift.workplaceInteractableId)
+    api.startCareerShift(shift.id)
+    for (let g = 0; g < 16; g++) {
+      const s = api.getActiveCareerShift()
+      if (!s) break
+      const step = s.objectives.find((o) => !o.optional && !o.done)
+      if (!step) break
+      api.setActiveInteractable(step.anchorId ?? s.workplaceInteractableId)
+      api.advanceCareerShift()
+    }
+    api.setActiveInteractable(null)
+  })
+}
+
 test.describe('careers platform', () => {
   test.beforeEach(async ({ page }) => {
     await gotoGame(page)
@@ -265,5 +288,249 @@ test.describe('careers platform', () => {
     expect(r.job).toBeNull()
     expect(r.shifts).toBe(0)
     expect(r.xp).toBe(0)
+  })
+
+  // ---- PR #16 review repairs (F1–F8) --------------------------------------
+
+  test('16. switching primary jobs drops the old job’s shifts and blocks starting them (F1)', async ({ page }) => {
+    const r = await page.evaluate(() => {
+      const api = window.GAME_TEST_API!
+      api.ingestCareerEvent({ id: 'soc', kind: 'training_milestone', gameDay: 1, skillAwards: [{ skill: 'social', amount: 60, reason: 'training_milestone' }] })
+      api.applyToCareer('delivery_driver')
+      const delivery = api.getCareerNextShift()!
+      api.applyToCareer('cafe_retail') // atomic switch
+      const next = api.getCareerNextShift()
+      // Try to start the STALE delivery shift at its own window + workplace.
+      api.setGameDay(delivery.scheduledDay)
+      api.setTime(delivery.startHour)
+      api.setActiveInteractable(delivery.workplaceInteractableId)
+      api.startCareerShift(delivery.id)
+      const startedOld = api.getActiveCareerShift() !== null
+      const deliveryLeft = api.getCareerScheduledShifts().filter((s) => s.careerId === 'delivery_driver').length
+      return { activeJob: api.getCareerSnapshot().activeJob, nextCareer: next?.careerId ?? null, startedOld, deliveryLeft }
+    })
+    expect(r.activeJob).toBe('cafe_retail')
+    expect(r.nextCareer).toBe('cafe_retail') // the next shift is the current job's, never the old
+    expect(r.startedOld).toBe(false) // a stale shift from the abandoned job can't be played
+    expect(r.deliveryLeft).toBe(0) // the old job's attendable shifts were dropped
+  })
+
+  test('17. arrest mid-shift fails it, fires the employer follow-up, and schedules the next (F2)', async ({ page }) => {
+    const r = await page.evaluate(() => {
+      const api = window.GAME_TEST_API!
+      api.ingestCareerEvent({ id: 'soc', kind: 'training_milestone', gameDay: 1, skillAwards: [{ skill: 'social', amount: 60, reason: 'training_milestone' }] })
+      api.applyToCareer('cafe_retail')
+      const shift = api.getCareerNextShift()!
+      api.setGameDay(shift.scheduledDay)
+      api.setTime(shift.startHour)
+      api.setActiveInteractable(shift.workplaceInteractableId)
+      api.startCareerShift(shift.id)
+      api.advanceCareerShift() // clock in (partial progress)
+      api.respawnPlayer('arrest') // arrested on the clock
+      const results = api.getCareerRecentResults()
+      const msgs = api.getSocialMessages('npc_maya_01')
+      return {
+        active: api.getCareerSnapshot().activeShiftStatus,
+        lastReason: results[results.length - 1]?.reason ?? null,
+        hasNext: api.getCareerNextShift() !== null,
+        followedUp: msgs.some((m) => m.token === 'job_failed_shift'),
+      }
+    })
+    expect(r.active).toBeNull() // shift ended
+    expect(r.lastReason).toBe('arrested') // typed failure recorded (no criminal record)
+    expect(r.hasNext).toBe(true) // the loop continues — a next shift was scheduled
+    expect(r.followedUp).toBe(true) // the required failed-shift employer message was sent
+  })
+
+  test('17b. cancelling a shift also schedules the next (no dead-end) (F2)', async ({ page }) => {
+    await startShiftViaApi(page, 'delivery_driver')
+    const r = await page.evaluate(() => {
+      const api = window.GAME_TEST_API!
+      api.cancelCareerShift()
+      return { active: api.getCareerSnapshot().activeShiftStatus, hasNext: api.getCareerNextShift() !== null }
+    })
+    expect(r.active).toBeNull()
+    expect(r.hasNext).toBe(true)
+  })
+
+  test('18. a full page reload from a mid-shift save discards the shift, cleans cargo, schedules the next, never double-pays (F3)', async ({ page }) => {
+    await page.evaluate(async () => {
+      const api = window.GAME_TEST_API!
+      api.applyToCareer('delivery_driver')
+      const shift = api.getCareerNextShift()!
+      api.setGameDay(shift.scheduledDay)
+      api.setTime(shift.startHour)
+      api.setActiveInteractable(shift.workplaceInteractableId)
+      api.startCareerShift(shift.id)
+      api.advanceCareerShift() // clock in
+      const s = api.getActiveCareerShift()!
+      const load = s.objectives.find((o) => !o.optional && !o.done)! // the collect step
+      api.setActiveInteractable(load.anchorId ?? s.workplaceInteractableId)
+      api.advanceCareerShift() // load cargo → now carrying restock_crate mid-shift
+      await api.saveGame()
+    })
+    await page.reload()
+    await page.waitForFunction(() => window.GAME_TEST_API?.ready() === true, undefined, { timeout: 45_000 })
+    const r = await page.evaluate(async () => {
+      const api = window.GAME_TEST_API!
+      await api.loadGame()
+      const snap = api.getCareerSnapshot()
+      return {
+        active: snap.activeShiftStatus,
+        job: snap.activeJob,
+        hasNext: api.getCareerNextShift() !== null,
+        paid: snap.paidAttemptCount,
+        crate: api.getBackpack().stacks['restock_crate'] ?? 0,
+      }
+    })
+    expect(r.active).toBeNull() // no stranded active twin
+    expect(r.job).toBe('delivery_driver') // still employed
+    expect(r.hasNext).toBe(true) // a fresh next shift was scheduled
+    expect(r.paid).toBe(0) // an unfinished shift was never paid
+    expect(r.crate).toBe(0) // mid-shift cargo cleaned up
+  })
+
+  test('19. three good shifts earn a promotion; the next shift pays the higher rank rate (F5/§8)', async ({ page }) => {
+    await page.evaluate(() => {
+      const api = window.GAME_TEST_API!
+      api.ingestCareerEvent({ id: 'drv', kind: 'training_milestone', gameDay: 0, skillAwards: [{ skill: 'driving', amount: 60, reason: 'training_milestone' }] })
+      api.applyToCareer('delivery_driver')
+    })
+    for (let i = 0; i < 3; i++) await runOneDeliveryShift(page)
+    const promoted = await page.evaluate(() => window.GAME_TEST_API!.getCareerSnapshot().ranks.delivery_driver)
+    expect(promoted).toBe('regular') // promoted after three good shifts
+    await runOneDeliveryShift(page) // the fourth shift is worked at the new rank
+    const results = await page.evaluate(() => window.GAME_TEST_API!.getCareerRecentResults())
+    const trainee = results.find((r) => r.rankModifier === 1)
+    const regular = results.find((r) => r.rankModifier === 1.3)
+    expect(trainee).toBeTruthy()
+    expect(regular).toBeTruthy()
+    expect(regular!.pay).toBeGreaterThan(trainee!.pay) // higher rank ⇒ higher pay, same run
+  })
+
+  test('20. an accepted social plan overlapping the next shift shows a conflict warning (F4)', async ({ page }) => {
+    const overlaps = await page.evaluate(() => {
+      const api = window.GAME_TEST_API!
+      // Warm Ravi up so he accepts a plan (Ravi is available at 09:00 — the shift hour).
+      for (let i = 0; i < 6; i++) api.ingestSocialEvent({ id: `rf${i}`, kind: 'favor_completed', actorId: 'npc_ravi_01', gameDay: 0, gameHour: 8 })
+      api.applyToCareer('delivery_driver')
+      const shift = api.getCareerNextShift()!
+      // Jump to the shift's own day at 08:00 so Ravi's next slot (09:00) lands ON the shift.
+      api.setGameDay(shift.scheduledDay)
+      api.setTime(8)
+      api.sendSocialInvite('npc_ravi_01', 'coffee') // accepted plan → (shiftDay, 09:00)
+      const slots = api.getCareerCommitmentSlots()
+      return slots.some((s) => s.day === shift.scheduledDay && s.hour >= shift.startHour - 1 && s.hour < shift.startHour + 4)
+    })
+    expect(overlaps).toBe(true) // the accepted plan really overlaps the shift window
+    await openJobs(page)
+    await expect(page.getByTestId('career-shift-conflict')).toBeVisible() // and Phone Jobs surfaces it
+  })
+
+  test('21. shift objectives cannot be cheesed: a full bag blocks collect; a stop needs the cargo (F8)', async ({ page }) => {
+    const r = await page.evaluate(() => {
+      const api = window.GAME_TEST_API!
+      // Fill the backpack to capacity (items stack, so give enough to occupy all slots).
+      api.giveTestItem('snack', 20) // 2 slots
+      api.giveTestItem('energy_drink', 20) // 2 slots
+      api.giveTestItem('coffee', 15) // 3 slots
+      api.giveTestItem('meal', 15) // 3 slots → 10 slots, full
+      const occupied = api.getBackpack().occupied
+      api.applyToCareer('delivery_driver')
+      const shift = api.getCareerNextShift()!
+      api.setGameDay(shift.scheduledDay)
+      api.setTime(shift.startHour)
+      api.setActiveInteractable(shift.workplaceInteractableId)
+      api.startCareerShift(shift.id)
+      api.advanceCareerShift() // clock in (report)
+      const beforeStep = api.getActiveCareerShift()!.objectives.find((o) => !o.optional && !o.done)!.id
+      api.advanceCareerShift() // attempt collect with a FULL bag → must be blocked
+      const blockedStep = api.getActiveCareerShift()!.objectives.find((o) => !o.optional && !o.done)!.id
+      // Free room, then collect succeeds.
+      api.discardTestItem('meal', 15)
+      api.advanceCareerShift()
+      const afterStep = api.getActiveCareerShift()?.objectives.find((o) => !o.optional && !o.done)?.id ?? 'done'
+      return { occupied, beforeStep, blockedStep, afterStep }
+    })
+    expect(r.occupied).toBe(10) // setup: the bag is genuinely full
+    expect(r.blockedStep).toBe(r.beforeStep) // collect did NOT advance while the bag was full
+    expect(r.afterStep).not.toBe(r.beforeStep) // it advanced only once cargo could be carried
+  })
+
+  test('22. the thermal-bag unlock lets a full bag still carry cargo (F6)', async ({ page }) => {
+    // Promote to Regular so the thermal bag is unlocked, then a full bag no longer blocks.
+    await page.evaluate(() => {
+      const api = window.GAME_TEST_API!
+      api.ingestCareerEvent({ id: 'drv', kind: 'training_milestone', gameDay: 0, skillAwards: [{ skill: 'driving', amount: 60, reason: 'training_milestone' }] })
+      api.applyToCareer('delivery_driver')
+    })
+    for (let i = 0; i < 3; i++) await runOneDeliveryShift(page)
+    const r = await page.evaluate(() => {
+      const api = window.GAME_TEST_API!
+      const hasBag = api.hasCareerUnlock('delivery_thermal_bag')
+      // Fill the backpack to capacity (10 slots).
+      api.giveTestItem('snack', 20)
+      api.giveTestItem('energy_drink', 20)
+      api.giveTestItem('coffee', 15)
+      api.giveTestItem('meal', 15)
+      const shift = api.getCareerNextShift()!
+      api.setGameDay(shift.scheduledDay)
+      api.setTime(shift.startHour)
+      api.setActiveInteractable(shift.workplaceInteractableId)
+      api.startCareerShift(shift.id)
+      api.advanceCareerShift() // report
+      const beforeStep = api.getActiveCareerShift()!.objectives.find((o) => !o.optional && !o.done)!.id
+      api.advanceCareerShift() // collect — with a full bag, the thermal bag carries it
+      const afterStep = api.getActiveCareerShift()?.objectives.find((o) => !o.optional && !o.done)?.id ?? 'done'
+      return { hasBag, advanced: afterStep !== beforeStep }
+    })
+    expect(r.hasBag).toBe(true)
+    expect(r.advanced).toBe(true) // full bag no longer blocks collect once the bag is earned
+  })
+
+  test('23. completing a social activity raises Social through the production path (F7)', async ({ page }) => {
+    const r = await page.evaluate(() => {
+      const api = window.GAME_TEST_API!
+      // Warm Maya up so a favor is offered, then drive it to completion via the SAME
+      // production store actions the world UI calls (start → travel → deliver → done).
+      for (let i = 0; i < 6; i++) api.ingestSocialEvent({ id: `mf${i}`, kind: 'favor_completed', actorId: 'npc_maya_01', gameDay: 0, gameHour: 8 })
+      const before = api.getCareerSnapshot().skills.social.xp
+      api.startFavorFor('npc_maya_01')
+      let guard = 0
+      while (guard++ < 12) {
+        const act = api.getActiveSocialActivity()
+        if (!act) break
+        if (act.step === 'travel') api.setActiveInteractable(act.venueId)
+        if (act.requiredItemId) api.giveTestItem(act.requiredItemId, 1)
+        api.advanceSocialActivity()
+      }
+      return { before, after: api.getCareerSnapshot().skills.social.xp, finished: api.getActiveSocialActivity() === null }
+    })
+    expect(r.finished).toBe(true) // the activity ran to completion
+    expect(r.after).toBeGreaterThan(r.before) // and funneled Social XP through the career funnel
+  })
+
+  test('23b. a gym workout raises Fitness through the production path (F7)', async ({ page }) => {
+    const r = await page.evaluate(() => {
+      const api = window.GAME_TEST_API!
+      const before = api.getCareerSnapshot().skills.fitness.xp
+      api.performActivityAction('train') // the SAME store action the gym button calls
+      return { before, after: api.getCareerSnapshot().skills.fitness.xp }
+    })
+    expect(r.after).toBeGreaterThan(r.before)
+  })
+
+  test('24. the shift results screen shows the pay decomposition + score breakdown (F5)', async ({ page }) => {
+    await startShiftViaApi(page, 'delivery_driver')
+    await completeShiftViaApi(page)
+    await openJobs(page)
+    await expect(page.getByTestId('career-results')).toBeVisible()
+    await expect(page.getByTestId('career-result-pay')).toContainText('base')
+    await expect(page.getByTestId('career-result-pay')).toContainText('rank')
+    await expect(page.getByTestId('career-result-breakdown')).toContainText('Attendance')
+    const res = await page.evaluate(() => window.GAME_TEST_API!.getCareerRecentResults())
+    expect(res.length).toBe(1)
+    expect(res[0].reason).toBe('completed')
+    expect(res[0].pay).toBeGreaterThan(0)
   })
 })

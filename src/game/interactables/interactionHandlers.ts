@@ -102,8 +102,14 @@ export function getActionsFor(
   }
 }
 
+/** Options threading earned career unlocks into interaction outcomes (§8). */
+export interface PerformActionOptions {
+  /** Gym Trainer's "train off the clock" unlock — waives the energy gate. */
+  gymFreeAccess?: boolean
+}
+
 /** Applies an activity action to pure game state. Never mutates its input. */
-export function performAction(state: GameLogicState, actionId: string, foodDiscountPct = 0): ActionOutcome {
+export function performAction(state: GameLogicState, actionId: string, foodDiscountPct = 0, opts: PerformActionOptions = {}): ActionOutcome {
   switch (actionId) {
     case 'buy_meal': {
       const r = buyMeal(state.stats, foodDiscountPct)
@@ -130,7 +136,7 @@ export function performAction(state: GameLogicState, actionId: string, foodDisco
       }
     }
     case 'train': {
-      const r = train(state.stats)
+      const r = train(state.stats, opts.gymFreeAccess === true)
       if (!r.ok) return { ok: false, message: r.error, state }
       return { ok: true, message: r.message, state: { ...state, stats: r.stats } }
     }

@@ -8,10 +8,10 @@ import {
   applyToCareer,
   cancelActiveShift,
   careerRuntime,
-  completeShiftOptional,
   failActiveShift,
   finalizeActiveShift,
   getActiveShift,
+  getNextShift,
   getSkillXp,
   resetCareers,
   startShift,
@@ -49,6 +49,17 @@ describe('shift templates + scoring (§5/§6)', () => {
     expect(weak.score).toBeLessThan(perfect.score)
   })
 
+  it('the optional objective is EARNED by a flawless, on-time run — not a free button (F8)', () => {
+    // Every required step done, optional left untouched (no manual "complete bonus").
+    const done = instantiateShiftObjectives(delivery).map((o) => ({ ...o, done: !o.optional }))
+    expect(scorePerformance(delivery, done, true).optionalDone).toBe(1) // clean + on time ⇒ earned
+    expect(scorePerformance(delivery, done, false).optionalDone).toBe(0) // late ⇒ forfeited
+    const withMistake = done.map((o, i) => (i === 1 ? { ...o, mistake: true } : o))
+    expect(scorePerformance(delivery, withMistake, true).optionalDone).toBe(0) // a mistake forfeits it
+    const incomplete = instantiateShiftObjectives(delivery).map((o, i) => ({ ...o, done: i < 2 }))
+    expect(scorePerformance(delivery, incomplete, true).optionalDone).toBe(0) // unfinished ⇒ no bonus
+  })
+
   it('pay = base × rank × performance, deterministic; failed pay is reduced', () => {
     const rank = getRank('delivery_driver', 'trainee')!
     const objs = instantiateShiftObjectives(delivery).map((o) => ({ ...o, done: true }))
@@ -78,7 +89,6 @@ describe('shift lifecycle — begin → step → finalize, exact-once (§4/§7)'
 
   it('runs a full shift: pay + XP applied once', () => {
     hireAndStart()
-    completeShiftOptional()
     // Advance through every required step.
     let guard = 0
     while (!activeShiftReadyToFinalize() && guard++ < 20) advanceShift()
@@ -121,5 +131,34 @@ describe('shift lifecycle — begin → step → finalize, exact-once (§4/§7)'
     cancelActiveShift()
     expect(getActiveShift()).toBeNull()
     expect(careerRuntime.state.employerStanding.courier_dispatch).toBeLessThan(standingBefore!)
+  })
+
+  it('starting a shift removes it from the scheduled queue (no active-status twin, F3)', () => {
+    hireAndStart()
+    // The one scheduled shift is now the activeShift; the scheduled queue holds no
+    // 'active' twin (so a mid-shift save can never strand one).
+    expect(careerRuntime.state.scheduledShifts.some((s) => s.status === 'active')).toBe(false)
+    expect(getActiveShift()!.status).toBe('active')
+  })
+
+  it('a completed shift records a rich result for the phone results screen (F5)', () => {
+    hireAndStart()
+    let guard = 0
+    while (!activeShiftReadyToFinalize() && guard++ < 20) advanceShift()
+    finalizeActiveShift(2, 13)
+    const results = careerRuntime.state.recentResults
+    expect(results).toHaveLength(1)
+    expect(results[0].reason).toBe('completed')
+    expect(results[0].base).toBe(delivery.basePay)
+    expect(results[0].pay).toBeGreaterThan(0)
+  })
+
+  it('every terminal outcome (complete/fail/cancel) records a result + schedules a next shift (F2)', () => {
+    // Cancel path.
+    hireAndStart()
+    cancelActiveShift(2, 10)
+    expect(getActiveShift()).toBeNull()
+    expect(careerRuntime.state.recentResults.at(-1)!.reason).toBe('cancelled_by_player')
+    expect(getNextShift()).toBeDefined() // loop continues
   })
 })

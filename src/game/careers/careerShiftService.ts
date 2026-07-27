@@ -12,6 +12,7 @@ import {
   EMPLOYER_STANDING_MIN,
   PAID_ATTEMPT_KEY_MAX,
   PERFORMANCE_HISTORY_MAX,
+  SHIFT_RESULTS_MAX,
   type CareerDefinition,
   type CareerHistory,
   type PayResult,
@@ -19,10 +20,11 @@ import {
   type RankDefinition,
   type ScheduledShift,
   type ShiftCompletionReason,
+  type ShiftResultRecord,
 } from './careerTypes'
 import type { CareerState } from './careerEvents'
 import type { CareerEvent } from './careerEvents'
-import { computeFailedPay, computePay, instantiateShiftObjectives, scorePerformance, shiftSkillAwards } from './careerShifts'
+import { buildResultRecord, computeFailedPay, computePay, instantiateShiftObjectives, scorePerformance, shiftSkillAwards } from './careerShifts'
 
 function clampStanding(v: number): number {
   return Math.max(EMPLOYER_STANDING_MIN, Math.min(EMPLOYER_STANDING_MAX, Math.trunc(v)))
@@ -34,13 +36,24 @@ function pushCapped<T>(list: T[], item: T, max: number): T[] {
   const next = [...list, item]
   return next.length > max ? next.slice(next.length - max) : next
 }
+function recordResult(state: CareerState, result: ShiftResultRecord): ShiftResultRecord[] {
+  return pushCapped(state.recentResults, result, SHIFT_RESULTS_MAX)
+}
 
-/** Move a scheduled shift to `active`, instantiate its world objectives, stamp the
- *  on-time flag from the start window. Refuses if a shift is already active. */
+/**
+ * Move a scheduled shift into `activeShift`, instantiate its world objectives, and
+ * stamp the on-time flag. The started shift is REMOVED from `scheduledShifts` so the
+ * active run has exactly ONE home ({@link CareerState.activeShift}) — a save can never
+ * strand an `active`-status twin in the scheduled queue (issue #15 §13). Refuses when
+ * a shift is already active or the shift isn't owned by the current PRIMARY job (§4).
+ */
 export function beginShift(state: CareerState, career: CareerDefinition, shiftId: string, onTime: boolean, startedAtHour: number): { state: CareerState; ok: boolean } {
   if (state.activeShift) return { state, ok: false }
   const shift = state.scheduledShifts.find((s) => s.id === shiftId)
   if (!shift || (shift.status !== 'scheduled' && shift.status !== 'available')) return { state, ok: false }
+  // Active-job ownership: only a shift of the current primary job can start (§4) — a
+  // leftover shift from a previously-held career can never be played.
+  if (state.activeJob !== null && state.activeJob !== shift.careerId) return { state, ok: false }
   const active: ScheduledShift = {
     ...shift,
     status: 'active',
@@ -55,7 +68,7 @@ export function beginShift(state: CareerState, career: CareerDefinition, shiftId
     state: {
       ...state,
       activeShift: active,
-      scheduledShifts: state.scheduledShifts.map((s) => (s.id === shiftId ? { ...s, status: 'active' } : s)),
+      scheduledShifts: state.scheduledShifts.filter((s) => s.id !== shiftId),
     },
     ok: true,
   }
@@ -66,14 +79,6 @@ export function completeStep(state: CareerState, stepId: string, mistake = false
   const shift = state.activeShift
   if (!shift || !shift.objectives) return state
   const objectives = shift.objectives.map((o) => (o.id === stepId ? { ...o, done: true, mistake: mistake || o.mistake } : o))
-  return { ...state, activeShift: { ...shift, objectives } }
-}
-
-/** Mark the OPTIONAL bonus objective done (a quality/safety beat). */
-export function completeOptional(state: CareerState): CareerState {
-  const shift = state.activeShift
-  if (!shift || !shift.objectives) return state
-  const objectives = shift.objectives.map((o) => (o.optional ? { ...o, done: true } : o))
   return { ...state, activeShift: { ...shift, objectives } }
 }
 
@@ -112,6 +117,7 @@ export function finalizeShift(state: CareerState, career: CareerDefinition, rank
     paidAttemptKeys: pushCapped(state.paidAttemptKeys, shift.attemptKey, PAID_ATTEMPT_KEY_MAX),
     history: { ...state.history, [career.id]: { ...h, completedShifts: h.completedShifts + 1, totalEarned: h.totalEarned + pay.total } },
     performanceHistory: pushCapped(state.performanceHistory, { careerId: career.id, shiftId: shift.id, score: performance.score, onTime, day: Math.trunc(gameDay) }, PERFORMANCE_HISTORY_MAX),
+    recentResults: recordResult(state, buildResultRecord(career.id, shift.id, 'completed', performance, pay, gameDay)),
     employerStanding: { ...state.employerStanding, [career.employerId]: clampStanding((state.employerStanding[career.employerId] ?? EMPLOYER_STANDING_DEFAULT) + performanceStandingDelta(performance.score)) },
   }
   const xpEvent: CareerEvent = {
@@ -132,6 +138,7 @@ export function failShift(state: CareerState, career: CareerDefinition, rank: Ra
   if (state.paidAttemptKeys.includes(shift.attemptKey)) return { state: { ...state, activeShift: null }, pay: zeroPay(career.basePay, rank.payModifier), performance, alreadyFinalized: true }
   const pay = computeFailedPay(career, rank, shift.objectives)
   const h = historyFor(state, career.id)
+  const failedPerf: PerformanceResult = { ...performance, notes: [`Shift failed (${reason})`, ...performance.notes] }
   const next: CareerState = {
     ...state,
     activeShift: null,
@@ -139,21 +146,26 @@ export function failShift(state: CareerState, career: CareerDefinition, rank: Ra
     paidAttemptKeys: pushCapped(state.paidAttemptKeys, shift.attemptKey, PAID_ATTEMPT_KEY_MAX),
     history: { ...state.history, [career.id]: { ...h, failedShifts: h.failedShifts + 1, totalEarned: h.totalEarned + pay.total } },
     performanceHistory: pushCapped(state.performanceHistory, { careerId: career.id, shiftId: shift.id, score: performance.score, onTime: false, day: Math.trunc(gameDay) }, PERFORMANCE_HISTORY_MAX),
+    recentResults: recordResult(state, buildResultRecord(career.id, shift.id, reason, failedPerf, pay, gameDay)),
     employerStanding: { ...state.employerStanding, [career.employerId]: clampStanding((state.employerStanding[career.employerId] ?? EMPLOYER_STANDING_DEFAULT) - 10) },
   }
-  return { state: next, pay, performance: { ...performance, notes: [`Shift failed (${reason})`, ...performance.notes] }, alreadyFinalized: false }
+  return { state: next, pay, performance: failedPerf, alreadyFinalized: false }
 }
 
-/** Cancel the active shift with no pay + a standing ding (player bailed). */
-export function cancelShift(state: CareerState): CareerState {
+/** Cancel the active shift with no pay + a standing ding (player bailed). Records a
+ *  bounded cancelled result so the history surface shows the walk-off (§12). */
+export function cancelShift(state: CareerState, gameDay = 0): CareerState {
   const shift = state.activeShift
   if (!shift) return state
   const h = historyFor(state, shift.careerId)
+  const perf: PerformanceResult = { ...emptyPerf(), notes: ['You walked off the shift'] }
+  const result = buildResultRecord(shift.careerId, shift.id, 'cancelled_by_player', perf, zeroPay(0, 1), gameDay)
   return {
     ...state,
     activeShift: null,
     scheduledShifts: state.scheduledShifts.filter((s) => s.id !== shift.id),
     history: { ...state.history, [shift.careerId]: { ...h, missedShifts: h.missedShifts + 1 } },
+    recentResults: recordResult(state, result),
     employerStanding: { ...state.employerStanding, [shift.employerId]: clampStanding((state.employerStanding[shift.employerId] ?? EMPLOYER_STANDING_DEFAULT) - 6) },
   }
 }

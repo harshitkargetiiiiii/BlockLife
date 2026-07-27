@@ -15,25 +15,33 @@ import {
   PERFORMANCE_HISTORY_MAX,
   RANK_ORDER,
   SCHEDULED_SHIFTS_MAX,
+  SHIFT_RESULTS_MAX,
+  SHIFT_TEMPLATE_IDS,
   UNLOCKS_MAX,
   type CareerHistory,
   type CareerId,
   type CareerSaveData,
   type EmployerId,
+  type PerformanceBreakdown,
   type PerformanceRecord,
   type RankId,
   type ScheduledShift,
+  type ShiftCompletionReason,
+  type ShiftResultRecord,
   type ShiftStatus,
+  type ShiftTemplateId,
 } from './careerTypes'
-import { isCareerId } from './careerRegistry'
+import { getCareer, isCareerId } from './careerRegistry'
 import { sanitizeSkills } from './skills'
 import { careerRuntime } from './careerRuntime'
 import { defaultCareerState, type CareerState } from './careerEvents'
 
 const CAREER_SAVE_VERSION = 1
 const SHIFT_STATUSES: ShiftStatus[] = ['scheduled', 'available', 'active', 'completed', 'missed', 'failed', 'cancelled']
+const COMPLETION_REASONS: ShiftCompletionReason[] = ['completed', 'missed_window', 'arrested', 'incapacitated', 'cancelled_by_player', 'abandoned']
 
 const isRankId = (v: unknown): v is RankId => typeof v === 'string' && (RANK_ORDER as readonly string[]).includes(v)
+const isTemplateId = (v: unknown): v is ShiftTemplateId => typeof v === 'string' && (SHIFT_TEMPLATE_IDS as readonly string[]).includes(v)
 const clampInt = (v: unknown, lo: number, hi: number, dflt: number): number =>
   typeof v === 'number' && Number.isFinite(v) ? Math.max(lo, Math.min(hi, Math.trunc(v))) : dflt
 const strList = (v: unknown, max: number): string[] => {
@@ -57,6 +65,7 @@ export function serializeCareers(): CareerSaveData {
     scheduledShifts: s.scheduledShifts.map((sh) => ({ ...sh })),
     activeShift: s.activeShift ? { ...s.activeShift } : null,
     performanceHistory: s.performanceHistory.map((p) => ({ ...p })),
+    recentResults: s.recentResults.map((r) => ({ ...r, breakdown: { ...r.breakdown }, notes: [...r.notes] })),
     unlocks: [...s.unlocks],
     appliedEventIds: [...s.appliedEventIds],
     paidAttemptKeys: [...s.paidAttemptKeys],
@@ -88,13 +97,19 @@ function sanitizeShift(raw: unknown): ScheduledShift | null {
   const s = raw as Record<string, unknown>
   if (typeof s.id !== 'string' || !isCareerId(s.careerId as string) || !isRankId(s.rank)) return null
   if (typeof s.attemptKey !== 'string') return null
+  // Validate the template id instead of casting an arbitrary string (F3): it must be a
+  // known template AND match the career's authored template — otherwise the shift is
+  // corrupt/forged, so drop it rather than resurrect it with a mismatched step machine.
+  if (!isTemplateId(s.templateId)) return null
+  const career = getCareer(s.careerId as CareerId)
+  if (career && career.shiftTemplateId !== s.templateId) return null
   const status = typeof s.status === 'string' && SHIFT_STATUSES.includes(s.status as ShiftStatus) ? (s.status as ShiftStatus) : 'scheduled'
   return {
     id: s.id,
     careerId: s.careerId as CareerId,
     employerId: typeof s.employerId === 'string' ? s.employerId : '',
     rank: s.rank as RankId,
-    templateId: (typeof s.templateId === 'string' ? s.templateId : 'delivery_route') as ScheduledShift['templateId'],
+    templateId: s.templateId,
     scheduledDay: clampInt(s.scheduledDay, 0, 1000000, 0),
     startHour: clampInt(s.startHour, 0, 23, 9),
     graceHours: clampInt(s.graceHours, 0, 24, 3),
@@ -103,6 +118,43 @@ function sanitizeShift(raw: unknown): ScheduledShift | null {
     status,
     attemptKey: s.attemptKey,
   }
+}
+
+function sanitizeBreakdown(raw: unknown): PerformanceBreakdown {
+  const b = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>
+  return {
+    attendance: clampInt(b.attendance, 0, 100, 0),
+    requiredObjectives: clampInt(b.requiredObjectives, 0, 100, 0),
+    optionalObjectives: clampInt(b.optionalObjectives, 0, 100, 0),
+    mistakes: clampInt(b.mistakes, 0, 100, 0),
+    timeEfficiency: clampInt(b.timeEfficiency, 0, 100, 0),
+  }
+}
+
+function sanitizeResults(raw: unknown): ShiftResultRecord[] {
+  if (!Array.isArray(raw)) return []
+  const out: ShiftResultRecord[] = []
+  for (const v of raw) {
+    if (!v || typeof v !== 'object') continue
+    const r = v as Record<string, unknown>
+    if (!isCareerId(r.careerId as string) || typeof r.shiftId !== 'string') continue
+    const reason = typeof r.reason === 'string' && COMPLETION_REASONS.includes(r.reason as ShiftCompletionReason) ? (r.reason as ShiftCompletionReason) : 'completed'
+    out.push({
+      careerId: r.careerId as CareerId,
+      shiftId: r.shiftId,
+      reason,
+      score: clampInt(r.score, 0, 100, 0),
+      breakdown: sanitizeBreakdown(r.breakdown),
+      notes: Array.isArray(r.notes) ? r.notes.filter((n): n is string => typeof n === 'string').slice(0, 8) : [],
+      onTime: r.onTime === true,
+      base: clampInt(r.base, 0, 100000, 0),
+      rankModifier: typeof r.rankModifier === 'number' && Number.isFinite(r.rankModifier) ? Math.max(0, Math.min(10, r.rankModifier)) : 1,
+      performanceModifier: typeof r.performanceModifier === 'number' && Number.isFinite(r.performanceModifier) ? Math.max(0, Math.min(10, r.performanceModifier)) : 0,
+      pay: clampInt(r.pay, 0, 100000000, 0),
+      day: clampInt(r.day, 0, 1000000, 0),
+    })
+  }
+  return out.slice(-SHIFT_RESULTS_MAX)
 }
 
 function sanitizePerf(raw: unknown): PerformanceRecord[] {
@@ -149,13 +201,18 @@ export function sanitizeCareerSave(raw: unknown): CareerState {
   base.scheduledShifts = (Array.isArray(d.scheduledShifts) ? d.scheduledShifts : [])
     .map(sanitizeShift)
     .filter((x): x is ScheduledShift => x !== null)
+    // The scheduled queue holds ONLY still-attendable shifts. Any non-scheduled record
+    // (e.g. a stranded `active`-status twin from a pre-fix save) is dropped so it can
+    // never resurface as a phantom shift or block the next-shift schedule (§13/F3).
+    .filter((s) => s.status === 'scheduled' || s.status === 'available')
     .slice(-SCHEDULED_SHIFTS_MAX)
   // An active shift does NOT restore mid-flight: reinstating a partly-done work route
   // deterministically (cargo, markers, objectives) is unsafe, so a persisted active
-  // shift migrates to a documented cancelled record with NO pay (§13). Its scheduled
-  // twin (if any) survives above.
+  // shift is discarded with NO pay/XP (§13). The store then schedules a fresh next
+  // shift for the still-employed player (reconcileEmploymentAfterLoad) + clears cargo.
   base.activeShift = null
   base.performanceHistory = sanitizePerf(d.performanceHistory)
+  base.recentResults = sanitizeResults(d.recentResults)
   base.unlocks = strList(d.unlocks, UNLOCKS_MAX)
   base.appliedEventIds = strList(d.appliedEventIds, APPLIED_CAREER_EVENT_ID_MAX)
   base.paidAttemptKeys = strList(d.paidAttemptKeys, PAID_ATTEMPT_KEY_MAX)

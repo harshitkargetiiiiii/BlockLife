@@ -34,6 +34,7 @@ export type SkillAwardReason =
   | 'shift_optional_objective'
   | 'shift_on_time'
   | 'training_milestone'
+  | 'gym_workout'
   | 'favor_completed'
   | 'social_activity'
   | 'customer_served'
@@ -48,8 +49,12 @@ export interface SkillAward {
   reason: SkillAwardReason
 }
 
-/** Per-source daily caps where farming is possible (issue #2). Keyed by reason. */
+/** Per-source daily caps where farming is possible (issue #2). Keyed by reason.
+ *  NB: `training_milestone` is intentionally UNCAPPED — it is the reason used to
+ *  arrange large one-off skill prerequisites (DEV/tests); the farmable in-world gym
+ *  workout uses the capped `gym_workout` reason instead. */
 export const SKILL_DAILY_CAP: Partial<Record<SkillAwardReason, number>> = {
+  gym_workout: 16,
   crime_escaped: 12,
   crime_witnessed: 8,
   social_activity: 20,
@@ -62,6 +67,8 @@ export type CareerId = 'delivery_driver' | 'cafe_retail' | 'gym_trainer' | 'trad
 export type EmployerId = string
 export type RankId = 'trainee' | 'regular' | 'experienced' | 'senior'
 export type ShiftTemplateId = 'delivery_route' | 'cafe_service' | 'gym_trainer' | 'trade_work'
+
+export const SHIFT_TEMPLATE_IDS: readonly ShiftTemplateId[] = ['delivery_route', 'cafe_service', 'gym_trainer', 'trade_work'] as const
 
 export const CAREER_IDS: readonly CareerId[] = ['delivery_driver', 'cafe_retail', 'gym_trainer', 'trade_worker'] as const
 export const RANK_ORDER: readonly RankId[] = ['trainee', 'regular', 'experienced', 'senior'] as const
@@ -173,6 +180,10 @@ export interface ShiftObjectiveState {
   interactableId?: string
   itemId?: string
   quantity?: number
+  /** A step that requires the player to still be HOLDING earlier-collected cargo
+   *  (validated live against the inventory authority, or carried via a cargo-equipment
+   *  unlock). Deliver/job-site steps set this so they can't be cheesed empty-handed. */
+  requiresCargoItemId?: string
   optional: boolean
   done: boolean
   /** True once a mistake was recorded against this step (lowers performance). */
@@ -259,6 +270,25 @@ export interface PerformanceRecord {
   day: number
 }
 
+/** A bounded RICH result of the most recent resolved shifts — the data the phone's
+ *  results/history surface renders (§12): the full pay decomposition, the score
+ *  breakdown, and the readable notes. Distinct from {@link PerformanceRecord}, which
+ *  is the lean rolling record promotion math averages. */
+export interface ShiftResultRecord {
+  careerId: CareerId
+  shiftId: string
+  reason: ShiftCompletionReason
+  score: number
+  breakdown: PerformanceBreakdown
+  notes: string[]
+  onTime: boolean
+  base: number
+  rankModifier: number
+  performanceModifier: number
+  pay: number
+  day: number
+}
+
 // ---- bounds (all collections are capped) ----------------------------------
 
 export const SCHEDULED_SHIFTS_MAX = 8
@@ -268,6 +298,8 @@ export const PAID_ATTEMPT_KEY_MAX = 64
 export const UNLOCKS_MAX = 64
 /** Recent window (shifts) the promotion math averages performance over. */
 export const RECENT_PERFORMANCE_WINDOW = 5
+/** Bounded rich shift-result history the results UI renders. */
+export const SHIFT_RESULTS_MAX = 5
 
 // ---- save slice (§13: additive, fail-safe) --------------------------------
 
@@ -284,6 +316,7 @@ export interface CareerSaveData {
   scheduledShifts?: ScheduledShift[]
   activeShift?: ScheduledShift | null
   performanceHistory?: PerformanceRecord[]
+  recentResults?: ShiftResultRecord[]
   unlocks?: string[]
   appliedEventIds?: string[]
   paidAttemptKeys?: string[]

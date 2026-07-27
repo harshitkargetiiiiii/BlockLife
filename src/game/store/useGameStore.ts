@@ -19,7 +19,7 @@ import { requestWeather, resetWeatherRuntime, weatherRuntime } from '../weather/
 import { isWeatherKind, type WeatherKind } from '../weather/weatherTypes'
 import { getCrimeGameTime, resetCrimeSystems } from '../crime/crimeSystem'
 import { emitCrime as emitCrimeEvent } from '../crime/crimeRuntime'
-import { getWantedLevel } from '../crime/wantedRuntime'
+import { consumePendingEscapes, getWantedLevel } from '../crime/wantedRuntime'
 import {
   getPlayerCarSourceId,
   getStealable,
@@ -78,10 +78,12 @@ import {
   failActiveShift as failCareerShiftRt,
   cancelActiveShift as cancelCareerShiftRt,
   activeShiftReadyToFinalize as careerShiftReadyRt,
-  completeShiftOptional as completeCareerBonusRt,
+  hasUnlock as hasCareerUnlock,
+  reconcileEmploymentAfterLoad as reconcileCareerEmploymentRt,
 } from '../careers/careerRuntime'
-import { getCareer } from '../careers/careerRegistry'
+import { cargoEquipmentUnlockId, getCareer } from '../careers/careerRegistry'
 import { notifyHired as careerNotifyHired, notifyPromoted as careerNotifyPromoted, notifyShiftOutcome as careerNotifyShiftOutcome, reconcileEarnedRecommendations as careerReconcileRecs } from '../careers/careerSocial'
+import { notePlayerEscaped as careerNoteEscaped, notePlayerTrained as careerNoteTrained, noteSocialActivityCompleted as careerNoteSocialActivity } from '../careers/careerLifeEvents'
 import { evaluateShiftStart, type ShiftConflictContext } from '../careers/careerScheduling'
 import { currentStep } from '../careers/careerShifts'
 import type { CareerId } from '../careers/careerTypes'
@@ -301,7 +303,6 @@ export interface GameStore extends GameDataState {
   advanceCareerShift: () => void
   cancelCareerShift: () => void
   finalizeCareerShift: () => void
-  completeCareerShiftBonus: () => void
   enterVehicle: () => void
   exitVehicle: () => void
   /** Set player health directly (clamped); toggles incapacitation. */
@@ -689,6 +690,7 @@ export const useGameStore = create<GameStore>()((set, get) => ({
         careerNotifyShiftOutcome(missed.careerId, 'missed', 0, missed.id, s.stats.day, s.stats.hour)
       }
       careerReconcileRecs(s.stats.day, s.stats.hour) // warm employers put in a good word (§10)
+      for (const seq of consumePendingEscapes()) careerNoteEscaped(seq, s.stats.day, s.stats.hour) // shaking the police builds Street Smarts (§2/F7)
       set((st) => ({ socialVersion: st.socialVersion + 1, careerVersion: st.careerVersion + 1 }))
     }
     set({
@@ -714,12 +716,16 @@ export const useGameStore = create<GameStore>()((set, get) => ({
 
   performActivityAction: (actionId) => {
     const s = get()
-    // Loyalty discount at Maya's food truck (buy_coffee/buy_meal are hers alone):
-    // a friendly Maya charges you less (§ economy consequence).
+    // Loyalty discount at Maya's food truck (buy_coffee/buy_meal are hers alone): a
+    // friendly Maya charges you less, and the earned Café staff discount stacks on top
+    // (§8 unlock). Gym Trainer's "train off the clock" unlock waives the energy gate.
+    const cafeDiscount = hasCareerUnlock('cafe_staff_discount') ? 0.1 : 0
+    const discountPct = Math.min(0.6, vendorDiscountPct('npc_maya_01') + cafeDiscount)
     const outcome = performAction(
       { stats: s.stats, inventory: s.inventory, questStates: s.questStates },
       actionId,
-      vendorDiscountPct('npc_maya_01'),
+      discountPct,
+      { gymFreeAccess: hasCareerUnlock('gym_free_access') },
     )
     // One capacity authority: if an action would grow the backpack past its slot
     // budget (e.g. buying coffee with a full bag), refuse rather than overflow.
@@ -733,6 +739,11 @@ export const useGameStore = create<GameStore>()((set, get) => ({
       inventory: outcome.state.inventory,
       questStates: outcome.state.questStates,
     })
+    // A gym workout builds Fitness through the ONE career XP funnel (capped, §2/F7).
+    if (outcome.ok && actionId === 'train') {
+      careerNoteTrained(outcome.state.stats.day, outcome.state.stats.hour)
+      set((st) => ({ careerVersion: st.careerVersion + 1 }))
+    }
     get().showToast(outcome.message)
     // Sleeping advances the day — reconcile any accepted plan whose window lapsed
     // overnight into a no-show (PR#14 blocker 3), then close the panel.
@@ -741,6 +752,7 @@ export const useGameStore = create<GameStore>()((set, get) => ({
       for (const missed of reconcileMissedShiftsRt(outcome.state.stats.day, outcome.state.stats.hour)) {
         careerNotifyShiftOutcome(missed.careerId, 'missed', 0, missed.id, outcome.state.stats.day, outcome.state.stats.hour)
       }
+      for (const seq of consumePendingEscapes()) careerNoteEscaped(seq, outcome.state.stats.day, outcome.state.stats.hour)
       set((st) => ({ socialVersion: st.socialVersion + 1, careerVersion: st.careerVersion + 1 }))
       get().closePanel()
     }
@@ -916,6 +928,10 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     set((st) => ({ socialVersion: st.socialVersion + 1 }))
     const actor = getSocialActor(act.actorId)
     if (result === null) {
+      // A completed social activity/favor builds the Social skill through the ONE
+      // career XP funnel (capped, exact-once on the activity id — §2/F7).
+      careerNoteSocialActivity(act.id, s.stats.day, s.stats.hour)
+      set((st) => ({ careerVersion: st.careerVersion + 1 }))
       get().showToast(
         act.template === 'favor'
           ? `Favor done for ${actor?.displayName ?? 'them'} — they won’t forget it.`
@@ -1008,17 +1024,34 @@ export const useGameStore = create<GameStore>()((set, get) => ({
       get().showToast(`Head to your next stop: ${step.description}`)
       return
     }
-    let mistake = false
-    // Cargo flows through the real inventory authority: load at the depot, return it.
+    // Earned equipment (thermal bag / toolbelt, §8) lets cargo ride SEPARATELY from the
+    // backpack — so a full bag no longer blocks the collect step.
+    const cargoEquipId = cargoEquipmentUnlockId(shift.careerId)
+    const hasCargoEquip = cargoEquipId !== undefined && hasCareerUnlock(cargoEquipId)
+    // Collect: load REAL cargo through the inventory authority. A full bag BLOCKS the
+    // step (make room) unless the cargo-equipment unlock carries it — never a free
+    // advance with a phantom "mistake" (F8).
     if (step.kind === 'collect' && step.itemId) {
-      if (occupiedSlots(s.inventory) < BACKPACK_CAPACITY) get().giveItem(step.itemId, step.quantity ?? 1)
-      else mistake = true // no room for the cargo
+      if (occupiedSlots(s.inventory) < BACKPACK_CAPACITY) {
+        get().giveItem(step.itemId, step.quantity ?? 1)
+      } else if (!hasCargoEquip) {
+        get().showToast('Make room in your bag for the cargo first.')
+        return
+      }
     }
+    // Cargo-dependent steps (deliver / job site) VALIDATE the player is still holding
+    // the collected cargo (or carrying it via equipment) — an empty-handed stop is
+    // blocked, so the "deliver real cargo" objective can't be cheesed (F8).
+    if (step.requiresCargoItemId && !hasItem(s.inventory, step.requiresCargoItemId, 1) && !hasCargoEquip) {
+      get().showToast('Pick up the cargo from the depot before this stop.')
+      return
+    }
+    // Wrap: hand the cargo back / consume it (when carried in the backpack).
     if (step.kind === 'wrap') {
       const removal = removeStack(s.inventory, 'restock_crate', 1)
       if (removal.ok) set({ inventory: removal.stacks })
     }
-    advanceCareerShiftRt(mistake)
+    advanceCareerShiftRt(false)
     audioManager.playClick()
     set((st) => ({ careerVersion: st.careerVersion + 1 }))
     if (careerShiftReadyRt()) get().finalizeCareerShift()
@@ -1026,11 +1059,18 @@ export const useGameStore = create<GameStore>()((set, get) => ({
   },
 
   cancelCareerShift: () => {
+    const s = get()
     if (!getActiveCareerShift()) return
-    cancelCareerShiftRt()
+    cancelCareerShiftRt(s.stats.day, s.stats.hour)
+    // Cargo cleanup on a terminal path: drop any shift crate the player was carrying
+    // so a cancelled run can't leave stranded cargo behind (F3).
+    if ((s.inventory['restock_crate'] ?? 0) > 0) {
+      const removal = removeStack(s.inventory, 'restock_crate', s.inventory['restock_crate'] ?? 0)
+      if (removal.ok) set({ inventory: removal.stacks })
+    }
     audioManager.playClick()
     set((st) => ({ careerVersion: st.careerVersion + 1 }))
-    get().showToast('You walked off the shift.')
+    get().showToast('You walked off the shift. Next shift is on the schedule.')
   },
 
   finalizeCareerShift: () => {
@@ -1051,14 +1091,6 @@ export const useGameStore = create<GameStore>()((set, get) => ({
       const unlock = out.unlocks?.[0]
       get().showToast(`Promoted to ${out.promotedTo.displayName}!${unlock ? ` Unlocked: ${unlock.label}` : ''}`)
     }
-  },
-
-  completeCareerShiftBonus: () => {
-    if (!getActiveCareerShift()) return
-    completeCareerBonusRt()
-    audioManager.playClick()
-    set((st) => ({ careerVersion: st.careerVersion + 1 }))
-    get().showToast('Bonus objective done.')
   },
 
   enterApartment: () => get().enterInterior('apartment'),
@@ -1155,9 +1187,14 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     // through a typed outcome (reduced pay, standing ding) — no permanent criminal
     // record (§11). Resolve before the crime/combat reset clears the incident.
     if (getActiveCareerShift()) {
-      const out = failCareerShiftRt(kind === 'arrest' ? 'arrested' : 'incapacitated', s.stats.day)
-      if (out && out.pay.total > 0) set((st) => ({ stats: { ...st.stats, money: st.stats.money + out.pay.total } }))
-      set((st) => ({ careerVersion: st.careerVersion + 1 }))
+      const out = failCareerShiftRt(kind === 'arrest' ? 'arrested' : 'incapacitated', s.stats.day, s.stats.hour)
+      if (out) {
+        if (out.pay.total > 0) set((st) => ({ stats: { ...st.stats, money: st.stats.money + out.pay.total } }))
+        // Required failed-shift employer follow-up (§11) — a message + memory, no
+        // criminal record. The runtime already scheduled the next shift (F2).
+        careerNotifyShiftOutcome(out.careerId, 'failed', out.performance.score, out.shiftId ?? '', s.stats.day, s.stats.hour)
+        set((st) => ({ careerVersion: st.careerVersion + 1, socialVersion: st.socialVersion + 1 }))
+      }
     }
     // Robbery: lose unsecured proceeds exactly once, end any active robbery, and
     // (if inside a store) fall back out to the street.
@@ -1604,8 +1641,12 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     // an old save (no `social` field) resets to canonical strangers.
     applySocialSave(snapshot.social)
     // Careers: restore employment/skills/ranks/history/schedule + reload-safe shift
-    // counter (sanitized, idempotent); an active shift never restores mid-flight.
+    // counter (sanitized, idempotent); an active shift never restores mid-flight — the
+    // still-employed player instead gets a fresh next shift (reconcile below) so the
+    // loop resumes without a stranded/duplicate shift (F3).
     applyCareerSave(snapshot.career)
+    const careerShiftDiscarded = snapshot.career?.activeShift != null
+    reconcileCareerEmploymentRt(snapshot.stats.day, snapshot.stats.hour)
     // Commerce: restore persistent store stock + restock clocks + receipts;
     // old saves (no field) get deterministic full stock.
     applyCommerceSave(snapshot.commerce)
@@ -1613,12 +1654,20 @@ export const useGameStore = create<GameStore>()((set, get) => ({
       typeof snapshot.playerHealth === 'number' && Number.isFinite(snapshot.playerHealth)
         ? Math.max(0, Math.min(PLAYER_MAX_HEALTH, snapshot.playerHealth))
         : PLAYER_MAX_HEALTH
+    // A shift discarded on load must not leave its cargo behind (F3): drop any crate
+    // the mid-shift save was carrying so the fresh next shift starts clean.
+    const loadedInventory = sanitizeStacks(snapshot.inventory, BACKPACK_CAPACITY)
+    if (careerShiftDiscarded && (loadedInventory['restock_crate'] ?? 0) > 0) {
+      const cleaned = removeStack(loadedInventory, 'restock_crate', loadedInventory['restock_crate'] ?? 0)
+      if (cleaned.ok) delete loadedInventory['restock_crate']
+    }
     set({
       socialVersion: get().socialVersion + 1, // refresh social-reading UI after load
+      careerVersion: get().careerVersion + 1, // refresh career-reading UI after load
       stats: { ...snapshot.stats },
       // Migrate the legacy inventory Record → sanitised backpack stacks (drops
       // unknown ids, floors quantities, trims to capacity; coffee is preserved).
-      inventory: sanitizeStacks(snapshot.inventory, BACKPACK_CAPACITY),
+      inventory: loadedInventory,
       storage: sanitizeStacks(snapshot.storage, STORAGE_CAPACITY),
       wardrobeUnlocks: Array.isArray(snapshot.wardrobe?.unlocked)
         ? snapshot.wardrobe.unlocked.filter((p) => LOCKED_PALETTE_IDS.includes(p))

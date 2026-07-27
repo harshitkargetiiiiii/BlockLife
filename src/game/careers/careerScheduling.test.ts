@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildScheduledShift, evaluateShiftStart, isShiftMissed, shiftsConflict, shiftTimeWindow } from './careerScheduling'
+import { buildScheduledShift, evaluateShiftStart, findShiftConflict, isShiftMissed, shiftsConflict, shiftTimeWindow } from './careerScheduling'
 import { getCareer } from './careerRegistry'
 import type { ScheduledShift } from './careerTypes'
 import type { ShiftConflictContext as SCC } from './careerScheduling'
@@ -66,5 +66,21 @@ describe('buildScheduledShift + missed detection', () => {
   it('detects a conflict with an accepted plan overlapping the shift', () => {
     expect(shiftsConflict(baseShift(), 5, 10)).toBe(true) // during the shift
     expect(shiftsConflict(baseShift(), 5, 20)).toBe(false) // long after
+  })
+})
+
+describe('findShiftConflict — social schedule clash surfaced, never silent (§4, F4)', () => {
+  it('returns the first accepted plan overlapping the shift window', () => {
+    const plans = [
+      { day: 5, hour: 20, label: 'Late plan' }, // after the shift → no clash
+      { day: 5, hour: 10, label: 'Coffee with Ravi' }, // during the shift → clash
+    ]
+    const hit = findShiftConflict(baseShift(), plans)
+    expect(hit).not.toBeNull()
+    expect(hit!.label).toBe('Coffee with Ravi')
+  })
+  it('returns null when no accepted plan overlaps', () => {
+    expect(findShiftConflict(baseShift(), [{ day: 6, hour: 9, label: 'Tomorrow' }])).toBeNull()
+    expect(findShiftConflict(baseShift(), [])).toBeNull()
   })
 })

@@ -43,19 +43,23 @@ export function buyCoffee(stats: PlayerStats, discountPct = 0): EconomyResult {
   }
 }
 
-export function train(stats: PlayerStats): EconomyResult {
-  if (stats.energy < TRAIN_ENERGY_COST) return { ok: false, error: 'Too tired to train.' }
+/** Train at the gym. With `freeAccess` (the Gym Trainer's earned "train off the clock"
+ *  unlock, §8) the energy gate is waived and the drain is halved — a real, deterministic
+ *  benefit the player keeps after being promoted. */
+export function train(stats: PlayerStats, freeAccess = false): EconomyResult {
+  if (!freeAccess && stats.energy < TRAIN_ENERGY_COST) return { ok: false, error: 'Too tired to train.' }
   const clock = advanceClock(stats.day, stats.hour, 1)
+  const energyCost = freeAccess ? Math.round(TRAIN_ENERGY_COST / 2) : TRAIN_ENERGY_COST
   return {
     ok: true,
     stats: {
       ...stats,
-      energy: clampStat(stats.energy - TRAIN_ENERGY_COST),
+      energy: clampStat(stats.energy - energyCost),
       strength: stats.strength + 1,
       day: clock.day,
       hour: clock.hour,
     },
-    message: 'Trained hard. Strength +1!',
+    message: freeAccess ? 'Trained on the house — Strength +1!' : 'Trained hard. Strength +1!',
   }
 }
 

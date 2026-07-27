@@ -90,4 +90,45 @@ describe('career persistence — additive, fail-safe, round-trip (§13)', () => 
     expect(sanitizeCareerSave(null)).toEqual(defaultCareerState())
     expect(sanitizeCareerSave('nope')).toEqual(defaultCareerState())
   })
+
+  // ---- PR #16 review repairs (F3/F5) --------------------------------------
+
+  it('drops a shift with an unknown or career-mismatched templateId (F3)', () => {
+    const clean = sanitizeCareerSave({
+      version: 1,
+      scheduledShifts: [
+        shift({ id: 'good:1', attemptKey: 'a1' }), // valid delivery_route on delivery_driver
+        shift({ id: 'bad:2', attemptKey: 'a2', templateId: 'not_a_template' as never }), // unknown template
+        shift({ id: 'bad:3', attemptKey: 'a3', templateId: 'cafe_service' }), // mismatched: café template on a delivery career
+      ],
+    })
+    expect(clean.scheduledShifts.map((s) => s.id)).toEqual(['good:1'])
+  })
+
+  it('drops a stranded active-status shift twin on load (F3)', () => {
+    const clean = sanitizeCareerSave({
+      version: 1,
+      activeJob: 'delivery_driver',
+      scheduledShifts: [shift({ id: 'twin:5', status: 'active', attemptKey: 'a5' })],
+    })
+    // The 'active' twin is not carried into the attendable queue.
+    expect(clean.scheduledShifts).toHaveLength(0)
+    expect(clean.activeShift).toBeNull()
+  })
+
+  it('round-trips the rich recent-results history (F5)', () => {
+    careerRuntime.state = {
+      ...careerRuntime.state,
+      recentResults: [
+        { careerId: 'delivery_driver', shiftId: 's1', reason: 'completed', score: 88, breakdown: { attendance: 100, requiredObjectives: 100, optionalObjectives: 100, mistakes: 100, timeEfficiency: 100 }, notes: ['On time'], onTime: true, base: 40, rankModifier: 1.3, performanceModifier: 1.16, pay: 60, day: 3 },
+      ],
+    }
+    const saved = serializeCareers()
+    resetCareers()
+    applyCareerSave(saved)
+    expect(careerRuntime.state.recentResults).toHaveLength(1)
+    expect(careerRuntime.state.recentResults[0].pay).toBe(60)
+    expect(careerRuntime.state.recentResults[0].rankModifier).toBe(1.3)
+    expect(careerRuntime.state.recentResults[0].breakdown.attendance).toBe(100)
+  })
 })

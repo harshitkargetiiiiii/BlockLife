@@ -9,7 +9,9 @@
 import { allCareers, getCareer } from './careerRegistry'
 import { grantRecommendation, hasRecommendation } from './careerRuntime'
 import type { CareerId } from './careerTypes'
-import { getDerivedRelationship, ingestSocialEvent, postContactMessage } from '../social/socialRuntime'
+import type { CommitmentSlot } from './careerScheduling'
+import { getConfirmedPlans, getDerivedRelationship, ingestSocialEvent, postContactMessage } from '../social/socialRuntime'
+import { getSocialActor } from '../social/socialActors'
 import { tierAtLeast } from '../social/socialScheduling'
 import type { SocialActorId } from '../social/socialTypes'
 
@@ -41,7 +43,25 @@ export function notifyShiftOutcome(careerId: CareerId, outcome: 'completed' | 'f
   } else if (outcome === 'missed') {
     postContactMessage(actor, 'job_missed_shift', `career:missed:${shiftId}`, gameDay, gameHour)
     ingestSocialEvent({ id: `career:missed_mem:${shiftId}`, kind: 'no_show', actorId: actor, gameDay, gameHour })
+  } else if (outcome === 'failed') {
+    // An arrest / incapacitation mid-shift: the employer follows up (required by §11).
+    // A message + a mild no-show memory — no permanent criminal record is created.
+    postContactMessage(actor, 'job_failed_shift', `career:failed:${shiftId}`, gameDay, gameHour)
+    ingestSocialEvent({ id: `career:failed_mem:${shiftId}`, kind: 'no_show', actorId: actor, gameDay, gameHour })
   }
+}
+
+/**
+ * A typed READ-ONLY adapter over the social authority's accepted plans (§4): the
+ * confirmed social commitments the career scheduler checks a shift against. Careers
+ * never own plans — this just reads them, mapping each to a {@link CommitmentSlot}.
+ */
+export function getCareerCommitmentSlots(): CommitmentSlot[] {
+  return getConfirmedPlans().map((p) => ({
+    day: p.proposedDay,
+    hour: p.proposedHour,
+    label: getSocialActor(p.actorId)?.displayName ?? 'a plan',
+  }))
 }
 
 /**

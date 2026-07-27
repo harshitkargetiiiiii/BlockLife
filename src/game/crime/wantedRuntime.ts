@@ -127,9 +127,30 @@ export function tickWanted(gameTime: number, dt: number, hasActiveLOS: boolean):
     wantedRuntime.heat = Math.max(0, wantedRuntime.heat - DECAY_PER_SECOND * dt)
     if (wantedRuntime.status === 'reported') wantedRuntime.status = 'cooling'
     // Clear once heat drains to zero, or drops below the level-1 threshold
-    // (a forced police-attack level holds until heat itself reaches zero).
-    if (wantedRuntime.heat <= 0 || getWantedLevel() === 0) clearWanted()
+    // (a forced police-attack level holds until heat itself reaches zero). This is
+    // the ONLY clear path that counts as the player EVADING the police (§ careers F7).
+    if (wantedRuntime.heat <= 0 || getWantedLevel() === 0) clearWantedByEvasion()
   }
+}
+
+/** Monotonic id source + queue for police-evasion events the career skill system
+ *  consumes lazily (never per frame). Module-scoped so a crime/incident reset (which
+ *  clears the wanted state object) can't reset the id counter and risk a duplicate. */
+let escapeSeq = 0
+const pendingEscapeSeqs: number[] = []
+
+/** Clear wanted specifically because the player SHOOK the police (heat decayed out) —
+ *  records one evasion event for the lazy career reconcile, then clears as normal. */
+function clearWantedByEvasion(): void {
+  escapeSeq += 1
+  pendingEscapeSeqs.push(escapeSeq)
+  clearWanted()
+}
+
+/** Drain the queued police-evasion event ids (exact-once keys) since the last call.
+ *  Called lazily by the store (phone/job-board open, sleep) — never per frame. */
+export function consumePendingEscapes(): number[] {
+  return pendingEscapeSeqs.splice(0, pendingEscapeSeqs.length)
 }
 
 export function clearWanted(): void {
@@ -173,4 +194,7 @@ export function getWantedSnapshot(): WantedSnapshot {
 
 export function resetWantedRuntime(): void {
   clearWanted()
+  // Drop any unconsumed evasion events (escapeSeq stays monotonic across the session
+  // so a fresh event id can never collide with one already applied to career state).
+  pendingEscapeSeqs.length = 0
 }

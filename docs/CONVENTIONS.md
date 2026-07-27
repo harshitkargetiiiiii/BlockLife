@@ -413,6 +413,35 @@ it there while the player stands still (used for the café production-DOM proof,
 steps all sit at one workplace). Don't mix `setActiveInteractable` with cross-frame
 clicks.
 
+### 27. An in-flight work item needs ONE home, and every terminal outcome must reschedule
+Two lifecycle bugs the PR #16 review caught in careers, both worth generalizing:
+
+- **One home for an active item.** `beginShift` originally left the started shift in
+  `scheduledShifts` (status `active`) AND copied it to `activeShift`. On save both
+  persisted; on load `activeShift` was dropped (an active run can't safely resume) but
+  the scheduled twin survived as a phantom `active`-status record the next-shift
+  selector ignored forever. **Fix:** when an item goes in-flight, MOVE it (remove from
+  the queue), don't copy — so there is exactly one home and a save can't strand a twin.
+  On load, drop any non-attendable status defensively and schedule a fresh one.
+- **Every terminal outcome reschedules.** Only *successful completion* scheduled the
+  next shift; miss / fail (arrest) / cancel left the player employed with "No shift
+  scheduled" forever. A recurring loop must funnel EVERY terminal outcome
+  (complete/missed/failed/cancelled) through one `ensureNext` that schedules the next
+  eligible item exactly once (no-op if one is already pending) — and fire the matching
+  side effect (e.g. the failed-shift employer follow-up) on the same path.
+
+Both are "the happy path works, the exits dead-end" bugs a green gate hides — cover
+each terminal branch explicitly (unit + a real page-reload E2E), not just the success.
+
+### 28. A player-facing unlock must change gameplay, not just render a label
+A promotion that only appends an id to an `unlocks[]` array and renders its text is
+theater. Each shipped unlock must alter real production behavior through the owning
+authority — the thermal bag/toolbelt change the shift's cargo gate, the café discount
+flows through the vendor-discount price path, gym access waives the `train` energy gate
+— and each needs a test that observes the behavior change (not the label). Likewise an
+"optional objective" must be DERIVED from real outcomes (a flawless, on-time run), never
+a free always-enabled button that can be claimed from anywhere.
+
 ---
 
 ## The verification workflow (honest gates)

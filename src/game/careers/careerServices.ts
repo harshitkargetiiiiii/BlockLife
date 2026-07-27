@@ -68,14 +68,18 @@ export function applyForCareer(state: CareerState, career: CareerDefinition, ctx
   const seq = state.shiftSeq + 1
   const shift = buildScheduledShift(career, heldRank, seq, gameDay, gameHour)
 
-  // Replace the primary job; keep every career's history + highest rank.
+  // Replace the primary job; keep every career's history + highest rank. Switching
+  // jobs is ATOMIC: every previously-attendable (scheduled/available) shift — of ANY
+  // career, including the one just left — is dropped, so a stale shift from the old
+  // job can never surface as the new job's "next shift" or be started (§4, F1). Only
+  // this new career's single fresh shift remains attendable.
   const next: CareerState = {
     ...state,
     activeJob: career.id,
     ranks: { ...state.ranks, [career.id]: heldRank },
     history: { ...state.history, [career.id]: history },
     employerStanding: { ...state.employerStanding, [career.employerId]: state.employerStanding[career.employerId] ?? EMPLOYER_STANDING_DEFAULT },
-    scheduledShifts: [...state.scheduledShifts.filter((s) => s.careerId !== career.id || s.status !== 'scheduled'), shift].slice(-SCHEDULED_SHIFTS_MAX),
+    scheduledShifts: [...state.scheduledShifts.filter((s) => s.status !== 'scheduled' && s.status !== 'available'), shift].slice(-SCHEDULED_SHIFTS_MAX),
     shiftSeq: seq,
   }
   return { state: next, result, shift, rank: heldRank }
@@ -137,11 +141,28 @@ export function reconcileMissedShifts(state: CareerState, gameDay: number, gameH
   return { state: next, missed }
 }
 
-/** The soonest still-attendable shift for the active job (for the phone "next shift"). */
+/** The soonest still-attendable shift FOR THE ACTIVE JOB (the phone "next shift").
+ *  Shifts of any other (previously-held) career are never selected — only the current
+ *  primary job can be worked, so its shifts are the only startable ones (§4, F1). */
 export function nextScheduledShift(state: CareerState): ScheduledShift | undefined {
   return state.scheduledShifts
-    .filter((s) => s.status === 'scheduled' || s.status === 'available')
+    .filter((s) => (s.status === 'scheduled' || s.status === 'available') && s.careerId === state.activeJob)
     .sort((a, b) => a.scheduledDay * 24 + a.startHour - (b.scheduledDay * 24 + b.startHour))[0]
+}
+
+/**
+ * Guarantee the active job always has a next shift to attend (F2). After ANY terminal
+ * outcome (completed / failed / cancelled / missed), if the still-employed player has
+ * no attendable shift for their primary job, schedule exactly one — so the career loop
+ * never dead-ends at a permanent "No shift scheduled". A no-op when a shift is already
+ * pending, when not the active job, or while a shift is active.
+ */
+export function ensureNextScheduled(state: CareerState, career: CareerDefinition, gameDay: number, gameHour: number): { state: CareerState; shift?: ScheduledShift } {
+  if (state.activeJob !== career.id) return { state }
+  if (state.activeShift) return { state }
+  const pending = state.scheduledShifts.some((s) => (s.status === 'scheduled' || s.status === 'available') && s.careerId === career.id)
+  if (pending) return { state }
+  return scheduleNextShift(state, career, gameDay, gameHour)
 }
 
 /** Update the highest-rank record when a promotion lands (never lowers it). */
