@@ -85,9 +85,12 @@ export function applyForCareer(state: CareerState, career: CareerDefinition, ctx
   return { state: next, result, shift, rank: heldRank }
 }
 
-/** Leave the current primary job (history + ranks preserved; upcoming shifts dropped). */
+/** Leave the current primary job (history + ranks preserved; upcoming shifts dropped).
+ *  Refused while a shift is in progress — resolve the active shift first so leaving can
+ *  never strand a running shift with no employer (§4, F1). The store surfaces the reason. */
 export function quitActiveJob(state: CareerState): CareerState {
   if (!state.activeJob) return state
+  if (state.activeShift) return state // can't quit mid-shift
   const quitting = state.activeJob
   return {
     ...state,

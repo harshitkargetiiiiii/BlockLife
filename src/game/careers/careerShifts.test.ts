@@ -13,13 +13,14 @@ import {
   getActiveShift,
   getNextShift,
   getSkillXp,
+  quitJob,
   resetCareers,
   startShift,
 } from './careerRuntime'
 import type { EligibilityContext } from './careerApplications'
 
 const delivery = getCareer('delivery_driver')!
-const ctx = (): EligibilityContext => ({ skills: careerRuntime.state.skills, reputation: 0, wanted: 0, activeJob: careerRuntime.state.activeJob, hasRecommendation: () => false })
+const ctx = (): EligibilityContext => ({ skills: careerRuntime.state.skills, reputation: 0, wanted: 0, activeJob: careerRuntime.state.activeJob, hasActiveShift: careerRuntime.state.activeShift !== null, hasRecommendation: () => false })
 
 describe('shift templates + scoring (§5/§6)', () => {
   it('instantiates the four templates with a report step + one optional', () => {
@@ -131,6 +132,22 @@ describe('shift lifecycle — begin → step → finalize, exact-once (§4/§7)'
     cancelActiveShift()
     expect(getActiveShift()).toBeNull()
     expect(careerRuntime.state.employerStanding.courier_dispatch).toBeLessThan(standingBefore!)
+  })
+
+  it('a shift cannot start while unemployed — ownership requires an exact active job (§4, R3)', () => {
+    applyToCareer('delivery_driver', ctx(), 2, 8)
+    const shiftId = careerRuntime.state.scheduledShifts[0].id
+    // Force-unemploy while the scheduled shift lingers: startShift must refuse it.
+    careerRuntime.state = { ...careerRuntime.state, activeJob: null }
+    expect(startShift(shiftId, true, 9)).toBe(false)
+    expect(getActiveShift()).toBeNull()
+  })
+
+  it('cannot leave the job mid-shift (quit is refused while a shift is active) (§4, R3)', () => {
+    hireAndStart()
+    quitJob()
+    expect(careerRuntime.state.activeJob).toBe('delivery_driver') // still employed
+    expect(getActiveShift()).not.toBeNull() // the shift keeps running
   })
 
   it('starting a shift removes it from the scheduled queue (no active-status twin, F3)', () => {

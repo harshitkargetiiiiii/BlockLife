@@ -25,6 +25,8 @@ export interface EligibilityContext {
   wanted: number
   /** The player's current primary job (only one at a time). */
   activeJob: CareerId | null
+  /** Whether a shift is in progress — you can't change jobs mid-shift (§4). */
+  hasActiveShift: boolean
   /** Whether an employer has recommended the player (career-state flag, §10). */
   hasRecommendation: (employerId: EmployerId) => boolean
 }
@@ -43,6 +45,9 @@ export interface EligibilityResult {
  */
 export function checkEligibility(career: CareerDefinition, ctx: EligibilityContext): EligibilityResult {
   if (ctx.activeJob === career.id) return { ok: false, reason: `You already work at ${career.employerDisplayName}.` }
+  // You can't take a new job while a shift is in progress — finish or quit it first,
+  // so switching employers can never leave an orphaned active shift running (§4, F1).
+  if (ctx.hasActiveShift) return { ok: false, reason: 'Finish your active shift before switching jobs.' }
   if (ctx.wanted > career.maxWantedToApply) return { ok: false, reason: 'Clear your wanted level before applying.' }
 
   const recommended = career.entry.recommendationRelaxesFrom !== undefined && ctx.hasRecommendation(career.entry.recommendationRelaxesFrom)

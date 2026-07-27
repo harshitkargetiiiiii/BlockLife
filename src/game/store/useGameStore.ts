@@ -857,6 +857,12 @@ export const useGameStore = create<GameStore>()((set, get) => ({
       get().showToast('Wrap up your current plans first.')
       return
     }
+    // Symmetric to the career start gate (§4, R3): you can't start a hangout while
+    // you're on the clock — two active trackers + conflicting cargo state otherwise.
+    if (getActiveCareerShift()) {
+      get().showToast('You’re on a shift — clock off before making plans.')
+      return
+    }
     const inv = getInvitations().find((i) => i.id === invitationId && i.status === 'accepted')
     if (!inv) {
       get().showToast('No confirmed plans to start.')
@@ -884,6 +890,11 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     if (!actor) return
     if (getActiveActivity()) {
       get().showToast('Wrap up your current plans first.')
+      return
+    }
+    // Can't run a favor while on a career shift (§4, R3).
+    if (getActiveCareerShift()) {
+      get().showToast('You’re on a shift — clock off first.')
       return
     }
     const tier = getDerivedRelationship(npcId).tier
@@ -960,6 +971,7 @@ export const useGameStore = create<GameStore>()((set, get) => ({
       reputation: s.stats.reputation,
       wanted: getWantedLevel(),
       activeJob: getActiveCareerJob(),
+      hasActiveShift: getActiveCareerShift() !== null,
       hasRecommendation: (id) => hasCareerRecommendation(id),
     }
     const out = applyToCareerRt(careerId, ctx, s.stats.day, s.stats.hour)
@@ -975,6 +987,12 @@ export const useGameStore = create<GameStore>()((set, get) => ({
 
   quitCareerJob: () => {
     if (!getActiveCareerJob()) return
+    // Can't leave a job mid-shift — resolve the shift first, so quitting never strands
+    // a running shift with no employer (§4, F1). The runtime refuses too (defense in depth).
+    if (getActiveCareerShift()) {
+      get().showToast('Finish or quit your active shift before leaving the job.')
+      return
+    }
     quitCareerJobRt()
     audioManager.playClick()
     set((st) => ({ careerVersion: st.careerVersion + 1 }))
@@ -1186,10 +1204,14 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     // Career consequence: an arrest/incapacitation DURING an active shift FAILS it
     // through a typed outcome (reduced pay, standing ding) — no permanent criminal
     // record (§11). Resolve before the crime/combat reset clears the incident.
+    let shiftPay = 0
     if (getActiveCareerShift()) {
       const out = failCareerShiftRt(kind === 'arrest' ? 'arrested' : 'incapacitated', s.stats.day, s.stats.hour)
       if (out) {
-        if (out.pay.total > 0) set((st) => ({ stats: { ...st.stats, money: st.stats.money + out.pay.total } }))
+        // Credit the reduced failed-shift pay ATOMICALLY with the incident penalty
+        // below (a separate money set here would be clobbered by the final stats
+        // write — capture-spread-clobber, CONVENTIONS #24).
+        shiftPay = out.pay.total
         // Required failed-shift employer follow-up (§11) — a message + memory, no
         // criminal record. The runtime already scheduled the next shift (F2).
         careerNotifyShiftOutcome(out.careerId, 'failed', out.performance.score, out.shiftId ?? '', s.stats.day, s.stats.hour)
@@ -1206,21 +1228,28 @@ export const useGameStore = create<GameStore>()((set, get) => ({
       const t = registry.playerBody?.translation()
       if (t) noteArrestWitnessed([t.x, t.y, t.z], s.stats.day, s.stats.hour)
     }
-    const penalty = Math.min(s.stats.money, kind === 'arrest' ? 150 : 100)
     if (s.mode === 'driving') get().exitVehicle()
     // Wanted, police, incidents, stolen-vehicle state, weapon, panic all clear.
     resetCrimeSystems()
     resetCombatSystems()
+    // Settle failed-shift pay + the incident penalty in ONE money calculation off the
+    // CURRENT store (never the stale opening snapshot): the partial wage is credited
+    // first, THEN the penalty is capped at the resulting balance — so the failed-shift
+    // pay is never discarded and the player can't be docked below zero. Documented
+    // ordering: pay in → penalty (bounded by the post-pay balance) out.
+    const cur = get()
+    const moneyWithPay = cur.stats.money + shiftPay
+    const penalty = Math.min(moneyWithPay, kind === 'arrest' ? 150 : 100)
     const message =
       kind === 'arrest'
         ? `Busted! Lost $${Math.round(penalty)}.`
         : `Hospitalized! Lost $${Math.round(penalty)}.`
-    // Mission cargo (Shelf Run crate) is dropped on a failed run; the rest of the
+    // Mission/shift cargo (restock crate) is dropped on a failed run; the rest of the
     // bag is preserved.
-    const crate = s.inventory['restock_crate'] ?? 0
-    const cleanedInv = crate > 0 ? (removeStack(s.inventory, 'restock_crate', crate).stacks ?? s.inventory) : s.inventory
+    const crate = cur.inventory['restock_crate'] ?? 0
+    const cleanedInv = crate > 0 ? (removeStack(cur.inventory, 'restock_crate', crate).stacks ?? cur.inventory) : cur.inventory
     set({
-      stats: { ...s.stats, money: s.stats.money - penalty },
+      stats: { ...cur.stats, money: moneyWithPay - penalty },
       playerHealth: PLAYER_MAX_HEALTH,
       playerIncapacitated: false,
       // Quests + inventory (minus mission cargo) + npc memory are preserved.

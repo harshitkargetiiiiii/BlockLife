@@ -99,6 +99,7 @@ export function PhoneJobs() {
     reputation: stats.reputation,
     wanted: getWantedLevel(),
     activeJob,
+    hasActiveShift: onShift, // can't switch jobs mid-shift (§4, R3)
     hasRecommendation: (id) => state.recommendations.includes(id),
   }
 
@@ -171,9 +172,14 @@ export function PhoneJobs() {
               </div>
             )}
             <div className="panel-actions">
-              <button className="btn btn-small" data-testid="career-quit" onClick={quitCareerJob}>
+              <button className="btn btn-small" data-testid="career-quit" disabled={onShift} onClick={quitCareerJob}>
                 Leave job
               </button>
+              {onShift && (
+                <span className="social-action-reason" data-testid="career-quit-reason">
+                  Finish your active shift first.
+                </span>
+              )}
             </div>
           </div>
         </>

@@ -51,9 +51,10 @@ export function beginShift(state: CareerState, career: CareerDefinition, shiftId
   if (state.activeShift) return { state, ok: false }
   const shift = state.scheduledShifts.find((s) => s.id === shiftId)
   if (!shift || (shift.status !== 'scheduled' && shift.status !== 'available')) return { state, ok: false }
-  // Active-job ownership: only a shift of the current primary job can start (§4) — a
-  // leftover shift from a previously-held career can never be played.
-  if (state.activeJob !== null && state.activeJob !== shift.careerId) return { state, ok: false }
+  // Active-job ownership: only a shift of the CURRENT primary job can start (§4, F1).
+  // Requires an exact match — a leftover shift from a previously-held career, or any
+  // shift while unemployed (activeJob === null), can never be played.
+  if (state.activeJob !== shift.careerId) return { state, ok: false }
   const active: ScheduledShift = {
     ...shift,
     status: 'active',

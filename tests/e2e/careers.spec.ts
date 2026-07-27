@@ -533,4 +533,121 @@ test.describe('careers platform', () => {
     expect(res[0].reason).toBe('completed')
     expect(res[0].pay).toBeGreaterThan(0)
   })
+
+  // ---- PR #16 re-review repairs (R3) --------------------------------------
+
+  test('25. arrest mid-shift settles partial pay + penalty in one exact balance (R3-1)', async ({ page }) => {
+    const r = await page.evaluate(() => {
+      const api = window.GAME_TEST_API!
+      api.ingestCareerEvent({ id: 'drv', kind: 'training_milestone', gameDay: 0, skillAwards: [{ skill: 'driving', amount: 60, reason: 'training_milestone' }] })
+      api.applyToCareer('delivery_driver')
+      // Build money above the arrest penalty cap ($150) with real completed shifts.
+      for (let i = 0; i < 5 && api.getStats().money <= 200; i++) {
+        const shift = api.getCareerNextShift()
+        if (!shift) break
+        api.setGameDay(shift.scheduledDay); api.setTime(shift.startHour)
+        api.setActiveInteractable(shift.workplaceInteractableId)
+        api.startCareerShift(shift.id)
+        for (let g = 0; g < 16; g++) {
+          const s = api.getActiveCareerShift(); if (!s) break
+          const step = s.objectives.find((o) => !o.optional && !o.done); if (!step) break
+          api.setActiveInteractable(step.anchorId ?? s.workplaceInteractableId)
+          api.advanceCareerShift()
+        }
+        api.setActiveInteractable(null)
+      }
+      // Start another shift and do partial work, then get arrested on the clock.
+      const shift = api.getCareerNextShift()!
+      api.setGameDay(shift.scheduledDay); api.setTime(shift.startHour)
+      api.setActiveInteractable(shift.workplaceInteractableId)
+      api.startCareerShift(shift.id)
+      api.advanceCareerShift() // report (partial progress → some failed-shift pay)
+      const moneyBefore = api.getStats().money
+      api.respawnPlayer('arrest')
+      const result = api.getCareerRecentResults().at(-1)!
+      const moneyAfter = api.getStats().money
+      const penalty = Math.min(moneyBefore + result.pay, 150)
+      return { moneyBefore, pay: result.pay, reason: result.reason, moneyAfter, penalty }
+    })
+    expect(r.moneyBefore).toBeGreaterThan(150) // penalty actually caps, so pay is visible
+    expect(r.reason).toBe('arrested')
+    // Exact final balance: partial wage credited, THEN penalty — pay is never discarded.
+    expect(r.moneyAfter).toBe(r.moneyBefore + r.pay - r.penalty)
+  })
+
+  test('26. incapacitation mid-shift also settles the exact balance (R3-1)', async ({ page }) => {
+    const r = await page.evaluate(() => {
+      const api = window.GAME_TEST_API!
+      api.ingestCareerEvent({ id: 'drv', kind: 'training_milestone', gameDay: 0, skillAwards: [{ skill: 'driving', amount: 60, reason: 'training_milestone' }] })
+      api.applyToCareer('delivery_driver')
+      for (let i = 0; i < 5 && api.getStats().money <= 200; i++) {
+        const shift = api.getCareerNextShift()
+        if (!shift) break
+        api.setGameDay(shift.scheduledDay); api.setTime(shift.startHour)
+        api.setActiveInteractable(shift.workplaceInteractableId)
+        api.startCareerShift(shift.id)
+        for (let g = 0; g < 16; g++) {
+          const s = api.getActiveCareerShift(); if (!s) break
+          const step = s.objectives.find((o) => !o.optional && !o.done); if (!step) break
+          api.setActiveInteractable(step.anchorId ?? s.workplaceInteractableId)
+          api.advanceCareerShift()
+        }
+        api.setActiveInteractable(null)
+      }
+      const shift = api.getCareerNextShift()!
+      api.setGameDay(shift.scheduledDay); api.setTime(shift.startHour)
+      api.setActiveInteractable(shift.workplaceInteractableId)
+      api.startCareerShift(shift.id)
+      api.advanceCareerShift()
+      const moneyBefore = api.getStats().money
+      api.respawnPlayer('incapacitation')
+      const result = api.getCareerRecentResults().at(-1)!
+      const moneyAfter = api.getStats().money
+      const penalty = Math.min(moneyBefore + result.pay, 100) // incap penalty is $100
+      return { moneyBefore, pay: result.pay, reason: result.reason, moneyAfter, penalty }
+    })
+    expect(r.moneyBefore).toBeGreaterThan(100)
+    expect(r.reason).toBe('incapacitated')
+    expect(r.moneyAfter).toBe(r.moneyBefore + r.pay - r.penalty)
+  })
+
+  test('27. a job cannot be replaced or left while a shift is active (R3-2)', async ({ page }) => {
+    await page.evaluate(() => {
+      const api = window.GAME_TEST_API!
+      api.ingestCareerEvent({ id: 'soc', kind: 'training_milestone', gameDay: 0, skillAwards: [{ skill: 'social', amount: 60, reason: 'training_milestone' }] })
+    })
+    await startShiftViaApi(page, 'delivery_driver')
+    await openJobs(page)
+    // Production UI: the other career shows a refusal reason (not an Apply button) and
+    // Leave job is disabled while on shift.
+    await expect(page.getByTestId('career-reason-cafe_retail')).toContainText('active shift')
+    await expect(page.getByTestId('career-quit')).toBeDisabled() // Leave job blocked in the UI
+    await expect(page.getByTestId('career-quit-reason')).toBeVisible()
+    const r = await page.evaluate(() => {
+      const api = window.GAME_TEST_API!
+      api.applyToCareer('cafe_retail') // attempt a mid-shift switch (store revalidates)
+      const snap = api.getCareerSnapshot()
+      return { job: snap.activeJob, shift: snap.activeShiftStatus }
+    })
+    expect(r.job).toBe('delivery_driver') // switch refused — still the delivery job
+    expect(r.shift).toBe('active') // the delivery shift is untouched
+  })
+
+  test('28. a social activity cannot start while a career shift is active (R3-3)', async ({ page }) => {
+    const r = await page.evaluate(() => {
+      const api = window.GAME_TEST_API!
+      // Warm Maya so a favor would otherwise be offered.
+      for (let i = 0; i < 6; i++) api.ingestSocialEvent({ id: `mf${i}`, kind: 'favor_completed', actorId: 'npc_maya_01', gameDay: 0, gameHour: 8 })
+      api.applyToCareer('delivery_driver')
+      const shift = api.getCareerNextShift()!
+      api.setGameDay(shift.scheduledDay); api.setTime(shift.startHour)
+      api.setActiveInteractable(shift.workplaceInteractableId)
+      api.startCareerShift(shift.id)
+      // Attempt to start a favor while on the clock — must be refused.
+      api.startFavorFor('npc_maya_01')
+      return { onShift: api.getActiveCareerShift() !== null, socialActivity: api.getActiveSocialActivity() }
+    })
+    expect(r.onShift).toBe(true)
+    expect(r.socialActivity).toBeNull() // no second active tracker was created
+  })
 })

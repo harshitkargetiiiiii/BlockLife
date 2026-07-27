@@ -83,9 +83,13 @@ employer NPC reaches `friendly` (Bruno → Gym Trainer), granted lazily via the 
 `careerSocial` adapter, never scattered relationship-number checks. One active
 **primary** job at a time; **switching jobs is atomic** — every previously-attendable
 (scheduled/available) shift of the old career is dropped so a stale shift can never
-surface as the new job's "next shift" or be started (ownership is also enforced at
-`beginShift`), while each career's rank + history are preserved and re-applying resumes
-the highest held rank.
+surface as the new job's "next shift" or be started (`beginShift` requires an **exact**
+`activeJob === shift.careerId`, refusing when unemployed), while each career's rank +
+history are preserved and re-applying resumes the highest held rank. You **cannot
+switch or leave a job while a shift is in progress** (a readable refusal in Phone Jobs;
+revalidated in the domain + store) — so changing employment can never orphan a running
+shift. The reverse holds too: a **social activity can't start while a shift is active**,
+mirroring the career start gate.
 
 ## Shift scheduling + lifecycle (§4)
 
@@ -168,7 +172,10 @@ messages (hire / promotion / strong shift / missed shift) via the new public
 message + memory carries a stable id (exact-once). Crime: an active **wanted pursuit
 blocks shift start**; an **arrest / incapacitation during a shift** fails it through a
 typed outcome (reduced pay, standing ding) with **no permanent criminal record**.
-Career-specific **employer standing** (0–100) is distinct from global reputation.
+Career-specific **employer standing** (0–100) is distinct from global reputation. The
+reduced failed-shift pay and the incident penalty settle in **one atomic money
+calculation** off the current store balance (pay credited, then the penalty capped at
+the result) — so the partial wage is never discarded (CONVENTIONS #24).
 
 ## Save / reload (§13)
 

@@ -9,7 +9,7 @@ const gym = getCareer('gym_trainer')! // entry: Fitness 3, relaxed by a Bruno re
 const delivery = getCareer('delivery_driver')! // accessible
 
 function ctx(over: Partial<EligibilityContext> = {}): EligibilityContext {
-  return { skills: defaultSkills(), reputation: 0, wanted: 0, activeJob: null, hasRecommendation: () => false, ...over }
+  return { skills: defaultSkills(), reputation: 0, wanted: 0, activeJob: null, hasActiveShift: false, hasRecommendation: () => false, ...over }
 }
 function skillsWith(over: Partial<SkillMap>): SkillMap {
   return { ...defaultSkills(), ...over }
@@ -29,6 +29,11 @@ describe('checkEligibility — deterministic, readable refusals (§3)', () => {
   })
   it('refuses re-applying to the current job', () => {
     expect(checkEligibility(delivery, ctx({ activeJob: 'delivery_driver' })).reason).toMatch(/already work/i)
+  })
+  it('refuses switching jobs while a shift is in progress (§4, R3)', () => {
+    const r = checkEligibility(gym, ctx({ hasActiveShift: true, skills: skillsWith({ fitness: 90 }) }))
+    expect(r.ok).toBe(false)
+    expect(r.reason).toMatch(/active shift/i)
   })
   it('a social recommendation relaxes the skill gate (§3/§10)', () => {
     const r = checkEligibility(gym, ctx({ hasRecommendation: (id) => id === 'bruno_gym' }))
