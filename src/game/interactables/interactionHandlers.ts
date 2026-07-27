@@ -7,12 +7,9 @@ import {
   discountedPrice,
   sleep,
   train,
-  workShift,
   COFFEE_COST,
   MEAL_COST,
   TRAIN_ENERGY_COST,
-  WORK_ENERGY_COST,
-  WORK_PAY,
 } from '../simulation/economySystem'
 import { questTransition } from '../quests/questMachine'
 import { COFFEE_QUEST_ID } from '../../data/quests'
@@ -37,11 +34,19 @@ export function addItem(inventory: Inventory, itemId: string, quantity = 1): Inv
   return next
 }
 
+/** Career unlocks that change an activity panel's buttons (§8, R4). The SAME options
+ *  drive execution in the store, so display and charge/gate can never disagree. */
+export interface ActivityOptions {
+  /** Gym Trainer's free-access unlock — waives the Train energy requirement. */
+  gymFreeAccess?: boolean
+}
+
 /** Available actions for an activity panel, with affordability baked in. */
 export function getActionsFor(
   kind: InteractableKind,
   state: GameLogicState,
   foodDiscountPct = 0,
+  opts: ActivityOptions = {},
 ): ActivityAction[] {
   const { stats } = state
   switch (kind) {
@@ -72,19 +77,20 @@ export function getActionsFor(
         {
           id: 'train',
           label: '💪 Train for an hour',
-          detail: 'Strength +1 · Energy −20',
-          disabled: stats.energy < TRAIN_ENERGY_COST,
+          detail: opts.gymFreeAccess ? 'Strength +1 · Energy −10 · free access' : 'Strength +1 · Energy −20',
+          // The Gym Trainer's free-access unlock waives the energy gate (train off the clock).
+          disabled: !opts.gymFreeAccess && stats.energy < TRAIN_ENERGY_COST,
           disabledReason: `Too tired — need ${TRAIN_ENERGY_COST} energy`,
         },
       ]
     case 'job_board':
+      // The Job Board is the front door to Careers v1 — it opens the phone's Jobs app
+      // (discover / apply / manage shifts), NOT a standalone money-for-energy vendor (R4).
       return [
         {
-          id: 'work_shift',
-          label: '🧰 Work a 4-hour shift',
-          detail: `+$${WORK_PAY} · Energy −30`,
-          disabled: stats.energy < WORK_ENERGY_COST,
-          disabledReason: `Too tired — need ${WORK_ENERGY_COST} energy`,
+          id: 'open_careers',
+          label: '📋 Careers — find work & apply',
+          detail: 'Discover jobs, apply, and manage your shifts',
         },
       ]
     // The apartment door now walks the player inside (Home Base v1);
@@ -137,11 +143,6 @@ export function performAction(state: GameLogicState, actionId: string, foodDisco
     }
     case 'train': {
       const r = train(state.stats, opts.gymFreeAccess === true)
-      if (!r.ok) return { ok: false, message: r.error, state }
-      return { ok: true, message: r.message, state: { ...state, stats: r.stats } }
-    }
-    case 'work_shift': {
-      const r = workShift(state.stats)
       if (!r.ok) return { ok: false, message: r.error, state }
       return { ok: true, message: r.message, state: { ...state, stats: r.stats } }
     }

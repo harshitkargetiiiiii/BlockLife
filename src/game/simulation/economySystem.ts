@@ -6,8 +6,6 @@ export const MEAL_COST = 10
 export const MEAL_HUNGER_RESTORE = 25
 export const COFFEE_COST = 5
 export const TRAIN_ENERGY_COST = 20
-export const WORK_ENERGY_COST = 30
-export const WORK_PAY = 50
 export const SLEEP_HUNGER_PENALTY = 10
 
 export type EconomyResult =
@@ -63,21 +61,9 @@ export function train(stats: PlayerStats, freeAccess = false): EconomyResult {
   }
 }
 
-export function workShift(stats: PlayerStats): EconomyResult {
-  if (stats.energy < WORK_ENERGY_COST) return { ok: false, error: 'Too tired to work a shift.' }
-  const clock = advanceClock(stats.day, stats.hour, 4)
-  return {
-    ok: true,
-    stats: {
-      ...stats,
-      money: stats.money + WORK_PAY,
-      energy: clampStat(stats.energy - WORK_ENERGY_COST),
-      day: clock.day,
-      hour: clock.hour,
-    },
-    message: `Worked a shift (+$${WORK_PAY}).`,
-  }
-}
+// NB: the old `workShift` money-for-energy vendor was removed — paid work now flows
+// exclusively through Careers v1 (apply → scheduled shift → objectives → exact-once
+// pay). The Job Board opens the career flow instead of vending money (R4).
 
 export function sleep(stats: PlayerStats): EconomyResult {
   const clock = sleepUntilMorning(stats.day, stats.hour)

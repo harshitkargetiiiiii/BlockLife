@@ -88,8 +88,18 @@ surface as the new job's "next shift" or be started (`beginShift` requires an **
 history are preserved and re-applying resumes the highest held rank. You **cannot
 switch or leave a job while a shift is in progress** (a readable refusal in Phone Jobs;
 revalidated in the domain + store) — so changing employment can never orphan a running
-shift. The reverse holds too: a **social activity can't start while a shift is active**,
-mirroring the career start gate.
+shift.
+
+**Careers v1 is the single paid-work authority (R4).** The old world **Job Board** no
+longer vends money for energy — it opens the Phone **Jobs** app (discover / apply /
+manage shifts), and the `workShift` money-for-energy path is deleted. All the ways the
+old game could sneak a second objective/time-jump around a shift are closed
+symmetrically: a **social activity**, a **mission**, and the time-advancing **Sleep** /
+**Train** actions are all blocked while a shift is active (ordinary purchases stay
+available). And a single source of truth — `careerActivityBenefits()` — drives BOTH the
+menu display and the charge/gate, so a shown price or button state can never disagree
+with what the store actually charges or allows (the Café staff discount on food prices,
+gym free access on the Train gate).
 
 ## Shift scheduling + lifecycle (§4)
 

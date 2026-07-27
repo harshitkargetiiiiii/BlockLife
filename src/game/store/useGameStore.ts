@@ -82,6 +82,7 @@ import {
   reconcileEmploymentAfterLoad as reconcileCareerEmploymentRt,
 } from '../careers/careerRuntime'
 import { cargoEquipmentUnlockId, getCareer } from '../careers/careerRegistry'
+import { careerActivityBenefits } from '../careers/careerBenefits'
 import { notifyHired as careerNotifyHired, notifyPromoted as careerNotifyPromoted, notifyShiftOutcome as careerNotifyShiftOutcome, reconcileEarnedRecommendations as careerReconcileRecs } from '../careers/careerSocial'
 import { notePlayerEscaped as careerNoteEscaped, notePlayerTrained as careerNoteTrained, noteSocialActivityCompleted as careerNoteSocialActivity } from '../careers/careerLifeEvents'
 import { evaluateShiftStart, type ShiftConflictContext } from '../careers/careerScheduling'
@@ -108,7 +109,7 @@ import {
 } from '../social/socialRuntime'
 import { activityFromInvitation, activityPrompt, favorActivity } from '../social/socialActivities'
 import { invitationStartWindow } from '../social/socialScheduling'
-import { noteArrestWitnessed, noteCrimeWitnessed, vendorDiscountPct } from '../social/socialConsequences'
+import { noteArrestWitnessed, noteCrimeWitnessed } from '../social/socialConsequences'
 import type { InvitationActivityKind } from '../social/socialTypes'
 import { getSocialActor, isSocialActor } from '../social/socialActors'
 import {
@@ -716,16 +717,33 @@ export const useGameStore = create<GameStore>()((set, get) => ({
 
   performActivityAction: (actionId) => {
     const s = get()
-    // Loyalty discount at Maya's food truck (buy_coffee/buy_meal are hers alone): a
-    // friendly Maya charges you less, and the earned Café staff discount stacks on top
-    // (§8 unlock). Gym Trainer's "train off the clock" unlock waives the energy gate.
-    const cafeDiscount = hasCareerUnlock('cafe_staff_discount') ? 0.1 : 0
-    const discountPct = Math.min(0.6, vendorDiscountPct('npc_maya_01') + cafeDiscount)
+    // The Job Board opens Careers v1 (discover/apply/manage), not a money vendor (R4).
+    if (actionId === 'open_careers') {
+      if (getWantedLevel() > 0) {
+        get().showToast('Not while the police are after you!')
+        return
+      }
+      audioManager.playClick()
+      get().setPhoneApp('jobs')
+      set((st) => ({ ui: { ...st.ui, panel: 'phone', activityId: null, dialogueNpcId: null } }))
+      return
+    }
+    // On the clock, time-advancing detours are blocked — you're working the shift.
+    // Ordinary purchases stay available (R4).
+    if (getActiveCareerShift() && (actionId === 'sleep' || actionId === 'train')) {
+      get().showToast('You’re on a shift — finish it before anything else.')
+      return
+    }
+    // The SAME career-unlock benefits drive display (ActivityPanel) and execution here,
+    // so a shown price/gate can never disagree with what's charged/allowed (§8, R4):
+    // Maya's loyalty + Café staff discount fold into food prices; gym free access waives
+    // the Train energy gate.
+    const { foodDiscountPct, gymFreeAccess } = careerActivityBenefits()
     const outcome = performAction(
       { stats: s.stats, inventory: s.inventory, questStates: s.questStates },
       actionId,
-      discountPct,
-      { gymFreeAccess: hasCareerUnlock('gym_free_access') },
+      foodDiscountPct,
+      { gymFreeAccess },
     )
     // One capacity authority: if an action would grow the backpack past its slot
     // budget (e.g. buying coffee with a full bag), refuse rather than overflow.
@@ -1730,6 +1748,13 @@ export const useGameStore = create<GameStore>()((set, get) => ({
   // ---- Missions (Mission & Activity Framework v1) ----------------------------
 
   acceptMissionById: (missionId) => {
+    // Symmetric to the career start gate (which blocks starting a shift during a
+    // mission): you can't pick up a mission while a career shift is active, so the two
+    // objective trackers can never coexist (R4).
+    if (getActiveCareerShift()) {
+      get().showToast('You’re on a shift — wrap it up before taking a job.')
+      return
+    }
     const r = bridgeAccept(missionId)
     if (r.ok) {
       const def = getMissionDefinition(missionId)

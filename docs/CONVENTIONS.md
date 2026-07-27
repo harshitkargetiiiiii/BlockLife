@@ -442,6 +442,25 @@ flows through the vendor-discount price path, gym access waives the `train` ener
 "optional objective" must be DERIVED from real outcomes (a flawless, on-time run), never
 a free always-enabled button that can be claimed from anywhere.
 
+### 29. Display and execution must read ONE options source; close the legacy doors
+When a new authority (Careers v1) changes what an existing interaction shows or allows,
+the DISPLAY (what the button renders — price, enabled/disabled) and the EXECUTION (what
+the store charges / permits) must read the SAME resolver. PR #16 shipped a real bug from
+splitting them: the store applied the café discount + gym free-access, but `ActivityPanel`
+still computed prices/gates from only the social discount — so Maya's menu could show one
+price and charge another, and the Train button stayed disabled while free access actually
+waived the gate. Fix: one pure resolver (`careerActivityBenefits()`) consumed by both the
+panel and `performActivityAction`; prove display == execution with a DOM-level test that
+reads the button text AND asserts the resulting store change.
+
+Relatedly, when a milestone becomes the sole authority for something (paid work), audit
+for the OLD doors around it and close them: the world Job Board still vended money via a
+standalone `workShift` (deleted → it now opens the career flow); and the mutual-exclusion
+gate a shift needs must be symmetric — if career-start blocks missions/social/sleep, then
+mission-accept / social-start / sleep+train must ALSO block during a shift, each through
+the production entry point (route DEV test hooks through the store action, not the bridge,
+so tests exercise the real gate).
+
 ---
 
 ## The verification workflow (honest gates)

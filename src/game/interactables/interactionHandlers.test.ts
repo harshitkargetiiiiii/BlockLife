@@ -44,11 +44,12 @@ describe('interactionHandlers.performAction', () => {
     expect(r.state.stats.energy).toBe(80)
   })
 
-  it('work_shift pays and advances time', () => {
-    const r = performAction(baseState(), 'work_shift')
+  it('gym free access lets a tired player still train (waives the energy gate)', () => {
+    const tired = { ...baseState(), stats: { ...INITIAL_STATS, energy: 10 } }
+    expect(performAction(tired, 'train').ok).toBe(false) // normally blocked
+    const r = performAction(tired, 'train', 0, { gymFreeAccess: true })
     expect(r.ok).toBe(true)
-    expect(r.state.stats.money).toBe(100)
-    expect(r.state.stats.hour).toBe(12)
+    expect(r.state.stats.strength).toBe(2)
   })
 
   it('sleep restores energy and moves to next morning', () => {
@@ -83,15 +84,17 @@ describe('interactionHandlers.getActionsFor', () => {
     expect(ids).toEqual(['buy_meal', 'buy_coffee'])
   })
 
-  it('gym offers training, disabled when tired', () => {
+  it('gym offers training, disabled when tired — unless free access is unlocked', () => {
     const tired = { ...baseState(), stats: { ...INITIAL_STATS, energy: 5 } }
     const actions = getActionsFor('gym', tired)
     expect(actions[0].id).toBe('train')
     expect(actions[0].disabled).toBe(true)
+    // Gym free-access unlock waives the energy gate → the button is enabled (R4).
+    expect(getActionsFor('gym', tired, 0, { gymFreeAccess: true })[0].disabled).toBe(false)
   })
 
-  it('job board offers a shift and the apartment bed offers sleep', () => {
-    expect(getActionsFor('job_board', baseState())[0].id).toBe('work_shift')
+  it('the job board opens Careers (not a money vendor), the apartment bed offers sleep', () => {
+    expect(getActionsFor('job_board', baseState())[0].id).toBe('open_careers')
     // Home Base v1: the apartment door walks the player inside; sleeping
     // moved to the bed interactable in the interior.
     expect(getActionsFor('bed', baseState())[0].id).toBe('sleep')

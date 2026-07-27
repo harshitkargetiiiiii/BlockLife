@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
-import { gotoGame, teleport } from './helpers'
+import { gotoGame, pressE, teleport, waitForActiveInteractable } from './helpers'
 
 /**
  * Career, Skills & Life Progression v1 (issue #15 §16) — focused, independently
@@ -649,5 +649,68 @@ test.describe('careers platform', () => {
     })
     expect(r.onShift).toBe(true)
     expect(r.socialActivity).toBeNull() // no second active tracker was created
+  })
+
+  // ---- PR #16 round-4 integration doors (R4) ------------------------------
+
+  test('29. the world Job Board opens Careers v1, not a money vendor (R4)', async ({ page }) => {
+    await teleport(page, [11, 1.2, -4.5])
+    await waitForActiveInteractable(page, 'job_board')
+    await pressE(page)
+    await expect(page.getByTestId('action-open_careers')).toBeVisible()
+    await expect(page.getByTestId('action-work_shift')).toHaveCount(0) // the old vendor is gone
+    const moneyBefore = await page.evaluate(() => window.GAME_TEST_API!.getStats().money)
+    await page.getByTestId('action-open_careers').click()
+    await expect(page.getByTestId('phone-jobs')).toBeVisible() // the career discovery/application surface
+    const moneyAfter = await page.evaluate(() => window.GAME_TEST_API!.getStats().money)
+    expect(moneyAfter).toBe(moneyBefore) // no free money was vended
+  })
+
+  test('30. the Café staff discount displays the same price it charges (R4)', async ({ page }) => {
+    const moneyBefore = await page.evaluate(() => {
+      const api = window.GAME_TEST_API!
+      api.grantCareerUnlock('cafe_staff_discount') // the Barista rank benefit
+      return api.getStats().money
+    })
+    await teleport(page, [1.5, 1.2, -4.4]) // Maya's counter (food_truck_01)
+    await waitForActiveInteractable(page, 'food_truck_01')
+    await pressE(page)
+    // Display: $10 meal → 10% staff discount → $9 on the button.
+    await expect(page.getByTestId('action-buy_meal')).toContainText('$9')
+    await page.getByTestId('action-buy_meal').click()
+    const moneyAfter = await page.evaluate(() => window.GAME_TEST_API!.getStats().money)
+    expect(moneyBefore - moneyAfter).toBe(9) // charged exactly what was shown
+  })
+
+  test('31. a mission cannot be accepted while a career shift is active (R4)', async ({ page }) => {
+    await startShiftViaApi(page, 'delivery_driver')
+    const r = await page.evaluate(() => {
+      const api = window.GAME_TEST_API!
+      const started = api.startMission('city_courier') // the production accept path
+      return { started, onShift: api.getActiveCareerShift() !== null, mission: api.getMissionState().activeMissionId }
+    })
+    expect(r.onShift).toBe(true)
+    expect(r.started).toBe(false) // the mission was refused
+    expect(r.mission).toBeNull() // no mission tracker started alongside the shift
+  })
+
+  test('32. Sleep and Train are blocked while on a shift; the shift still advances (R4)', async ({ page }) => {
+    const r = await page.evaluate(() => {
+      const api = window.GAME_TEST_API!
+      api.applyToCareer('delivery_driver')
+      const shift = api.getCareerNextShift()!
+      api.setGameDay(shift.scheduledDay)
+      api.setTime(shift.startHour)
+      api.setActiveInteractable(shift.workplaceInteractableId)
+      api.startCareerShift(shift.id)
+      const before = { day: api.getStats().day, strength: api.getStats().strength }
+      api.performActivityAction('sleep') // time-advancing → blocked on shift
+      api.performActivityAction('train') // time-advancing → blocked on shift
+      const after = { day: api.getStats().day, strength: api.getStats().strength, onShift: api.getActiveCareerShift() !== null }
+      return { before, after }
+    })
+    expect(r.after.day).toBe(r.before.day) // sleep did not skip the day out from under the shift
+    expect(r.after.strength).toBe(r.before.strength) // train did not run
+    expect(r.after.onShift).toBe(true) // still on the shift
   })
 })

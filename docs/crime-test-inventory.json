@@ -439,14 +439,14 @@
       "src/game/crime/wantedRuntime.test.ts": "+2 — evasion (decay-to-clear) queues one escape event; a direct clear (arrest/reset) queues none (F7)"
     },
     "e2eSpecs": {
-      "tests/e2e/careers.spec.ts": "30 — 15 core + PR#16 F1-F8 (16-24) + PR#16 re-review R3: 25 arrest mid-shift exact final balance (partial pay + penalty atomic, R3-1), 26 incapacitation exact balance (R3-1), 27 job replace/leave blocked mid-shift via UI + store (R3-2), 28 social activity can't start on shift (R3-3)",
+      "tests/e2e/careers.spec.ts": "34 — 15 core + F1-F8 (16-24) + R3 (25-28) + PR#16 round-4 integration doors: 29 Job Board opens Careers not a money vendor (R4-1), 30 Café staff discount displayed price == charged (R4-2, DOM), 31 mission can't start on shift (R4-3), 32 Sleep/Train blocked on shift (R4-3)",
       "tests/e2e/careers-soak.spec.ts": "1 — bounded career lifecycle soak (24 game-days, all 4 careers): applications, completed+missed shifts, XP, promotions, employer messages, travel+interior, save/load+reset; asserts no dup pay/XP, bounded shifts(8)/perf(20)/applied(256)/paid(64)/unlocks(64)/skill-XP(1000), no leaked active shift, zero page/console errors, no person_solid/person_vehicle overlaps from work routes"
     },
-    "e2eCountNew": 31,
+    "e2eCountNew": 35,
     "visualSpecs": {
       "tests/visual/career-visuals.spec.ts": "8 — element-scoped deterministic baselines (all reviewed): career-discovery, career-refusal (readable reason), career-profile (active job + 5 skills), career-next-shift (startable window), career-shift-tracker (HUD; derived-bonus note, no free button), career-promotion (progress rows), career-unlocks (promoted rank + real benefit), career-shift-result (full pay decomposition + score breakdown)"
     },
     "visualCountNew": 8,
-    "note": "PR #16 review repairs (F1-F8) + re-review repairs (R3-1 atomic arrest/incap pay, R3-2 no job change mid-shift + exact beginShift ownership, R3-3 no social start on shift) on branch career-skills-life-progression-v1. Unit 90 (careers) + 2 (wanted evasion); E2E careers 30 + soak 1; visual 8 (reviewed)."
+    "note": "PR #16 repairs F1-F8 + re-review R3 (atomic arrest/incap pay, no job change mid-shift, no social start on shift) + round-4 integration doors R4 (Job Board→Careers, one careerActivityBenefits() source for display==execution, mission/sleep/train blocked on shift) on branch career-skills-life-progression-v1. R4 also updated economySystem/interactionHandlers/ActivityPanel unit+component tests (workShift money-vendor deleted; gym free-access + café-discount DOM parity). Unit 90 (careers) + others; E2E careers 34 + soak 1; visual 8."
   }
 }

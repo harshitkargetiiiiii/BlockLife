@@ -60,14 +60,12 @@ test.describe('gameplay flow', () => {
     expect(stats.strength).toBe(2)
     await page.keyboard.press('Escape')
 
-    // Job board: work a shift
+    // Job board: opens Careers v1 (discover/apply), not a money vendor (R4).
     await teleport(page, [11, 1.2, -4.5])
     await waitForActiveInteractable(page, 'job_board')
     await pressE(page)
-    const beforeWork = await getStats(page)
-    await page.getByTestId('action-work_shift').click()
-    stats = await getStats(page)
-    expect(stats.money).toBe(beforeWork.money + 50)
+    await page.getByTestId('action-open_careers').click()
+    await expect(page.getByTestId('phone-jobs')).toBeVisible()
     await page.keyboard.press('Escape')
 
     // Apartment (Home Base v1): the door leads inside; sleep at the bed.

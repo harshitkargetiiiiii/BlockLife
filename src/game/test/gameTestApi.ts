@@ -3,7 +3,7 @@ import { registry } from '../world/runtimeRegistry'
 import { socialSnapshot, getRelationship as getSocialRel, getDerivedRelationship as getSocialDerived, getMemories as getSocialMems, getContacts as getSocialContactsRt, ingestSocialEvent as ingestSocialEventRt, getInvitations as getSocialInvitationsRt, getMessages as getSocialMessagesRt, getTotalUnread as getSocialUnreadRt, reconcileOutreach as reconcileOutreachRt, getActiveActivity as getActiveActivityRt, getConfirmedPlans as getConfirmedPlansRt, reconcileMissedInvitations as reconcileMissedInvitationsRt } from '../social/socialRuntime'
 import type { SocialEvent } from '../social/socialEvents'
 import type { SocialActionId } from '../social/socialInteraction'
-import { careerSnapshot as careerSnapshotRt, ingestCareerEvent as ingestCareerEventRt, grantRecommendation as grantCareerRecommendationRt, reconcileMissedShifts as reconcileCareerMissedRt, getScheduledShifts as getCareerShiftsRt, getNextShift as getCareerNextShiftRt, getSkillLevel as getCareerSkillLevelRt, getActiveShift as getActiveCareerShiftRt, getRecentResults as getCareerRecentResultsRt, hasUnlock as hasCareerUnlockRt, getPromotionProgress as getCareerPromotionRt, type CareerSnapshot } from '../careers/careerRuntime'
+import { careerRuntime, careerSnapshot as careerSnapshotRt, ingestCareerEvent as ingestCareerEventRt, grantRecommendation as grantCareerRecommendationRt, reconcileMissedShifts as reconcileCareerMissedRt, getScheduledShifts as getCareerShiftsRt, getNextShift as getCareerNextShiftRt, getSkillLevel as getCareerSkillLevelRt, getActiveShift as getActiveCareerShiftRt, getRecentResults as getCareerRecentResultsRt, hasUnlock as hasCareerUnlockRt, getPromotionProgress as getCareerPromotionRt, type CareerSnapshot } from '../careers/careerRuntime'
 import { getCareerCommitmentSlots as getCareerCommitmentSlotsRt } from '../careers/careerSocial'
 import { reconcileEarnedRecommendations as careerReconcileRecsRt } from '../careers/careerSocial'
 import type { CareerEvent } from '../careers/careerEvents'
@@ -102,7 +102,6 @@ import { missionRuntime } from '../missions/missionRuntime'
 import { getMissionAvailability } from '../missions/missionSelectors'
 import { validateMissions } from '../missions/missionValidation'
 import {
-  acceptMission as missionAccept,
   cancelActiveMission as missionCancel,
   discoverAndOfferMission,
   emitMissionEvent,
@@ -452,6 +451,8 @@ export interface GameTestApi {
   getCareerRecentResults: () => { careerId: string; reason: string; score: number; base: number; rankModifier: number; performanceModifier: number; pay: number; onTime: boolean }[]
   /** DEV/E2E: has the player earned a specific rank unlock? */
   hasCareerUnlock: (unlockId: string) => boolean
+  /** DEV/E2E: grant a rank unlock directly (arrange the benefit without grinding ranks). */
+  grantCareerUnlock: (unlockId: string) => void
   /** DEV/E2E: accepted social plans the shift scheduler checks conflicts against. */
   getCareerCommitmentSlots: () => { day: number; hour: number; label: string }[]
   /** DEV/E2E: warm employers put in a good word (earns recommendations). Returns earned career ids. */
@@ -1283,6 +1284,9 @@ export function installTestApi(): void {
     },
     getCareerRecentResults: () => getCareerRecentResultsRt().map((r) => ({ careerId: r.careerId, reason: r.reason, score: r.score, base: r.base, rankModifier: r.rankModifier, performanceModifier: r.performanceModifier, pay: r.pay, onTime: r.onTime })),
     hasCareerUnlock: (unlockId: string) => hasCareerUnlockRt(unlockId),
+    grantCareerUnlock: (unlockId: string) => {
+      if (!careerRuntime.state.unlocks.includes(unlockId)) careerRuntime.state = { ...careerRuntime.state, unlocks: [...careerRuntime.state.unlocks, unlockId] }
+    },
     getCareerCommitmentSlots: () => getCareerCommitmentSlotsRt(),
     reconcileCareerRecommendations: (gameDay: number, gameHour: number) => careerReconcileRecsRt(gameDay, gameHour),
     performActivityAction: (actionId: string) => useGameStore.getState().performActivityAction(actionId),
@@ -1696,8 +1700,11 @@ export function installTestApi(): void {
         ),
       }),
     startMission: (missionId) => {
+      // Route through the PRODUCTION store action (not the bridge) so DEV/E2E exercises
+      // the real accept gates — including the R4 "no mission while on a career shift" check.
       discoverAndOfferMission(missionId)
-      return missionAccept(missionId).ok
+      useGameStore.getState().acceptMissionById(missionId)
+      return missionRuntime.active?.missionId === missionId
     },
     cancelMission: () => missionCancel(),
     retryMission: () => missionRetry().ok,
