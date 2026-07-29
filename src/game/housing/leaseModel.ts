@@ -124,6 +124,7 @@ export function settleDebt(
   property: PropertyDef,
   day: number,
   balance: number,
+  settleSeq: number,
   hasKey: (key: string) => boolean,
 ): RentOutcome {
   const L: LeaseState = { ...lease }
@@ -134,7 +135,10 @@ export function settleDebt(
   if (L.debt <= 0 || balance <= 0) return { lease: L, txns, messages, moneyDelta }
 
   const pay = Math.min(L.debt, Math.floor(balance))
-  const key = `settle:${L.propertyId}:${L.periodSeq}:${today}`
+  // Keyed by a monotonic settlement id, so a partial payment followed by a same-day
+  // top-up are DISTINCT settlements (both apply), while an accidental exact replay of
+  // the same settlement id is a no-op in recordTxn (PR#18 review #8).
+  const key = `settle:${L.propertyId}:${settleSeq}`
   if (hasKey(key)) return { lease: L, txns, messages, moneyDelta }
   moneyDelta -= pay
   L.debt -= pay

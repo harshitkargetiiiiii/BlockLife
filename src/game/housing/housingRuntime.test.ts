@@ -12,6 +12,7 @@ import {
   mintFurnitureAsset,
   planMove,
   reconcileHousingRent,
+  recordFurniturePurchase,
   resetHousing,
   settleHousingDebt,
   tourProperty,
@@ -126,5 +127,25 @@ describe('housing runtime', () => {
     const refunds = housingRuntime.state.payments.filter((p) => p.kind === 'deposit_refund')
     expect(refunds).toHaveLength(1)
     expect(refunds[0].amount).toBe(600)
+  })
+
+  it('gives repeated same-day moves distinct transaction ids and never merges them (review #8)', () => {
+    tourProperty('city_loft')
+    commitMove('city_loft', 30) // Studio -> Loft (move 1)
+    commitMove('starter_studio', 30) // Loft -> Studio (move 2), same game-day
+    commitMove('city_loft', 30) // Studio -> Loft (move 3), same game-day
+    const keys = housingRuntime.state.appliedTxnKeys.filter((k) => k.startsWith('initial_rent:'))
+    // Three real moves -> three DISTINCT initial-rent keys (no collision on the day).
+    expect(new Set(keys).size).toBe(keys.length)
+    expect(keys.length).toBe(3)
+    // The payments ledger has exactly one entry per distinct key (no merged/duplicate rows).
+    const rentRows = housingRuntime.state.payments.filter((p) => p.kind === 'initial_rent')
+    expect(rentRows).toHaveLength(3)
+    // recordTxn is a true no-op on a duplicate key: replaying an existing key adds nothing.
+    const before = housingRuntime.state.payments.length
+    recordFurniturePurchase('fa_replay', 10, 30)
+    recordFurniturePurchase('fa_replay', 10, 30) // same key `furniture_purchase:fa_replay`
+    expect(housingRuntime.state.payments.filter((p) => p.key === 'furniture_purchase:fa_replay')).toHaveLength(1)
+    expect(housingRuntime.state.payments.length).toBe(before + 1)
   })
 })

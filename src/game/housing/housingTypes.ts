@@ -310,6 +310,12 @@ export interface HousingState {
   placements: Record<string, string>
   /** Reload-safe monotonic asset id counter. */
   assetSeq: number
+  /** Reload-safe monotonic move counter — a legitimate repeated same-day move gets a
+   *  distinct transaction id (issue §12, PR#18 review #8). */
+  moveSeq: number
+  /** Reload-safe monotonic settlement counter — a partial then top-up payment on the
+   *  same game-day are distinct settlements (issue §12, PR#18 review #8). */
+  settleSeq: number
   /** Bounded payment ledger. */
   payments: HousingPayment[]
   /** Bounded FIFO exact-once transaction/event key ledger. */

@@ -51,6 +51,8 @@ export function defaultHousingState(startDay = 0): HousingState {
     assets: {},
     placements: {},
     assetSeq: 0,
+    moveSeq: 0,
+    settleSeq: 0,
     payments: [],
     appliedTxnKeys: [],
     outfitPresets: emptyPresets(),
@@ -137,10 +139,12 @@ export function hasTxnKey(key: string): boolean {
 /** Record an applied transaction (bounded payment history + FIFO key ledger). */
 function recordTxn(txn: HousingPayment): void {
   const s = housingRuntime.state
-  if (!s.appliedTxnKeys.includes(txn.key)) {
-    s.appliedTxnKeys.push(txn.key)
-    if (s.appliedTxnKeys.length > HOUSING_APPLIED_TXN_KEYS_MAX) s.appliedTxnKeys.splice(0, s.appliedTxnKeys.length - HOUSING_APPLIED_TXN_KEYS_MAX)
-  }
+  // A duplicate key is a TRUE no-op — it records neither the key AGAIN nor a second
+  // payments/history entry (PR#18 review #8). Distinct legitimate actions must supply
+  // distinct keys (monotonic assetSeq/moveSeq/settleSeq) to record at all.
+  if (s.appliedTxnKeys.includes(txn.key)) return
+  s.appliedTxnKeys.push(txn.key)
+  if (s.appliedTxnKeys.length > HOUSING_APPLIED_TXN_KEYS_MAX) s.appliedTxnKeys.splice(0, s.appliedTxnKeys.length - HOUSING_APPLIED_TXN_KEYS_MAX)
   s.payments.push(txn)
   if (s.payments.length > HOUSING_PAYMENTS_MAX) s.payments.splice(0, s.payments.length - HOUSING_PAYMENTS_MAX)
 }
@@ -169,7 +173,8 @@ export function settleHousingDebt(day: number, balance: number): RentApplyResult
   const s = housingRuntime.state
   const property = getProperty(s.lease.propertyId)
   if (!property) return { moneyDelta: 0, messages: [] }
-  const out = settleDebt(s.lease, property, day, balance, hasTxnKey)
+  s.settleSeq += 1 // each manual settlement is a distinct transaction (review #8)
+  const out = settleDebt(s.lease, property, day, balance, s.settleSeq, hasTxnKey)
   s.lease = out.lease
   for (const t of out.txns) recordTxn(t)
   return { moneyDelta: out.moneyDelta, messages: out.messages }
@@ -267,6 +272,11 @@ export function commitMove(propertyId: PropertyId, day: number): { moneyDelta: n
   const today = Math.trunc(day)
   const from = s.currentPropertyId
   const refund = s.lease.depositHeld
+  // A legitimate repeated same-day move (e.g. Studio→Loft→Studio→Loft) is a distinct
+  // transaction each time — key the money on a monotonic move id, not the day, so ids
+  // never collide and recordTxn never merges two real moves (PR#18 review #8).
+  s.moveSeq += 1
+  const mv = s.moveSeq
 
   // 1. Pack all placed furniture back into storage (no furniture is ever lost).
   s.placements = {}
@@ -278,9 +288,9 @@ export function commitMove(propertyId: PropertyId, day: number): { moneyDelta: n
   if (s.history.length > HOUSING_HISTORY_MAX) s.history.splice(0, s.history.length - HOUSING_HISTORY_MAX)
 
   // 3. Money: refund old deposit, charge new deposit + initial rent (exact-once).
-  if (refund > 0) recordTxn({ key: `deposit_refund:${from}:${today}`, kind: 'deposit_refund', amount: refund, day: today })
-  if (target.deposit > 0) recordTxn({ key: `deposit_charge:${propertyId}:${today}`, kind: 'deposit_charge', amount: -target.deposit, day: today })
-  recordTxn({ key: `initial_rent:${propertyId}:${today}`, kind: 'initial_rent', amount: -target.rent, day: today })
+  if (refund > 0) recordTxn({ key: `deposit_refund:${from}:${mv}`, kind: 'deposit_refund', amount: refund, day: today })
+  if (target.deposit > 0) recordTxn({ key: `deposit_charge:${propertyId}:${mv}`, kind: 'deposit_charge', amount: -target.deposit, day: today })
+  recordTxn({ key: `initial_rent:${propertyId}:${mv}`, kind: 'initial_rent', amount: -target.rent, day: today })
 
   // 4. New lease + residence. First period is prepaid, so nextDueDay = today + period.
   s.lease = createLease(propertyId, today, target.rentPeriodDays, target.deposit)

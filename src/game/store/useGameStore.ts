@@ -231,7 +231,18 @@ export interface UIState {
 
 /** Movement/driving input is swallowed while the phone covers the screen. */
 export function isGameplayInputBlocked(panel: PanelKind): boolean {
-  return panel === 'phone'
+  // Furnish mode is a full-screen editing surface — the player must not walk, drive,
+  // or fire while it's open (PR#18 review #5), same as the phone.
+  return panel === 'phone' || panel === 'furnish'
+}
+
+/** Furniture placement must never mutate a property you're only TOURING (you don't own
+ *  it). Production furnish mode can only be OPENED inside your own home and never during a
+ *  tour (see `openFurnishMode`), and the FurnishPanel renders only in furnish mode; this
+ *  mutator-level revalidation additionally blocks the edge where a tour begins while the
+ *  panel is still open (PR#18 review #5). */
+function canEditFurnish(): boolean {
+  return !useGameStore.getState().housingTouring
 }
 
 /**
@@ -372,9 +383,10 @@ export interface GameStore extends GameDataState {
   leaseHousingProperty: (propertyId: PropertyId) => void
   /** Manually settle outstanding rent from the current balance. */
   payHousingRent: () => void
-  /** Lazily reconcile rent that fell due, auto-paying from balance. The ONE lazy
-   *  touch point (called on phone-open, never per frame — issue #17 §3). */
-  reconcileHousingRentOnOpen: () => void
+  /** The ONE shared lazy rent reconcile — phone-open, sleep, current-home entry, and
+   *  load all route here (never per frame — issue #17 §3, PR#18 review #7). `dayOverride`
+   *  lets sleep reconcile the just-advanced day before stats commit. */
+  reconcileHousingRentOnOpen: (dayOverride?: number) => void
   /** Open Furnish mode inside the current home (issue §6). */
   openFurnishMode: () => void
   /** Leave Furnish mode, clearing selection/markers. */
@@ -880,13 +892,9 @@ export const useGameStore = create<GameStore>()((set, get) => ({
       }
       for (const seq of consumePendingEscapes()) careerNoteEscaped(seq, outcome.state.stats.day, outcome.state.stats.hour)
       set((st) => ({ socialVersion: st.socialVersion + 1, careerVersion: st.careerVersion + 1 }))
-      // Sleeping advances the day — reconcile any rent that fell due (issue #17 §3),
-      // auto-paying from the current balance in ONE calc (no capture-spread clobber).
-      const sleepRent = reconcileHousingRent(outcome.state.stats.day, get().stats.money)
-      if (sleepRent.moneyDelta !== 0 || sleepRent.messages.length > 0) {
-        set((st) => ({ stats: { ...st.stats, money: st.stats.money + sleepRent.moneyDelta }, housingVersion: st.housingVersion + 1 }))
-        for (const m of sleepRent.messages) get().showToast(m)
-      }
+      // Sleeping advances the day — reconcile any rent that fell due (issue #17 §3)
+      // through the ONE shared touch point, against the just-advanced day (review #7).
+      get().reconcileHousingRentOnOpen(outcome.state.stats.day)
       get().closePanel()
     }
   },
@@ -1300,7 +1308,12 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     set({ location, currentInteriorId: interiorId })
     get().requestTeleport(def.spawn)
     // Home welcome only when it's really your home — a tour gets its own toast.
-    if (def.kind === 'apartment' && !get().housingTouring) get().showToast('Home sweet home.')
+    if (def.kind === 'apartment' && !get().housingTouring) {
+      get().showToast('Home sweet home.')
+      // Entering your OWN home is a rent touch point too (review #7) — reconcile through
+      // the ONE shared action so lease status is never stale after time advanced elsewhere.
+      get().reconcileHousingRentOnOpen()
+    }
     emitMissionEvent({ type: 'location_changed', location })
     get().syncActivityUI(0)
   },
@@ -1406,11 +1419,14 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     }
   },
 
-  reconcileHousingRentOnOpen: () => {
+  reconcileHousingRentOnOpen: (dayOverride?: number) => {
     const s = get()
-    // Reconcile any rent periods that fell due, auto-paying from the current balance
-    // (issue #17 §3). Lazy: the phone-open touch point is the ONLY caller — never a frame.
-    const res = reconcileHousingRent(s.stats.day, s.stats.money)
+    // The ONE shared lazy rent touch point (issue #17 §3, PR#18 review #7): phone-open,
+    // sleep, current-home entry, and load all route here. Auto-pays due rent from the
+    // current balance in ONE calc; exact-once keys make repeated entry a safe no-op.
+    // `dayOverride` lets sleep reconcile against the just-advanced day before the store
+    // stats are committed. Never per frame.
+    const res = reconcileHousingRent(dayOverride ?? s.stats.day, s.stats.money)
     if (res.moneyDelta !== 0 || res.messages.length > 0) {
       set((st) => ({ stats: { ...st.stats, money: st.stats.money + res.moneyDelta }, housingVersion: st.housingVersion + 1 }))
       for (const m of res.messages) get().showToast(m)
@@ -1448,6 +1464,7 @@ export const useGameStore = create<GameStore>()((set, get) => ({
   },
 
   placeFurniture: (slotId, assetId) => {
+    if (!canEditFurnish()) { get().showToast('Step into your own home to furnish it.'); return }
     // If the slot is occupied, this is a replace (old asset → storage); else a place.
     const occupiedSlot = getPlacements()[slotId] !== undefined
     // Replacing a storage piece with a smaller one must not strand stored items (§8/§13).
@@ -1474,10 +1491,12 @@ export const useGameStore = create<GameStore>()((set, get) => ({
   },
 
   rotateFurniture: (slotId) => {
+    if (!canEditFurnish()) return
     if (rotateAsset(slotId)) set((st) => ({ housingVersion: st.housingVersion + 1 }))
   },
 
   moveFurniture: (fromSlot, toSlot) => {
+    if (!canEditFurnish()) { get().showToast('Step into your own home to furnish it.'); return }
     const res = moveAsset(fromSlot, toSlot)
     if (!res.ok) {
       get().showToast(placementRefusalText(res.reason ?? 'unknown_slot'))
@@ -1488,6 +1507,7 @@ export const useGameStore = create<GameStore>()((set, get) => ({
   },
 
   replaceFurniture: (slotId, newAssetId) => {
+    if (!canEditFurnish()) { get().showToast('Step into your own home to furnish it.'); return }
     if (get().housingStorageWouldStrand(slotId, newAssetId)) {
       get().showToast('Your stored items wouldn’t fit — clear some first.')
       return
@@ -1502,6 +1522,7 @@ export const useGameStore = create<GameStore>()((set, get) => ({
   },
 
   storeFurniture: (slotId) => {
+    if (!canEditFurnish()) { get().showToast('Step into your own home to furnish it.'); return }
     // Removing storage furniture that would strand stored items is refused (§8/§13).
     if (get().housingStorageWouldStrand(slotId)) {
       get().showToast('Your stored items wouldn’t fit — clear some first.')
@@ -2144,13 +2165,9 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     ])
     get().syncMissionUI()
     get().syncActivityUI(0)
-    // Lazily reconcile any rent that fell due while away (issue #17 §3/§14), off the
-    // just-restored balance — a migrated/normal save with a fresh period charges nothing.
-    const loadRent = reconcileHousingRent(get().stats.day, get().stats.money)
-    if (loadRent.moneyDelta !== 0 || loadRent.messages.length > 0) {
-      set((st) => ({ stats: { ...st.stats, money: st.stats.money + loadRent.moneyDelta }, housingVersion: st.housingVersion + 1 }))
-      for (const m of loadRent.messages) get().showToast(m)
-    }
+    // Lazily reconcile any rent that fell due while away (issue #17 §3/§14) through the
+    // ONE shared touch point — a migrated/normal save with a fresh period charges nothing.
+    get().reconcileHousingRentOnOpen()
   },
 
   // ---- Missions (Mission & Activity Framework v1) ----------------------------

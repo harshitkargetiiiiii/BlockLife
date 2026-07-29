@@ -85,15 +85,15 @@ describe('lease + rent model', () => {
     // Now delinquent with rent + fee owed.
     expect(isDelinquent(l)).toBe(true)
     const owed = l.debt
-    const s = settleDebt(l, STARTER, 12, 1000, led.hasKey)
+    const s = settleDebt(l, STARTER, 12, 1000, 1, led.hasKey)
     expect(s.moneyDelta).toBe(-owed)
     expect(s.lease.debt).toBe(0)
     expect(s.lease.status).toBe('active')
     expect(s.lease.nextDueDay).toBe(12 + 7) // resumed from settlement
     led.apply(s.txns)
     l = s.lease
-    // Reopening/reload: settling again is a no-op (debt already 0).
-    const noop = settleDebt(l, STARTER, 12, 1000, led.hasKey)
+    // Reopening/reload: settling again is a no-op because the debt is already 0.
+    const noop = settleDebt(l, STARTER, 12, 1000, 2, led.hasKey)
     expect(noop.moneyDelta).toBe(0)
     expect(noop.txns).toHaveLength(0)
   })
@@ -102,10 +102,26 @@ describe('lease + rent model', () => {
     const led = ledger()
     const l = reconcileRent(createLease('starter_studio', 0, 7, 0), STARTER, 12, 0, led.hasKey).lease
     const owed = l.debt
-    const s = settleDebt(l, STARTER, 12, 20, led.hasKey)
+    const s = settleDebt(l, STARTER, 12, 20, 1, led.hasKey)
     expect(s.moneyDelta).toBe(-20)
     expect(s.lease.debt).toBe(owed - 20)
     expect(s.lease.status).not.toBe('active')
+  })
+
+  it('lets a same-day top-up finish a partial payment via a distinct settlement id (review #8)', () => {
+    const led = ledger()
+    const l = reconcileRent(createLease('starter_studio', 0, 7, 0), STARTER, 12, 0, led.hasKey).lease
+    const owed = l.debt
+    const first = settleDebt(l, STARTER, 12, 20, 1, led.hasKey) // pay 20 of the debt
+    led.apply(first.txns)
+    expect(first.lease.debt).toBe(owed - 20)
+    // Same game-day, more money, press Pay Now again — a DISTINCT settlement id (2) is
+    // NOT blocked by the first payment's key, so the remaining debt clears.
+    const second = settleDebt(first.lease, STARTER, 12, 1000, 2, led.hasKey)
+    led.apply(second.txns)
+    expect(second.moneyDelta).toBe(-(owed - 20))
+    expect(second.lease.debt).toBe(0)
+    expect(second.lease.status).toBe('active')
   })
 
   it('catches up multiple elapsed periods when funds allow, each charged once', () => {

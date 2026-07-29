@@ -61,6 +61,8 @@ export function serializeHousing(): HousingSaveData {
     assets: Object.fromEntries(Object.entries(s.assets).map(([k, v]) => [k, { ...v }])),
     placements: { ...s.placements },
     assetSeq: s.assetSeq,
+    moveSeq: s.moveSeq,
+    settleSeq: s.settleSeq,
     payments: s.payments.map((p) => ({ ...p })),
     appliedTxnKeys: [...s.appliedTxnKeys],
     outfitPresets: s.outfitPresets.map((o) => ({ ...o, appearance: o.appearance ? { ...o.appearance } : null })),
@@ -228,6 +230,10 @@ export function sanitizeHousingSave(raw: unknown, loadDay: number): HousingState
     assets,
     placements,
     assetSeq,
+    // Monotonic move/settlement counters carry forward so post-reload transaction ids
+    // never collide with pre-reload ones (review #8).
+    moveSeq: clampInt(d.moveSeq, 0, Number.MAX_SAFE_INTEGER, 0),
+    settleSeq: clampInt(d.settleSeq, 0, Number.MAX_SAFE_INTEGER, 0),
     payments: sanitizePayments(d.payments),
     appliedTxnKeys: strList(d.appliedTxnKeys, HOUSING_APPLIED_TXN_KEYS_MAX),
     outfitPresets: sanitizePresets(d.outfitPresets),
