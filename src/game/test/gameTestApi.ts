@@ -7,6 +7,20 @@ import { careerRuntime, careerSnapshot as careerSnapshotRt, ingestCareerEvent as
 import { getCareerCommitmentSlots as getCareerCommitmentSlotsRt } from '../careers/careerSocial'
 import { reconcileEarnedRecommendations as careerReconcileRecsRt } from '../careers/careerSocial'
 import type { CareerEvent } from '../careers/careerEvents'
+import {
+  getCurrentPropertyId as getCurrentPropertyIdRt,
+  getHomeMetrics as getHomeMetricsRt,
+  getHousingState as getHousingStateRt,
+  homeSleepBenefit as homeSleepBenefitRt,
+} from '../housing/housingRuntime'
+import { housingReport as housingReportRt, type HousingReport } from '../housing/housingObservability'
+import { housingEligibility as housingEligibilityRt } from '../housing/housingCareer'
+import { canHostActivity as canHostActivityRt } from '../housing/housingSocial'
+import { isHomeActivityKind as isHomeActivityKindRt } from '../social/socialActivities'
+import type { HomeActivityKind } from '../housing/housingTypes'
+import { getPropertySlots as getPropertySlotsRt } from '../housing/propertyRegistry'
+import { persistSave as persistSaveRt, loadSave as loadSaveRt } from '../save/saveGame'
+import type { HousingState, PropertyId } from '../housing/housingTypes'
 import type { CareerId, SkillId } from '../careers/careerTypes'
 import type { InvitationActivityKind } from '../social/socialTypes'
 import { noteCrimeWitnessed as noteCrimeWitnessedRt } from '../social/socialConsequences'
@@ -459,6 +473,52 @@ export interface GameTestApi {
   /** DEV/E2E: dispatch a world interaction action (the SAME store action the world
    *  buttons call) — e.g. 'train' at the gym. Exercises the real production path. */
   performActivityAction: (actionId: string) => void
+  // ---- Housing, Furniture & Property Progression v1 (issue #17) ----
+  /** DEV/E2E: the whole housing state (lease, property, assets, placements, ledgers). */
+  getHousingState: () => HousingState
+  /** DEV/E2E: a compact housing observability report (issue §15). */
+  getHousingReport: () => HousingReport
+  /** DEV/E2E: eligibility verdict + first unmet requirement for a property. */
+  getHousingEligibility: (propertyId: string) => { eligible: boolean; firstUnmetReason?: string }
+  /** DEV/E2E: tour a property (the SAME store action the world/Home-app buttons call). */
+  housingTour: (propertyId: string) => void
+  /** DEV/E2E: lease/move into a property (the SAME store action the Home app calls). */
+  housingLease: (propertyId: string) => void
+  /** DEV/E2E: settle outstanding rent (the SAME store action the Pay Now button calls). */
+  housingPayRent: () => void
+  /** DEV/E2E: reconcile rent that fell due (the SAME lazy step production runs on phone-open). */
+  housingReconcileRent: () => void
+  /** DEV/E2E: drop the housing slice from the PERSISTED save, simulating a pre-housing
+   *  legacy save so the next load exercises the real migration path. */
+  housingDropSaveSlice: () => Promise<void>
+  /** DEV/E2E: the current home's authored slots (id + allowed categories + max size). */
+  getHousingSlots: () => { id: string; room: string; allowedCategories: string[]; maxSize: string }[]
+  /** DEV/E2E: buy a furniture piece (the SAME store action the Furnish shop calls). */
+  housingBuyFurniture: (defId: string) => void
+  /** DEV/E2E: place a stored asset into a slot (the SAME store action Furnish mode calls). */
+  housingPlaceFurniture: (slotId: string, assetId: string) => void
+  /** DEV/E2E: rotate the asset in a slot. */
+  housingRotateFurniture: (slotId: string) => void
+  /** DEV/E2E: move the asset in one slot to another. */
+  housingMoveFurniture: (fromSlot: string, toSlot: string) => void
+  /** DEV/E2E: store the asset in a slot back into home inventory. */
+  housingStoreFurniture: (slotId: string) => void
+  /** DEV/E2E: the current home's derived metrics (comfort/style/storage/sleep/hosting). */
+  getHomeMetrics: () => { comfort: number; style: number; storageCapacity: number; sleepQuality: number; hostingCapacity: number }
+  /** DEV/E2E: the current home's sleep benefit (energy target + health restore). */
+  getHomeSleepBenefit: () => { energyTo: number; healthRestore: number; quality: number }
+  /** DEV/E2E: save/apply/clear an outfit preset (the SAME store actions the wardrobe calls). */
+  housingSaveOutfit: (id: string) => void
+  housingApplyOutfit: (id: string) => void
+  housingClearOutfit: (id: string) => void
+  /** DEV/E2E: whether the current home can host a given activity (+ first unmet reason). */
+  housingCanHost: (kind: string) => { ok: boolean; reason?: string }
+  /** DEV/E2E: invite a guest to a home activity (the SAME store action the Home app calls). */
+  housingInviteGuest: (npcId: string, kind: string) => void
+  /** DEV/E2E: start/advance the home hosting at the anchor (the SAME store action the anchor calls). */
+  housingHostAtAnchor: () => void
+  /** DEV/E2E: the active home hosting state (kind + guest + step), or null. */
+  getHomeHosting: () => { active: boolean; kind: string; guestId: string; step: string } | null
   /** Routing: graph counts + content-hash version. */
   getRoadGraphSummary: () => {
     version: number
@@ -955,6 +1015,10 @@ export interface GameTestApi {
   /** Set the game-clock DAY (advance the real clock, e.g. into a plan's start window). */
   setGameDay: (day: number) => void
   setTimeScale: (scale: number) => void
+  /** DEV/E2E: arrange the player's money (e.g. to afford a housing deposit). */
+  setMoney: (amount: number) => void
+  /** DEV/E2E: arrange home storage contents (e.g. to test capacity/overflow). */
+  setStorage: (stacks: Record<string, number>) => void
   pauseWorld: (paused: boolean) => void
   setQuestState: (questId: string, state: QuestState) => void
   giveItem: (itemId: string, quantity: number) => void
@@ -1289,6 +1353,43 @@ export function installTestApi(): void {
     getCareerCommitmentSlots: () => getCareerCommitmentSlotsRt(),
     reconcileCareerRecommendations: (gameDay: number, gameHour: number) => careerReconcileRecsRt(gameDay, gameHour),
     performActivityAction: (actionId: string) => useGameStore.getState().performActivityAction(actionId),
+    getHousingState: () => getHousingStateRt() as HousingState,
+    getHousingReport: () => housingReportRt(),
+    getHousingEligibility: (propertyId: string) => housingEligibilityRt(propertyId as PropertyId, useGameStore.getState().stats.day),
+    housingTour: (propertyId: string) => useGameStore.getState().tourHousingProperty(propertyId as PropertyId),
+    housingLease: (propertyId: string) => useGameStore.getState().leaseHousingProperty(propertyId as PropertyId),
+    housingPayRent: () => useGameStore.getState().payHousingRent(),
+    housingReconcileRent: () => useGameStore.getState().reconcileHousingRentOnOpen(),
+    housingDropSaveSlice: async () => {
+      const d = await loadSaveRt()
+      if (d) {
+        delete (d as { housing?: unknown }).housing
+        await persistSaveRt(d)
+      }
+    },
+    getHousingSlots: () =>
+      getPropertySlotsRt(getCurrentPropertyIdRt()).map((s) => ({ id: s.id, room: s.room, allowedCategories: [...s.allowedCategories], maxSize: s.maxSize })),
+    housingBuyFurniture: (defId: string) => useGameStore.getState().buyFurniture(defId),
+    housingPlaceFurniture: (slotId: string, assetId: string) => useGameStore.getState().placeFurniture(slotId, assetId),
+    housingRotateFurniture: (slotId: string) => useGameStore.getState().rotateFurniture(slotId),
+    housingMoveFurniture: (fromSlot: string, toSlot: string) => useGameStore.getState().moveFurniture(fromSlot, toSlot),
+    housingStoreFurniture: (slotId: string) => useGameStore.getState().storeFurniture(slotId),
+    getHomeMetrics: () => {
+      const m = getHomeMetricsRt()
+      return { comfort: m.comfort, style: m.style, storageCapacity: m.storageCapacity, sleepQuality: m.sleepQuality, hostingCapacity: m.hostingCapacity }
+    },
+    getHomeSleepBenefit: () => homeSleepBenefitRt(),
+    housingSaveOutfit: (id: string) => useGameStore.getState().saveHousingOutfitPreset(id),
+    housingApplyOutfit: (id: string) => useGameStore.getState().applyHousingOutfitPreset(id),
+    housingClearOutfit: (id: string) => useGameStore.getState().clearHousingOutfitPreset(id),
+    housingCanHost: (kind: string) => canHostActivityRt(kind as HomeActivityKind),
+    housingInviteGuest: (npcId: string, kind: string) => useGameStore.getState().sendPlayerInvite(npcId, kind as InvitationActivityKind),
+    housingHostAtAnchor: () => useGameStore.getState().openHomeHosting('host'),
+    getHomeHosting: () => {
+      const a = getActiveActivityRt()
+      if (!a || !isHomeActivityKindRt(a.activityKind)) return null
+      return { active: true, kind: a.activityKind, guestId: a.actorId, step: a.step }
+    },
     // ---- Cross-District Traffic Routing v1 ---------------------------------
     getRoadGraphSummary: () => {
       const graph = getRoadGraph()
@@ -2194,6 +2295,8 @@ export function installTestApi(): void {
     setTime: (hour) => useGameStore.getState().setHour(hour),
     setGameDay: (day) => useGameStore.setState((s) => ({ stats: { ...s.stats, day: Math.max(1, Math.trunc(day)) } })),
     setTimeScale: (scale) => useGameStore.getState().setTimeScale(scale),
+    setMoney: (amount) => useGameStore.setState((s) => ({ stats: { ...s.stats, money: Math.max(0, Math.round(amount)) } })),
+    setStorage: (stacks) => useGameStore.setState({ storage: { ...stacks } }),
     pauseWorld: (paused) => useGameStore.getState().setWorldPaused(paused),
     setQuestState: (questId, state) => useGameStore.getState().setQuestState(questId, state),
     giveItem: (itemId, quantity) => useGameStore.getState().giveItem(itemId, quantity),

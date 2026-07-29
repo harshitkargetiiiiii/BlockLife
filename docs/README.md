@@ -44,6 +44,15 @@ Start here. Every doc, what it's for, and the order to read them in.
   contextual interactions + gifts + anti-farming, phone contacts/messages/
   invitations + scheduling, reusable activity templates + Coffee-for-Ravi compat,
   observe-only crime/economy consequences, and the additive fail-safe save slice.
+- **[CAREERS_SKILLS_AND_PROGRESSION.md](CAREERS_SKILLS_AND_PROGRESSION.md)** — the
+  deterministic career platform: 4 careers × 4 ranks, the skill model, scheduled
+  shifts + reusable shift templates, base×rank×performance pay, promotions/unlocks,
+  and the career→social adapter.
+- **[HOUSING_FURNITURE_AND_PROPERTY.md](HOUSING_FURNITURE_AND_PROPERTY.md)** — the
+  deterministic housing platform: 3 property tiers + lease/rent lifecycle, atomic
+  moves, 19 furniture defs as unique assets, production Furnish mode over authored
+  slots, the ONE bounded metric calculator + real sleep/storage/wardrobe/hosting
+  effects, the career/social integration, and old-apartment→Starter-Studio migration.
 
 ## Reference data
 

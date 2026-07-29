@@ -76,7 +76,27 @@ regression) and `scripts/crime-gate.sh`.
 compiles 0 files and always passes. Only `-b --force` really typechecks.
 
 ## Current state
-In progress: **Career, Skills & Life Progression v1** (issue #15) — one
+In progress: **Housing, Furniture & Property Progression v1** (issue #17) — one
+**deterministic** housing platform under [`src/game/housing/`](src/game/housing/) on top
+of the existing economy/commerce/inventory-storage/interior/wardrobe/career/social/
+mission/crime/game-time/save/streaming/occupancy stacks (reimplementing none). Core
+loop: maintain a lease → qualify/tour → move safely → buy furniture → furnish → improve
+Comfort/Style/Storage/Sleep → host trusted NPCs. Ships **3 tiers** (migrated **Starter
+Studio**, **City Loft**, **Premium Apartment**) with a validated registry; **exactly one
+residence/lease**; 7-day game-time rent (lazy exact-once autopay + 2-day grace + one
+bounded late fee + manual settlement, no eviction); **atomic** deposit-refund/charge
+moves (no two-homes/lost-furniture); **19 furniture defs** as unique reload-safe assets
+outside the backpack; a production **Furnish mode** over authored slots; ONE bounded
+**metric calculator** (anti-inflation) driving **real** sleep/storage/wardrobe/hosting
+effects (display==execution); a canonical **Home** phone app; typed read-only **career**
+eligibility (rank + verified income); **3 home activities** (Coffee/Movie Night/Dinner
+at Home) through the existing social invitation/activity pipeline with a real interior
+**guest**; additive fail-safe **save** + old-apartment→Starter-Studio migration with one
+grace period; DEV observability. UI re-renders via a `housingVersion` counter. See
+[`docs/HOUSING_FURNITURE_AND_PROPERTY.md`](docs/HOUSING_FURNITURE_AND_PROPERTY.md).
+
+Prior sprint (shipped via PR #16, merged): **Career, Skills & Life Progression v1**
+(issue #15) — one
 **deterministic** career platform under [`src/game/careers/`](src/game/careers/) on
 top of the existing job-board/phone/mission-vocab/economy/inventory/social/crime/
 save/streaming stacks (reimplementing none). Core loop: discover a career → qualify

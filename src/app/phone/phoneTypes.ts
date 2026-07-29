@@ -15,6 +15,7 @@ export const PHONE_APPS: PhoneAppDef[] = [
   { id: 'messages', label: 'Chats', icon: '💬' },
   { id: 'contacts', label: 'People', icon: '👥' },
   { id: 'jobs', label: 'Jobs', icon: '💼' },
+  { id: 'housing', label: 'Home', icon: '🏡' },
   { id: 'settings', label: 'Settings', icon: '⚙️' },
 ]
 

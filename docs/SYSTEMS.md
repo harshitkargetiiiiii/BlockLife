@@ -320,6 +320,40 @@ can't enter.
 
 ---
 
+## Housing, Furniture & Property Progression
+
+[`housing/`](../src/game/housing/). ONE deterministic housing platform layered on
+the interior/economy/inventory-storage/wardrobe/career/social stacks (owning none
+of them). The Starter Studio **is** the legacy apartment interior above, migrated
+in place; the City Loft and Premium Apartment add two more interiors. Full design
+in [HOUSING_FURNITURE_AND_PROPERTY](HOUSING_FURNITURE_AND_PROPERTY.md).
+
+- **Registry + lease** — 3 tiers (`propertyRegistry.ts`, stable ids) with distinct
+  entrances/interiors/safe-spawns/costs/eligibility; a PURE lease model
+  (`leaseModel.ts`): one held deposit, 7-day game-time rent, lazy exact-once auto/
+  manual pay, 2-day grace + one late fee, debt settlement, no eviction.
+- **Runtime + save** — a module-singleton `housingRuntime` (ids/scalars only,
+  bridged to zustand via a `housingVersion` counter) with the ONE exact-once txn
+  funnel (stable keys + bounded FIFO ledgers, reload-safe `assetSeq`); additive
+  fail-safe persistence (`housingPersistence.ts`) migrates an old apartment save
+  into the Starter Studio with a grace period.
+- **Furniture + Furnish mode** — a 19-def catalog (`furnitureCatalog.ts`); each
+  bought piece is a unique reload-safe **asset** living outside the backpack;
+  production **Furnish mode** (`FurnishPanel.tsx`) places/rotates/moves/replaces/
+  stores assets over authored per-property slots via a PURE placement validator
+  (`placement.ts`).
+- **Metrics + effects** — ONE bounded pure calculator (`homeMetrics.ts`:
+  Comfort/Style/Storage/Sleep/Hosting, anti-inflation coverage/duplicate multipliers)
+  driving real effects: beds → sleep energy/health, storage furniture → capacity,
+  a placed wardrobe → 3 outfit presets, seating/table/TV → hosting + home activities.
+- **Integration** — typed read-only Career reads (`housingCareer.ts`) gate tier
+  eligibility; the Social stack hosts **Coffee at Home / Movie Night / Dinner at
+  Home** through the existing invitation/activity pipeline (`housingSocial.ts` +
+  new `*_home` kinds + a home venue + an interior-rendered guest); a canonical
+  **Home** phone app (`PhoneHousing.tsx`) surfaces lease/listings/metrics/hosting.
+
+---
+
 ## Assets & GLB loading
 
 [`assets/`](../src/game/assets/). Optional GLB landmarks with a hard guarantee

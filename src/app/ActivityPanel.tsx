@@ -2,6 +2,15 @@ import { useGameStore } from '../game/store/useGameStore'
 import { getActionsFor } from '../game/interactables/interactionHandlers'
 import { INTERACTABLE_BY_ID } from '../data/interactables'
 import { careerActivityBenefits } from '../game/careers/careerBenefits'
+import { homeSleepBenefit } from '../game/housing/housingRuntime'
+
+/** The sleep action's detail, resolved from the current home's bed (§8, display==exec). */
+function sleepDetail(): string {
+  const b = homeSleepBenefit()
+  return b.healthRestore > 0
+    ? `Energy → 100 · +${b.healthRestore} health · wake 07:00`
+    : 'Energy → 100 · wake at 07:00'
+}
 
 /** Action menu for places: food truck, gym, job board, apartment. */
 export function ActivityPanel() {
@@ -24,7 +33,11 @@ export function ActivityPanel() {
   // Café staff discount on food prices; gym free access on the Train gate.
   const benefits = careerActivityBenefits()
   const foodDiscount = def.kind === 'food_truck' ? benefits.foodDiscountPct : 0
-  const actions = getActionsFor(def.kind, { stats, inventory, questStates }, foodDiscount, { gymFreeAccess: benefits.gymFreeAccess })
+  // The sleep detail is resolved from the CURRENT home's bed (issue #17 §8): the SAME
+  // homeSleepBenefit() the store applies, so the shown restore always equals the applied.
+  const actions = getActionsFor(def.kind, { stats, inventory, questStates }, foodDiscount, { gymFreeAccess: benefits.gymFreeAccess }).map(
+    (a) => (a.id === 'sleep' ? { ...a, detail: sleepDetail() } : a),
+  )
 
   return (
     <div className="center-panel-wrap">

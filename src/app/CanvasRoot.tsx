@@ -19,6 +19,9 @@ import { PlayerController } from '../game/player/PlayerController'
 import { Vehicle } from '../game/vehicles/Vehicle'
 import { WeatherEffects } from '../game/weather/WeatherEffects'
 import { ApartmentColliders, ApartmentInterior } from '../game/interiors/ApartmentInterior'
+import { HomeColliders, HomeInteriors } from '../game/interiors/HomeInteriors'
+import { HomeFurniture, HomeFurnitureColliders } from '../game/interiors/HomeFurniture'
+import { HomeGuest } from '../game/interiors/HomeGuest'
 import { StoreInteriors, StoreInteriorColliders } from '../game/interiors/StoreInteriors'
 import { ActivityDirector } from '../game/criminalActivities/ActivityDirector'
 import { RobberyMarkers } from '../game/criminalActivities/RobberyMarkers'
@@ -50,6 +53,8 @@ export function CanvasRoot() {
       <WeatherEffects />
       <SectorVisuals />
       <ApartmentInterior />
+      <HomeInteriors />
+      <HomeFurniture />
       <StoreInteriors />
       <NPCManager />
       <AmbientCitizens />
@@ -68,6 +73,9 @@ export function CanvasRoot() {
         <Physics>
           <SectorColliders />
           <ApartmentColliders />
+          <HomeColliders />
+          <HomeFurnitureColliders />
+          <HomeGuest />
           <StoreInteriorColliders />
           <PlayerController />
           <Vehicle />

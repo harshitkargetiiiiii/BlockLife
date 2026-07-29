@@ -63,6 +63,40 @@ import { applyMissionSave, serializeMissions } from '../missions/missionPersiste
 import { applySocialSave, serializeSocial } from '../social/socialPersistence'
 import { applyCareerSave, serializeCareers } from '../careers/careerPersistence'
 import {
+  clearOutfitPreset,
+  commitMove,
+  currentResidenceInteriorId,
+  effectiveStorageCapacity,
+  getAsset,
+  getCurrentPropertyId,
+  getOutfitPreset,
+  getPlacements,
+  hasPlacedWardrobe,
+  homeSleepBenefit,
+  isToured,
+  mintFurnitureAsset,
+  moveAsset,
+  placeAsset,
+  planMove,
+  reconcileHousingRent,
+  recordFurniturePurchase,
+  replaceAsset,
+  resetHousing,
+  rotateAsset,
+  saveOutfitPreset,
+  settleHousingDebt,
+  storeAsset,
+  tourProperty,
+} from '../housing/housingRuntime'
+import { getFurnitureDef } from '../housing/furnitureCatalog'
+import { applyHousingSave, serializeHousing } from '../housing/housingPersistence'
+import { getProperty } from '../housing/propertyRegistry'
+import { housingEligibility } from '../housing/housingCareer'
+import { canBuyFurniture, furnitureBuyReasonText } from '../housing/housingCommerce'
+import { hostingRefusalText, placementRefusalText } from '../housing/housingText'
+import { canHostActivity, homeActivityForInvitationKind, tierAtLeast } from '../housing/housingSocial'
+import { isPropertyId, type MoveRefusalReason, type PropertyId } from '../housing/housingTypes'
+import {
   resetCareers,
   applyToCareer as applyToCareerRt,
   quitJob as quitCareerJobRt,
@@ -93,6 +127,7 @@ import {
   beginActivity,
   cancelActivity as cancelActivityRt,
   getActiveActivity,
+  getConfirmedPlans,
   getDerivedRelationship,
   getInvitations,
   getRelationship,
@@ -107,7 +142,7 @@ import {
   socialRuntime,
   stepActivity,
 } from '../social/socialRuntime'
-import { activityFromInvitation, activityPrompt, favorActivity } from '../social/socialActivities'
+import { activityFromInvitation, activityPrompt, favorActivity, isHomeActivityKind } from '../social/socialActivities'
 import { invitationStartWindow } from '../social/socialScheduling'
 import { noteArrestWitnessed, noteCrimeWitnessed } from '../social/socialConsequences'
 import type { InvitationActivityKind } from '../social/socialTypes'
@@ -147,7 +182,6 @@ import { distanceToRegister } from '../criminalActivities/robberyLogic'
 import { getItemDefinition } from '../items/itemCatalog'
 import {
   BACKPACK_CAPACITY,
-  STORAGE_CAPACITY,
   addItem as addStack,
   hasItem,
   occupiedSlots,
@@ -172,7 +206,7 @@ import { resetIntegrityRuntime } from '../world/integrity/integrityRuntime'
 import { LOCKED_PALETTE_IDS } from '../interiors/interiorTypes'
 import { getWeaponDef, setAmmo } from '../combat/weaponRuntime'
 
-export type PanelKind = 'none' | 'dialogue' | 'activity' | 'phone' | 'wardrobe' | 'storage' | 'shop'
+export type PanelKind = 'none' | 'dialogue' | 'activity' | 'phone' | 'wardrobe' | 'storage' | 'shop' | 'furnish'
 export type PlayMode = 'walking' | 'driving'
 
 export type PhoneAppId =
@@ -184,6 +218,7 @@ export type PhoneAppId =
   | 'contacts'
   | 'jobs'
   | 'bag'
+  | 'housing'
   | 'settings'
 
 export interface UIState {
@@ -246,6 +281,9 @@ interface GameDataState {
   /** Bumps on every career-state mutation so career-reading UI (Phone Jobs, HUD)
    *  re-renders — the career runtime also lives outside zustand (issue #15). */
   careerVersion: number
+  /** Bumps on every housing-state mutation so housing-reading UI (Home app, HUD)
+   *  re-renders — the housing runtime also lives outside zustand (issue #17). */
+  housingVersion: number
   saveStatus: string | null
   /** Player health 0–100 (HUD-reactive). Persists across save/load. */
   playerHealth: number
@@ -257,6 +295,10 @@ interface GameDataState {
   missionView: MissionView
   /** Which interior the player is inside (store/apartment id), or null in city. */
   currentInteriorId: string | null
+  /** The property being TOURED (inside its interior, no ownership), or null. */
+  housingTouring: PropertyId | null
+  /** The slot selected in Furnish mode (drives place/rotate/store/move), or null. */
+  furnishSelectedSlot: string | null
   /** UI mirror of the criminal-activity runtime (Store Robbery v1). */
   activityView: ActivityView
   // ---- Personal Economy, Inventory & Shopping v1 ----
@@ -321,6 +363,46 @@ export interface GameStore extends GameDataState {
   enterApartment: () => void
   /** Leave the apartment; the player reappears by the street entrance. */
   exitApartment: () => void
+  // ---- Housing, Furniture & Property Progression v1 (issue #17) ----
+  /** A property door: enter your home, or begin a tour of a listing. */
+  enterProperty: (interactableId: string) => void
+  /** Tour a property through its real interior (no ownership change). */
+  tourHousingProperty: (propertyId: PropertyId) => void
+  /** Atomically lease + move into a property (deposit/rent settle from balance). */
+  leaseHousingProperty: (propertyId: PropertyId) => void
+  /** Manually settle outstanding rent from the current balance. */
+  payHousingRent: () => void
+  /** Lazily reconcile rent that fell due, auto-paying from balance. The ONE lazy
+   *  touch point (called on phone-open, never per frame — issue #17 §3). */
+  reconcileHousingRentOnOpen: () => void
+  /** Open Furnish mode inside the current home (issue §6). */
+  openFurnishMode: () => void
+  /** Leave Furnish mode, clearing selection/markers. */
+  exitFurnishMode: () => void
+  /** Select a slot in Furnish mode (drives place/rotate/store/move). */
+  selectFurnishSlot: (slotId: string | null) => void
+  /** Buy a furniture piece through the economy (mints one unique asset). */
+  buyFurniture: (defId: string) => void
+  /** Place a stored asset into an empty compatible slot. */
+  placeFurniture: (slotId: string, assetId: string) => void
+  /** Rotate the asset placed in a slot. */
+  rotateFurniture: (slotId: string) => void
+  /** Move the asset in one slot to another empty compatible slot. */
+  moveFurniture: (fromSlot: string, toSlot: string) => void
+  /** Replace the asset in a slot with another owned asset (old → storage). */
+  replaceFurniture: (slotId: string, newAssetId: string) => void
+  /** Store the asset placed in a slot back into home furniture inventory. */
+  storeFurniture: (slotId: string) => void
+  /** True when removing/replacing a slot's storage piece would strand stored items. */
+  housingStorageWouldStrand: (slotId: string, replacementAssetId?: string) => boolean
+  /** Save the current look into an outfit preset (needs a placed wardrobe). */
+  saveHousingOutfitPreset: (id: string) => void
+  /** Apply a saved outfit preset to the player's look (needs a placed wardrobe). */
+  applyHousingOutfitPreset: (id: string) => void
+  /** Clear an outfit preset slot (never deletes owned clothing). */
+  clearHousingOutfitPreset: (id: string) => void
+  /** Open the home-hosting flow at a hosting anchor (hosting slice). */
+  openHomeHosting: (interactableId: string) => void
   /** Update outfit colors (partial merge over the current appearance). */
   setAppearance: (appearance: Partial<PlayerAppearance>) => void
   setCharacterRenderMode: (mode: 'auto' | 'model' | 'primitive') => void
@@ -406,6 +488,7 @@ export function createInitialGameState(): GameDataState {
     toast: null,
     socialVersion: 0,
     careerVersion: 0,
+    housingVersion: 0,
     saveStatus: null,
     playerHealth: PLAYER_MAX_HEALTH,
     playerIncapacitated: false,
@@ -422,6 +505,8 @@ export function createInitialGameState(): GameDataState {
       listSeq: 0,
     },
     currentInteriorId: null,
+    housingTouring: null,
+    furnishSelectedSlot: null,
     activityView: {
       storeId: null,
       storeTitle: null,
@@ -597,6 +682,16 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     if (!id) return
     const def = INTERACTABLE_BY_ID[id]
     if (!def) return
+    // While TOURING a property, the home actions (sleep/wardrobe/storage/furnish/host)
+    // are observe-only — you don't own the place yet (issue #17 §4).
+    if (
+      get().housingTouring &&
+      (def.kind === 'bed' || def.kind === 'wardrobe' || def.kind === 'storage' || def.kind === 'furnish' || def.kind === 'home_host')
+    ) {
+      audioManager.playClick()
+      get().showToast('You’re just touring — lease this place to make it yours.')
+      return
+    }
     audioManager.playClick()
     if (def.kind === 'npc') {
       get().openDialogue(id)
@@ -608,6 +703,12 @@ export const useGameStore = create<GameStore>()((set, get) => ({
       get().enterApartment()
     } else if (def.kind === 'apartment_exit') {
       get().exitApartment()
+    } else if (def.kind === 'property_entrance') {
+      get().enterProperty(id)
+    } else if (def.kind === 'furnish') {
+      get().openFurnishMode()
+    } else if (def.kind === 'home_host') {
+      get().openHomeHosting(id)
     } else if (def.kind === 'store_entrance') {
       get().enterInterior(def.interiorId ?? '')
     } else if (def.kind === 'store_exit') {
@@ -693,6 +794,9 @@ export const useGameStore = create<GameStore>()((set, get) => ({
       careerReconcileRecs(s.stats.day, s.stats.hour) // warm employers put in a good word (§10)
       for (const seq of consumePendingEscapes()) careerNoteEscaped(seq, s.stats.day, s.stats.hour) // shaking the police builds Street Smarts (§2/F7)
       set((st) => ({ socialVersion: st.socialVersion + 1, careerVersion: st.careerVersion + 1 }))
+      // Opening the phone also reconciles rent that fell due (issue #17 §3), auto-paying
+      // from the current balance — never per frame, only on this lazy touch point.
+      get().reconcileHousingRentOnOpen()
     }
     set({
       ui: {
@@ -766,12 +870,23 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     // Sleeping advances the day — reconcile any accepted plan whose window lapsed
     // overnight into a no-show (PR#14 blocker 3), then close the panel.
     if (outcome.ok && actionId === 'sleep') {
+      // A better bed restores real HEALTH on top of full energy (issue #17 §8) — the
+      // SAME homeSleepBenefit() the bed action displays, so shown == applied.
+      const sleepBen = homeSleepBenefit()
+      if (sleepBen.healthRestore > 0) get().setPlayerHealth(get().playerHealth + sleepBen.healthRestore)
       reconcileMissedInvitations(outcome.state.stats.day, outcome.state.stats.hour)
       for (const missed of reconcileMissedShiftsRt(outcome.state.stats.day, outcome.state.stats.hour)) {
         careerNotifyShiftOutcome(missed.careerId, 'missed', 0, missed.id, outcome.state.stats.day, outcome.state.stats.hour)
       }
       for (const seq of consumePendingEscapes()) careerNoteEscaped(seq, outcome.state.stats.day, outcome.state.stats.hour)
       set((st) => ({ socialVersion: st.socialVersion + 1, careerVersion: st.careerVersion + 1 }))
+      // Sleeping advances the day — reconcile any rent that fell due (issue #17 §3),
+      // auto-paying from the current balance in ONE calc (no capture-spread clobber).
+      const sleepRent = reconcileHousingRent(outcome.state.stats.day, get().stats.money)
+      if (sleepRent.moneyDelta !== 0 || sleepRent.messages.length > 0) {
+        set((st) => ({ stats: { ...st.stats, money: st.stats.money + sleepRent.moneyDelta }, housingVersion: st.housingVersion + 1 }))
+        for (const m of sleepRent.messages) get().showToast(m)
+      }
       get().closePanel()
     }
   },
@@ -855,6 +970,18 @@ export const useGameStore = create<GameStore>()((set, get) => ({
 
   sendPlayerInvite: (npcId, activityKind) => {
     const s = get()
+    // Home-hosted invites are gated by housing (issue #17 §9): the home must be able
+    // to host (lease good-standing + furniture + seating), the guest must be trusted
+    // enough, and you can't invite anyone over during a pursuit.
+    if (activityKind && isHomeActivityKind(activityKind)) {
+      const homeDef = homeActivityForInvitationKind(activityKind)
+      const host = homeDef ? canHostActivity(homeDef.kind) : { ok: false, reason: 'missing_furniture' as const }
+      if (!host.ok) return void get().showToast(hostingRefusalText(host.reason))
+      if (homeDef && !tierAtLeast(getDerivedRelationship(npcId).tier, homeDef.minTier)) {
+        return void get().showToast(`${getSocialActor(npcId)?.displayName ?? 'They'} aren’t close enough to come over yet.`)
+      }
+      if (getWantedLevel() > 0) return void get().showToast("Not while the police are after you!")
+    }
     const res = sendPlayerInviteRt(npcId, s.stats.day, s.stats.hour, {
       activityKind,
       missionBusy: missionRuntime.active !== null,
@@ -894,6 +1021,20 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     if (!win.startable) {
       get().showToast(win.reason ?? 'You can’t start that plan yet.')
       return
+    }
+    // A home-hosted plan can only start INSIDE your own home, with the home still
+    // able to host (issue #17 §9) — furniture may have moved since the invite.
+    if (isHomeActivityKind(inv.activityKind)) {
+      if (s.location !== 'apartment' || s.housingTouring) {
+        get().showToast('Head home to host your guest.')
+        return
+      }
+      const homeDef = homeActivityForInvitationKind(inv.activityKind)
+      const host = homeDef ? canHostActivity(homeDef.kind) : { ok: false, reason: 'missing_furniture' as const }
+      if (!host.ok) {
+        get().showToast(hostingRefusalText(host.reason))
+        return
+      }
     }
     const act = activityFromInvitation(inv.id, inv.actorId, inv.activityKind, s.stats.day)
     beginActivity(act)
@@ -938,10 +1079,16 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     const act = getActiveActivity()
     if (!act) return
     // Destination integration (PR#14 blocker 4): you can't "arrive" until you're
-    // actually AT the venue — reuse the existing proximity scanner's activeInteractableId.
-    if (act.step === 'travel' && s.activeInteractableId !== act.venueId) {
-      get().showToast(`Head to ${act.venueLabel} to meet ${getSocialActor(act.actorId)?.displayName ?? 'them'}.`)
-      return
+    // actually AT the venue. A HOME activity's venue is your residence — satisfied
+    // when you're inside your own home (issue #17 §9); other venues use the scanner.
+    if (act.step === 'travel') {
+      const atVenue = isHomeActivityKind(act.activityKind)
+        ? s.location === 'apartment' && !s.housingTouring && s.currentInteriorId === currentResidenceInteriorId()
+        : s.activeInteractableId === act.venueId
+      if (!atVenue) {
+        get().showToast(`Head to ${act.venueLabel} to meet ${getSocialActor(act.actorId)?.displayName ?? 'them'}.`)
+        return
+      }
     }
     // A favor's delivery step hands over a REAL item — consume it atomically first.
     if (act.step === 'deliver' && act.requiredItemId) {
@@ -1129,7 +1276,10 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     }
   },
 
-  enterApartment: () => get().enterInterior('apartment'),
+  // Current-residence adapter (issue #17 §4): the home door leads to whichever
+  // property the player currently leases, not a hardcoded 'apartment'. Defaults to
+  // the Starter Studio (interior 'apartment'), so behaviour is unchanged until a move.
+  enterApartment: () => get().enterInterior(currentResidenceInteriorId()),
   exitApartment: () => get().exitInterior(),
 
   enterInterior: (interiorId) => {
@@ -1149,7 +1299,8 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     const location: PlayerLocationMode = def.kind === 'apartment' ? 'apartment' : 'store'
     set({ location, currentInteriorId: interiorId })
     get().requestTeleport(def.spawn)
-    if (def.kind === 'apartment') get().showToast('Home sweet home.')
+    // Home welcome only when it's really your home — a tour gets its own toast.
+    if (def.kind === 'apartment' && !get().housingTouring) get().showToast('Home sweet home.')
     emitMissionEvent({ type: 'location_changed', location })
     get().syncActivityUI(0)
   },
@@ -1158,10 +1309,250 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     const s = get()
     if (s.location === 'city') return
     const def = s.currentInteriorId ? getInterior(s.currentInteriorId) : undefined
-    set({ location: 'city', currentInteriorId: null })
+    // Leaving clears any tour (issue #17 §4 — a tour never mutates ownership).
+    set({ location: 'city', currentInteriorId: null, housingTouring: null })
     get().requestTeleport(def?.streetExit ?? APARTMENT_STREET_EXIT)
     emitMissionEvent({ type: 'location_changed', location: 'city' })
     get().syncActivityUI(0)
+  },
+
+  // ---- Housing, Furniture & Property Progression v1 (issue #17) --------------
+
+  enterProperty: (interactableId) => {
+    const def = INTERACTABLE_BY_ID[interactableId]
+    const propertyId = def?.propertyId
+    if (!propertyId || !isPropertyId(propertyId)) return
+    if (propertyId === getCurrentPropertyId()) {
+      get().enterApartment() // your home → the current-residence adapter
+    } else {
+      get().tourHousingProperty(propertyId)
+    }
+  },
+
+  tourHousingProperty: (propertyId) => {
+    const s = get()
+    if (s.mode !== 'walking' || s.location !== 'city') return
+    if (getWantedLevel() > 0) {
+      get().showToast("Not while the police are after you!")
+      return
+    }
+    const property = getProperty(propertyId)
+    if (!property) return
+    // A tour marks the property toured but never touches money/furniture/ownership.
+    tourProperty(propertyId)
+    set((st) => ({ housingTouring: propertyId, housingVersion: st.housingVersion + 1 }))
+    get().enterInterior(property.interiorId)
+    get().showToast(`Touring the ${property.displayName}.`)
+  },
+
+  leaseHousingProperty: (propertyId) => {
+    const s = get()
+    const property = getProperty(propertyId)
+    if (!property) return
+    // Hard gates a move can never bypass (issue §2).
+    if (getWantedLevel() > 0) return void get().showToast("Not while the police are after you!")
+    if (s.playerIncapacitated) return
+    if (getActiveCareerShift()) return void get().showToast('You’re on a shift — wrap it up first.')
+    if (missionRuntime.active) return void get().showToast('Finish your current job first.')
+    if (activityRuntime.active) return void get().showToast('Not right now.')
+    const elig = housingEligibility(propertyId, s.stats.day)
+    const plan = planMove(propertyId, s.stats.money, {
+      eligible: elig.eligible,
+      toured: isToured(propertyId),
+      tourRequired: property.tourRequired,
+      // A move packs all furniture, so the destination's effective storage is its base.
+      // Refuse if the currently-stored items wouldn't fit (issue §13, no silent loss).
+      storageOk: occupiedSlots(s.storage) <= property.baseStorageCapacity,
+      activityOk: true, // already gated above
+    })
+    if (!plan.ok) {
+      const reason: MoveRefusalReason | undefined = plan.reason
+      const msg =
+        reason === 'ineligible' ? (elig.firstUnmetReason ?? `You don’t qualify for the ${property.displayName}.`)
+        : reason === 'not_toured' ? 'Tour this property before leasing.'
+        : reason === 'insufficient_funds' ? 'Not enough to cover the deposit and first rent.'
+        : reason === 'rent_debt' ? 'Settle your outstanding rent before moving.'
+        : reason === 'storage_overflow' ? 'Your stored items wouldn’t fit — clear some first.'
+        : reason === 'already_here' ? `You already live at the ${property.displayName}.`
+        : 'You can’t move there right now.'
+      get().showToast(msg)
+      return
+    }
+    const wasInside = s.location !== 'city'
+    const touringHere = s.housingTouring === propertyId
+    // Settle deposit refund − new deposit − initial rent in ONE money calc off the
+    // current balance (never a stale snapshot — capture-spread clobber, CONVENTIONS #24).
+    const { moneyDelta } = commitMove(propertyId, s.stats.day)
+    set((st) => ({
+      stats: { ...st.stats, money: st.stats.money + moneyDelta },
+      housingTouring: null,
+      housingVersion: st.housingVersion + 1,
+    }))
+    // Leased while touring inside → you're standing in your new home. Leased from an
+    // OLD interior → step out to the street so you're never stranded in a home you left.
+    if (wasInside && !touringHere) get().exitInterior()
+    audioManager.playClick()
+    get().showToast(`Moved into the ${property.displayName}!`)
+  },
+
+  payHousingRent: () => {
+    const s = get()
+    const res = settleHousingDebt(s.stats.day, s.stats.money)
+    if (res.moneyDelta !== 0 || res.messages.length > 0) {
+      set((st) => ({ stats: { ...st.stats, money: st.stats.money + res.moneyDelta }, housingVersion: st.housingVersion + 1 }))
+      for (const m of res.messages) get().showToast(m)
+    } else {
+      get().showToast('No rent is due right now.')
+    }
+  },
+
+  reconcileHousingRentOnOpen: () => {
+    const s = get()
+    // Reconcile any rent periods that fell due, auto-paying from the current balance
+    // (issue #17 §3). Lazy: the phone-open touch point is the ONLY caller — never a frame.
+    const res = reconcileHousingRent(s.stats.day, s.stats.money)
+    if (res.moneyDelta !== 0 || res.messages.length > 0) {
+      set((st) => ({ stats: { ...st.stats, money: st.stats.money + res.moneyDelta }, housingVersion: st.housingVersion + 1 }))
+      for (const m of res.messages) get().showToast(m)
+    }
+  },
+
+  openFurnishMode: () => {
+    const s = get()
+    // Furnishing is only for your OWN home — not while touring or out in the city (§6).
+    if (s.location !== 'apartment' || s.housingTouring) {
+      get().showToast('Step inside your own home to furnish it.')
+      return
+    }
+    audioManager.playClick()
+    set((st) => ({ ui: { ...st.ui, panel: 'furnish', dialogueNpcId: null, activityId: null }, furnishSelectedSlot: null }))
+  },
+
+  exitFurnishMode: () => set((s) => ({ ui: { ...s.ui, panel: 'none' }, furnishSelectedSlot: null })),
+
+  selectFurnishSlot: (slotId) => set({ furnishSelectedSlot: slotId }),
+
+  buyFurniture: (defId) => {
+    const s = get()
+    const check = canBuyFurniture(defId, s.stats.money)
+    if (!check.ok) {
+      get().showToast(furnitureBuyReasonText(check.reason))
+      return
+    }
+    // Charge the economy + mint ONE unique asset + record the exact-once receipt.
+    const asset = mintFurnitureAsset(defId)
+    recordFurniturePurchase(asset.assetId, check.price, s.stats.day)
+    audioManager.playClick()
+    set((st) => ({ stats: { ...st.stats, money: st.stats.money - check.price }, housingVersion: st.housingVersion + 1 }))
+    get().showToast(`Bought ${defId.replace(/_/g, ' ')}.`)
+  },
+
+  placeFurniture: (slotId, assetId) => {
+    // If the slot is occupied, this is a replace (old asset → storage); else a place.
+    const occupiedSlot = getPlacements()[slotId] !== undefined
+    // Replacing a storage piece with a smaller one must not strand stored items (§8/§13).
+    if (occupiedSlot && get().housingStorageWouldStrand(slotId, assetId)) {
+      get().showToast('Your stored items wouldn’t fit — clear some first.')
+      return
+    }
+    const res = occupiedSlot ? replaceAsset(slotId, assetId) : placeAsset(slotId, assetId)
+    if (!res.ok) {
+      get().showToast(placementRefusalText(res.reason ?? 'unknown_slot'))
+      return
+    }
+    audioManager.playClick()
+    set((st) => ({ housingVersion: st.housingVersion + 1 }))
+  },
+
+  /** True when removing/replacing the storage piece in `slotId` would strand stored items. */
+  housingStorageWouldStrand: (slotId, replacementAssetId) => {
+    const oldDef = getFurnitureDef(getAsset(getPlacements()[slotId] ?? '')?.defId ?? '')
+    if (!oldDef || oldDef.storage <= 0) return false
+    const newStorage = replacementAssetId ? (getFurnitureDef(getAsset(replacementAssetId)?.defId ?? '')?.storage ?? 0) : 0
+    const capacityAfter = effectiveStorageCapacity() - oldDef.storage + newStorage
+    return occupiedSlots(get().storage) > capacityAfter
+  },
+
+  rotateFurniture: (slotId) => {
+    if (rotateAsset(slotId)) set((st) => ({ housingVersion: st.housingVersion + 1 }))
+  },
+
+  moveFurniture: (fromSlot, toSlot) => {
+    const res = moveAsset(fromSlot, toSlot)
+    if (!res.ok) {
+      get().showToast(placementRefusalText(res.reason ?? 'unknown_slot'))
+      return
+    }
+    audioManager.playClick()
+    set((st) => ({ furnishSelectedSlot: toSlot, housingVersion: st.housingVersion + 1 }))
+  },
+
+  replaceFurniture: (slotId, newAssetId) => {
+    if (get().housingStorageWouldStrand(slotId, newAssetId)) {
+      get().showToast('Your stored items wouldn’t fit — clear some first.')
+      return
+    }
+    const res = replaceAsset(slotId, newAssetId)
+    if (!res.ok) {
+      get().showToast(placementRefusalText(res.reason ?? 'unknown_slot'))
+      return
+    }
+    audioManager.playClick()
+    set((st) => ({ housingVersion: st.housingVersion + 1 }))
+  },
+
+  storeFurniture: (slotId) => {
+    // Removing storage furniture that would strand stored items is refused (§8/§13).
+    if (get().housingStorageWouldStrand(slotId)) {
+      get().showToast('Your stored items wouldn’t fit — clear some first.')
+      return
+    }
+    if (storeAsset(slotId)) {
+      audioManager.playClick()
+      set((st) => ({ housingVersion: st.housingVersion + 1 }))
+    }
+  },
+
+  saveHousingOutfitPreset: (id) => {
+    if (!hasPlacedWardrobe()) {
+      get().showToast('Place a wardrobe to save outfit presets.')
+      return
+    }
+    if (saveOutfitPreset(id, get().appearance)) {
+      audioManager.playClick()
+      set((st) => ({ housingVersion: st.housingVersion + 1 }))
+      get().showToast('Outfit saved.')
+    }
+  },
+
+  applyHousingOutfitPreset: (id) => {
+    if (!hasPlacedWardrobe()) {
+      get().showToast('Place a wardrobe to use outfit presets.')
+      return
+    }
+    const preset = getOutfitPreset(id)
+    if (preset?.appearance) {
+      get().setAppearance(preset.appearance)
+      audioManager.playClick()
+      get().showToast('Outfit applied.')
+    }
+  },
+
+  clearHousingOutfitPreset: (id) => {
+    if (clearOutfitPreset(id)) set((st) => ({ housingVersion: st.housingVersion + 1 }))
+  },
+
+  // Home hosting (issue #17 §9): at the hosting anchor, advance the guest's visit if
+  // one is active, else start a confirmed home plan whose window is open.
+  openHomeHosting: () => {
+    const act = getActiveActivity()
+    if (act && isHomeActivityKind(act.activityKind)) {
+      get().advanceSocialActivity()
+      return
+    }
+    const plan = getConfirmedPlans().find((p) => isHomeActivityKind(p.activityKind) && p.status === 'accepted')
+    if (plan) get().startSocialActivity(plan.id)
+    else get().showToast('No one is coming over right now.')
   },
 
   setAppearance: (appearance) =>
@@ -1239,7 +1630,7 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     // Robbery: lose unsecured proceeds exactly once, end any active robbery, and
     // (if inside a store) fall back out to the street.
     onPlayerIncident(kind)
-    if (s.location !== 'city') set({ location: 'city', currentInteriorId: null })
+    if (s.location !== 'city') set({ location: 'city', currentInteriorId: null, housingTouring: null })
     // Social consequence: a public arrest is seen by nearby named NPCs (a trust
     // ding) — note it at the player's position BEFORE the reset + respawn.
     if (kind === 'arrest') {
@@ -1496,7 +1887,8 @@ export const useGameStore = create<GameStore>()((set, get) => ({
       return
     }
     const qty = quantity === 'all' ? (s.inventory[itemId] ?? 0) : quantity
-    const t = transferItem(s.inventory, s.storage, itemId, qty, STORAGE_CAPACITY)
+    // Effective capacity = property base + placed storage furniture (issue #17 §8).
+    const t = transferItem(s.inventory, s.storage, itemId, qty, effectiveStorageCapacity())
     if (!t.ok) {
       get().showToast(t.reason === 'capacity_full' ? 'Storage is full.' : 'Nothing to store.')
       return
@@ -1608,6 +2000,7 @@ export const useGameStore = create<GameStore>()((set, get) => ({
       commerce: serializeCommerce(),
       social: serializeSocial(),
       career: serializeCareers(),
+      housing: serializeHousing(),
     })
     try {
       await persistSave(snapshot)
@@ -1656,6 +2049,7 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     resetCommerceRuntime() // store stock back to full defaults
     resetSocial() // relationships/memories/contacts back to canonical defaults
     resetCareers() // employment/skills/shifts/history back to canonical defaults
+    resetHousing() // lease/property/furniture back to the canonical Starter Studio
     resetIntegrityRuntime() // clear mirrored entities + anomaly history on reset
     set({ ...createInitialGameState() })
     teleportPlayer(PLAYER_SPAWN)
@@ -1692,6 +2086,10 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     // still-employed player instead gets a fresh next shift (reconcile below) so the
     // loop resumes without a stranded/duplicate shift (F3).
     applyCareerSave(snapshot.career)
+    // Housing: restore the lease/property/furniture, or MIGRATE an old apartment save
+    // into a Starter Studio with one grace period (issue #17 §14). Rent is reconciled
+    // lazily just below, after stats (money) are restored.
+    applyHousingSave(snapshot.housing, snapshot.stats.day)
     const careerShiftDiscarded = snapshot.career?.activeShift != null
     reconcileCareerEmploymentRt(snapshot.stats.day, snapshot.stats.hour)
     // Commerce: restore persistent store stock + restock clocks + receipts;
@@ -1711,11 +2109,13 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     set({
       socialVersion: get().socialVersion + 1, // refresh social-reading UI after load
       careerVersion: get().careerVersion + 1, // refresh career-reading UI after load
+      housingVersion: get().housingVersion + 1, // refresh housing-reading UI after load
       stats: { ...snapshot.stats },
       // Migrate the legacy inventory Record → sanitised backpack stacks (drops
       // unknown ids, floors quantities, trims to capacity; coffee is preserved).
       inventory: loadedInventory,
-      storage: sanitizeStacks(snapshot.storage, STORAGE_CAPACITY),
+      // Effective capacity reflects the just-restored placed storage furniture (§8/§13).
+      storage: sanitizeStacks(snapshot.storage, effectiveStorageCapacity()),
       wardrobeUnlocks: Array.isArray(snapshot.wardrobe?.unlocked)
         ? snapshot.wardrobe.unlocked.filter((p) => LOCKED_PALETTE_IDS.includes(p))
         : [],
@@ -1735,6 +2135,7 @@ export const useGameStore = create<GameStore>()((set, get) => ({
       playerHealth: loadedHealth,
       playerIncapacitated: loadedHealth === 0,
       currentInteriorId: null,
+      housingTouring: null,
     })
     teleportPlayer([
       snapshot.playerPosition[0],
@@ -1743,6 +2144,13 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     ])
     get().syncMissionUI()
     get().syncActivityUI(0)
+    // Lazily reconcile any rent that fell due while away (issue #17 §3/§14), off the
+    // just-restored balance — a migrated/normal save with a fresh period charges nothing.
+    const loadRent = reconcileHousingRent(get().stats.day, get().stats.money)
+    if (loadRent.moneyDelta !== 0 || loadRent.messages.length > 0) {
+      set((st) => ({ stats: { ...st.stats, money: st.stats.money + loadRent.moneyDelta }, housingVersion: st.housingVersion + 1 }))
+      for (const m of loadRent.messages) get().showToast(m)
+    }
   },
 
   // ---- Missions (Mission & Activity Framework v1) ----------------------------

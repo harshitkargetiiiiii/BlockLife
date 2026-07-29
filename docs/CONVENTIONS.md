@@ -463,6 +463,28 @@ shift, each through the production entry point (route DEV test hooks through the
 action, not the bridge, so tests exercise the real gate). When you add one guard, grep
 for every sibling entry point (accept AND retry) — a lone guard leaves a door open.
 
+### 30. Reuse an interior/social system without disturbing it (Housing v1)
+Four traps from bolting Housing (issue #17) onto the apartment/social stacks, worth
+generalising:
+- **Don't place new content on top of hand-authored meshes.** The Starter Studio reuses
+  `ApartmentInterior`'s hardcoded furniture *as fixtures*; its player-furniture slots sit
+  in open floor, so a placed accent piece never overlaps a fixture and the apartment
+  visual baseline never churns. New player-placeable slots go where the authored scene is
+  empty, or you regenerate baselines you didn't mean to touch.
+- **A hosted guest can't ride the city-NPC pipeline.** Named NPCs are sector-LOD-gated and
+  routine-driven, and interiors live far outside CITY_BOUNDS (no sector) — a relocated NPC
+  is simply *hidden*. Render the guest **directly inside the interior** (the store
+  interior-civilian pattern), keyed off the ONE active social activity so completion/
+  cancel/load clears it with no leak. Reuse the social *invitation/activity/relationship*
+  pipeline for the consequence; add only the venue + the interior render.
+- **Widening a shared union breaks its exhaustive switches.** Adding `*_home` to
+  `InvitationActivityKind` compiled everywhere except an exhaustive `invitationLabel`
+  switch that "lacks ending return." When you extend a union, grep every `switch` over it.
+- **Occupancy is slots, not items.** A storage-overflow test (or any capacity assertion)
+  must occupy real *slots* — `Σ⌈qty/stackLimit⌉`. First-aid stacks 5/slot, snacks 10/slot;
+  53 first-aid kits is 11 slots, not 53. An arrange that ignores stack limits tests
+  nothing (or the wrong thing).
+
 ---
 
 ## The verification workflow (honest gates)

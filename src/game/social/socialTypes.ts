@@ -202,8 +202,20 @@ export interface SocialMessage {
   read: boolean
 }
 
-/** Reusable social activity kinds an invitation can be about (run in Slice 4). */
-export type InvitationActivityKind = 'coffee' | 'food' | 'workout' | 'hangout' | 'walk'
+/**
+ * Reusable social activity kinds an invitation can be about. The `*_home` kinds are
+ * hosted at the player's residence (Housing v1, issue #17 §9) — same invitation +
+ * activity pipeline, with the home as venue and a guest that appears inside.
+ */
+export type InvitationActivityKind =
+  | 'coffee'
+  | 'food'
+  | 'workout'
+  | 'hangout'
+  | 'walk'
+  | 'coffee_home'
+  | 'movie_night'
+  | 'dinner_home'
 
 export type InvitationStatus =
   | 'pending'

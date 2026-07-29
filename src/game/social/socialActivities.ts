@@ -38,6 +38,16 @@ const KIND_PLAN: Record<InvitationActivityKind, { template: SocialActivityTempla
   workout: { template: 'hangout', venue: { id: 'gym', label: 'the Block Gym' } },
   hangout: { template: 'meet', venue: { id: 'job_board', label: 'the plaza' } },
   walk: { template: 'meet', venue: { id: 'apartment', label: 'the park path' } },
+  // Home-hosted activities (Housing v1, issue #17 §9): the venue is the player's own
+  // home; the housing layer resolves the real hosting anchor + spawns the guest inside.
+  coffee_home: { template: 'hangout', venue: { id: 'home', label: 'your home' } },
+  movie_night: { template: 'hangout', venue: { id: 'home', label: 'your home' } },
+  dinner_home: { template: 'hangout', venue: { id: 'home', label: 'your home' } },
+}
+
+/** Whether an invitation kind is hosted at the player's residence. */
+export function isHomeActivityKind(kind: InvitationActivityKind): boolean {
+  return kind === 'coffee_home' || kind === 'movie_night' || kind === 'dinner_home'
 }
 
 /** The ordered steps a template runs through (favors add a delivery beat). */
@@ -103,6 +113,21 @@ export function isComplete(activity: SocialActivity): boolean {
   return activity.step === 'done'
 }
 
+/** Friendly noun for the 'together' prompt — home-hosted kinds carry an
+ *  underscore in their id ('coffee_home') that must never leak into the HUD. */
+function activityKindNoun(kind: InvitationActivityKind): string {
+  switch (kind) {
+    case 'coffee_home':
+      return 'coffee at home'
+    case 'movie_night':
+      return 'a movie night'
+    case 'dinner_home':
+      return 'dinner at home'
+    default:
+      return kind
+  }
+}
+
 /** A short player-facing prompt for the current step. */
 export function activityPrompt(activity: SocialActivity, displayName: string): string {
   switch (activity.step) {
@@ -111,7 +136,7 @@ export function activityPrompt(activity: SocialActivity, displayName: string): s
     case 'deliver':
       return `Hand ${displayName} the ${activity.requiredItemId ?? 'item'}`
     case 'together':
-      return activity.template === 'favor' ? `Wrap up with ${displayName}` : `Enjoy ${activity.activityKind} with ${displayName}`
+      return activity.template === 'favor' ? `Wrap up with ${displayName}` : `Enjoy ${activityKindNoun(activity.activityKind)} with ${displayName}`
     case 'done':
       return `You spent time with ${displayName}`
   }

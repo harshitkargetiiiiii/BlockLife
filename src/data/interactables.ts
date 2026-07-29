@@ -1,6 +1,8 @@
 import type { InteractableDef } from '../game/interactables/interactableTypes'
 import { NPC_DEFS } from './npcs'
 import { APARTMENT_INTERACTABLE_POSITIONS } from '../game/interiors/apartmentLayout'
+import { LOFT_INTERACTABLE_POSITIONS, LOFT_STREET_EXIT } from '../game/interiors/loftLayout'
+import { PREMIUM_INTERACTABLE_POSITIONS, PREMIUM_STREET_EXIT } from '../game/interiors/premiumLayout'
 import { STEALABLE_VEHICLES } from '../game/vehicles/vehicleCrimeState'
 import { getMissionAnchor } from '../game/missions/missionAnchors'
 import {
@@ -102,6 +104,54 @@ export const APARTMENT_INTERACTABLES: InteractableDef[] = [
     icon: '🚪',
     markerColor: '#e07a5f',
   },
+  { id: 'apartment_furnish', kind: 'furnish', name: 'Furnish Home', position: APARTMENT_INTERACTABLE_POSITIONS.furnish, radius: 2.2, marker: true, icon: '🛋️', markerColor: '#e6a15e' },
+  { id: 'apartment_host', kind: 'home_host', name: 'Host', position: APARTMENT_INTERACTABLE_POSITIONS.host, radius: 2.2, marker: true, icon: '🎉', markerColor: '#e07a5f' },
+]
+
+/**
+ * Housing v1 (issue #17): the two upgrade-home city entrances + their interior
+ * anchors (bed/wardrobe/storage/furnish/exit). The Starter Studio reuses the
+ * existing `apartment` door + APARTMENT_INTERACTABLES. Interior anchors sit at each
+ * home's far-off-grid coords, so the shared proximity system finds them only while
+ * the player is inside that home. Furnish stations are wired in the furnishing slice.
+ */
+export const HOME_INTERACTABLES: InteractableDef[] = [
+  {
+    id: 'loft_entrance',
+    kind: 'property_entrance',
+    name: 'City Loft',
+    position: [LOFT_STREET_EXIT[0], 0, LOFT_STREET_EXIT[2]],
+    radius: 3,
+    marker: true,
+    icon: '🏙️',
+    markerColor: '#7fb0d4',
+    propertyId: 'city_loft',
+  },
+  {
+    id: 'premium_entrance',
+    kind: 'property_entrance',
+    name: 'Premium Apartment',
+    position: [PREMIUM_STREET_EXIT[0], 0, PREMIUM_STREET_EXIT[2]],
+    radius: 3,
+    marker: true,
+    icon: '🏢',
+    markerColor: '#c9a227',
+    propertyId: 'premium_apartment',
+  },
+  // City Loft interior anchors.
+  { id: 'loft_bed', kind: 'bed', name: 'Bed', position: LOFT_INTERACTABLE_POSITIONS.bed, radius: 2.4, marker: true, icon: '🛏️', markerColor: '#f2b263' },
+  { id: 'loft_wardrobe', kind: 'wardrobe', name: 'Wardrobe', position: LOFT_INTERACTABLE_POSITIONS.wardrobe, radius: 2.2, marker: true, icon: '👕', markerColor: '#9a5fc0' },
+  { id: 'loft_storage', kind: 'storage', name: 'Storage', position: LOFT_INTERACTABLE_POSITIONS.storage, radius: 2.2, marker: true, icon: '📦', markerColor: '#7fd4c1' },
+  { id: 'loft_furnish', kind: 'furnish', name: 'Furnish Home', position: LOFT_INTERACTABLE_POSITIONS.furnish, radius: 2.4, marker: true, icon: '🛋️', markerColor: '#e6a15e' },
+  { id: 'loft_host', kind: 'home_host', name: 'Host', position: LOFT_INTERACTABLE_POSITIONS.host, radius: 2.4, marker: true, icon: '🎉', markerColor: '#e07a5f' },
+  { id: 'loft_exit', kind: 'apartment_exit', name: 'Leave Home', position: LOFT_INTERACTABLE_POSITIONS.exit, radius: 2.4, marker: true, icon: '🚪', markerColor: '#e07a5f' },
+  // Premium Apartment interior anchors.
+  { id: 'premium_bed', kind: 'bed', name: 'Bed', position: PREMIUM_INTERACTABLE_POSITIONS.bed, radius: 2.4, marker: true, icon: '🛏️', markerColor: '#f2b263' },
+  { id: 'premium_wardrobe', kind: 'wardrobe', name: 'Wardrobe', position: PREMIUM_INTERACTABLE_POSITIONS.wardrobe, radius: 2.2, marker: true, icon: '👕', markerColor: '#9a5fc0' },
+  { id: 'premium_storage', kind: 'storage', name: 'Storage', position: PREMIUM_INTERACTABLE_POSITIONS.storage, radius: 2.2, marker: true, icon: '📦', markerColor: '#7fd4c1' },
+  { id: 'premium_furnish', kind: 'furnish', name: 'Furnish Home', position: PREMIUM_INTERACTABLE_POSITIONS.furnish, radius: 2.4, marker: true, icon: '🛋️', markerColor: '#e6a15e' },
+  { id: 'premium_host', kind: 'home_host', name: 'Host', position: PREMIUM_INTERACTABLE_POSITIONS.host, radius: 2.4, marker: true, icon: '🎉', markerColor: '#e07a5f' },
+  { id: 'premium_exit', kind: 'apartment_exit', name: 'Leave Home', position: PREMIUM_INTERACTABLE_POSITIONS.exit, radius: 2.4, marker: true, icon: '🚪', markerColor: '#e07a5f' },
 ]
 
 export const VEHICLE_INTERACTABLE: InteractableDef = {
@@ -240,6 +290,7 @@ export const STORE_INTERACTABLES: InteractableDef[] = [
 export const ALL_INTERACTABLES: InteractableDef[] = [
   ...STATIC_INTERACTABLES,
   ...APARTMENT_INTERACTABLES,
+  ...HOME_INTERACTABLES,
   VEHICLE_INTERACTABLE,
   ...NPC_INTERACTABLES,
   ...STEAL_INTERACTABLES,

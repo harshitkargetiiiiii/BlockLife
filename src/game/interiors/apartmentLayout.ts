@@ -31,6 +31,9 @@ export const APARTMENT_INTERACTABLE_POSITIONS = {
   wardrobe: [OX + 1.1, 0, OZ - 2.6] as [number, number, number],
   storage: [OX + 3.6, 0, OZ - 2.4] as [number, number, number],
   exit: [OX + 3.4, 0, OZ + 3.6] as [number, number, number],
+  // Housing v1: a furnish station + hosting anchor in the studio's open floor.
+  furnish: [OX - 1.6, 0, OZ + 2.2] as [number, number, number],
+  host: [OX + 1.2, 0, OZ + 1.6] as [number, number, number],
 }
 
 export interface ApartmentFurnitureDef {

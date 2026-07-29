@@ -129,6 +129,12 @@ export function invitationLabel(activityKind: InvitationActivityKind): string {
       return 'hang out'
     case 'walk':
       return 'take a walk'
+    case 'coffee_home':
+      return 'come over for coffee'
+    case 'movie_night':
+      return 'come over for movie night'
+    case 'dinner_home':
+      return 'come over for dinner'
   }
 }
 

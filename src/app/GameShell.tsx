@@ -6,6 +6,7 @@ import { ActivityPanel } from './ActivityPanel'
 import { WardrobePanel } from './WardrobePanel'
 import { StoragePanel } from './StoragePanel'
 import { ShopPanel } from './ShopPanel'
+import { FurnishPanel } from './FurnishPanel'
 import { Phone } from './phone/Phone'
 import { SocialActivityTracker } from './SocialActivityTracker'
 import { CareerShiftTracker } from './CareerShiftTracker'
@@ -49,6 +50,7 @@ export function GameShell() {
       <WardrobePanel />
       <StoragePanel />
       <ShopPanel />
+      <FurnishPanel />
       <Phone />
       <LoadingOverlay />
     </div>

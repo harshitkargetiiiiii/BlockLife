@@ -25,6 +25,13 @@ export type InteractableKind =
   | 'store_exit'
   /** The store register: emptied during an active robbery. */
   | 'store_register'
+  // Housing, Furniture & Property Progression v1 (issue #17)
+  /** A property's city entrance: enters your home, or tours a listing. */
+  | 'property_entrance'
+  /** Interior furnish station: opens Furnish mode inside the current home. */
+  | 'furnish'
+  /** Interior hosting anchor: where a home social activity takes place. */
+  | 'home_host'
 
 export interface InteractableDef {
   id: string
@@ -41,6 +48,8 @@ export interface InteractableDef {
   markerColor?: string
   /** For 'store_entrance': which interior it opens (interiorRegistry id). */
   interiorId?: string
+  /** For 'property_entrance': which housing property this door leads to. */
+  propertyId?: string
 }
 
 export interface ActivityAction {
