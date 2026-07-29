@@ -456,10 +456,12 @@ reads the button text AND asserts the resulting store change.
 Relatedly, when a milestone becomes the sole authority for something (paid work), audit
 for the OLD doors around it and close them: the world Job Board still vended money via a
 standalone `workShift` (deleted → it now opens the career flow); and the mutual-exclusion
-gate a shift needs must be symmetric — if career-start blocks missions/social/sleep, then
-mission-accept / social-start / sleep+train must ALSO block during a shift, each through
-the production entry point (route DEV test hooks through the store action, not the bridge,
-so tests exercise the real gate).
+gate a shift needs must be symmetric AND complete — if career-start blocks
+missions/social/sleep, then mission-accept, mission **retry** (a second start door
+`acceptMissionById` didn't cover), social-start, and sleep+train must ALL block during a
+shift, each through the production entry point (route DEV test hooks through the store
+action, not the bridge, so tests exercise the real gate). When you add one guard, grep
+for every sibling entry point (accept AND retry) — a lone guard leaves a door open.
 
 ---
 

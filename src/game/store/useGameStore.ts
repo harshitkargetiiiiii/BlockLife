@@ -1778,6 +1778,13 @@ export const useGameStore = create<GameStore>()((set, get) => ({
   },
 
   retryLastMission: () => {
+    // A RETRY is a mission start too — same R4 exclusion as acceptMissionById: no
+    // mission may begin while a career shift is active (else two objective trackers
+    // coexist). Guard before the bridge, which starts the mission immediately.
+    if (getActiveCareerShift()) {
+      get().showToast('You’re on a shift — wrap it up before taking a job.')
+      return
+    }
     const r = bridgeRetry()
     if (!r.ok && r.reason === 'on_cooldown') get().showToast('That job is on cooldown.')
   },

@@ -105,7 +105,6 @@ import {
   cancelActiveMission as missionCancel,
   discoverAndOfferMission,
   emitMissionEvent,
-  retryLastMission as missionRetry,
 } from '../missions/missionBridge'
 import type { MissionGameEvent } from '../missions/missionTypes'
 import {
@@ -1707,7 +1706,12 @@ export function installTestApi(): void {
       return missionRuntime.active?.missionId === missionId
     },
     cancelMission: () => missionCancel(),
-    retryMission: () => missionRetry().ok,
+    retryMission: () => {
+      // Route through the PRODUCTION store action so DEV/E2E exercises the real gates —
+      // including the R4 "no mission (incl. retry) while on a career shift" check.
+      useGameStore.getState().retryLastMission()
+      return missionRuntime.active?.missionId != null
+    },
     forceMissionEvent: (event) => emitMissionEvent(event),
     teleportToMissionObjective: () => {
       const a = missionRuntime.active

@@ -713,4 +713,29 @@ test.describe('careers platform', () => {
     expect(r.after.strength).toBe(r.before.strength) // train did not run
     expect(r.after.onShift).toBe(true) // still on the shift
   })
+
+  test('33. a mission RETRY is also refused while a career shift is active (R5)', async ({ page }) => {
+    const r = await page.evaluate(() => {
+      const api = window.GAME_TEST_API!
+      api.clearWanted()
+      // Fail a mission so there's a retryable "last mission", with none active.
+      api.startMission('hot_cargo')
+      api.forceMissionEvent({ type: 'player_arrested' })
+      const afterFail = api.getMissionState().activeMissionId // null (failed, retryable)
+      api.clearWanted()
+      // Now go on the clock.
+      api.applyToCareer('delivery_driver')
+      const shift = api.getCareerNextShift()!
+      api.setGameDay(shift.scheduledDay)
+      api.setTime(shift.startHour)
+      api.setActiveInteractable(shift.workplaceInteractableId)
+      api.startCareerShift(shift.id)
+      const retried = api.retryMission() // routed through the production store action
+      return { afterFail, retried, onShift: api.getActiveCareerShift() !== null, mission: api.getMissionState().activeMissionId }
+    })
+    expect(r.afterFail).toBeNull() // the prior mission failed (retryable)
+    expect(r.retried).toBe(false) // retry refused on shift
+    expect(r.onShift).toBe(true) // the career shift stays active
+    expect(r.mission).toBeNull() // no mission tracker started alongside the shift
+  })
 })

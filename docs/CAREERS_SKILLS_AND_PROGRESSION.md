@@ -94,9 +94,9 @@ shift.
 longer vends money for energy — it opens the Phone **Jobs** app (discover / apply /
 manage shifts), and the `workShift` money-for-energy path is deleted. All the ways the
 old game could sneak a second objective/time-jump around a shift are closed
-symmetrically: a **social activity**, a **mission**, and the time-advancing **Sleep** /
-**Train** actions are all blocked while a shift is active (ordinary purchases stay
-available). And a single source of truth — `careerActivityBenefits()` — drives BOTH the
+symmetrically: a **social activity**, a **mission** (both accepting a new one and
+**retrying** the last one), and the time-advancing **Sleep** / **Train** actions are all
+blocked while a shift is active (ordinary purchases stay available). And a single source of truth — `careerActivityBenefits()` — drives BOTH the
 menu display and the charge/gate, so a shown price or button state can never disagree
 with what the store actually charges or allows (the Café staff discount on food prices,
 gym free access on the Train gate).
