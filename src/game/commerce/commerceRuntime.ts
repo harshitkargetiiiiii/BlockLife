@@ -1,4 +1,4 @@
-import { STORE_DEFINITIONS, getStoreDefinition } from './storeDefinitions'
+import { ALL_STORE_DEFINITIONS, getStoreDefinition } from './storeDefinitions'
 import { initialStock, reconcileStock, restockToFull, sellUnits } from './stockLogic'
 import type { StoreStockState } from './commerceTypes'
 
@@ -79,5 +79,5 @@ export function resetCommerceRuntime(): void {
   commerceRuntime.restockReceipts = []
   commerceRuntime.purchaseSeq = 0
   // debugEnabled preserved across resets (dev convenience).
-  for (const def of STORE_DEFINITIONS) commerceRuntime.stores[def.id] = initialStock(def)
+  for (const def of ALL_STORE_DEFINITIONS) commerceRuntime.stores[def.id] = initialStock(def)
 }

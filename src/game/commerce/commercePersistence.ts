@@ -1,4 +1,4 @@
-import { STORE_DEFINITIONS, getStoreDefinition } from './storeDefinitions'
+import { ALL_STORE_DEFINITIONS, getStoreDefinition } from './storeDefinitions'
 import { commerceRuntime, resetCommerceRuntime } from './commerceRuntime'
 
 /**
@@ -23,7 +23,7 @@ const MAX_RECEIPTS = 64
 
 export function serializeCommerce(): CommerceSaveData {
   return {
-    stores: STORE_DEFINITIONS.map((def) => {
+    stores: ALL_STORE_DEFINITIONS.map((def) => {
       const s = commerceRuntime.stores[def.id] ?? { storeId: def.id, stock: {}, lastRestockGameHours: 0 }
       return { storeId: def.id, stock: { ...s.stock }, lastRestockGameHours: s.lastRestockGameHours }
     }),

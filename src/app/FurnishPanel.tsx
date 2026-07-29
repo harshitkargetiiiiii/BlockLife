@@ -113,10 +113,14 @@ export function FurnishPanel() {
           <div className="phone-section-title">Furniture Shop</div>
           {FURNITURE_DEFS.map((def) => {
             const check = canBuyFurniture(def.id, money)
+            const soldOut = !check.ok && check.reason === 'out_of_stock'
             return (
               <div key={def.id} className="furnish-shop-item">
                 <span className="furnish-shop-name">{def.displayName}</span>
                 <span className="furnish-shop-cat">{def.category}</span>
+                {soldOut && (
+                  <span className="furnish-shop-soldout phone-muted" data-testid={`furnish-soldout-${def.id}`}>Sold out</span>
+                )}
                 <button className="btn btn-tiny btn-social" data-testid={`furnish-buy-${def.id}`} disabled={!check.ok} onClick={() => buy(def.id)}>
                   ${def.price}
                 </button>

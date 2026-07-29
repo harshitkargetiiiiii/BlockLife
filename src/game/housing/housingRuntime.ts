@@ -206,9 +206,10 @@ export function mintFurnitureAsset(defId: FurnitureDefId): FurnitureAsset {
   return asset
 }
 
-/** Record a furniture purchase transaction (money already charged by the store). */
-export function recordFurniturePurchase(assetId: string, price: number, day: number): void {
-  recordTxn({ key: `furniture_purchase:${assetId}`, kind: 'furniture_purchase', amount: -price, day: Math.trunc(day) })
+/** Record a furniture purchase transaction, keyed by the COMMERCE purchase receipt so a
+ *  replay is exact-once (review #2/#8). Money is charged by the store action after this. */
+export function recordFurniturePurchase(receipt: string, price: number, day: number): void {
+  recordTxn({ key: `furniture_purchase:${receipt}`, kind: 'furniture_purchase', amount: -price, day: Math.trunc(day) })
 }
 
 /** Mark a non-money housing event key as applied (exact-once), e.g. a surfaced

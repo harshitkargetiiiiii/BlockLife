@@ -94,7 +94,7 @@ import { applyHousingSave, serializeHousing } from '../housing/housingPersistenc
 import { getProperty } from '../housing/propertyRegistry'
 import { housingEligibility } from '../housing/housingCareer'
 import { isPropertyRecommended, reconcileHousingRecommendations } from '../housing/housingRecommendations'
-import { canBuyFurniture, furnitureBuyReasonText } from '../housing/housingCommerce'
+import { canBuyFurniture, commitFurnitureSale, furnitureBuyReasonText, reconcileFurnitureShowroom } from '../housing/housingCommerce'
 import { hostingRefusalText, placementRefusalText } from '../housing/housingText'
 import { canHostActivity, getHomeActivityDef, homeActivityForInvitationKind, tierAtLeast } from '../housing/housingSocial'
 import type { HomeActivityKind, HostingRefusalReason } from '../housing/housingTypes'
@@ -569,7 +569,8 @@ function gameHoursOf(s: { stats: PlayerStats }): number {
  * commerce store references). Legitimate stock + robbery recovery stay separate
  * concepts but integrate through this one gate.
  */
-function storeClosedForCommerce(activityId: string, gameHours: number): boolean {
+function storeClosedForCommerce(activityId: string | undefined, gameHours: number): boolean {
+  if (!activityId) return false // retail store (furniture showroom) — never robbed/closed
   if (activityRuntime.active?.activityId === activityId) return true
   const robbery = activityRuntime.stores[activityId]
   return robbery ? robbery.cooldownReadyAtGameHours > gameHours : false
@@ -1479,14 +1480,20 @@ export const useGameStore = create<GameStore>()((set, get) => ({
 
   buyFurniture: (defId) => {
     const s = get()
+    // Lazily restock the showroom to the current game time (never per frame), then run the
+    // SAME commerce purchase gate as any store: stock/availability + funds + display price.
+    reconcileFurnitureShowroom(gameHoursOf(s))
     const check = canBuyFurniture(defId, s.stats.money)
     if (!check.ok) {
       get().showToast(furnitureBuyReasonText(check.reason))
       return
     }
-    // Charge the economy + mint ONE unique asset + record the exact-once receipt.
-    const asset = mintFurnitureAsset(defId)
-    recordFurniturePurchase(asset.assetId, check.price, s.stats.day)
+    // The commerce transaction FIRST: record the sale (stock − 1) + mint a purchase receipt.
+    const { receipt } = commitFurnitureSale(defId)
+    // Only AFTER the sale succeeds do we mint the unique asset + record the exact-once
+    // (receipt-keyed) housing payment + charge the economy (review #2).
+    mintFurnitureAsset(defId)
+    recordFurniturePurchase(receipt, check.price, s.stats.day)
     audioManager.playClick()
     set((st) => ({ stats: { ...st.stats, money: st.stats.money - check.price }, housingVersion: st.housingVersion + 1 }))
     get().showToast(`Bought ${defId.replace(/_/g, ' ')}.`)

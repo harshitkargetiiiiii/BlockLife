@@ -20,7 +20,8 @@ import type { HomeActivityKind } from '../housing/housingTypes'
 import { getPropertySlots as getPropertySlotsRt } from '../housing/propertyRegistry'
 import { persistSave as persistSaveRt, loadSave as loadSaveRt } from '../save/saveGame'
 import { reconcileHousingRecommendations as reconcileHousingRecommendationsRt } from '../housing/housingRecommendations'
-import type { HousingState, PropertyId } from '../housing/housingTypes'
+import { devSetFurnitureStock as devSetFurnitureStockRt, furnitureStockOf as furnitureStockOfRt } from '../housing/housingCommerce'
+import type { FurnitureDefId, HousingState, PropertyId } from '../housing/housingTypes'
 import type { CareerId, SkillId } from '../careers/careerTypes'
 import type { InvitationActivityKind } from '../social/socialTypes'
 import { noteCrimeWitnessed as noteCrimeWitnessedRt } from '../social/socialConsequences'
@@ -501,6 +502,10 @@ export interface GameTestApi {
   getHousingSlots: () => { id: string; room: string; allowedCategories: string[]; maxSize: string }[]
   /** DEV/E2E: buy a furniture piece (the SAME store action the Furnish shop calls). */
   housingBuyFurniture: (defId: string) => void
+  /** DEV/E2E: furniture showroom stock for a def (proves the commerce availability model). */
+  housingShowroomStock: (defId: string) => number
+  /** DEV/E2E: force a showroom stock level (proves the out-of-stock purchase refusal). */
+  housingSetShowroomStock: (defId: string, units: number) => void
   /** DEV/E2E: place a stored asset into a slot (the SAME store action Furnish mode calls). */
   housingPlaceFurniture: (slotId: string, assetId: string) => void
   /** DEV/E2E: rotate the asset in a slot. */
@@ -1388,6 +1393,8 @@ export function installTestApi(): void {
     getHousingSlots: () =>
       getPropertySlotsRt(getCurrentPropertyIdRt()).map((s) => ({ id: s.id, room: s.room, allowedCategories: [...s.allowedCategories], maxSize: s.maxSize })),
     housingBuyFurniture: (defId: string) => useGameStore.getState().buyFurniture(defId),
+    housingShowroomStock: (defId: string) => furnitureStockOfRt(defId as FurnitureDefId),
+    housingSetShowroomStock: (defId: string, units: number) => devSetFurnitureStockRt(defId as FurnitureDefId, units),
     housingPlaceFurniture: (slotId: string, assetId: string) => useGameStore.getState().placeFurniture(slotId, assetId),
     housingRotateFurniture: (slotId: string) => useGameStore.getState().rotateFurniture(slotId),
     housingMoveFurniture: (fromSlot: string, toSlot: string) => useGameStore.getState().moveFurniture(fromSlot, toSlot),

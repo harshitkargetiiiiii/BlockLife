@@ -216,6 +216,59 @@ test.describe('housing — furnishing', () => {
     expect(Object.values(s.assets)[0].defId).toBe('floor_lamp')
   })
 
+  test('the showroom refuses a purchase when a piece is out of stock (review #2)', async ({ page }) => {
+    await page.evaluate(() => {
+      window.GAME_TEST_API!.setMoney(500)
+      window.GAME_TEST_API!.housingSetShowroomStock('floor_lamp', 0) // force the availability gate
+    })
+    await openFurnish(page)
+    // The Furnish shop surfaces the availability model: "Sold out" + a disabled buy button, so
+    // the player cannot purchase an out-of-stock piece through the production UI. (The gate-level
+    // refusal is asserted deterministically in the housingCommerce unit spec, clock-independent.)
+    await expect(page.getByTestId('furnish-soldout-floor_lamp')).toBeVisible()
+    await expect(page.getByTestId('furnish-buy-floor_lamp')).toBeDisabled()
+    const s = await page.evaluate(() => window.GAME_TEST_API!.getHousingState())
+    expect(Object.keys(s.assets)).toHaveLength(0) // nothing minted while sold out
+  })
+
+  test('the showroom refuses a purchase the player cannot afford (review #2)', async ({ page }) => {
+    await page.evaluate(() => window.GAME_TEST_API!.setMoney(10)) // floor_lamp is 55
+    await openFurnish(page)
+    // Unaffordable → the buy button is disabled, but this is NOT an out-of-stock state.
+    await expect(page.getByTestId('furnish-buy-floor_lamp')).toBeDisabled()
+    await expect(page.getByTestId('furnish-soldout-floor_lamp')).toHaveCount(0)
+    // The production store ACTION refuses too — no asset, no charge, stock untouched (no sale).
+    await page.evaluate(() => window.GAME_TEST_API!.housingBuyFurniture('floor_lamp'))
+    const after = await getStats(page)
+    expect(after.money).toBe(10)
+    const s = await page.evaluate(() => window.GAME_TEST_API!.getHousingState())
+    expect(Object.keys(s.assets)).toHaveLength(0)
+    expect(await page.evaluate(() => window.GAME_TEST_API!.housingShowroomStock('floor_lamp'))).toBe(12)
+  })
+
+  test('a furniture purchase decrements real showroom stock + is exact-once across a reload (review #2)', async ({ page }) => {
+    await page.evaluate(() => window.GAME_TEST_API!.setMoney(500))
+    const stock0 = await page.evaluate(() => window.GAME_TEST_API!.housingShowroomStock('floor_lamp'))
+    await openFurnish(page)
+    const before = await getStats(page)
+    await page.getByTestId('furnish-buy-floor_lamp').click()
+    const after = await getStats(page)
+    expect(after.money).toBe(before.money - 55) // display == charge (catalog price)
+    const stock1 = await page.evaluate(() => window.GAME_TEST_API!.housingShowroomStock('floor_lamp'))
+    expect(stock1).toBe(stock0 - 1) // real sale recorded against commerce stock
+
+    // Save + full reload: owned assets, money, AND showroom stock all persist with NO
+    // duplication (the receipt-keyed payment is exact-once).
+    await page.evaluate(async () => { await window.GAME_TEST_API!.saveGame() })
+    await page.reload()
+    await page.waitForFunction(() => window.GAME_TEST_API?.ready() === true, undefined, { timeout: 45_000 })
+    await page.evaluate(() => window.GAME_TEST_API!.loadGame())
+    const s = await page.evaluate(() => window.GAME_TEST_API!.getHousingState())
+    expect(Object.keys(s.assets)).toHaveLength(1) // exactly one asset, not two
+    expect(await getStats(page).then((x) => x.money)).toBe(before.money - 55) // no double-charge
+    expect(await page.evaluate(() => window.GAME_TEST_API!.housingShowroomStock('floor_lamp'))).toBe(stock0 - 1)
+  })
+
   test('place, rotate, move, and store furniture through the Furnish UI', async ({ page }) => {
     await page.evaluate(() => window.GAME_TEST_API!.setMoney(500))
     await openFurnish(page)

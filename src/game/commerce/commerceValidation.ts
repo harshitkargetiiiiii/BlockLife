@@ -16,11 +16,13 @@ export interface CommerceValidationContext {
 
 function validateStore(def: StoreDefinition, ctx: CommerceValidationContext, errs: string[]): void {
   const where = `store ${def.id}`
-  if (!ctx.interiorIds.has(def.interiorId)) errs.push(`${where}: unknown interior '${def.interiorId}'`)
-  if (!ctx.interactableIds.has(def.registerInteractableId)) {
+  // Robbable convenience stores MUST have a real interior, register, and robbery activity
+  // (the furniture showroom is a retail store and is validated separately, not here).
+  if (!def.interiorId || !ctx.interiorIds.has(def.interiorId)) errs.push(`${where}: unknown interior '${def.interiorId}'`)
+  if (!def.registerInteractableId || !ctx.interactableIds.has(def.registerInteractableId)) {
     errs.push(`${where}: unknown register interactable '${def.registerInteractableId}'`)
   }
-  if (!ctx.activityIds.has(def.activityId)) errs.push(`${where}: unknown robbery activity '${def.activityId}'`)
+  if (!def.activityId || !ctx.activityIds.has(def.activityId)) errs.push(`${where}: unknown robbery activity '${def.activityId}'`)
   if (!(def.restockGameHours > 0)) errs.push(`${where}: restockGameHours must be > 0`)
   if (def.listings.length === 0) errs.push(`${where}: has no listings`)
   const seen = new Set<string>()
