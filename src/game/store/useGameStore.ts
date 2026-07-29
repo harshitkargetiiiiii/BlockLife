@@ -87,6 +87,7 @@ import {
   settleHousingDebt,
   storeAsset,
   tourProperty,
+  discoverProperty,
 } from '../housing/housingRuntime'
 import { getFurnitureDef } from '../housing/furnitureCatalog'
 import { applyHousingSave, serializeHousing } from '../housing/housingPersistence'
@@ -379,8 +380,13 @@ export interface GameStore extends GameDataState {
   // ---- Housing, Furniture & Property Progression v1 (issue #17) ----
   /** A property door: enter your home, or begin a tour of a listing. */
   enterProperty: (interactableId: string) => void
-  /** Tour a property through its real interior (no ownership change). */
+  /** Tour a property through its real interior (no ownership change). Reached by walking
+   *  to the property's authored entrance and interacting — NOT from the phone. */
   tourHousingProperty: (propertyId: PropertyId) => void
+  /** Phone "Tour" action: discover the listing + point the player at its real entrance,
+   *  WITHOUT completing the world travel (PR#18 review #6). The authored entrance performs
+   *  the actual tour transition. */
+  guideToPropertyTour: (propertyId: PropertyId) => void
   /** Atomically lease + move into a property (deposit/rent settle from balance). */
   leaseHousingProperty: (propertyId: PropertyId) => void
   /** Manually settle outstanding rent from the current balance. */
@@ -1365,6 +1371,18 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     set((st) => ({ housingTouring: propertyId, housingVersion: st.housingVersion + 1 }))
     get().enterInterior(property.interiorId)
     get().showToast(`Touring the ${property.displayName}.`)
+  },
+
+  guideToPropertyTour: (propertyId) => {
+    const property = getProperty(propertyId)
+    if (!property) return
+    // The phone doesn't teleport you into a listing (review #6) — it just discovers the
+    // property (so it appears on the map) and points you at its authored entrance. Walking
+    // there and interacting runs the real tour (enterProperty → tourHousingProperty).
+    discoverProperty(propertyId)
+    get().closePanel()
+    get().showToast(`Head to the ${property.displayName} entrance in ${property.district} to tour it.`)
+    set((st) => ({ housingVersion: st.housingVersion + 1 }))
   },
 
   leaseHousingProperty: (propertyId) => {

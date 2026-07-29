@@ -21,12 +21,11 @@ export function PhoneHousing() {
   useGameStore((s) => s.housingVersion)
   const day = useGameStore((s) => s.stats.day)
   const money = useGameStore((s) => s.stats.money)
-  const tour = useGameStore((s) => s.tourHousingProperty)
+  const guideTour = useGameStore((s) => s.guideToPropertyTour)
   const lease = useGameStore((s) => s.leaseHousingProperty)
   const payRent = useGameStore((s) => s.payHousingRent)
   const invite = useGameStore((s) => s.sendPlayerInvite)
   const canHostHome = useGameStore((s) => s.canHostHomeActivity)
-  const closePanel = useGameStore((s) => s.closePanel)
   useGameStore((s) => s.socialVersion) // hosting eligibility depends on relationships
 
   const state = getHousingState()
@@ -145,10 +144,7 @@ export function PhoneHousing() {
                   <button
                     className="btn btn-small"
                     data-testid={`housing-tour-${p.id}`}
-                    onClick={() => {
-                      closePanel()
-                      tour(p.id as PropertyId)
-                    }}
+                    onClick={() => guideTour(p.id as PropertyId)}
                   >
                     {toured ? 'Tour again' : 'Tour'}
                   </button>

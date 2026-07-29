@@ -67,10 +67,20 @@ test.describe('housing — properties & moving', () => {
     await expect(page.getByTestId('housing-lease-city_loft')).toBeDisabled()
   })
 
-  test('tour the City Loft through the Home app without mutating ownership', async ({ page }) => {
+  test('the Home app Tour button guides to the entrance; the real tour happens there (review #6)', async ({ page }) => {
     const before = await page.evaluate(() => ({ money: window.GAME_TEST_API!.getStats().money, s: window.GAME_TEST_API!.getHousingState() }))
+    // The phone Tour button only DISCOVERS the listing + points you at the door — it never
+    // teleports you into a listing you haven't walked to.
     await page.evaluate(() => window.GAME_TEST_API!.openTestPhoneApp('housing'))
     await page.getByTestId('housing-tour-city_loft').click()
+    const guided = await page.evaluate(() => ({ mode: window.GAME_TEST_API!.getLocationMode(), s: window.GAME_TEST_API!.getHousingState() }))
+    expect(guided.mode).toBe('city') // NOT teleported into the listing
+    expect(guided.s.discovered).toContain('city_loft') // discovered on the map
+    expect(guided.s.toured).not.toContain('city_loft') // but NOT yet toured
+    // Walk to the authored loft entrance and interact — THAT runs the real tour.
+    await teleport(page, [45.5, 1.2, -80.5])
+    await waitForActiveInteractable(page, 'loft_entrance')
+    await pressE(page)
     await page.waitForFunction(() => window.GAME_TEST_API!.getLocationMode() === 'apartment')
     const during = await page.evaluate(() => window.GAME_TEST_API!.getHousingState())
     // Toured, inside the loft interior, but still OWN the studio + no money moved.
@@ -126,36 +136,52 @@ test.describe('housing — properties & moving', () => {
     expect(res.storage).toBe(before.storage) // stored items not lost
   })
 
-  test('cross-district move to the far-east Premium preserves streaming + occupancy', async ({ page }) => {
+  test('cross-district move to the far-east Premium tours via the door + moves in (review #6, scenario #22)', async ({ page }) => {
+    // Arrange full premium eligibility DETERMINISTICALLY (no `if eligible…else` branch —
+    // review #6): Experienced rank (8 completed shifts + the skill gates cleared via the
+    // UNCAPPED training reason) plus verified recent career income.
     await page.evaluate(() => {
       const api = window.GAME_TEST_API!
-      // Arrange full premium eligibility: experienced rank + verified income + tour + money.
-      api.ingestCareerEvent({ id: 'seed2', kind: 'training_milestone', gameDay: 0, skillAwards: [{ skill: 'driving', amount: 95, reason: 'training_milestone' }] })
+      api.ingestCareerEvent({ id: 'seed_exp', kind: 'training_milestone', gameDay: 0, skillAwards: [
+        { skill: 'driving', amount: 200, reason: 'training_milestone' },
+        { skill: 'work_ethic', amount: 140, reason: 'training_milestone' },
+      ] })
       api.applyToCareer('delivery_driver')
       api.setMoney(3000)
     })
-    await runDeliveryShifts(page, 3)
-    // Force the eligibility inputs deterministically, then lease through the store action.
-    const leased = await page.evaluate(() => {
-      const api = window.GAME_TEST_API!
-      api.setMoney(3000)
-      api.housingTour('premium_apartment')
-      // If not already experienced from shifts, the eligibility gate will refuse — assert via report.
-      const elig = api.getHousingEligibility('premium_apartment')
-      return { elig }
-    })
-    // This test proves the STREAMING/occupancy integrity of the move when eligible;
-    // if the shift path didn't reach Experienced, we still verify the eligibility gate is honest.
-    if (leased.elig.eligible) {
-      await page.evaluate(() => window.GAME_TEST_API!.housingLease('premium_apartment'))
-      const s = await page.evaluate(() => window.GAME_TEST_API!.getHousingState())
-      expect(s.currentPropertyId).toBe('premium_apartment')
-      // No console/page errors during the cross-district interior switch.
-      const anomalies = await page.evaluate(() => window.GAME_TEST_API!.getHousingReport())
-      expect(anomalies.registryValid).toBe(true)
-    } else {
-      expect(leased.elig.firstUnmetReason).toBeTruthy()
-    }
+    await runDeliveryShifts(page, 8)
+    // The rank + income gates now clear on their own — assert, don't branch.
+    const rankAndElig = await page.evaluate(() => ({
+      rank: window.GAME_TEST_API!.getCareerSnapshot().ranks.delivery_driver,
+      elig: window.GAME_TEST_API!.getHousingEligibility('premium_apartment'),
+    }))
+    expect(rankAndElig.rank).toBe('experienced')
+    // Eligibility order is rank → income → tour: with rank + verified income already
+    // cleared, the ONLY thing left is the (not-yet-done) tour — proven by the reason.
+    expect(rankAndElig.elig.eligible).toBe(false)
+    expect(rankAndElig.elig.firstUnmetReason).toContain('Tour')
+
+    // Tour via the REAL authored entrance (the phone only guides — review #6), NEVER api.housingTour.
+    await page.evaluate(() => window.GAME_TEST_API!.openTestPhoneApp('housing'))
+    await page.getByTestId('housing-tour-premium_apartment').click()
+    const guided = await page.evaluate(() => ({ mode: window.GAME_TEST_API!.getLocationMode(), s: window.GAME_TEST_API!.getHousingState() }))
+    expect(guided.mode).toBe('city') // guided, not teleported
+    expect(guided.s.discovered).toContain('premium_apartment')
+    await teleport(page, [235.5, 1.2, -86.5]) // PREMIUM_STREET_EXIT
+    await waitForActiveInteractable(page, 'premium_entrance')
+    await pressE(page)
+    await page.waitForFunction(() => window.GAME_TEST_API!.getLocationMode() === 'apartment')
+    const toured = await page.evaluate(() => window.GAME_TEST_API!.getHousingState())
+    expect(toured.toured).toContain('premium_apartment')
+    expect(toured.currentPropertyId).toBe('starter_studio') // touring ≠ owning
+
+    // Lease from inside the tour (leaseHousingProperty keeps you in your new home) — the
+    // move MUST happen; this proves the cross-district streaming/occupancy integrity.
+    await page.evaluate(() => window.GAME_TEST_API!.housingLease('premium_apartment'))
+    const s = await page.evaluate(() => window.GAME_TEST_API!.getHousingState())
+    expect(s.currentPropertyId).toBe('premium_apartment')
+    const report = await page.evaluate(() => window.GAME_TEST_API!.getHousingReport())
+    expect(report.registryValid).toBe(true)
   })
 })
 
