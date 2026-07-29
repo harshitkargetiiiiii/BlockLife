@@ -8,6 +8,7 @@ import { StoragePanel } from './StoragePanel'
 import { ShopPanel } from './ShopPanel'
 import { Phone } from './phone/Phone'
 import { SocialActivityTracker } from './SocialActivityTracker'
+import { CareerShiftTracker } from './CareerShiftTracker'
 import { useActionKeys } from './useActionKeys'
 import { useKeyboardControls } from '../game/controls/useKeyboardControls'
 import { registry } from '../game/world/runtimeRegistry'
@@ -42,6 +43,7 @@ export function GameShell() {
       <CanvasRoot />
       <HUD />
       <SocialActivityTracker />
+      <CareerShiftTracker />
       <DialoguePanel />
       <ActivityPanel />
       <WardrobePanel />

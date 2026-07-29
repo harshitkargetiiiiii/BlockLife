@@ -3,6 +3,11 @@ import { registry } from '../world/runtimeRegistry'
 import { socialSnapshot, getRelationship as getSocialRel, getDerivedRelationship as getSocialDerived, getMemories as getSocialMems, getContacts as getSocialContactsRt, ingestSocialEvent as ingestSocialEventRt, getInvitations as getSocialInvitationsRt, getMessages as getSocialMessagesRt, getTotalUnread as getSocialUnreadRt, reconcileOutreach as reconcileOutreachRt, getActiveActivity as getActiveActivityRt, getConfirmedPlans as getConfirmedPlansRt, reconcileMissedInvitations as reconcileMissedInvitationsRt } from '../social/socialRuntime'
 import type { SocialEvent } from '../social/socialEvents'
 import type { SocialActionId } from '../social/socialInteraction'
+import { careerRuntime, careerSnapshot as careerSnapshotRt, ingestCareerEvent as ingestCareerEventRt, grantRecommendation as grantCareerRecommendationRt, reconcileMissedShifts as reconcileCareerMissedRt, getScheduledShifts as getCareerShiftsRt, getNextShift as getCareerNextShiftRt, getSkillLevel as getCareerSkillLevelRt, getActiveShift as getActiveCareerShiftRt, getRecentResults as getCareerRecentResultsRt, hasUnlock as hasCareerUnlockRt, getPromotionProgress as getCareerPromotionRt, type CareerSnapshot } from '../careers/careerRuntime'
+import { getCareerCommitmentSlots as getCareerCommitmentSlotsRt } from '../careers/careerSocial'
+import { reconcileEarnedRecommendations as careerReconcileRecsRt } from '../careers/careerSocial'
+import type { CareerEvent } from '../careers/careerEvents'
+import type { CareerId, SkillId } from '../careers/careerTypes'
 import type { InvitationActivityKind } from '../social/socialTypes'
 import { noteCrimeWitnessed as noteCrimeWitnessedRt } from '../social/socialConsequences'
 import { listEntities } from '../world/integrity/entityRegistry'
@@ -97,11 +102,9 @@ import { missionRuntime } from '../missions/missionRuntime'
 import { getMissionAvailability } from '../missions/missionSelectors'
 import { validateMissions } from '../missions/missionValidation'
 import {
-  acceptMission as missionAccept,
   cancelActiveMission as missionCancel,
   discoverAndOfferMission,
   emitMissionEvent,
-  retryLastMission as missionRetry,
 } from '../missions/missionBridge'
 import type { MissionGameEvent } from '../missions/missionTypes'
 import {
@@ -415,7 +418,7 @@ export interface GameTestApi {
   getSocialMessages: (npcId: string) => { id: string; dir: string; token: string; read: boolean; gameDay: number }[]
   getSocialUnread: () => number
   /** DEV/E2E: reusable social activities (Slice 4). */
-  getActiveSocialActivity: () => { id: string; actorId: string; template: string; step: string; venueLabel: string; requiredItemId?: string } | null
+  getActiveSocialActivity: () => { id: string; actorId: string; template: string; step: string; venueId: string; venueLabel: string; requiredItemId?: string } | null
   startSocialActivity: (invitationId: string) => void
   startFavorFor: (npcId: string) => void
   advanceSocialActivity: () => void
@@ -429,6 +432,33 @@ export interface GameTestApi {
   reconcileMissedInvitations: (gameDay: number, gameHour: number) => number
   /** DEV/E2E: simulate arriving at a venue (the proximity scanner does this live). */
   setActiveInteractable: (id: string | null) => void
+  /** DEV/E2E: careers (issue #15) — snapshot + arrange prerequisites (never the only path). */
+  getCareerSnapshot: () => CareerSnapshot
+  getCareerSkillLevel: (skill: string) => number
+  applyToCareer: (careerId: string) => void
+  grantCareerRecommendation: (employerId: string) => void
+  ingestCareerEvent: (event: CareerEvent) => { applied: boolean; grantedXp: number }
+  reconcileMissedShifts: (gameDay: number, gameHour: number) => number
+  getCareerScheduledShifts: () => { id: string; careerId: string; status: string; scheduledDay: number; startHour: number }[]
+  getCareerNextShift: () => { id: string; careerId: string; scheduledDay: number; startHour: number; workplaceInteractableId: string } | null
+  startCareerShift: (shiftId: string) => void
+  advanceCareerShift: () => void
+  cancelCareerShift: () => void
+  getActiveCareerShift: () => { id: string; careerId: string; status: string; workplaceInteractableId: string; objectives: { id: string; kind: string; description: string; done: boolean; optional: boolean; anchorId: string | null; requiresCargoItemId: string | null }[] } | null
+  getCareerPromotion: (careerId: string) => { currentRank: string; nextRank: string | null; met: boolean; rows: { label: string; have: number; need: number; ok: boolean }[] } | null
+  /** DEV/E2E: recent rich shift results (pay decomposition + score breakdown). */
+  getCareerRecentResults: () => { careerId: string; reason: string; score: number; base: number; rankModifier: number; performanceModifier: number; pay: number; onTime: boolean }[]
+  /** DEV/E2E: has the player earned a specific rank unlock? */
+  hasCareerUnlock: (unlockId: string) => boolean
+  /** DEV/E2E: grant a rank unlock directly (arrange the benefit without grinding ranks). */
+  grantCareerUnlock: (unlockId: string) => void
+  /** DEV/E2E: accepted social plans the shift scheduler checks conflicts against. */
+  getCareerCommitmentSlots: () => { day: number; hour: number; label: string }[]
+  /** DEV/E2E: warm employers put in a good word (earns recommendations). Returns earned career ids. */
+  reconcileCareerRecommendations: (gameDay: number, gameHour: number) => string[]
+  /** DEV/E2E: dispatch a world interaction action (the SAME store action the world
+   *  buttons call) — e.g. 'train' at the gym. Exercises the real production path. */
+  performActivityAction: (actionId: string) => void
   /** Routing: graph counts + content-hash version. */
   getRoadGraphSummary: () => {
     version: number
@@ -1209,7 +1239,7 @@ export function installTestApi(): void {
     getSocialUnread: () => getSocialUnreadRt(),
     getActiveSocialActivity: () => {
       const a = getActiveActivityRt()
-      return a ? { id: a.id, actorId: a.actorId, template: a.template, step: a.step, venueLabel: a.venueLabel, requiredItemId: a.requiredItemId } : null
+      return a ? { id: a.id, actorId: a.actorId, template: a.template, step: a.step, venueId: a.venueId, venueLabel: a.venueLabel, requiredItemId: a.requiredItemId } : null
     },
     startSocialActivity: (invitationId: string) => useGameStore.getState().startSocialActivity(invitationId),
     startFavorFor: (npcId: string) => useGameStore.getState().startFavorFor(npcId),
@@ -1228,6 +1258,37 @@ export function installTestApi(): void {
     /** DEV/E2E: simulate arrival at a venue (the real proximity scanner sets this
      *  in live play; a headless test can set it directly to exercise the gate). */
     setActiveInteractable: (id: string | null) => useGameStore.getState().setActiveInteractable(id),
+    getCareerSnapshot: () => careerSnapshotRt(),
+    getCareerSkillLevel: (skill: string) => getCareerSkillLevelRt(skill as SkillId),
+    applyToCareer: (careerId: string) => useGameStore.getState().applyToCareer(careerId as CareerId),
+    grantCareerRecommendation: (employerId: string) => grantCareerRecommendationRt(employerId),
+    ingestCareerEvent: (event: CareerEvent) => ingestCareerEventRt(event),
+    reconcileMissedShifts: (gameDay: number, gameHour: number) => reconcileCareerMissedRt(gameDay, gameHour).length,
+    getCareerScheduledShifts: () => getCareerShiftsRt().map((s) => ({ id: s.id, careerId: s.careerId, status: s.status, scheduledDay: s.scheduledDay, startHour: s.startHour })),
+    getCareerNextShift: () => {
+      const s = getCareerNextShiftRt()
+      return s ? { id: s.id, careerId: s.careerId, scheduledDay: s.scheduledDay, startHour: s.startHour, workplaceInteractableId: s.workplaceInteractableId } : null
+    },
+    startCareerShift: (shiftId: string) => useGameStore.getState().startCareerShift(shiftId),
+    advanceCareerShift: () => useGameStore.getState().advanceCareerShift(),
+    cancelCareerShift: () => useGameStore.getState().cancelCareerShift(),
+    getActiveCareerShift: () => {
+      const s = getActiveCareerShiftRt()
+      if (!s) return null
+      return { id: s.id, careerId: s.careerId, status: s.status, workplaceInteractableId: s.workplaceInteractableId, objectives: (s.objectives ?? []).map((o) => ({ id: o.id, kind: o.kind, description: o.description, done: o.done, optional: o.optional, anchorId: o.anchorId ?? null, requiresCargoItemId: o.requiresCargoItemId ?? null })) }
+    },
+    getCareerPromotion: (careerId: string) => {
+      const p = getCareerPromotionRt(careerId as CareerId)
+      return p ? { currentRank: p.currentRank, nextRank: p.nextRank ? p.nextRank.id : null, met: p.met, rows: p.rows } : null
+    },
+    getCareerRecentResults: () => getCareerRecentResultsRt().map((r) => ({ careerId: r.careerId, reason: r.reason, score: r.score, base: r.base, rankModifier: r.rankModifier, performanceModifier: r.performanceModifier, pay: r.pay, onTime: r.onTime })),
+    hasCareerUnlock: (unlockId: string) => hasCareerUnlockRt(unlockId),
+    grantCareerUnlock: (unlockId: string) => {
+      if (!careerRuntime.state.unlocks.includes(unlockId)) careerRuntime.state = { ...careerRuntime.state, unlocks: [...careerRuntime.state.unlocks, unlockId] }
+    },
+    getCareerCommitmentSlots: () => getCareerCommitmentSlotsRt(),
+    reconcileCareerRecommendations: (gameDay: number, gameHour: number) => careerReconcileRecsRt(gameDay, gameHour),
+    performActivityAction: (actionId: string) => useGameStore.getState().performActivityAction(actionId),
     // ---- Cross-District Traffic Routing v1 ---------------------------------
     getRoadGraphSummary: () => {
       const graph = getRoadGraph()
@@ -1638,11 +1699,19 @@ export function installTestApi(): void {
         ),
       }),
     startMission: (missionId) => {
+      // Route through the PRODUCTION store action (not the bridge) so DEV/E2E exercises
+      // the real accept gates — including the R4 "no mission while on a career shift" check.
       discoverAndOfferMission(missionId)
-      return missionAccept(missionId).ok
+      useGameStore.getState().acceptMissionById(missionId)
+      return missionRuntime.active?.missionId === missionId
     },
     cancelMission: () => missionCancel(),
-    retryMission: () => missionRetry().ok,
+    retryMission: () => {
+      // Route through the PRODUCTION store action so DEV/E2E exercises the real gates —
+      // including the R4 "no mission (incl. retry) while on a career shift" check.
+      useGameStore.getState().retryLastMission()
+      return missionRuntime.active?.missionId != null
+    },
     forceMissionEvent: (event) => emitMissionEvent(event),
     teleportToMissionObjective: () => {
       const a = missionRuntime.active

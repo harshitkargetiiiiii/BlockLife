@@ -418,5 +418,35 @@
       "6 (2nd pass) — a confirmed plan is startable only inside its scheduled window (1h before proposed → 3h grace), revalidated in startSocialActivity (not only the disabled Start button); E2E #13 proves an early start is refused through the production UI then works after the real clock advances into the window; late plans still reconcile to a no-show exactly once."
     ],
     "acceptanceCriteria": "All issue #13 §18 criteria met with every review gap closed; baseline counts exceeded (unit 991->1099, e2e 204->220, visual 102->109)."
+  },
+  "careersV1": {
+    "date": "2026-07-26",
+    "summary": "Career, Skills & Life Progression v1 (issue #15) + PR #16 review repairs (F1-F8). Deterministic career platform under src/game/careers/ (14 modules). Reuses economy/inventory/mission-vocab/social/crime/save/streaming; adds a 4-career registry, 5-skill model (incl. wired non-shift XP sources), applications+recommendations, shift scheduling/lifecycle (atomic job switch, every terminal outcome schedules the next shift), 4 reusable shift templates with enforced cargo gates + derived optional, performance/pay/promotions/real unlocks, employer standing + typed social integration + schedule-conflict warnings, a rich results/history surface, additive save (validated templateId, no stranded active twin, fresh next shift on load). Starting SHA e8077bb.",
+    "unitSpecs": {
+      "src/game/careers/skills.test.ts": "11 — XP bounds/clamp, derived levels (monotonic), daily anti-farm caps, batch+prune, sanitize",
+      "src/game/careers/careerRegistry.test.ts": "8 — 4 careers x 4 ranks, rising pay, unlocks, employer actors real, lenient/strict split, recommendation path, validation=0 problems",
+      "src/game/careers/careerEvents.test.ts": "6 — exact-once XP funnel, duplicate no-op, multi-skill, bounded ledger, purity, snapshot",
+      "src/game/careers/careerLifeEvents.test.ts": "4 — non-shift skill sources (F7): gym workout→Fitness (capped), social activity→Social (exact-once), evasion→Street Smarts (exact-once+capped), never touch employment",
+      "src/game/careers/careerServices.test.ts": "17 — eligibility+readable refusals, recommendation relaxes, refuses switching mid-shift (R3), hire/switch/quit, first shift, missed reconciliation (lazy, standing ding, schedules next), atomic job switch drops old shifts + active-job ownership (F1)",
+      "src/game/careers/careerScheduling.test.ts": "12 — game-time start window, full start gate (wanted/incap/conflict/workplace), buildShift same-day/tomorrow, missed detection, plan conflict, findShiftConflict overlaps/none (F4)",
+      "src/game/careers/careerShifts.test.ts": "17 — 4 templates instantiate, anchors are real interactables, performance scoring, derived optional not a button (F8), pay + failed pay, skill awards, lifecycle begin/step/finalize/fail/cancel exact-once, no active twin (F3), rich result recorded (F5), terminal→next-shift (F2), start refused while unemployed + no quit mid-shift (R3)",
+      "src/game/careers/careerPromotion.test.ts": "4 — requirement rows, recent performance avg, promote-when-met + unlock once + idempotent, attendance blocks",
+      "src/game/careers/careerSocial.test.ts": "4 — employer hire/promotion/good-shift/missed messages + memories exact-once, earned recommendation from a warm employer",
+      "src/game/careers/careerPersistence.test.ts": "12 — additive round-trip, old save defaults, active shift never restores, reload-safe shiftSeq, field-by-field sanitize, garbage=defaults, drop unknown/mismatched templateId (F3), drop stranded active twin (F3), rich-results round-trip (F5)"
+    },
+    "unitCountNew": 90,
+    "extraUnitSpecs": {
+      "src/game/crime/wantedRuntime.test.ts": "+2 — evasion (decay-to-clear) queues one escape event; a direct clear (arrest/reset) queues none (F7)"
+    },
+    "e2eSpecs": {
+      "tests/e2e/careers.spec.ts": "35 — 15 core + F1-F8 (16-24) + R3 (25-28) + PR#16 round-4 doors: 29 Job Board opens Careers not a money vendor (R4-1), 30 Café staff discount displayed price == charged (R4-2, DOM), 31 mission can't start on shift (R4-3), 32 Sleep/Train blocked on shift (R4-3), 33 mission RETRY refused on shift (R5)",
+      "tests/e2e/careers-soak.spec.ts": "1 — bounded career lifecycle soak (24 game-days, all 4 careers): applications, completed+missed shifts, XP, promotions, employer messages, travel+interior, save/load+reset; asserts no dup pay/XP, bounded shifts(8)/perf(20)/applied(256)/paid(64)/unlocks(64)/skill-XP(1000), no leaked active shift, zero page/console errors, no person_solid/person_vehicle overlaps from work routes"
+    },
+    "e2eCountNew": 36,
+    "visualSpecs": {
+      "tests/visual/career-visuals.spec.ts": "8 — element-scoped deterministic baselines (all reviewed): career-discovery, career-refusal (readable reason), career-profile (active job + 5 skills), career-next-shift (startable window), career-shift-tracker (HUD; derived-bonus note, no free button), career-promotion (progress rows), career-unlocks (promoted rank + real benefit), career-shift-result (full pay decomposition + score breakdown)"
+    },
+    "visualCountNew": 8,
+    "note": "PR #16 repairs F1-F8 + re-review R3 (atomic arrest/incap pay, no job change mid-shift, no social start on shift) + round-4 integration doors R4 (Job Board→Careers, one careerActivityBenefits() source for display==execution, mission/sleep/train blocked on shift) on branch career-skills-life-progression-v1. R4 also updated economySystem/interactionHandlers/ActivityPanel unit+component tests (workShift money-vendor deleted; gym free-access + café-discount DOM parity). Unit 90 (careers) + others; E2E careers 35 + soak 1; visual 8."
   }
 }

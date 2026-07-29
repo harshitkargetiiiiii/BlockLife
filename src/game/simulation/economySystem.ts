@@ -6,8 +6,6 @@ export const MEAL_COST = 10
 export const MEAL_HUNGER_RESTORE = 25
 export const COFFEE_COST = 5
 export const TRAIN_ENERGY_COST = 20
-export const WORK_ENERGY_COST = 30
-export const WORK_PAY = 50
 export const SLEEP_HUNGER_PENALTY = 10
 
 export type EconomyResult =
@@ -43,37 +41,29 @@ export function buyCoffee(stats: PlayerStats, discountPct = 0): EconomyResult {
   }
 }
 
-export function train(stats: PlayerStats): EconomyResult {
-  if (stats.energy < TRAIN_ENERGY_COST) return { ok: false, error: 'Too tired to train.' }
+/** Train at the gym. With `freeAccess` (the Gym Trainer's earned "train off the clock"
+ *  unlock, §8) the energy gate is waived and the drain is halved — a real, deterministic
+ *  benefit the player keeps after being promoted. */
+export function train(stats: PlayerStats, freeAccess = false): EconomyResult {
+  if (!freeAccess && stats.energy < TRAIN_ENERGY_COST) return { ok: false, error: 'Too tired to train.' }
   const clock = advanceClock(stats.day, stats.hour, 1)
+  const energyCost = freeAccess ? Math.round(TRAIN_ENERGY_COST / 2) : TRAIN_ENERGY_COST
   return {
     ok: true,
     stats: {
       ...stats,
-      energy: clampStat(stats.energy - TRAIN_ENERGY_COST),
+      energy: clampStat(stats.energy - energyCost),
       strength: stats.strength + 1,
       day: clock.day,
       hour: clock.hour,
     },
-    message: 'Trained hard. Strength +1!',
+    message: freeAccess ? 'Trained on the house — Strength +1!' : 'Trained hard. Strength +1!',
   }
 }
 
-export function workShift(stats: PlayerStats): EconomyResult {
-  if (stats.energy < WORK_ENERGY_COST) return { ok: false, error: 'Too tired to work a shift.' }
-  const clock = advanceClock(stats.day, stats.hour, 4)
-  return {
-    ok: true,
-    stats: {
-      ...stats,
-      money: stats.money + WORK_PAY,
-      energy: clampStat(stats.energy - WORK_ENERGY_COST),
-      day: clock.day,
-      hour: clock.hour,
-    },
-    message: `Worked a shift (+$${WORK_PAY}).`,
-  }
-}
+// NB: the old `workShift` money-for-energy vendor was removed — paid work now flows
+// exclusively through Careers v1 (apply → scheduled shift → objectives → exact-once
+// pay). The Job Board opens the career flow instead of vending money (R4).
 
 export function sleep(stats: PlayerStats): EconomyResult {
   const clock = sleepUntilMorning(stats.day, stats.hour)

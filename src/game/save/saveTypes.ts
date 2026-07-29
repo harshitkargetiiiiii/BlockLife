@@ -6,6 +6,7 @@ import type { MissionSaveData } from '../missions/missionPersistence'
 import type { ActivitySaveData } from '../criminalActivities/activityPersistence'
 import type { CommerceSaveData } from '../commerce/commercePersistence'
 import type { SocialSaveData } from '../social/socialTypes'
+import type { CareerSaveData } from '../careers/careerTypes'
 
 export const SAVE_KEY = 'blocklife-save-v1'
 export const SAVE_VERSION = 1
@@ -62,4 +63,12 @@ export interface SaveData {
    * data is sanitized field-by-field and can never corrupt the wider save.
    */
   social?: SocialSaveData
+  /**
+   * Career, Skills & Life Progression v1 (additive, optional): active employment,
+   * career history/ranks, skill XP, employer standing, scheduled/active shifts,
+   * performance history, unlocks, and exact-once event/pay ledgers + the reload-safe
+   * shift-id counter. Older saves lack it and load unemployed with zero skills;
+   * malformed career data is sanitized field-by-field and can never corrupt the save.
+   */
+  career?: CareerSaveData
 }

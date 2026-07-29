@@ -154,6 +154,13 @@ export function messageText(token: string, actor: SocialActor, gameDay: number):
     followup_favor: [`thanks again for the help — i really owe you one 🙏`, `you came through for me. i won't forget it!`],
     followup_hangout: [`that was fun! we should do it again soon 😊`, `good hanging out with you today.`],
     followup_noshow: [`waited a while… guess something came up. maybe next time.`, `you didn't show 😕 everything okay?`],
+    // Career employer messages (issue #15 §10).
+    job_hired: [`welcome aboard! your first shift is on the schedule.`, `glad to have you on the team — check the schedule for your shift.`],
+    job_promoted: [`great work — you've earned a promotion! more pay, more responsibility.`, `you've been promoted. keep it up! 💪`],
+    job_good_shift: [`solid shift today — the customers noticed. nice work.`, `you crushed that shift. see you next time!`],
+    job_missed_shift: [`you missed your shift today — that's not like you. everything okay?`, `we needed you on the floor and you were a no-show 😕`],
+    job_failed_shift: [`heard your shift got cut short — get yourself sorted and we'll talk.`, `rough one out there today. take care of yourself, then come back.`],
+    job_recommendation: [`i put in a good word for you — go talk to them, they're expecting you.`, `told them you're solid. the job's yours if you want it.`],
   }
   return pick(lines[token] ?? [`…`], gameDay)
 }

@@ -4,10 +4,8 @@ import {
   buyMeal,
   sleep,
   train,
-  workShift,
   COFFEE_COST,
   MEAL_COST,
-  WORK_PAY,
 } from './economySystem'
 import { INITIAL_STATS } from '../player/playerTypes'
 
@@ -48,17 +46,15 @@ describe('economySystem', () => {
     expect(train({ ...INITIAL_STATS, energy: 10 }).ok).toBe(false)
   })
 
-  it('working pays money, costs energy and 4 hours', () => {
-    const r = workShift(INITIAL_STATS)
+  it('training off the clock (gym free access) waives the energy gate', () => {
+    // The old workShift money-vendor is gone; paid work is Careers v1 only. Free gym
+    // access lets a tired player still train (Strength +1) at a reduced energy cost.
+    const tired = { ...INITIAL_STATS, energy: 10 }
+    expect(train(tired).ok).toBe(false) // normally too tired
+    const r = train(tired, true) // free access
     expect(r.ok).toBe(true)
     if (!r.ok) return
-    expect(r.stats.money).toBe(INITIAL_STATS.money + WORK_PAY)
-    expect(r.stats.energy).toBe(70)
-    expect(r.stats.hour).toBe(12)
-  })
-
-  it('rejects working when too tired', () => {
-    expect(workShift({ ...INITIAL_STATS, energy: 20 }).ok).toBe(false)
+    expect(r.stats.strength).toBe(INITIAL_STATS.strength + 1)
   })
 
   it('sleeping restores energy, adds a little hunger, wakes next morning', () => {

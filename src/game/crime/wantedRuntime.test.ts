@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { emitCrime, resetCrimeRuntime } from './crimeRuntime'
 import {
   applyReport,
+  clearWanted,
+  consumePendingEscapes,
   getWantedLevel,
   getWantedSnapshot,
   policeLostSight,
@@ -96,5 +98,28 @@ describe('wanted runtime', () => {
     tickWanted(3, 1, false)
     expect(getWantedLevel()).toBeGreaterThanOrEqual(2)
     expect(getWantedSnapshot().status).toBe('searching')
+  })
+
+  // ---- police evasion → career Street-Smarts event queue (issue #15 F7) -----
+
+  it('decaying wanted to clear (an EVASION) queues exactly one escape event', () => {
+    expect(consumePendingEscapes()).toHaveLength(0) // nothing pending at rest
+    applyReport({ crimeType: 'vehicle_theft', severity: 2, incidentId: 'inc1', position: POS, gameTime: 0 })
+    policeSighting(POS, 1)
+    policeLostSight(2)
+    for (let t = 3; t < 200 && getWantedLevel() > 0; t++) tickWanted(t, 1, false)
+    expect(getWantedLevel()).toBe(0)
+    const escapes = consumePendingEscapes()
+    expect(escapes).toHaveLength(1) // one evasion recorded
+    expect(consumePendingEscapes()).toHaveLength(0) // draining is exact-once
+  })
+
+  it('a direct clear (arrest/reset — NOT an evasion) queues no escape event', () => {
+    applyReport({ crimeType: 'vehicle_theft', severity: 2, incidentId: 'inc1', position: POS, gameTime: 0 })
+    clearWanted() // e.g. an arrest cleared wanted — the player did not get away
+    expect(consumePendingEscapes()).toHaveLength(0)
+    applyReport({ crimeType: 'vehicle_theft', severity: 2, incidentId: 'inc2', position: POS, gameTime: 5 })
+    resetWantedRuntime() // full reset also queues nothing + drops any pending
+    expect(consumePendingEscapes()).toHaveLength(0)
   })
 })

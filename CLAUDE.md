@@ -76,7 +76,30 @@ regression) and `scripts/crime-gate.sh`.
 compiles 0 files and always passes. Only `-b --force` really typechecks.
 
 ## Current state
-In progress: **Social Life, Relationships & NPC Memory v1** (issue #13) — a staged,
+In progress: **Career, Skills & Life Progression v1** (issue #15) — one
+**deterministic** career platform under [`src/game/careers/`](src/game/careers/) on
+top of the existing job-board/phone/mission-vocab/economy/inventory/social/crime/
+save/streaming stacks (reimplementing none). Core loop: discover a career → qualify
+or earn a **recommendation** → attend a **real scheduled shift** at a workplace →
+complete world objectives → **exact-once** pay + 0–100 performance → improve one of
+**5 skills** → earn **promotions** + visible **unlocks**. Ships **4 careers**
+(Delivery Driver, Café/Retail·Maya, Gym Trainer·Bruno, Trade Worker·Leo) × **4 ranks**
+(Trainee→Regular→Experienced→Senior); a validated **registry**; a bounded-XP,
+daily-anti-farm-capped skill model with a **derived-level** table + the ONE exact-once
+XP funnel; deterministic **applications** (readable refusals, a social recommendation
+relaxes entry) + one active primary job + persisted history/ranks; a game-time
+**start window** + full conflict/workplace gate + lazy **missed reconciliation**; **4
+reusable shift templates** (a step machine over reused anchors/interactables, NOT a
+second mission engine — CONVENTIONS #23) + a HUD tracker; **base×rank×performance**
+pay through the economy authority; one **promotion service** + rank unlocks; a typed
+**career→social adapter** (employer messages/memories, earned recommendations via
+`postContactMessage` + the ONE `ingestSocialEvent`); crime blocks/fails shifts with no
+criminal record; additive fail-safe **save** + reload-safe `shiftSeq`; DEV
+observability. UI re-renders via a `careerVersion` counter (runtime outside zustand).
+See [`docs/CAREERS_SKILLS_AND_PROGRESSION.md`](docs/CAREERS_SKILLS_AND_PROGRESSION.md).
+
+Prior sprint (shipped via PR #14, merged): **Social Life, Relationships & NPC Memory
+v1** (issue #13) — a staged,
 **deterministic** social platform under [`src/game/social/`](src/game/social/) on
 top of the existing NPC/phone/mission/inventory/crime/save stacks (reimplementing
 none). Core loop: meet a named NPC → interact → bounded structured **memory** →

@@ -398,6 +398,71 @@ you don't need to: a next-hour proposal is already inside its 1h-early window, s
 only genuinely far-future plans need the clock advanced (see the start window,
 gotcha-adjacent to the destination gate).
 
+### 26. `setActiveInteractable` is overwritten by the proximity scanner every frame
+The DEV `setActiveInteractable(id)` hook sets `activeInteractableId`, but the live
+proximity scanner recomputes it from the PLAYER'S REAL POSITION on the next
+`useFrame`. So in an E2E, `setActiveInteractable(x)` only holds for code that runs
+SYNCHRONOUSLY before the next frame — i.e. inside the SAME `page.evaluate`. A career
+shift whose steps you advance across separate DOM clicks (each a fresh frame) sees
+the scanner's value, not yours, and the workplace gate refuses — the shift never
+completes (careers E2E #5–#8 failed exactly this way). **Fix:** drive a multi-step,
+location-gated flow either (a) synchronously inside one `page.evaluate` (arrange +
+advance in a loop — the scanner doesn't tick mid-evaluate), or (b) with a REAL
+`teleport` to the target so the scanner itself sets `activeInteractableId` and keeps
+it there while the player stands still (used for the café production-DOM proof, whose
+steps all sit at one workplace). Don't mix `setActiveInteractable` with cross-frame
+clicks.
+
+### 27. An in-flight work item needs ONE home, and every terminal outcome must reschedule
+Two lifecycle bugs the PR #16 review caught in careers, both worth generalizing:
+
+- **One home for an active item.** `beginShift` originally left the started shift in
+  `scheduledShifts` (status `active`) AND copied it to `activeShift`. On save both
+  persisted; on load `activeShift` was dropped (an active run can't safely resume) but
+  the scheduled twin survived as a phantom `active`-status record the next-shift
+  selector ignored forever. **Fix:** when an item goes in-flight, MOVE it (remove from
+  the queue), don't copy — so there is exactly one home and a save can't strand a twin.
+  On load, drop any non-attendable status defensively and schedule a fresh one.
+- **Every terminal outcome reschedules.** Only *successful completion* scheduled the
+  next shift; miss / fail (arrest) / cancel left the player employed with "No shift
+  scheduled" forever. A recurring loop must funnel EVERY terminal outcome
+  (complete/missed/failed/cancelled) through one `ensureNext` that schedules the next
+  eligible item exactly once (no-op if one is already pending) — and fire the matching
+  side effect (e.g. the failed-shift employer follow-up) on the same path.
+
+Both are "the happy path works, the exits dead-end" bugs a green gate hides — cover
+each terminal branch explicitly (unit + a real page-reload E2E), not just the success.
+
+### 28. A player-facing unlock must change gameplay, not just render a label
+A promotion that only appends an id to an `unlocks[]` array and renders its text is
+theater. Each shipped unlock must alter real production behavior through the owning
+authority — the thermal bag/toolbelt change the shift's cargo gate, the café discount
+flows through the vendor-discount price path, gym access waives the `train` energy gate
+— and each needs a test that observes the behavior change (not the label). Likewise an
+"optional objective" must be DERIVED from real outcomes (a flawless, on-time run), never
+a free always-enabled button that can be claimed from anywhere.
+
+### 29. Display and execution must read ONE options source; close the legacy doors
+When a new authority (Careers v1) changes what an existing interaction shows or allows,
+the DISPLAY (what the button renders — price, enabled/disabled) and the EXECUTION (what
+the store charges / permits) must read the SAME resolver. PR #16 shipped a real bug from
+splitting them: the store applied the café discount + gym free-access, but `ActivityPanel`
+still computed prices/gates from only the social discount — so Maya's menu could show one
+price and charge another, and the Train button stayed disabled while free access actually
+waived the gate. Fix: one pure resolver (`careerActivityBenefits()`) consumed by both the
+panel and `performActivityAction`; prove display == execution with a DOM-level test that
+reads the button text AND asserts the resulting store change.
+
+Relatedly, when a milestone becomes the sole authority for something (paid work), audit
+for the OLD doors around it and close them: the world Job Board still vended money via a
+standalone `workShift` (deleted → it now opens the career flow); and the mutual-exclusion
+gate a shift needs must be symmetric AND complete — if career-start blocks
+missions/social/sleep, then mission-accept, mission **retry** (a second start door
+`acceptMissionById` didn't cover), social-start, and sleep+train must ALL block during a
+shift, each through the production entry point (route DEV test hooks through the store
+action, not the bridge, so tests exercise the real gate). When you add one guard, grep
+for every sibling entry point (accept AND retry) — a lone guard leaves a door open.
+
 ---
 
 ## The verification workflow (honest gates)
