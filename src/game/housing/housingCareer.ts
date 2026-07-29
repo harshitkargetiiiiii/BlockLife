@@ -11,6 +11,7 @@ import { propertyEligibility, recentCareerIncome, type EligibilityResult } from 
 import { RECENT_INCOME_WINDOW_DAYS, type PropertyId } from './housingTypes'
 import { getProperty } from './propertyRegistry'
 import { isToured } from './housingRuntime'
+import { isPropertyRecommended } from './housingRecommendations'
 
 /** The best rank the player has reached in ANY career (current ranks + history highs). */
 export function highestCareerRank(): RankId | null {
@@ -38,6 +39,7 @@ export function housingEligibility(propertyId: PropertyId, day: number): Eligibi
     highestRankAny: highestCareerRank(),
     recentCareerIncome: housingRecentCareerIncome(day, windowDays),
     toured: isToured(propertyId),
-    recommendationRelaxesTour: false, // a trusted-NPC recommendation is wired in the hosting slice (§10)
+    // A trusted friend's recommendation relaxes ONLY the authored tour gate (§10, review #1).
+    recommendationRelaxesTour: isPropertyRecommended(propertyId),
   })
 }

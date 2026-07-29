@@ -654,6 +654,38 @@ test.describe('housing — rent, lifecycle & integrity', () => {
     expect(res.placed).toBe(false) // stays safely in furniture inventory
   })
 
+  test('a malformed placement + over-capacity load preserves every stored item (review #4)', async ({ page }) => {
+    await runDeliveryShifts(page, 3)
+    await page.evaluate(async () => {
+      const api = window.GAME_TEST_API!
+      api.setMoney(6000)
+      api.housingTour('city_loft'); api.housingLease('city_loft')
+      // A storage cabinet (+20) lifts the loft's base 48 storage to 68.
+      api.housingBuyFurniture('storage_cabinet')
+      const s = api.getHousingState()
+      const cab = Object.keys(s.assets).find((a) => s.assets[a].defId === 'storage_cabinet')!
+      api.housingPlaceFurniture('lf_storage', cab)
+      api.setStorage({ snack: 600 }) // 60 slots — fits under 68, but NOT under the base 48
+      await api.saveGame()
+      // Corrupt the cabinet placement so the next load recovers it → capacity drops to 48.
+      await api.housingCorruptSavePlacement('lf_storage')
+    })
+    await page.reload()
+    await page.waitForFunction(() => window.GAME_TEST_API?.ready() === true, undefined, { timeout: 45_000 })
+    const res = await page.evaluate(async () => {
+      const api = window.GAME_TEST_API!
+      await api.loadGame()
+      const store = api.getStorageContainer()
+      const s = api.getHousingState()
+      return { occupied: store.occupied, capacity: store.capacity, snacks: store.stacks.snack, cabinetPlaced: s.placements['lf_storage'] !== undefined, owned: Object.keys(s.assets).length }
+    })
+    expect(res.snacks).toBe(600) // every stored item survived — nothing silently deleted
+    expect(res.occupied).toBe(60)
+    expect(res.occupied).toBeGreaterThan(res.capacity) // bounded overflow after capacity shrank
+    expect(res.cabinetPlaced).toBe(false) // the bad placement was recovered
+    expect(res.owned).toBe(1) // the cabinet asset itself is preserved in inventory
+  })
+
   test('save, load, and reset during Furnish mode leave no ghost panel or stranded state', async ({ page }) => {
     const errors: string[] = []
     page.on('pageerror', (e) => errors.push(String(e)))
@@ -673,6 +705,35 @@ test.describe('housing — rent, lifecycle & integrity', () => {
     const s = await page.evaluate(() => window.GAME_TEST_API!.getHousingState())
     expect(s.currentPropertyId).toBe('starter_studio')
     expect(errors, errors.join('\n')).toEqual([])
+  })
+
+  test('a trusted friend recommends a property through the phone and relaxes only the tour (review #1)', async ({ page }) => {
+    await runDeliveryShifts(page, 3) // Regular rank → the loft is rank-eligible
+    const res = await page.evaluate(() => {
+      const api = window.GAME_TEST_API!
+      api.setMoney(2000)
+      const before = api.getHousingEligibility('city_loft') // untoured → blocked on the tour
+      // Befriend Maya to REAL trust (met + liked gifts for affinity + favors for trust).
+      api.ingestSocialEvent({ id: 'met_maya', kind: 'met', actorId: 'npc_maya_01', gameDay: 0 })
+      for (let i = 0; i < 60; i++) {
+        api.ingestSocialEvent({ id: `mg${i}`, kind: 'gift_liked', actorId: 'npc_maya_01', gameDay: 0 })
+        api.ingestSocialEvent({ id: `mf${i}`, kind: 'favor_completed', actorId: 'npc_maya_01', gameDay: 0 })
+      }
+      const surfaced = api.housingReconcileRecommendations() // the lazy phone-open pass
+      const after = api.getHousingEligibility('city_loft')
+      const msgs = api.getSocialMessages('npc_maya_01')
+      return { before, after, surfaced, hasMsg: msgs.some((m) => m.token === 'housing_recommend'), toured: api.getHousingState().toured.includes('city_loft') }
+    })
+    expect(res.before.eligible).toBe(false)
+    expect(res.before.firstUnmetReason?.toLowerCase()).toContain('tour')
+    expect(res.surfaced).toBe(1)
+    expect(res.hasMsg).toBe(true) // surfaced through the social message authority
+    expect(res.toured).toBe(false) // never toured
+    expect(res.after.eligible).toBe(true) // the recommendation relaxed ONLY the tour gate
+    // Lease it without ever touring.
+    await page.evaluate(() => window.GAME_TEST_API!.housingLease('city_loft'))
+    const s = await page.evaluate(() => window.GAME_TEST_API!.getHousingState())
+    expect(s.currentPropertyId).toBe('city_loft')
   })
 
   test('reset returns the canonical Starter Studio state safely', async ({ page }) => {

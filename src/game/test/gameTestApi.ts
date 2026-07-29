@@ -20,6 +20,7 @@ import { isHomeActivityKind as isHomeActivityKindRt } from '../social/socialActi
 import type { HomeActivityKind } from '../housing/housingTypes'
 import { getPropertySlots as getPropertySlotsRt } from '../housing/propertyRegistry'
 import { persistSave as persistSaveRt, loadSave as loadSaveRt } from '../save/saveGame'
+import { reconcileHousingRecommendations as reconcileHousingRecommendationsRt } from '../housing/housingRecommendations'
 import type { HousingState, PropertyId } from '../housing/housingTypes'
 import type { CareerId, SkillId } from '../careers/careerTypes'
 import type { InvitationActivityKind } from '../social/socialTypes'
@@ -488,9 +489,15 @@ export interface GameTestApi {
   housingPayRent: () => void
   /** DEV/E2E: reconcile rent that fell due (the SAME lazy step production runs on phone-open). */
   housingReconcileRent: () => void
+  /** DEV/E2E: surface any newly-earned trusted-NPC property recommendations (the SAME lazy
+   *  step production runs on phone-open). Returns how many were newly surfaced. */
+  housingReconcileRecommendations: () => number
   /** DEV/E2E: drop the housing slice from the PERSISTED save, simulating a pre-housing
    *  legacy save so the next load exercises the real migration path. */
   housingDropSaveSlice: () => Promise<void>
+  /** DEV/E2E: point a saved placement at a non-existent asset, so the next load recovers
+   *  the real furniture to inventory (shrinking effective storage capacity). */
+  housingCorruptSavePlacement: (slotId: string) => Promise<void>
   /** DEV/E2E: the current home's authored slots (id + allowed categories + max size). */
   getHousingSlots: () => { id: string; room: string; allowedCategories: string[]; maxSize: string }[]
   /** DEV/E2E: buy a furniture piece (the SAME store action the Furnish shop calls). */
@@ -1360,10 +1367,22 @@ export function installTestApi(): void {
     housingLease: (propertyId: string) => useGameStore.getState().leaseHousingProperty(propertyId as PropertyId),
     housingPayRent: () => useGameStore.getState().payHousingRent(),
     housingReconcileRent: () => useGameStore.getState().reconcileHousingRentOnOpen(),
+    housingReconcileRecommendations: () => {
+      const st = useGameStore.getState().stats
+      return reconcileHousingRecommendationsRt(st.day, st.hour)
+    },
     housingDropSaveSlice: async () => {
       const d = await loadSaveRt()
       if (d) {
         delete (d as { housing?: unknown }).housing
+        await persistSaveRt(d)
+      }
+    },
+    housingCorruptSavePlacement: async (slotId: string) => {
+      const d = await loadSaveRt()
+      const h = (d as { housing?: { placements?: Record<string, string> } } | null)?.housing
+      if (d && h?.placements) {
+        h.placements[slotId] = 'fa_does_not_exist'
         await persistSaveRt(d)
       }
     },

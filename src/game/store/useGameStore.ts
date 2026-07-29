@@ -92,6 +92,7 @@ import { getFurnitureDef } from '../housing/furnitureCatalog'
 import { applyHousingSave, serializeHousing } from '../housing/housingPersistence'
 import { getProperty } from '../housing/propertyRegistry'
 import { housingEligibility } from '../housing/housingCareer'
+import { reconcileHousingRecommendations } from '../housing/housingRecommendations'
 import { canBuyFurniture, furnitureBuyReasonText } from '../housing/housingCommerce'
 import { hostingRefusalText, placementRefusalText } from '../housing/housingText'
 import { canHostActivity, homeActivityForInvitationKind, tierAtLeast } from '../housing/housingSocial'
@@ -804,8 +805,9 @@ export const useGameStore = create<GameStore>()((set, get) => ({
         careerNotifyShiftOutcome(missed.careerId, 'missed', 0, missed.id, s.stats.day, s.stats.hour)
       }
       careerReconcileRecs(s.stats.day, s.stats.hour) // warm employers put in a good word (§10)
+      reconcileHousingRecommendations(s.stats.day, s.stats.hour) // trusted friends vouch for a place (§10, review #1)
       for (const seq of consumePendingEscapes()) careerNoteEscaped(seq, s.stats.day, s.stats.hour) // shaking the police builds Street Smarts (§2/F7)
-      set((st) => ({ socialVersion: st.socialVersion + 1, careerVersion: st.careerVersion + 1 }))
+      set((st) => ({ socialVersion: st.socialVersion + 1, careerVersion: st.careerVersion + 1, housingVersion: st.housingVersion + 1 }))
       // Opening the phone also reconciles rent that fell due (issue #17 §3), auto-paying
       // from the current balance — never per frame, only on this lazy touch point.
       get().reconcileHousingRentOnOpen()
@@ -2136,7 +2138,10 @@ export const useGameStore = create<GameStore>()((set, get) => ({
       // unknown ids, floors quantities, trims to capacity; coffee is preserved).
       inventory: loadedInventory,
       // Effective capacity reflects the just-restored placed storage furniture (§8/§13).
-      storage: sanitizeStacks(snapshot.storage, effectiveStorageCapacity()),
+      // keepOverflow: a save whose capacity shrank (recovered storage furniture) must
+      // NEVER silently drop stored items — preserve them all; deposit/move/removal gates
+      // block adding more or shrinking further until the player withdraws (review #4).
+      storage: sanitizeStacks(snapshot.storage, effectiveStorageCapacity(), true),
       wardrobeUnlocks: Array.isArray(snapshot.wardrobe?.unlocked)
         ? snapshot.wardrobe.unlocked.filter((p) => LOCKED_PALETTE_IDS.includes(p))
         : [],

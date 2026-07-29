@@ -211,6 +211,15 @@ export function recordFurniturePurchase(assetId: string, price: number, day: num
   recordTxn({ key: `furniture_purchase:${assetId}`, kind: 'furniture_purchase', amount: -price, day: Math.trunc(day) })
 }
 
+/** Mark a non-money housing event key as applied (exact-once), e.g. a surfaced
+ *  trusted-NPC recommendation (PR#18 review #1). No payment/ledger row is recorded. */
+export function recordRecommendation(key: string): void {
+  const s = housingRuntime.state
+  if (s.appliedTxnKeys.includes(key)) return
+  s.appliedTxnKeys.push(key)
+  if (s.appliedTxnKeys.length > HOUSING_APPLIED_TXN_KEYS_MAX) s.appliedTxnKeys.splice(0, s.appliedTxnKeys.length - HOUSING_APPLIED_TXN_KEYS_MAX)
+}
+
 export function ownedAssetCount(): number {
   return Object.keys(housingRuntime.state.assets).length
 }
