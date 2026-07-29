@@ -92,7 +92,7 @@ import { getFurnitureDef } from '../housing/furnitureCatalog'
 import { applyHousingSave, serializeHousing } from '../housing/housingPersistence'
 import { getProperty } from '../housing/propertyRegistry'
 import { housingEligibility } from '../housing/housingCareer'
-import { reconcileHousingRecommendations } from '../housing/housingRecommendations'
+import { isPropertyRecommended, reconcileHousingRecommendations } from '../housing/housingRecommendations'
 import { canBuyFurniture, furnitureBuyReasonText } from '../housing/housingCommerce'
 import { hostingRefusalText, placementRefusalText } from '../housing/housingText'
 import { canHostActivity, homeActivityForInvitationKind, tierAtLeast } from '../housing/housingSocial'
@@ -1373,7 +1373,9 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     const elig = housingEligibility(propertyId, s.stats.day)
     const plan = planMove(propertyId, s.stats.money, {
       eligible: elig.eligible,
-      toured: isToured(propertyId),
+      // A trusted-friend recommendation waives the authored tour for the move too, so the
+      // relaxed eligibility and the move gate agree (review #1). Never waives any other gate.
+      toured: isToured(propertyId) || isPropertyRecommended(propertyId),
       tourRequired: property.tourRequired,
       // A move packs all furniture, so the destination's effective storage is its base.
       // Refuse if the currently-stored items wouldn't fit (issue §13, no silent loss).
