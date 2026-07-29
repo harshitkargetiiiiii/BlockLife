@@ -3,7 +3,7 @@ import { PROPERTY_DEFS, getProperty } from '../../game/housing/propertyRegistry'
 import { getHomeMetrics, getHousingState, getOwnedAssets, isDiscovered, isToured } from '../../game/housing/housingRuntime'
 import { daysUntilDue, isDelinquent, leaseStatusLabel } from '../../game/housing/leaseModel'
 import { housingEligibility } from '../../game/housing/housingCareer'
-import { HOME_ACTIVITY_DEFS, canHostActivity, tierAtLeast } from '../../game/housing/housingSocial'
+import { HOME_ACTIVITY_DEFS, tierAtLeast } from '../../game/housing/housingSocial'
 import { hostingRefusalText } from '../../game/housing/housingText'
 import { SOCIAL_ACTORS } from '../../game/social/socialActors'
 import { getDerivedRelationship, hasMet } from '../../game/social/socialRuntime'
@@ -25,6 +25,7 @@ export function PhoneHousing() {
   const lease = useGameStore((s) => s.leaseHousingProperty)
   const payRent = useGameStore((s) => s.payHousingRent)
   const invite = useGameStore((s) => s.sendPlayerInvite)
+  const canHostHome = useGameStore((s) => s.canHostHomeActivity)
   const closePanel = useGameStore((s) => s.closePanel)
   useGameStore((s) => s.socialVersion) // hosting eligibility depends on relationships
 
@@ -83,7 +84,8 @@ export function PhoneHousing() {
 
       <div className="phone-section-title">Home Hosting</div>
       {HOME_ACTIVITY_DEFS.map((adef) => {
-        const host = canHostActivity(adef.kind)
+        // The ONE shared gate (review #3): kind-level + wanted/incap/shift/mission/robbery.
+        const host = canHostHome(adef.kind)
         const guests = SOCIAL_ACTORS.filter((a) => hasMet(a.id) && tierAtLeast(getDerivedRelationship(a.id).tier, adef.minTier))
         return (
           <div key={adef.kind} className="phone-card" data-testid={`hosting-${adef.kind}`}>

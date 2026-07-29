@@ -95,7 +95,8 @@ import { housingEligibility } from '../housing/housingCareer'
 import { isPropertyRecommended, reconcileHousingRecommendations } from '../housing/housingRecommendations'
 import { canBuyFurniture, furnitureBuyReasonText } from '../housing/housingCommerce'
 import { hostingRefusalText, placementRefusalText } from '../housing/housingText'
-import { canHostActivity, homeActivityForInvitationKind, tierAtLeast } from '../housing/housingSocial'
+import { canHostActivity, getHomeActivityDef, homeActivityForInvitationKind, tierAtLeast } from '../housing/housingSocial'
+import type { HomeActivityKind, HostingRefusalReason } from '../housing/housingTypes'
 import { isPropertyId, type MoveRefusalReason, type PropertyId } from '../housing/housingTypes'
 import {
   resetCareers,
@@ -416,6 +417,11 @@ export interface GameStore extends GameDataState {
   clearHousingOutfitPreset: (id: string) => void
   /** Open the home-hosting flow at a hosting anchor (hosting slice). */
   openHomeHosting: (interactableId: string) => void
+  /** ONE deterministic home-hosting gate shared by the Home UI, the invite entry, and the
+   *  activity-start entry (PR#18 review #3). Revalidates lease good-standing, furniture/
+   *  seating, wanted, incapacitation, active shift/mission/robbery, and — when a guest is
+   *  given — trust. Home quality never overrides a safety/schedule gate. */
+  canHostHomeActivity: (kind: HomeActivityKind, guestId?: string) => { ok: boolean; reason?: HostingRefusalReason }
   /** Update outfit colors (partial merge over the current appearance). */
   setAppearance: (appearance: Partial<PlayerAppearance>) => void
   setCharacterRenderMode: (mode: 'auto' | 'model' | 'primitive') => void
@@ -985,12 +991,11 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     // enough, and you can't invite anyone over during a pursuit.
     if (activityKind && isHomeActivityKind(activityKind)) {
       const homeDef = homeActivityForInvitationKind(activityKind)
-      const host = homeDef ? canHostActivity(homeDef.kind) : { ok: false, reason: 'missing_furniture' as const }
+      // ONE shared hosting gate (review #3): lease good-standing + furniture/seating +
+      // trust + wanted + incapacitation + active shift/mission/robbery. Blocking an invite
+      // during a shift is the case the old per-call gate missed.
+      const host = homeDef ? get().canHostHomeActivity(homeDef.kind, npcId) : { ok: false, reason: 'missing_furniture' as const }
       if (!host.ok) return void get().showToast(hostingRefusalText(host.reason))
-      if (homeDef && !tierAtLeast(getDerivedRelationship(npcId).tier, homeDef.minTier)) {
-        return void get().showToast(`${getSocialActor(npcId)?.displayName ?? 'They'} aren’t close enough to come over yet.`)
-      }
-      if (getWantedLevel() > 0) return void get().showToast("Not while the police are after you!")
     }
     const res = sendPlayerInviteRt(npcId, s.stats.day, s.stats.hour, {
       activityKind,
@@ -1040,7 +1045,9 @@ export const useGameStore = create<GameStore>()((set, get) => ({
         return
       }
       const homeDef = homeActivityForInvitationKind(inv.activityKind)
-      const host = homeDef ? canHostActivity(homeDef.kind) : { ok: false, reason: 'missing_furniture' as const }
+      // Re-run the ONE shared hosting gate at start (review #3): furniture may have moved,
+      // and a pursuit / mission / shift may have begun AFTER the plan was accepted.
+      const host = homeDef ? get().canHostHomeActivity(homeDef.kind, inv.actorId) : { ok: false, reason: 'missing_furniture' as const }
       if (!host.ok) {
         get().showToast(hostingRefusalText(host.reason))
         return
@@ -1569,6 +1576,20 @@ export const useGameStore = create<GameStore>()((set, get) => ({
 
   // Home hosting (issue #17 §9): at the hosting anchor, advance the guest's visit if
   // one is active, else start a confirmed home plan whose window is open.
+  canHostHomeActivity: (kind, guestId) => {
+    const base = canHostActivity(kind) // lease good-standing + delinquency + furniture + seating
+    if (!base.ok) return base
+    // Safety / schedule gates that home quality must NEVER override (issue §9, review #3).
+    if (getWantedLevel() > 0) return { ok: false, reason: 'wanted' as HostingRefusalReason }
+    if (get().playerIncapacitated) return { ok: false, reason: 'incapacitated' as HostingRefusalReason }
+    if (getActiveCareerShift() || missionRuntime.active || activityRuntime.active) return { ok: false, reason: 'busy' as HostingRefusalReason }
+    if (guestId != null) {
+      const def = getHomeActivityDef(kind)
+      if (def && !tierAtLeast(getDerivedRelationship(guestId).tier, def.minTier)) return { ok: false, reason: 'low_trust' as HostingRefusalReason }
+    }
+    return { ok: true }
+  },
+
   openHomeHosting: () => {
     const act = getActiveActivity()
     if (act && isHomeActivityKind(act.activityKind)) {

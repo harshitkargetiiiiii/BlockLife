@@ -402,6 +402,43 @@ test.describe('housing — hosting', () => {
     await expect(page.getByTestId('hosting-blocked-movie_night')).toBeVisible()
   })
 
+  test('one shared gate refuses hosting for a pursuit, an active shift, and delinquency (review #3, scenario #18)', async ({ page }) => {
+    await leaseLoftWithHostingKit(page) // furniture + a trusted Ravi → coffee-at-home is hostable
+    expect(await page.evaluate(() => window.GAME_TEST_API!.housingCanHost('coffee_home').ok)).toBe(true)
+
+    // A wanted pursuit blocks hosting (and never lets you duck home to host).
+    const wanted = await page.evaluate(() => { window.GAME_TEST_API!.setWantedLevel(3); return window.GAME_TEST_API!.housingCanHost('coffee_home') })
+    expect(wanted.ok).toBe(false)
+    expect(wanted.reason).toBe('wanted')
+    await page.evaluate(() => window.GAME_TEST_API!.setWantedLevel(0))
+
+    // An active career shift blocks BOTH hosting and even SENDING the invite (the case
+    // the old per-call gate missed).
+    const shift = await page.evaluate(() => {
+      const api = window.GAME_TEST_API!
+      const sh = api.getCareerNextShift()
+      if (sh) { api.setGameDay(sh.scheduledDay); api.setTime(sh.startHour); api.setActiveInteractable(sh.workplaceInteractableId); api.startCareerShift(sh.id) }
+      const host = api.housingCanHost('coffee_home')
+      api.housingInviteGuest('npc_ravi_01', 'coffee_home')
+      const invited = api.getSocialInvitations().some((i) => i.activityKind === 'coffee_home')
+      return { active: !!api.getActiveCareerShift(), host, invited }
+    })
+    expect(shift.active).toBe(true)
+    expect(shift.host.ok).toBe(false)
+    expect(shift.host.reason).toBe('busy')
+    expect(shift.invited).toBe(false) // invite refused during the shift
+
+    // Delinquent rent also blocks hosting (finish the shift, then fall behind on rent).
+    const delinquent = await page.evaluate(() => {
+      const api = window.GAME_TEST_API!
+      for (let g = 0; g < 16; g++) { const s = api.getActiveCareerShift(); if (!s) break; const step = s.objectives.find((o) => !o.optional && !o.done); if (!step) break; api.setActiveInteractable(step.anchorId ?? s.workplaceInteractableId); api.advanceCareerShift() }
+      api.setMoney(0); api.setGameDay(api.getStats().day + 12); api.housingReconcileRent()
+      return api.housingCanHost('coffee_home')
+    })
+    expect(delinquent.ok).toBe(false)
+    expect(delinquent.reason).toBe('delinquent')
+  })
+
   test('invite a guest to Coffee at Home through the Home app', async ({ page }) => {
     await leaseLoftWithHostingKit(page)
     await page.evaluate(() => window.GAME_TEST_API!.openTestPhoneApp('housing'))

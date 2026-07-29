@@ -15,7 +15,6 @@ import {
 } from '../housing/housingRuntime'
 import { housingReport as housingReportRt, type HousingReport } from '../housing/housingObservability'
 import { housingEligibility as housingEligibilityRt } from '../housing/housingCareer'
-import { canHostActivity as canHostActivityRt } from '../housing/housingSocial'
 import { isHomeActivityKind as isHomeActivityKindRt } from '../social/socialActivities'
 import type { HomeActivityKind } from '../housing/housingTypes'
 import { getPropertySlots as getPropertySlotsRt } from '../housing/propertyRegistry'
@@ -1401,7 +1400,7 @@ export function installTestApi(): void {
     housingSaveOutfit: (id: string) => useGameStore.getState().saveHousingOutfitPreset(id),
     housingApplyOutfit: (id: string) => useGameStore.getState().applyHousingOutfitPreset(id),
     housingClearOutfit: (id: string) => useGameStore.getState().clearHousingOutfitPreset(id),
-    housingCanHost: (kind: string) => canHostActivityRt(kind as HomeActivityKind),
+    housingCanHost: (kind: string) => useGameStore.getState().canHostHomeActivity(kind as HomeActivityKind),
     housingInviteGuest: (npcId: string, kind: string) => useGameStore.getState().sendPlayerInvite(npcId, kind as InvitationActivityKind),
     housingHostAtAnchor: () => useGameStore.getState().openHomeHosting('host'),
     getHomeHosting: () => {
