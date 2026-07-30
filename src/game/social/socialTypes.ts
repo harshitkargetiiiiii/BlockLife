@@ -217,6 +217,29 @@ export type InvitationActivityKind =
   | 'movie_night'
   | 'dinner_home'
 
+/**
+ * The canonical, exhaustive list of invitation activity kinds — the ONE source persistence,
+ * validation, and any runtime kind-check derive from (PR#18 round-3 review #1). The keyed
+ * record makes exhaustiveness COMPILE-CHECKED: adding a kind to the union above without listing
+ * it here is a TypeScript error, so save/load can never silently drop a newly-added kind (as the
+ * stale hardcoded five-kind whitelist did to the `*_home` kinds).
+ */
+const INVITATION_KIND_PRESENCE: Record<InvitationActivityKind, true> = {
+  coffee: true,
+  food: true,
+  workout: true,
+  hangout: true,
+  walk: true,
+  coffee_home: true,
+  movie_night: true,
+  dinner_home: true,
+}
+export const INVITATION_ACTIVITY_KINDS = Object.keys(INVITATION_KIND_PRESENCE) as InvitationActivityKind[]
+
+export function isInvitationActivityKind(v: unknown): v is InvitationActivityKind {
+  return typeof v === 'string' && Object.prototype.hasOwnProperty.call(INVITATION_KIND_PRESENCE, v)
+}
+
 export type InvitationStatus =
   | 'pending'
   | 'accepted'

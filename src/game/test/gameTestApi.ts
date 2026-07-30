@@ -528,6 +528,8 @@ export interface GameTestApi {
   housingProductionPlace: (slotId: string, assetId: string) => void
   /** DEV/E2E: the real production furnish-edit gate result for the current state (no drift). */
   housingCanEditFurnish: (slotId?: string) => boolean
+  /** DEV/E2E: the current Furnish move-source selection (null once torn down — round-3 review #3). */
+  getFurnishSelectedSlot: () => string | null
   /** DEV/E2E: the current home's derived metrics (comfort/style/storage/sleep/hosting). */
   getHomeMetrics: () => { comfort: number; style: number; storageCapacity: number; sleepQuality: number; hostingCapacity: number }
   /** DEV/E2E: the current home's sleep benefit (energy target + health restore). */
@@ -1436,6 +1438,7 @@ export function installTestApi(): void {
     },
     housingProductionPlace: (slotId: string, assetId: string) => useGameStore.getState().placeFurniture(slotId, assetId),
     housingCanEditFurnish: (slotId?: string) => canEditFurnishRt(slotId),
+    getFurnishSelectedSlot: () => useGameStore.getState().furnishSelectedSlot,
     getHomeMetrics: () => {
       const m = getHomeMetricsRt()
       return { comfort: m.comfort, style: m.style, storageCapacity: m.storageCapacity, sleepQuality: m.sleepQuality, hostingCapacity: m.hostingCapacity }

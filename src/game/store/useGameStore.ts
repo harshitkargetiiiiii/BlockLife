@@ -258,6 +258,15 @@ export function canEditFurnish(slotId?: string): boolean {
 }
 
 /**
+ * The ONE Furnish-surface teardown patch (PR#18 round-3 review #3). Spread into EVERY transition
+ * that leaves Furnish mode — Done, Escape/`closePanel`, a phone/panel switch, a forced interior
+ * exit, load (`applySnapshot`), and reset — so the selected slot (and any future ghost/marker
+ * state) can never survive as a stranded editor selection. `createInitialGameState` uses the same
+ * `null` default, so a fresh game / reset starts clean too.
+ */
+const FURNISH_TEARDOWN = { furnishSelectedSlot: null } as const
+
+/**
  * UI-reactive projection of the mission runtime (Mission & Activity Framework
  * v1). The durable mission state lives in the module-singleton missionRuntime;
  * this mirror is refreshed at a bounded cadence by the mission driver and on
@@ -808,7 +817,8 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     })),
 
   closePanel: () =>
-    set((s) => ({ ui: { ...s.ui, panel: 'none', dialogueNpcId: null, activityId: null } })),
+    // The global Escape / close path — also tears down any Furnish selection (round-3 review #3).
+    set((s) => ({ ui: { ...s.ui, panel: 'none', dialogueNpcId: null, activityId: null }, ...FURNISH_TEARDOWN })),
 
   togglePhone: () => {
     const s = get()
@@ -841,6 +851,7 @@ export const useGameStore = create<GameStore>()((set, get) => ({
         dialogueNpcId: null,
         activityId: null,
       },
+      ...FURNISH_TEARDOWN, // a phone transition leaves Furnish mode (round-3 review #3)
     })
   },
 
@@ -1358,8 +1369,16 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     const s = get()
     if (s.location === 'city') return
     const def = s.currentInteriorId ? getInterior(s.currentInteriorId) : undefined
-    // Leaving clears any tour (issue #17 §4 — a tour never mutates ownership).
-    set({ location: 'city', currentInteriorId: null, housingTouring: null })
+    // Leaving clears any tour (issue #17 §4 — a tour never mutates ownership) AND tears down the
+    // Furnish surface (round-3 review #3 — a forced interior exit must not strand the editor:
+    // close a lingering Furnish panel and clear its selection).
+    set({
+      location: 'city',
+      currentInteriorId: null,
+      housingTouring: null,
+      ui: s.ui.panel === 'furnish' ? { ...s.ui, panel: 'none' } : s.ui,
+      ...FURNISH_TEARDOWN,
+    })
     get().requestTeleport(def?.streetExit ?? APARTMENT_STREET_EXIT)
     emitMissionEvent({ type: 'location_changed', location: 'city' })
     get().syncActivityUI(0)
@@ -1416,6 +1435,11 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     if (getActiveCareerShift()) return void get().showToast('You’re on a shift — wrap it up first.')
     if (missionRuntime.active) return void get().showToast('Finish your current job first.')
     if (activityRuntime.active) return void get().showToast('Not right now.')
+    // A move must ALSO wait for an active Social Life activity to finish (round-2 fixed this in the
+    // hosting gate; round-3 review #2 — the same authority was still missing HERE): otherwise a guest
+    // mid-visit would relocate to the new residence. Refuse BEFORE any money/deposit/furniture/
+    // residence/activity change (this early return mutates nothing).
+    if (getActiveActivity()) return void get().showToast('Wrap up your plans before moving.')
     const elig = housingEligibility(propertyId, s.stats.day)
     const plan = planMove(propertyId, s.stats.money, {
       eligible: elig.eligible,
@@ -1498,7 +1522,7 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     set((st) => ({ ui: { ...st.ui, panel: 'furnish', dialogueNpcId: null, activityId: null }, furnishSelectedSlot: null, housingVersion: st.housingVersion + 1 }))
   },
 
-  exitFurnishMode: () => set((s) => ({ ui: { ...s.ui, panel: 'none' }, furnishSelectedSlot: null })),
+  exitFurnishMode: () => set((s) => ({ ui: { ...s.ui, panel: 'none' }, ...FURNISH_TEARDOWN })),
 
   selectFurnishSlot: (slotId) => set({ furnishSelectedSlot: slotId }),
 
@@ -2243,6 +2267,9 @@ export const useGameStore = create<GameStore>()((set, get) => ({
       playerIncapacitated: loadedHealth === 0,
       currentInteriorId: null,
       housingTouring: null,
+      // Load resets the UI/location/tour — clear any Furnish selection too so it can't strand
+      // across a reload (round-3 review #3).
+      ...FURNISH_TEARDOWN,
     })
     teleportPlayer([
       snapshot.playerPosition[0],

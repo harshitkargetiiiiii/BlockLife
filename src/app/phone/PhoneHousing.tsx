@@ -6,7 +6,7 @@ import { housingEligibility } from '../../game/housing/housingCareer'
 import { HOME_ACTIVITY_DEFS, tierAtLeast } from '../../game/housing/housingSocial'
 import { hostingRefusalText } from '../../game/housing/housingText'
 import { SOCIAL_ACTORS } from '../../game/social/socialActors'
-import { getDerivedRelationship, hasMet } from '../../game/social/socialRuntime'
+import { getActiveActivity, getDerivedRelationship, hasMet } from '../../game/social/socialRuntime'
 import type { PropertyId } from '../../game/housing/housingTypes'
 
 /**
@@ -116,6 +116,9 @@ export function PhoneHousing() {
         const toured = isToured(p.id)
         const elig = housingEligibility(p.id as PropertyId, day)
         const canAfford = money + lease0.depositHeld >= p.deposit + p.rent
+        // A move is refused while a Social Life activity is running (round-3 review #2) — a guest
+        // mid-visit must not relocate; reflect that blocked transition in the UI, not just a toast.
+        const hostingNow = getActiveActivity() != null
         return (
           <div key={p.id} className="phone-card phone-job" data-testid={`housing-listing-${p.id}`}>
             <span className="phone-job-title">{p.displayName}</span>
@@ -140,6 +143,11 @@ export function PhoneHousing() {
                     Not enough to cover the deposit and first rent.
                   </div>
                 )}
+                {elig.eligible && canAfford && hostingNow && (
+                  <div className="phone-muted" data-testid={`housing-blocked-hosting-${p.id}`}>
+                    Wrap up your plans before moving.
+                  </div>
+                )}
                 <div className="panel-actions">
                   <button
                     className="btn btn-small"
@@ -151,7 +159,7 @@ export function PhoneHousing() {
                   <button
                     className="btn btn-small btn-social"
                     data-testid={`housing-lease-${p.id}`}
-                    disabled={!elig.eligible || !canAfford}
+                    disabled={!elig.eligible || !canAfford || hostingNow}
                     onClick={() => lease(p.id as PropertyId)}
                   >
                     Lease / Move

@@ -394,6 +394,46 @@ test.describe('housing — furnishing', () => {
     await expect(page.getByTestId('furnish-soldout-floor_lamp')).toHaveCount(0)
     await expect(page.getByTestId('furnish-buy-floor_lamp')).toBeEnabled()
   })
+
+  test('Furnish selection clears on Escape and never survives a reload (round-3 review #3)', async ({ page }) => {
+    await page.evaluate(() => window.GAME_TEST_API!.setMoney(500))
+    await openFurnish(page)
+    await page.getByTestId('furnish-buy-floor_lamp').click()
+    const assetId = await page.evaluate(() => Object.keys(window.GAME_TEST_API!.getHousingState().assets)[0])
+    await page.getByTestId(`furnish-place-ss_accent_a-${assetId}`).click()
+
+    // Select the placed slot as a move source (the production Move control sets the selection).
+    await page.getByTestId('furnish-move-ss_accent_a').click()
+    expect(await page.evaluate(() => window.GAME_TEST_API!.getFurnishSelectedSlot())).toBe('ss_accent_a')
+
+    // Escape (the global close path, NOT the dedicated Done button) must tear the selection down
+    // AND close the edit gate — round-3 review #3 (it previously only closed the panel).
+    await page.keyboard.press('Escape')
+    const esc = await page.evaluate(() => ({ sel: window.GAME_TEST_API!.getFurnishSelectedSlot(), canEdit: window.GAME_TEST_API!.housingCanEditFurnish('ss_accent_a') }))
+    expect(esc.sel).toBeNull()
+    expect(esc.canEdit).toBe(false)
+
+    // Reopen, re-select, then save + full reload + load — the selection must not strand across load.
+    await teleport(page, [198.4, 1.2, 202.2])
+    await waitForActiveInteractable(page, 'apartment_furnish')
+    await pressE(page)
+    await expect(page.getByTestId('furnish-panel')).toBeVisible()
+    await page.getByTestId('furnish-move-ss_accent_a').click()
+    expect(await page.evaluate(() => window.GAME_TEST_API!.getFurnishSelectedSlot())).toBe('ss_accent_a')
+    await page.evaluate(async () => { await window.GAME_TEST_API!.saveGame() })
+    await page.reload()
+    await page.waitForFunction(() => window.GAME_TEST_API?.ready() === true, undefined, { timeout: 45_000 })
+    await page.evaluate(() => window.GAME_TEST_API!.loadGame())
+    const loaded = await page.evaluate(() => {
+      const api = window.GAME_TEST_API!
+      const s = api.getHousingState()
+      return { sel: api.getFurnishSelectedSlot(), canEdit: api.housingCanEditFurnish('ss_accent_a'), placed: s.placements['ss_accent_a'], owned: Object.keys(s.assets).length }
+    })
+    expect(loaded.sel).toBeNull() // no stranded editor selection after load
+    expect(loaded.canEdit).toBe(false) // the production edit gate is closed
+    expect(loaded.placed).toBe(assetId) // placement unchanged
+    expect(loaded.owned).toBe(1) // asset unchanged (no loss/dup)
+  })
 })
 
 test.describe('housing — benefits', () => {
@@ -650,6 +690,80 @@ test.describe('housing — hosting', () => {
     })
     expect(conflict.hostOk).toBe(true) // not wanted / active-shift / low-trust — the resolver is happy
     expect(conflict.created).toBe(0) // yet the invite is refused: the slot collides with the shift
+  })
+
+  test('an accepted home plan survives a full save/reload (round-3 review #1)', async ({ page }) => {
+    await leaseLoftWithHostingKit(page)
+    const inv = await page.evaluate(() => {
+      const api = window.GAME_TEST_API!
+      api.housingInviteGuest('npc_ravi_01', 'coffee_home')
+      return api.getSocialInvitations().find((i) => i.activityKind === 'coffee_home' && i.actorId === 'npc_ravi_01')
+    })
+    expect(inv?.status).toBe('accepted')
+    await page.evaluate(async () => { await window.GAME_TEST_API!.saveGame() })
+    await page.reload()
+    await page.waitForFunction(() => window.GAME_TEST_API?.ready() === true, undefined, { timeout: 45_000 })
+    await page.evaluate(() => window.GAME_TEST_API!.loadGame())
+    // The stale five-kind whitelist used to DELETE this home plan on load — it must survive unchanged.
+    const after = await page.evaluate(() => window.GAME_TEST_API!.getSocialInvitations().find((i) => i.activityKind === 'coffee_home' && i.actorId === 'npc_ravi_01'))
+    expect(after).toBeTruthy()
+    expect(after!.status).toBe('accepted')
+    expect(after!.proposedDay).toBe(inv!.proposedDay)
+  })
+
+  test('an active home visit is restored coherently across a reload (round-3 review #1)', async ({ page }) => {
+    await leaseLoftWithHostingKit(page)
+    const inv = await page.evaluate(() => {
+      const api = window.GAME_TEST_API!
+      api.housingInviteGuest('npc_ravi_01', 'coffee_home')
+      return api.getSocialInvitations().find((i) => i.activityKind === 'coffee_home' && i.actorId === 'npc_ravi_01')
+    })
+    expect(inv?.status).toBe('accepted')
+    await page.evaluate((day) => window.GAME_TEST_API!.setGameDay(day), inv!.proposedDay)
+    await teleport(page, [45.5, 1.2, -80.5])
+    await waitForActiveInteractable(page, 'loft_entrance')
+    await pressE(page)
+    await page.waitForFunction(() => window.GAME_TEST_API!.getLocationMode() === 'apartment')
+    await page.evaluate(() => window.GAME_TEST_API!.housingHostAtAnchor())
+    expect(await page.evaluate(() => window.GAME_TEST_API!.getHomeHosting()?.active)).toBe(true)
+    // RESTORE policy: the active visit + its linked plan come back after a reload — no orphan/no guest loss.
+    await page.evaluate(async () => { await window.GAME_TEST_API!.saveGame() })
+    await page.reload()
+    await page.waitForFunction(() => window.GAME_TEST_API?.ready() === true, undefined, { timeout: 45_000 })
+    await page.evaluate(() => window.GAME_TEST_API!.loadGame())
+    const h = await page.evaluate(() => window.GAME_TEST_API!.getHomeHosting())
+    expect(h?.active).toBe(true)
+    expect(h?.guestId).toBe('npc_ravi_01')
+    expect(h?.kind).toBe('coffee_home')
+  })
+
+  test('moving homes is refused while a home visit is active — nothing changes (round-3 review #2)', async ({ page }) => {
+    await leaseLoftWithHostingKit(page)
+    const inv = await page.evaluate(() => {
+      const api = window.GAME_TEST_API!
+      api.housingInviteGuest('npc_ravi_01', 'coffee_home')
+      return api.getSocialInvitations().find((i) => i.activityKind === 'coffee_home' && i.actorId === 'npc_ravi_01')
+    })
+    expect(inv?.status).toBe('accepted')
+    await page.evaluate((day) => window.GAME_TEST_API!.setGameDay(day), inv!.proposedDay)
+    await teleport(page, [45.5, 1.2, -80.5])
+    await waitForActiveInteractable(page, 'loft_entrance')
+    await pressE(page)
+    await page.waitForFunction(() => window.GAME_TEST_API!.getLocationMode() === 'apartment')
+    const snapshot = () => {
+      const api = window.GAME_TEST_API!
+      const s = api.getHousingState()
+      const h = api.getHomeHosting()
+      return { prop: s.currentPropertyId, deposit: s.lease.depositHeld, assets: Object.keys(s.assets).length, placed: Object.keys(s.placements).length, money: api.getStats().money, hosting: h?.active === true, guest: h?.guestId ?? null }
+    }
+    await page.evaluate(() => window.GAME_TEST_API!.housingHostAtAnchor()) // start the visit
+    const before = await page.evaluate(snapshot)
+    expect(before.hosting).toBe(true)
+    // Attempt to move to the always-eligible Starter Studio mid-visit → refused, no state change.
+    await page.evaluate(() => window.GAME_TEST_API!.housingLease('starter_studio'))
+    const after = await page.evaluate(snapshot)
+    expect(after).toEqual(before) // residence, money, deposit, assets, placements, activity + guest venue all unchanged
+    expect(after.prop).toBe('city_loft')
   })
 
   test('invite a guest to Coffee at Home through the Home app', async ({ page }) => {
