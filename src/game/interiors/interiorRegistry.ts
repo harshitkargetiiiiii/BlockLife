@@ -5,6 +5,14 @@ import {
   APARTMENT_STREET_EXIT,
   INTERIOR_ORIGIN as APARTMENT_ORIGIN,
 } from './apartmentLayout'
+import { LOFT_ORIGIN, LOFT_SPAWN, LOFT_STREET_EXIT, LOFT_ROOM_WIDTH, LOFT_ROOM_DEPTH } from './loftLayout'
+import {
+  PREMIUM_ORIGIN,
+  PREMIUM_SPAWN,
+  PREMIUM_STREET_EXIT,
+  PREMIUM_ROOM_WIDTH,
+  PREMIUM_ROOM_DEPTH,
+} from './premiumLayout'
 
 /**
  * Reusable interior registry (Store Robbery v1). Generalises the apartment-only
@@ -76,6 +84,27 @@ export const INTERIORS: readonly InteriorDef[] = [
     spawn: APARTMENT_SPAWN,
     streetExit: APARTMENT_STREET_EXIT,
     size: { width: 11, depth: 9 },
+    suppressesWantedDecay: false,
+  }),
+  // Housing v1 (issue #17): the two upgrade homes. Same private-refuge contract
+  // as the studio (kind 'apartment' → no ducking home during a pursuit); each is
+  // a distinct room on its own far-off-grid axis with its own city entrance.
+  interior({
+    id: 'city_loft',
+    kind: 'apartment',
+    origin: LOFT_ORIGIN,
+    spawn: LOFT_SPAWN,
+    streetExit: LOFT_STREET_EXIT,
+    size: { width: LOFT_ROOM_WIDTH, depth: LOFT_ROOM_DEPTH },
+    suppressesWantedDecay: false,
+  }),
+  interior({
+    id: 'premium_apartment',
+    kind: 'apartment',
+    origin: PREMIUM_ORIGIN,
+    spawn: PREMIUM_SPAWN,
+    streetExit: PREMIUM_STREET_EXIT,
+    size: { width: PREMIUM_ROOM_WIDTH, depth: PREMIUM_ROOM_DEPTH },
     suppressesWantedDecay: false,
   }),
   interior({

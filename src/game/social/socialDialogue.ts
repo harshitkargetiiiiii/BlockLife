@@ -129,6 +129,12 @@ export function invitationLabel(activityKind: InvitationActivityKind): string {
       return 'hang out'
     case 'walk':
       return 'take a walk'
+    case 'coffee_home':
+      return 'come over for coffee'
+    case 'movie_night':
+      return 'come over for movie night'
+    case 'dinner_home':
+      return 'come over for dinner'
   }
 }
 
@@ -161,6 +167,9 @@ export function messageText(token: string, actor: SocialActor, gameDay: number):
     job_missed_shift: [`you missed your shift today — that's not like you. everything okay?`, `we needed you on the floor and you were a no-show 😕`],
     job_failed_shift: [`heard your shift got cut short — get yourself sorted and we'll talk.`, `rough one out there today. take care of yourself, then come back.`],
     job_recommendation: [`i put in a good word for you — go talk to them, they're expecting you.`, `told them you're solid. the job's yours if you want it.`],
+    // Housing recommendation (issue #17 §10, PR#18 review #1) — a trusted friend vouches
+    // for a place so you can skip the tour. Never relaxes rank/income/money gates.
+    housing_recommend: [`i know the landlord — told them you're good for it. you can skip the tour.`, `put in a word for you on that place. no need to tour, just go sign 🙌`],
   }
   return pick(lines[token] ?? [`…`], gameDay)
 }

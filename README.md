@@ -157,6 +157,20 @@ npm run preview    # serve the production build
   live sky, so rainy nights look cozy from inside. Outfits persist in saves;
   saving while indoors stores the street entrance so loads always start in
   the city (v1 limitation).
+- **Housing, Furniture & Property Progression v1**: a real long-term home life on
+  top of the apartment/economy/career/social stacks. Three property tiers (the
+  Starter Studio you begin in, a Regular-rank City Loft, an Experienced-rank
+  Premium Apartment) each a real interior with its own entrance and safe spawn.
+  Maintain a lease with a held deposit and 7-day rent (lazy auto-pay, a 2-day
+  grace, one late fee, no eviction); qualify for and **tour** better places; **move**
+  atomically (deposit settles once, furniture never lost). Buy from **19 furniture
+  definitions**, each a unique persistent asset, and arrange them in a production
+  **Furnish mode** over authored slots. Furniture produces real effects — beds change
+  sleep, storage furniture raises capacity, a wardrobe unlocks outfit presets, a
+  TV + seating unlock **Movie Night** — surfaced with a bounded Comfort/Style/Storage/
+  Sleep/Hosting readout. **Host** trusted friends for Coffee at Home / Movie Night /
+  Dinner at Home. A canonical **Home** phone app runs the whole loop; old saves migrate
+  into the Starter Studio. See [docs/HOUSING_FURNITURE_AND_PROPERTY.md](docs/HOUSING_FURNITURE_AND_PROPERTY.md).
 - **Character Model + Animation Pipeline v1**
   ([src/game/characters/](src/game/characters/)): the player renders as an
   original rigged, skinned GLB character (authored programmatically by

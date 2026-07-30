@@ -1,5 +1,6 @@
 import { useGameStore } from '../game/store/useGameStore'
-import { listStacks, occupiedSlots, BACKPACK_CAPACITY, STORAGE_CAPACITY } from '../game/items/inventoryService'
+import { listStacks, occupiedSlots, BACKPACK_CAPACITY } from '../game/items/inventoryService'
+import { effectiveStorageCapacity } from '../game/housing/housingRuntime'
 import type { ResolvedStack } from '../game/items/itemTypes'
 
 /**
@@ -62,8 +63,10 @@ export function StoragePanel() {
   const depositItem = useGameStore((s) => s.depositItem)
   const withdrawItem = useGameStore((s) => s.withdrawItem)
   const closePanel = useGameStore((s) => s.closePanel)
+  useGameStore((s) => s.housingVersion) // effective capacity depends on placed storage furniture
 
   if (!open) return null
+  const chestCapacity = effectiveStorageCapacity()
   const bag = listStacks(inventory)
   const chest = listStacks(storage)
 
@@ -93,7 +96,7 @@ export function StoragePanel() {
           </section>
           <section className="storage-col" aria-label="Storage chest">
             <div className="phone-section-title">
-              🗄️ Chest <span className="storage-cap" data-testid="storage-chest-cap">{occupiedSlots(storage)}/{STORAGE_CAPACITY}</span>
+              🗄️ Chest <span className="storage-cap" data-testid="storage-chest-cap">{occupiedSlots(storage)}/{chestCapacity}</span>
             </div>
             {chest.length === 0 ? (
               <div className="panel-muted" data-testid="storage-chest-empty">Chest is empty.</div>

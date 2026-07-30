@@ -15,6 +15,7 @@ import {
   INVITATIONS_MAX,
   MESSAGES_MAX_PER_CONTACT,
   SOCIAL_SAVE_VERSION,
+  isInvitationActivityKind,
   type InvitationActivityKind,
   type InvitationStatus,
   type Relationship,
@@ -53,7 +54,7 @@ function sanitizeActivity(raw: unknown): SocialActivity | null {
   if (typeof a.id !== 'string' || typeof a.actorId !== 'string' || !isSocialActor(a.actorId)) return null
   if (!ACTIVITY_TEMPLATES.includes(a.template as SocialActivityTemplate)) return null
   if (!ACTIVITY_STEPS.includes(a.step as SocialActivityStep)) return null
-  if (!INVITATION_KINDS.includes(a.activityKind as InvitationActivityKind)) return null
+  if (!isInvitationActivityKind(a.activityKind)) return null
   if (typeof a.venueId !== 'string' || typeof a.venueLabel !== 'string') return null
   return {
     id: a.id,
@@ -69,7 +70,6 @@ function sanitizeActivity(raw: unknown): SocialActivity | null {
   }
 }
 
-const INVITATION_KINDS: InvitationActivityKind[] = ['coffee', 'food', 'workout', 'hangout', 'walk']
 const INVITATION_STATUSES: InvitationStatus[] = ['pending', 'accepted', 'declined', 'suggested_later', 'active', 'completed', 'missed', 'cancelled', 'failed']
 
 /** Sanitize one contact's message thread (drop malformed, bound the length). */
@@ -106,7 +106,7 @@ function sanitizeInvitations(raw: unknown): SocialInvitation[] {
     if (typeof i.id !== 'string' || seen.has(i.id)) continue
     if (typeof i.actorId !== 'string' || !isSocialActor(i.actorId)) continue
     if (i.source !== 'npc' && i.source !== 'player') continue
-    if (!INVITATION_KINDS.includes(i.activityKind as InvitationActivityKind)) continue
+    if (!isInvitationActivityKind(i.activityKind)) continue
     if (!INVITATION_STATUSES.includes(i.status as InvitationStatus)) continue
     seen.add(i.id)
     out.push({

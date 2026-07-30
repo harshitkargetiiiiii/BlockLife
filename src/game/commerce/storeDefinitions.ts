@@ -1,10 +1,14 @@
-import type { StoreDefinition } from './commerceTypes'
+import type { StoreDefinition, StoreListing } from './commerceTypes'
+import { FURNITURE_DEFS } from '../housing/furnitureCatalog'
 
 /**
- * The two authored stores. Everything store-specific is DATA: catalog, prices,
- * stock caps, and restock cadence. Both reuse their existing robbery interior +
- * register interactable (never a second interior/cashier). Main Street is the
- * fuller shop; the Waterfront kiosk is a small themed stall.
+ * The two robbable convenience stores + the furniture showroom. Everything
+ * store-specific is DATA: catalog, prices, stock caps, and restock cadence. The
+ * convenience stores reuse their existing robbery interior + register interactable
+ * (never a second interior/cashier). Main Street is the fuller shop; the Waterfront
+ * kiosk is a small themed stall. The furniture showroom is a RETAIL store: it has no
+ * register/interior/robbery — the housing UI buys through it, but it runs on the same
+ * stock/reconcile/sale/receipt machinery as the shops (issue #17 §5, PR#18 review #2).
  */
 
 const MAINST_STORE: StoreDefinition = {
@@ -40,14 +44,42 @@ const KIOSK_STORE: StoreDefinition = {
   sourceRef: { file: 'src/game/commerce/storeDefinitions.ts', symbol: 'KIOSK_STORE' },
 }
 
-/** Deterministic store order (never sorted at runtime). */
+/** The furniture showroom — a RETAIL store (no register/interior/robbery). Its listings
+ *  are the furniture catalog defs; the price is the catalog price (single source, so the
+ *  displayed price equals the charged price). Generous stock + daily restock — a piece is
+ *  "ordered in" rather than truly scarce, but every sale decrements real stock and the
+ *  out-of-stock path is a first-class, provable state. */
+export const FURNITURE_SHOWROOM_ID = 'furniture_showroom'
+const SHOWROOM_LISTINGS: readonly StoreListing[] = FURNITURE_DEFS.map((d) => ({
+  itemId: d.id,
+  kind: 'furniture',
+  priceOverride: d.price,
+  maxStock: 12,
+  restockAmount: 4,
+}))
+const FURNITURE_SHOWROOM: StoreDefinition = {
+  id: FURNITURE_SHOWROOM_ID,
+  name: 'City Furnishings',
+  kind: 'retail',
+  restockGameHours: 24,
+  listings: SHOWROOM_LISTINGS,
+  sourceRef: { file: 'src/game/commerce/storeDefinitions.ts', symbol: 'FURNITURE_SHOWROOM' },
+}
+
+/** Deterministic order (never sorted at runtime). The robbable convenience stores. */
 export const STORE_DEFINITIONS: readonly StoreDefinition[] = [MAINST_STORE, KIOSK_STORE]
+/** EVERY store the commerce runtime owns — the shops PLUS the furniture showroom. Used by
+ *  runtime init + persistence so showroom stock is reload-safe; the robbable-only paths
+ *  (register/interior maps, robbery validation) keep using STORE_DEFINITIONS. */
+export const ALL_STORE_DEFINITIONS: readonly StoreDefinition[] = [...STORE_DEFINITIONS, FURNITURE_SHOWROOM]
 
 const BY_ID: Record<string, StoreDefinition> = Object.fromEntries(
-  STORE_DEFINITIONS.map((s) => [s.id, s]),
+  ALL_STORE_DEFINITIONS.map((s) => [s.id, s]),
 )
+// Register/interior maps are ROBBABLE-only: a retail store has neither and must never be
+// opened at a register or matched to an interior.
 const BY_REGISTER: Record<string, StoreDefinition> = Object.fromEntries(
-  STORE_DEFINITIONS.map((s) => [s.registerInteractableId, s]),
+  STORE_DEFINITIONS.filter((s) => s.registerInteractableId).map((s) => [s.registerInteractableId as string, s]),
 )
 
 export function getStoreDefinition(id: string): StoreDefinition | undefined {

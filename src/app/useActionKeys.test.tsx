@@ -51,6 +51,8 @@ describe('useActionKeys — phone bindings', () => {
     // Dialogue/activity panels do not block movement.
     expect(isGameplayInputBlocked('dialogue')).toBe(false)
     expect(isGameplayInputBlocked('activity')).toBe(false)
+    // Furnish mode is a full-screen editor — it DOES block world input (PR#18 review #5).
+    expect(isGameplayInputBlocked('furnish')).toBe(true)
   })
 
   it('E interact is ignored while the phone is open', () => {

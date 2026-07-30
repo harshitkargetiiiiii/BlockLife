@@ -115,6 +115,15 @@ describe('inventory service — slots & capacity', () => {
     const over = sanitizeStacks({ meal: 999 }, BACKPACK_CAPACITY)
     expect(occupiedSlots(over)).toBeLessThanOrEqual(BACKPACK_CAPACITY)
   })
+
+  it('keepOverflow preserves every valid known-item stack even over capacity (review #4)', () => {
+    // The home-storage load path must NEVER silently delete owned items when the
+    // effective capacity shrank (e.g. a recovered storage-furniture piece).
+    const kept = sanitizeStacks({ snack: 500, bogus: 9, meal: -2 }, 10, true)
+    expect(kept).toEqual({ snack: 500 }) // invalid ids/quantities still dropped; the real stack survives
+    // Default (backpack) behaviour is unchanged — over-capacity stacks are still trimmed.
+    expect(sanitizeStacks({ snack: 500 }, 10, false).snack).toBeUndefined()
+  })
 })
 
 describe('deterministic catalog order', () => {

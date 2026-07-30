@@ -137,7 +137,18 @@ export function listStacks(stacks: ItemStacks): ResolvedStack[] {
  * non-negative integers, then TRIM to `capacity` by whole stacks (deterministic
  * catalog order) so a tampered/overfull save can never breach the slot budget.
  */
-export function sanitizeStacks(raw: unknown, capacity: number): ItemStacks {
+/**
+ * Coerce a raw stacks blob into a valid `ItemStacks`. Unknown ids, non-numbers, and
+ * non-positive quantities are always dropped (they were never valid items).
+ *
+ * `keepOverflow` (used by the load path for the dynamic-capacity home storage — PR#18
+ * review #4) PRESERVES every valid known-item quantity even when the total exceeds the
+ * current capacity, so a save whose effective capacity shrank (e.g. a recovered storage
+ * furniture piece) never SILENTLY DELETES player-owned items. The game's deposit / move /
+ * storage-furniture-removal gates already refuse to add more or shrink capacity further
+ * until the player withdraws back under the limit.
+ */
+export function sanitizeStacks(raw: unknown, capacity: number, keepOverflow = false): ItemStacks {
   const out: ItemStacks = {}
   if (!raw || typeof raw !== 'object') return out
   for (const def of ITEM_DEFINITIONS) {
@@ -145,7 +156,7 @@ export function sanitizeStacks(raw: unknown, capacity: number): ItemStacks {
     if (typeof v !== 'number' || !Number.isFinite(v)) continue
     const q = Math.floor(v)
     if (q <= 0) continue
-    if (occupiedSlots(out) + slotsFor(def.id, q) > capacity) continue // would overflow → skip
+    if (!keepOverflow && occupiedSlots(out) + slotsFor(def.id, q) > capacity) continue // would overflow → skip
     out[def.id] = q
   }
   return out

@@ -7,6 +7,7 @@ import type { ActivitySaveData } from '../criminalActivities/activityPersistence
 import type { CommerceSaveData } from '../commerce/commercePersistence'
 import type { SocialSaveData } from '../social/socialTypes'
 import type { CareerSaveData } from '../careers/careerTypes'
+import type { HousingSaveData } from '../housing/housingTypes'
 
 export const SAVE_KEY = 'blocklife-save-v1'
 export const SAVE_VERSION = 1
@@ -71,4 +72,13 @@ export interface SaveData {
    * malformed career data is sanitized field-by-field and can never corrupt the save.
    */
   career?: CareerSaveData
+  /**
+   * Housing, Furniture & Property Progression v1 (additive, optional): the current
+   * lease + property, rent period/debt/deposit, discovered/toured properties,
+   * property history, owned furniture assets + reload-safe asset sequence,
+   * placements, outfit presets, and bounded payment/exact-once ledgers. Older saves
+   * lack it and MIGRATE into a Starter Studio lease with one full grace period;
+   * malformed housing data is sanitized field-by-field and can never corrupt the save.
+   */
+  housing?: HousingSaveData
 }

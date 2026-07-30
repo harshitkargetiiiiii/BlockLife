@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { applySocialSave, sanitizeSocialSave, serializeSocial } from './socialPersistence'
 import { ingestSocialEvent, resetSocial, socialRuntime, getRelationship, getContacts, getMessages, getInvitations, reconcileOutreach, sendPlayerInvite } from './socialRuntime'
 import { defaultSocialState, type SocialEvent } from './socialEvents'
+import { INVITATION_ACTIVITY_KINDS, isInvitationActivityKind } from './socialTypes'
 
 let n = 0
 const ev = (over: Partial<SocialEvent>): SocialEvent => ({ id: over.id ?? `e${n++}`, kind: over.kind ?? 'conversation', actorId: over.actorId ?? 'npc_ravi_01', gameDay: over.gameDay ?? 1, ...over })
@@ -58,6 +59,34 @@ describe('social persistence — additive, fail-safe, round-trip (§12)', () => 
     const all = getMessages('npc_ravi_01').map((m) => m.id)
     expect(new Set(all).size).toBe(all.length) // every id unique
     expect(all.filter((id) => ids.has(id)).length).toBe(ids.size) // old ids preserved
+  })
+
+  it('the canonical invitation-kind validator covers all eight kinds incl. the home kinds (round-3 review #1)', () => {
+    expect(INVITATION_ACTIVITY_KINDS).toHaveLength(8)
+    for (const k of ['coffee', 'food', 'workout', 'hangout', 'walk', 'coffee_home', 'movie_night', 'dinner_home']) {
+      expect(isInvitationActivityKind(k)).toBe(true)
+    }
+    expect(isInvitationActivityKind('bogus')).toBe(false)
+    expect(isInvitationActivityKind(undefined)).toBe(false)
+  })
+
+  it('round-trips every home invitation kind + an active home visit (round-3 review #1)', () => {
+    // The stale five-kind whitelist dropped these on load; the canonical validator keeps them.
+    const clean = sanitizeSocialSave({
+      version: 1,
+      invitations: [
+        { id: 'i_coffee', actorId: 'npc_ravi_01', source: 'player', activityKind: 'coffee_home', proposedDay: 5, proposedHour: 13, status: 'accepted', createdDay: 5 },
+        { id: 'i_movie', actorId: 'npc_maya_01', source: 'player', activityKind: 'movie_night', proposedDay: 6, proposedHour: 20, status: 'pending', createdDay: 5 },
+        { id: 'i_dinner', actorId: 'npc_leo_01', source: 'player', activityKind: 'dinner_home', proposedDay: 7, proposedHour: 19, status: 'completed', createdDay: 6 },
+      ],
+      // The active-hosting load policy is RESTORE: an active home visit + its linked plan survive.
+      activeActivity: { id: 'act1', actorId: 'npc_ravi_01', template: 'meet', step: 'together', activityKind: 'coffee_home', venueId: 'home', venueLabel: 'Home', invitationId: 'i_coffee', startedDay: 5 },
+    })
+    expect(clean.invitations.map((i) => i.activityKind).sort()).toEqual(['coffee_home', 'dinner_home', 'movie_night'])
+    const accepted = clean.invitations.find((i) => i.id === 'i_coffee')
+    expect(accepted).toMatchObject({ activityKind: 'coffee_home', status: 'accepted', proposedDay: 5, proposedHour: 13 })
+    expect(clean.activeActivity?.activityKind).toBe('coffee_home') // active home visit survives, coherently linked
+    expect(clean.activeActivity?.invitationId).toBe('i_coffee')
   })
 
   it('an old save (no social field) resets to canonical strangers', () => {

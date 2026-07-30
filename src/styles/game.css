@@ -1866,3 +1866,25 @@ body,
 .career-result-notes { font-size: 10px; opacity: 0.7; margin-top: 3px; font-style: italic; }
 .career-history { margin-top: 6px; border-top: 1px solid rgba(255, 255, 255, 0.1); padding-top: 4px; }
 .career-history-row { display: flex; justify-content: space-between; font-size: 11px; opacity: 0.7; }
+
+/* Housing v1: Furnish mode panel (issue #17 §6). */
+.furnish-panel { min-width: 520px; max-width: 720px; }
+.furnish-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.furnish-head h3 { margin: 0; font-size: 16px; }
+.furnish-cols { display: flex; gap: 14px; }
+.furnish-col { flex: 1; min-width: 0; max-height: 52vh; overflow-y: auto; }
+.furnish-slot { background: rgba(255,255,255,0.05); border-radius: 8px; padding: 8px 10px; margin-bottom: 7px; }
+.furnish-slot-head { font-size: 12px; color: #b9b0a0; margin-bottom: 4px; text-transform: capitalize; }
+.furnish-slot-body { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.furnish-hint { font-size: 11px; color: #9a9284; width: 100%; }
+.furnish-shop-item { display: flex; align-items: center; gap: 8px; padding: 5px 8px; background: rgba(255,255,255,0.04); border-radius: 6px; margin-bottom: 5px; }
+.furnish-shop-name { flex: 1; font-size: 13px; }
+.furnish-shop-cat { font-size: 11px; color: #9a9284; text-transform: capitalize; }
+
+/* Housing v1: Home-app metrics + wardrobe presets (issue #17 §7/§8). */
+.housing-metric-row { display: flex; justify-content: space-between; font-size: 13px; padding: 1px 0; }
+.housing-breakdown { margin-top: 5px; font-size: 12px; }
+.housing-breakdown summary { cursor: pointer; color: #9fd; }
+.wardrobe-presets { display: flex; flex-direction: column; gap: 6px; margin-bottom: 6px; }
+.wardrobe-preset { display: flex; align-items: center; justify-content: space-between; gap: 8px; background: rgba(255,255,255,0.05); border-radius: 6px; padding: 5px 8px; }
+.wardrobe-preset-name { font-size: 13px; }

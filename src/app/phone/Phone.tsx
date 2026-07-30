@@ -10,6 +10,7 @@ import { PhoneContacts } from './PhoneContacts'
 import { PhoneJobs } from './PhoneJobs'
 import { PhoneMissions } from './PhoneMissions'
 import { PhoneBag } from './PhoneBag'
+import { PhoneHousing } from './PhoneHousing'
 import { PhoneSettings } from './PhoneSettings'
 import { getTotalUnread } from '../../game/social/socialRuntime'
 
@@ -50,6 +51,8 @@ function PhoneAppContent() {
       return <PhoneJobs />
     case 'bag':
       return <PhoneBag />
+    case 'housing':
+      return <PhoneHousing />
     case 'settings':
       return <PhoneSettings />
   }

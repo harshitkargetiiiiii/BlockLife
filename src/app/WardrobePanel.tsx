@@ -1,5 +1,6 @@
 import { useGameStore } from '../game/store/useGameStore'
 import { APPEARANCE_PRESETS, type PlayerAppearance } from '../game/interiors/interiorTypes'
+import { getOutfitPresets, hasPlacedWardrobe } from '../game/housing/housingRuntime'
 
 const SLOTS: { key: keyof PlayerAppearance; label: string; icon: string }[] = [
   { key: 'shirtColor', label: 'Shirt', icon: '👕' },
@@ -17,8 +18,14 @@ export function WardrobePanel() {
   const setAppearance = useGameStore((s) => s.setAppearance)
   const isPaletteUnlocked = useGameStore((s) => s.isPaletteUnlocked)
   const closePanel = useGameStore((s) => s.closePanel)
+  useGameStore((s) => s.housingVersion) // preset availability depends on the placed wardrobe
+  const savePreset = useGameStore((s) => s.saveHousingOutfitPreset)
+  const applyPreset = useGameStore((s) => s.applyHousingOutfitPreset)
+  const clearPreset = useGameStore((s) => s.clearHousingOutfitPreset)
 
   if (!open) return null
+  const wardrobePlaced = hasPlacedWardrobe()
+  const presets = getOutfitPresets()
 
   return (
     <div className="center-panel-wrap">
@@ -55,6 +62,25 @@ export function WardrobePanel() {
             </div>
           </div>
         ))}
+        <div className="phone-section-title">Outfit Presets</div>
+        {!wardrobePlaced ? (
+          <div className="panel-muted" data-testid="wardrobe-presets-locked">
+            Place a wardrobe in your home to save and swap outfit presets.
+          </div>
+        ) : (
+          <div className="wardrobe-presets" data-testid="wardrobe-presets">
+            {presets.map((p) => (
+              <div key={p.id} className="wardrobe-preset" data-testid={`outfit-preset-${p.id}`} data-saved={p.appearance ? 'yes' : 'no'}>
+                <span className="wardrobe-preset-name">{p.name}</span>
+                <div className="panel-actions">
+                  <button className="btn btn-tiny" data-testid={`outfit-save-${p.id}`} onClick={() => savePreset(p.id)}>Save look</button>
+                  <button className="btn btn-tiny btn-social" data-testid={`outfit-apply-${p.id}`} disabled={!p.appearance} onClick={() => applyPreset(p.id)}>Apply</button>
+                  <button className="btn btn-tiny" data-testid={`outfit-clear-${p.id}`} disabled={!p.appearance} onClick={() => clearPreset(p.id)}>Clear</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
         <div className="panel-muted">Looking sharp. Changes are saved with your game.</div>
       </div>
     </div>

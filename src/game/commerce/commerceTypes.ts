@@ -9,9 +9,15 @@
  */
 
 export interface StoreListing {
-  /** Catalog item id sold here. */
+  /** Catalog id sold here — an ITEM catalog id for 'item' listings (the default), or a
+   *  FURNITURE catalog def id for 'furniture' listings. */
   itemId: string
-  /** Store-specific price; falls back to the item's catalog price when absent. */
+  /** What a sale grants. 'item' (default) → a backpack item via the item catalog;
+   *  'furniture' → a unique housing asset minted by the housing layer AFTER the sale.
+   *  A furniture listing carries its price in `priceOverride` (furniture has no item def). */
+  kind?: 'item' | 'furniture'
+  /** Store-specific price; falls back to the item's catalog price when absent. Furniture
+   *  listings MUST set it (== the furniture catalog price, so display == charge). */
   priceOverride?: number
   /** Max units held on the shelf. */
   maxStock: number
@@ -23,12 +29,16 @@ export interface StoreDefinition {
   /** Stable store id (also the persistence key). */
   id: string
   name: string
-  /** The register interactable that opens the shop (reused from the robbery interior). */
-  registerInteractableId: string
-  /** The interior this store occupies. */
-  interiorId: string
-  /** The robbery activity id for this store — links commerce ↔ recovery. */
-  activityId: string
+  /** Store class: 'convenience' (robbable, register-opened) or 'retail' (the furniture
+   *  showroom — no register/interior/robbery; purchased through the housing UI). */
+  kind?: 'convenience' | 'retail'
+  /** The register interactable that opens the shop (reused from the robbery interior).
+   *  Absent for retail stores. */
+  registerInteractableId?: string
+  /** The interior this store occupies. Absent for retail stores. */
+  interiorId?: string
+  /** The robbery activity id for this store — links commerce ↔ recovery. Absent for retail. */
+  activityId?: string
   /** Game-hours between restocks. */
   restockGameHours: number
   listings: readonly StoreListing[]
