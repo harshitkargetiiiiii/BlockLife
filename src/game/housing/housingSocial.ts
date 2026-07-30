@@ -15,6 +15,8 @@ import { isDelinquent } from './leaseModel'
 import { getProperty } from './propertyRegistry'
 import { getHomeMetrics, getLease, placedFurnitureDefs } from './housingRuntime'
 import type { HomeActivityKind, HostingRefusalReason, PropertyId } from './housingTypes'
+import { shiftsConflict } from '../careers/careerScheduling'
+import type { ScheduledShift } from '../careers/careerTypes'
 
 export interface HomeActivityDef {
   kind: HomeActivityKind
@@ -61,6 +63,39 @@ export function canHostActivity(kind: HomeActivityKind): { ok: boolean; reason?:
   if (!hasFurniture) return { ok: false, reason: 'missing_furniture' }
   if (getHomeMetrics().hostingCapacity < def.minSeats) return { ok: false, reason: 'missing_furniture' }
   return { ok: true }
+}
+
+/** A home visit is treated as occupying this many game-hours for conflict math. */
+export const HOME_VISIT_WINDOW_HOURS = 2
+
+export interface HostSlot {
+  day: number
+  hour: number
+}
+
+/**
+ * Does a proposed home-invite slot collide with a scheduled career shift or an already
+ * ACCEPTED social plan (issue #17 §9, PR#18 round-2 review #1)? The housing invite path
+ * must not book a guest over work or an existing commitment — it produces the declared
+ * `schedule_conflict` refusal. Reuses the career `shiftsConflict` window math (never a
+ * second scheduler); pure + deterministic. Data is injected, so it runs headless.
+ */
+export function homeInviteScheduleConflict(
+  slot: HostSlot,
+  shifts: readonly Pick<ScheduledShift, 'scheduledDay' | 'startHour' | 'durationHours' | 'status'>[],
+  acceptedPlanSlots: readonly HostSlot[],
+): boolean {
+  for (const sh of shifts) {
+    if (sh.status !== 'scheduled' && sh.status !== 'available') continue
+    if (shiftsConflict(sh, slot.day, slot.hour)) return true // the visit falls inside a shift window
+  }
+  const visit = { scheduledDay: slot.day, startHour: slot.hour, durationHours: HOME_VISIT_WINDOW_HOURS }
+  for (const p of acceptedPlanSlots) {
+    if (shiftsConflict(visit, p.day, p.hour)) return true // an accepted plan starts within the visit window
+    const plan = { scheduledDay: p.day, startHour: p.hour, durationHours: HOME_VISIT_WINDOW_HOURS }
+    if (shiftsConflict(plan, slot.day, slot.hour)) return true // the visit starts within an accepted plan window
+  }
+  return false
 }
 
 /** The interior world position a hosted guest stands at, per property. */

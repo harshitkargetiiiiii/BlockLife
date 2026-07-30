@@ -91,12 +91,12 @@ import {
 } from '../housing/housingRuntime'
 import { getFurnitureDef } from '../housing/furnitureCatalog'
 import { applyHousingSave, serializeHousing } from '../housing/housingPersistence'
-import { getProperty } from '../housing/propertyRegistry'
+import { getProperty, getSlot } from '../housing/propertyRegistry'
 import { housingEligibility } from '../housing/housingCareer'
 import { isPropertyRecommended, reconcileHousingRecommendations } from '../housing/housingRecommendations'
 import { canBuyFurniture, commitFurnitureSale, furnitureBuyReasonText, reconcileFurnitureShowroom } from '../housing/housingCommerce'
 import { hostingRefusalText, placementRefusalText } from '../housing/housingText'
-import { canHostActivity, getHomeActivityDef, homeActivityForInvitationKind, tierAtLeast } from '../housing/housingSocial'
+import { canHostActivity, getHomeActivityDef, homeActivityForInvitationKind, homeInviteScheduleConflict, tierAtLeast } from '../housing/housingSocial'
 import type { HomeActivityKind, HostingRefusalReason } from '../housing/housingTypes'
 import { isPropertyId, type MoveRefusalReason, type PropertyId } from '../housing/housingTypes'
 import {
@@ -117,6 +117,7 @@ import {
   activeShiftReadyToFinalize as careerShiftReadyRt,
   hasUnlock as hasCareerUnlock,
   reconcileEmploymentAfterLoad as reconcileCareerEmploymentRt,
+  getScheduledShifts as getScheduledShiftsRt,
 } from '../careers/careerRuntime'
 import { cargoEquipmentUnlockId, getCareer } from '../careers/careerRegistry'
 import { careerActivityBenefits } from '../careers/careerBenefits'
@@ -146,7 +147,7 @@ import {
   stepActivity,
 } from '../social/socialRuntime'
 import { activityFromInvitation, activityPrompt, favorActivity, isHomeActivityKind } from '../social/socialActivities'
-import { invitationStartWindow } from '../social/socialScheduling'
+import { invitationStartWindow, nextAvailableSlot } from '../social/socialScheduling'
 import { noteArrestWitnessed, noteCrimeWitnessed } from '../social/socialConsequences'
 import type { InvitationActivityKind } from '../social/socialTypes'
 import { getSocialActor, isSocialActor } from '../social/socialActors'
@@ -239,13 +240,21 @@ export function isGameplayInputBlocked(panel: PanelKind): boolean {
   return panel === 'phone' || panel === 'furnish'
 }
 
-/** Furniture placement must never mutate a property you're only TOURING (you don't own
- *  it). Production furnish mode can only be OPENED inside your own home and never during a
- *  tour (see `openFurnishMode`), and the FurnishPanel renders only in furnish mode; this
- *  mutator-level revalidation additionally blocks the edge where a tour begins while the
- *  panel is still open (PR#18 review #5). */
-function canEditFurnish(): boolean {
-  return !useGameStore.getState().housingTouring
+/**
+ * Domain-level gate every furniture mutator revalidates (PR#18 review #5 + round-2 #2).
+ * A place/rotate/move/replace/store is honoured ONLY when the player is actually in Furnish
+ * mode, standing inside their OWN current residence, not mid-tour — and (when a slot is given)
+ * that slot belongs to the current property. So a stale or direct caller from the city, a
+ * different interior, or after the panel has closed is a safe no-op, independent of the UI
+ * lifecycle. Exported so the DEV/E2E surface can prove the gate without duplicating it.
+ */
+export function canEditFurnish(slotId?: string): boolean {
+  const s = useGameStore.getState()
+  if (s.ui.panel !== 'furnish') return false
+  if (s.location !== 'apartment' || s.housingTouring) return false
+  if (s.currentInteriorId !== currentResidenceInteriorId()) return false
+  if (slotId !== undefined && !getSlot(getCurrentPropertyId(), slotId)) return false
+  return true
 }
 
 /**
@@ -1003,6 +1012,17 @@ export const useGameStore = create<GameStore>()((set, get) => ({
       // during a shift is the case the old per-call gate missed.
       const host = homeDef ? get().canHostHomeActivity(homeDef.kind, npcId) : { ok: false, reason: 'missing_furniture' as const }
       if (!host.ok) return void get().showToast(hostingRefusalText(host.reason))
+      // Evaluate the slot the runtime WILL propose (deterministic `nextAvailableSlot`) against
+      // the player's scheduled career shifts + already-accepted plans BEFORE creating the invite
+      // (round-2 review #1) — a home visit must not be booked over work or an existing commitment.
+      const actor = getSocialActor(npcId)
+      if (actor) {
+        const slot = nextAvailableSlot(actor, s.stats.day, s.stats.hour)
+        const planSlots = getConfirmedPlans().map((p) => ({ day: p.proposedDay, hour: p.proposedHour }))
+        if (homeInviteScheduleConflict(slot, getScheduledShiftsRt(), planSlots)) {
+          return void get().showToast(hostingRefusalText('schedule_conflict'))
+        }
+      }
     }
     const res = sendPlayerInviteRt(npcId, s.stats.day, s.stats.hour, {
       activityKind,
@@ -1470,8 +1490,12 @@ export const useGameStore = create<GameStore>()((set, get) => ({
       get().showToast('Step inside your own home to furnish it.')
       return
     }
+    // Reconcile the showroom to the current game time as the shop surface OPENS (round-2
+    // review #3): a piece sold out earlier must be able to restock after its cadence without
+    // the player first buying something else (the sold-out Buy button can't trigger a buy).
+    reconcileFurnitureShowroom(gameHoursOf(s))
     audioManager.playClick()
-    set((st) => ({ ui: { ...st.ui, panel: 'furnish', dialogueNpcId: null, activityId: null }, furnishSelectedSlot: null }))
+    set((st) => ({ ui: { ...st.ui, panel: 'furnish', dialogueNpcId: null, activityId: null }, furnishSelectedSlot: null, housingVersion: st.housingVersion + 1 }))
   },
 
   exitFurnishMode: () => set((s) => ({ ui: { ...s.ui, panel: 'none' }, furnishSelectedSlot: null })),
@@ -1500,7 +1524,7 @@ export const useGameStore = create<GameStore>()((set, get) => ({
   },
 
   placeFurniture: (slotId, assetId) => {
-    if (!canEditFurnish()) { get().showToast('Step into your own home to furnish it.'); return }
+    if (!canEditFurnish(slotId)) { get().showToast('Step into your own home to furnish it.'); return }
     // If the slot is occupied, this is a replace (old asset → storage); else a place.
     const occupiedSlot = getPlacements()[slotId] !== undefined
     // Replacing a storage piece with a smaller one must not strand stored items (§8/§13).
@@ -1527,12 +1551,16 @@ export const useGameStore = create<GameStore>()((set, get) => ({
   },
 
   rotateFurniture: (slotId) => {
-    if (!canEditFurnish()) return
+    if (!canEditFurnish(slotId)) return
     if (rotateAsset(slotId)) set((st) => ({ housingVersion: st.housingVersion + 1 }))
   },
 
   moveFurniture: (fromSlot, toSlot) => {
-    if (!canEditFurnish()) { get().showToast('Step into your own home to furnish it.'); return }
+    // Both endpoints must belong to the current property (the target too — moveAsset also
+    // rejects an unknown toSlot, but the gate refuses a foreign one up front).
+    if (!canEditFurnish(fromSlot) || !getSlot(getCurrentPropertyId(), toSlot)) {
+      get().showToast('Step into your own home to furnish it.'); return
+    }
     const res = moveAsset(fromSlot, toSlot)
     if (!res.ok) {
       get().showToast(placementRefusalText(res.reason ?? 'unknown_slot'))
@@ -1543,7 +1571,7 @@ export const useGameStore = create<GameStore>()((set, get) => ({
   },
 
   replaceFurniture: (slotId, newAssetId) => {
-    if (!canEditFurnish()) { get().showToast('Step into your own home to furnish it.'); return }
+    if (!canEditFurnish(slotId)) { get().showToast('Step into your own home to furnish it.'); return }
     if (get().housingStorageWouldStrand(slotId, newAssetId)) {
       get().showToast('Your stored items wouldn’t fit — clear some first.')
       return
@@ -1558,7 +1586,7 @@ export const useGameStore = create<GameStore>()((set, get) => ({
   },
 
   storeFurniture: (slotId) => {
-    if (!canEditFurnish()) { get().showToast('Step into your own home to furnish it.'); return }
+    if (!canEditFurnish(slotId)) { get().showToast('Step into your own home to furnish it.'); return }
     // Removing storage furniture that would strand stored items is refused (§8/§13).
     if (get().housingStorageWouldStrand(slotId)) {
       get().showToast('Your stored items wouldn’t fit — clear some first.')
@@ -1607,7 +1635,12 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     // Safety / schedule gates that home quality must NEVER override (issue §9, review #3).
     if (getWantedLevel() > 0) return { ok: false, reason: 'wanted' as HostingRefusalReason }
     if (get().playerIncapacitated) return { ok: false, reason: 'incapacitated' as HostingRefusalReason }
-    if (getActiveCareerShift() || missionRuntime.active || activityRuntime.active) return { ok: false, reason: 'busy' as HostingRefusalReason }
+    // Busy = an active career shift, a mission, a CRIMINAL activity (robbery), OR an active
+    // Social Life activity (`getActiveActivity`) — the last was missed before (round-2 review #1):
+    // `activityRuntime` is the criminal-activity authority, not the social one.
+    if (getActiveCareerShift() || missionRuntime.active || activityRuntime.active || getActiveActivity()) {
+      return { ok: false, reason: 'busy' as HostingRefusalReason }
+    }
     if (guestId != null) {
       const def = getHomeActivityDef(kind)
       if (def && !tierAtLeast(getDerivedRelationship(guestId).tier, def.minTier)) return { ok: false, reason: 'low_trust' as HostingRefusalReason }

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { commitMove, getLease, mintFurnitureAsset, placeAsset, resetHousing } from './housingRuntime'
-import { canHostActivity, guestAnchorFor, tierAtLeast } from './housingSocial'
+import { canHostActivity, guestAnchorFor, homeInviteScheduleConflict, tierAtLeast } from './housingSocial'
+import type { ScheduledShift } from '../careers/careerTypes'
 
 describe('home hosting gates', () => {
   beforeEach(() => resetHousing(0))
@@ -36,5 +37,29 @@ describe('home hosting gates', () => {
     expect(guestAnchorFor('starter_studio')).not.toBeNull()
     expect(guestAnchorFor('city_loft')).not.toBeNull()
     expect(guestAnchorFor('premium_apartment')).not.toBeNull()
+  })
+})
+
+describe('home-invite schedule conflict (round-2 review #1)', () => {
+  const shift = (scheduledDay: number, startHour: number, durationHours = 4): Pick<ScheduledShift, 'scheduledDay' | 'startHour' | 'durationHours' | 'status'> =>
+    ({ scheduledDay, startHour, durationHours, status: 'scheduled' })
+
+  it('no conflict when the slot is free of shifts and plans', () => {
+    expect(homeInviteScheduleConflict({ day: 2, hour: 14 }, [shift(2, 8)], [{ day: 2, hour: 20 }])).toBe(false)
+  })
+
+  it('conflicts when the visit falls inside a scheduled shift window', () => {
+    // Shift day 2, 09:00–13:00; a 10:00 visit is inside it.
+    expect(homeInviteScheduleConflict({ day: 2, hour: 10 }, [shift(2, 9)], [])).toBe(true)
+  })
+
+  it('conflicts when the visit overlaps an already-accepted plan', () => {
+    // Accepted plan day 3 at 15:00; a visit at 16:00 overlaps the 2h plan window.
+    expect(homeInviteScheduleConflict({ day: 3, hour: 16 }, [], [{ day: 3, hour: 15 }])).toBe(true)
+  })
+
+  it('ignores shifts that are already worked/cancelled (only scheduled/available block)', () => {
+    const worked = { scheduledDay: 2, startHour: 9, durationHours: 4, status: 'completed' as const }
+    expect(homeInviteScheduleConflict({ day: 2, hour: 10 }, [worked], [])).toBe(false)
   })
 })

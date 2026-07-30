@@ -332,6 +332,68 @@ test.describe('housing — furnishing', () => {
     expect(Object.values(s.assets)[0].defId).toBe('potted_plant')
     expect(s.placements['ss_accent_d']).toBe(Object.keys(s.assets)[0])
   })
+
+  test('furniture mutation is a no-op once Furnish mode closes or you leave the residence (review #2)', async ({ page }) => {
+    await page.evaluate(() => window.GAME_TEST_API!.setMoney(500))
+    await openFurnish(page)
+    await page.getByTestId('furnish-buy-floor_lamp').click()
+    await page.getByTestId('furnish-buy-floor_lamp').click()
+    const ids = await page.evaluate(() => Object.keys(window.GAME_TEST_API!.getHousingState().assets))
+    const [a1, a2] = ids
+
+    // Valid furnish context: the gate is OPEN and a production place applies.
+    expect(await page.evaluate(() => window.GAME_TEST_API!.housingCanEditFurnish('ss_accent_a'))).toBe(true)
+    await page.evaluate((id) => window.GAME_TEST_API!.housingProductionPlace('ss_accent_a', id), a1)
+    expect(await page.evaluate(() => window.GAME_TEST_API!.getHousingState().placements['ss_accent_a'])).toBe(a1)
+
+    // Close Furnish mode via the production control → gate closes; a stale/direct call no-ops.
+    await page.getByTestId('furnish-done').click()
+    const closed = await page.evaluate((id) => {
+      const api = window.GAME_TEST_API!
+      const canEdit = api.housingCanEditFurnish('ss_accent_a')
+      api.housingProductionPlace('ss_accent_a', id) // stale replace attempt (panel is now closed)
+      return { canEdit, at: api.getHousingState().placements['ss_accent_a'] }
+    }, a2)
+    expect(closed.canEdit).toBe(false)
+    expect(closed.at).toBe(a1) // unchanged — the stale mutation did nothing
+
+    // Leaving the residence (interior → city) also closes the gate; still a no-op, no loss.
+    const left = await page.evaluate((id) => {
+      const api = window.GAME_TEST_API!
+      api.exitInterior()
+      const canEdit = api.housingCanEditFurnish('ss_accent_a')
+      api.housingProductionPlace('ss_accent_a', id)
+      const st = api.getHousingState()
+      return { canEdit, mode: api.getLocationMode(), at: st.placements['ss_accent_a'], owned: Object.keys(st.assets).length }
+    }, a2)
+    expect(left.canEdit).toBe(false)
+    expect(left.mode).toBe('city')
+    expect(left.at).toBe(a1) // still unchanged
+    expect(left.owned).toBe(2) // both assets still owned — nothing lost or duplicated
+  })
+
+  test('a sold-out showroom item restocks when Furnish reopens after the cadence (review #3)', async ({ page }) => {
+    await page.evaluate(() => {
+      window.GAME_TEST_API!.setMoney(500)
+      window.GAME_TEST_API!.housingSetShowroomStock('floor_lamp', 0) // force sold out
+    })
+    await openFurnish(page)
+    await expect(page.getByTestId('furnish-soldout-floor_lamp')).toBeVisible()
+    expect(await page.evaluate(() => window.GAME_TEST_API!.housingShowroomStock('floor_lamp'))).toBe(0)
+
+    // Close Furnish, advance past the 24h restock cadence, and REOPEN — buying nothing.
+    await page.getByTestId('furnish-done').click()
+    await page.evaluate(() => { const api = window.GAME_TEST_API!; api.setGameDay(api.getStats().day + 2) })
+    await teleport(page, [198.4, 1.2, 202.2])
+    await waitForActiveInteractable(page, 'apartment_furnish')
+    await pressE(page)
+    await expect(page.getByTestId('furnish-panel')).toBeVisible()
+
+    // Reopening reconciled the showroom: the piece is back in stock, Buy re-enabled — no purchase needed.
+    expect(await page.evaluate(() => window.GAME_TEST_API!.housingShowroomStock('floor_lamp'))).toBeGreaterThan(0)
+    await expect(page.getByTestId('furnish-soldout-floor_lamp')).toHaveCount(0)
+    await expect(page.getByTestId('furnish-buy-floor_lamp')).toBeEnabled()
+  })
 })
 
 test.describe('housing — benefits', () => {
@@ -516,6 +578,78 @@ test.describe('housing — hosting', () => {
     })
     expect(delinquent.ok).toBe(false)
     expect(delinquent.reason).toBe('delinquent')
+  })
+
+  test('the shared gate blocks hosting during an active mission and an active social activity (review #1)', async ({ page }) => {
+    await leaseLoftWithHostingKit(page)
+    expect(await page.evaluate(() => window.GAME_TEST_API!.housingCanHost('coffee_home', 'npc_ravi_01').ok)).toBe(true)
+
+    // (a) An active MISSION → busy (missionRuntime.active).
+    const mission = await page.evaluate(() => {
+      const api = window.GAME_TEST_API!
+      const started = api.startMission('city_courier')
+      return { started, host: api.housingCanHost('coffee_home', 'npc_ravi_01') }
+    })
+    expect(mission.started).toBe(true)
+    expect(mission.host).toEqual({ ok: false, reason: 'busy' })
+    await page.evaluate(() => window.GAME_TEST_API!.cancelMission())
+    expect(await page.evaluate(() => window.GAME_TEST_API!.housingCanHost('coffee_home', 'npc_ravi_01').ok)).toBe(true)
+
+    // (b) An active SOCIAL-LIFE activity → busy (getActiveActivity — the authority the old
+    // gate never consulted). Start a coffee-at-home visit inside the loft, then a second host
+    // attempt is refused while one is in progress.
+    const inv = await page.evaluate(() => {
+      const api = window.GAME_TEST_API!
+      api.housingInviteGuest('npc_ravi_01', 'coffee_home')
+      return api.getSocialInvitations().find((i) => i.activityKind === 'coffee_home' && i.actorId === 'npc_ravi_01')
+    })
+    expect(inv?.status).toBe('accepted')
+    await page.evaluate((day) => window.GAME_TEST_API!.setGameDay(day), inv!.proposedDay)
+    await teleport(page, [45.5, 1.2, -80.5])
+    await waitForActiveInteractable(page, 'loft_entrance')
+    await pressE(page)
+    await page.waitForFunction(() => window.GAME_TEST_API!.getLocationMode() === 'apartment')
+    const busy = await page.evaluate(() => {
+      const api = window.GAME_TEST_API!
+      api.housingHostAtAnchor() // start the visit → getActiveActivity() is now non-null
+      return { active: api.getHomeHosting()?.active === true, host: api.housingCanHost('coffee_home', 'npc_ravi_01') }
+    })
+    expect(busy.active).toBe(true)
+    expect(busy.host).toEqual({ ok: false, reason: 'busy' })
+  })
+
+  test('hosting refuses a low-trust guest and a scheduled-shift conflict at the invite entry (review #1)', async ({ page }) => {
+    await leaseLoftWithHostingKit(page) // Ravi is close; runDeliveryShifts left a shift scheduled
+
+    // Low trust: Maya is only just met (acquaintance) — below coffee_home's 'friendly' floor.
+    const lowTrust = await page.evaluate(() => {
+      const api = window.GAME_TEST_API!
+      api.ingestSocialEvent({ id: 'met_maya_lt', kind: 'met', actorId: 'npc_maya_01', gameDay: 0 })
+      const host = api.housingCanHost('coffee_home', 'npc_maya_01')
+      const before = api.getSocialInvitations().filter((i) => i.actorId === 'npc_maya_01').length
+      api.housingInviteGuest('npc_maya_01', 'coffee_home')
+      const after = api.getSocialInvitations().filter((i) => i.actorId === 'npc_maya_01').length
+      return { host, created: after - before }
+    })
+    expect(lowTrust.host).toEqual({ ok: false, reason: 'low_trust' })
+    expect(lowTrust.created).toBe(0) // invite refused at the production entry
+
+    // Schedule conflict: point the clock just before a scheduled career shift so the invite's
+    // proposed slot collides with it. The resolver still passes (the shift is not ACTIVE), so
+    // the ONLY reason the invite is refused is the schedule conflict.
+    const conflict = await page.evaluate(() => {
+      const api = window.GAME_TEST_API!
+      const sh = api.getCareerNextShift()!
+      api.setGameDay(sh.scheduledDay)
+      api.setTime(Math.max(6, sh.startHour - 1))
+      const host = api.housingCanHost('coffee_home', 'npc_ravi_01')
+      const before = api.getSocialInvitations().filter((i) => i.actorId === 'npc_ravi_01' && i.activityKind === 'coffee_home').length
+      api.housingInviteGuest('npc_ravi_01', 'coffee_home')
+      const after = api.getSocialInvitations().filter((i) => i.actorId === 'npc_ravi_01' && i.activityKind === 'coffee_home').length
+      return { hostOk: host.ok, created: after - before }
+    })
+    expect(conflict.hostOk).toBe(true) // not wanted / active-shift / low-trust — the resolver is happy
+    expect(conflict.created).toBe(0) // yet the invite is refused: the slot collides with the shift
   })
 
   test('invite a guest to Coffee at Home through the Home app', async ({ page }) => {

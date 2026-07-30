@@ -1,4 +1,4 @@
-import { useGameStore } from '../store/useGameStore'
+import { useGameStore, canEditFurnish as canEditFurnishRt } from '../store/useGameStore'
 import { registry } from '../world/runtimeRegistry'
 import { socialSnapshot, getRelationship as getSocialRel, getDerivedRelationship as getSocialDerived, getMemories as getSocialMems, getContacts as getSocialContactsRt, ingestSocialEvent as ingestSocialEventRt, getInvitations as getSocialInvitationsRt, getMessages as getSocialMessagesRt, getTotalUnread as getSocialUnreadRt, reconcileOutreach as reconcileOutreachRt, getActiveActivity as getActiveActivityRt, getConfirmedPlans as getConfirmedPlansRt, reconcileMissedInvitations as reconcileMissedInvitationsRt } from '../social/socialRuntime'
 import type { SocialEvent } from '../social/socialEvents'
@@ -12,6 +12,12 @@ import {
   getHomeMetrics as getHomeMetricsRt,
   getHousingState as getHousingStateRt,
   homeSleepBenefit as homeSleepBenefitRt,
+  placeAsset as placeAssetRt,
+  replaceAsset as replaceAssetRt,
+  moveAsset as moveAssetRt,
+  rotateAsset as rotateAssetRt,
+  storeAsset as storeAssetRt,
+  getPlacements as getPlacementsRt,
 } from '../housing/housingRuntime'
 import { housingReport as housingReportRt, type HousingReport } from '../housing/housingObservability'
 import { housingEligibility as housingEligibilityRt } from '../housing/housingCareer'
@@ -20,7 +26,7 @@ import type { HomeActivityKind } from '../housing/housingTypes'
 import { getPropertySlots as getPropertySlotsRt } from '../housing/propertyRegistry'
 import { persistSave as persistSaveRt, loadSave as loadSaveRt } from '../save/saveGame'
 import { reconcileHousingRecommendations as reconcileHousingRecommendationsRt } from '../housing/housingRecommendations'
-import { devSetFurnitureStock as devSetFurnitureStockRt, furnitureStockOf as furnitureStockOfRt } from '../housing/housingCommerce'
+import { devSetFurnitureStock as devSetFurnitureStockRt, furnitureStockOf as furnitureStockOfRt, reconcileFurnitureShowroom as reconcileFurnitureShowroomRt } from '../housing/housingCommerce'
 import type { FurnitureDefId, HousingState, PropertyId } from '../housing/housingTypes'
 import type { CareerId, SkillId } from '../careers/careerTypes'
 import type { InvitationActivityKind } from '../social/socialTypes'
@@ -506,14 +512,22 @@ export interface GameTestApi {
   housingShowroomStock: (defId: string) => number
   /** DEV/E2E: force a showroom stock level (proves the out-of-stock purchase refusal). */
   housingSetShowroomStock: (defId: string, units: number) => void
-  /** DEV/E2E: place a stored asset into a slot (the SAME store action Furnish mode calls). */
+  /** DEV/E2E: ARRANGE a placement directly via the runtime (bypasses the production Furnish
+   *  gate so tests can set up furnished state from anywhere). To exercise the production gate,
+   *  use `housingProductionPlace` / `housingCanEditFurnish`. */
   housingPlaceFurniture: (slotId: string, assetId: string) => void
-  /** DEV/E2E: rotate the asset in a slot. */
+  /** DEV/E2E: rotate the asset in a slot (runtime arrangement). */
   housingRotateFurniture: (slotId: string) => void
-  /** DEV/E2E: move the asset in one slot to another. */
+  /** DEV/E2E: move the asset in one slot to another (runtime arrangement). */
   housingMoveFurniture: (fromSlot: string, toSlot: string) => void
-  /** DEV/E2E: store the asset in a slot back into home inventory. */
+  /** DEV/E2E: store the asset in a slot back into home inventory (runtime arrangement, keeps
+   *  the no-strand guard). */
   housingStoreFurniture: (slotId: string) => void
+  /** DEV/E2E: place through the PRODUCTION store action (the gated path) — used to prove a
+   *  stale/direct call is a no-op outside Furnish mode / the residence (round-2 review #2). */
+  housingProductionPlace: (slotId: string, assetId: string) => void
+  /** DEV/E2E: the real production furnish-edit gate result for the current state (no drift). */
+  housingCanEditFurnish: (slotId?: string) => boolean
   /** DEV/E2E: the current home's derived metrics (comfort/style/storage/sleep/hosting). */
   getHomeMetrics: () => { comfort: number; style: number; storageCapacity: number; sleepQuality: number; hostingCapacity: number }
   /** DEV/E2E: the current home's sleep benefit (energy target + health restore). */
@@ -522,8 +536,9 @@ export interface GameTestApi {
   housingSaveOutfit: (id: string) => void
   housingApplyOutfit: (id: string) => void
   housingClearOutfit: (id: string) => void
-  /** DEV/E2E: whether the current home can host a given activity (+ first unmet reason). */
-  housingCanHost: (kind: string) => { ok: boolean; reason?: string }
+  /** DEV/E2E: whether the current home can host a given activity for an optional specific
+   *  guest (+ first unmet reason) — the SAME resolver the Home app + invite + start use. */
+  housingCanHost: (kind: string, guestId?: string) => { ok: boolean; reason?: string }
   /** DEV/E2E: invite a guest to a home activity (the SAME store action the Home app calls). */
   housingInviteGuest: (npcId: string, kind: string) => void
   /** DEV/E2E: start/advance the home hosting at the anchor (the SAME store action the anchor calls). */
@@ -1394,11 +1409,33 @@ export function installTestApi(): void {
       getPropertySlotsRt(getCurrentPropertyIdRt()).map((s) => ({ id: s.id, room: s.room, allowedCategories: [...s.allowedCategories], maxSize: s.maxSize })),
     housingBuyFurniture: (defId: string) => useGameStore.getState().buyFurniture(defId),
     housingShowroomStock: (defId: string) => furnitureStockOfRt(defId as FurnitureDefId),
-    housingSetShowroomStock: (defId: string, units: number) => devSetFurnitureStockRt(defId as FurnitureDefId, units),
-    housingPlaceFurniture: (slotId: string, assetId: string) => useGameStore.getState().placeFurniture(slotId, assetId),
-    housingRotateFurniture: (slotId: string) => useGameStore.getState().rotateFurniture(slotId),
-    housingMoveFurniture: (fromSlot: string, toSlot: string) => useGameStore.getState().moveFurniture(fromSlot, toSlot),
-    housingStoreFurniture: (slotId: string) => useGameStore.getState().storeFurniture(slotId),
+    housingSetShowroomStock: (defId: string, units: number) => {
+      // Anchor the restock clock at "now" BEFORE forcing the level, so the forced stock sticks
+      // until the cadence elapses (openFurnishMode's reconcile won't immediately refill it).
+      const st = useGameStore.getState()
+      reconcileFurnitureShowroomRt(st.stats.day * 24 + st.stats.hour)
+      devSetFurnitureStockRt(defId as FurnitureDefId, units)
+    },
+    // Arrangement helpers drive the RUNTIME directly (no Furnish-mode gate) so a test can set up
+    // furnished state from anywhere; the no-strand guard is preserved for store/replace.
+    housingPlaceFurniture: (slotId: string, assetId: string) => {
+      const occupied = getPlacementsRt()[slotId] !== undefined
+      if (occupied && useGameStore.getState().housingStorageWouldStrand(slotId, assetId)) return
+      const res = occupied ? replaceAssetRt(slotId, assetId) : placeAssetRt(slotId, assetId)
+      if (res.ok) useGameStore.setState((s) => ({ housingVersion: s.housingVersion + 1 }))
+    },
+    housingRotateFurniture: (slotId: string) => {
+      if (rotateAssetRt(slotId)) useGameStore.setState((s) => ({ housingVersion: s.housingVersion + 1 }))
+    },
+    housingMoveFurniture: (fromSlot: string, toSlot: string) => {
+      if (moveAssetRt(fromSlot, toSlot).ok) useGameStore.setState((s) => ({ housingVersion: s.housingVersion + 1 }))
+    },
+    housingStoreFurniture: (slotId: string) => {
+      if (useGameStore.getState().housingStorageWouldStrand(slotId)) return
+      if (storeAssetRt(slotId)) useGameStore.setState((s) => ({ housingVersion: s.housingVersion + 1 }))
+    },
+    housingProductionPlace: (slotId: string, assetId: string) => useGameStore.getState().placeFurniture(slotId, assetId),
+    housingCanEditFurnish: (slotId?: string) => canEditFurnishRt(slotId),
     getHomeMetrics: () => {
       const m = getHomeMetricsRt()
       return { comfort: m.comfort, style: m.style, storageCapacity: m.storageCapacity, sleepQuality: m.sleepQuality, hostingCapacity: m.hostingCapacity }
@@ -1407,7 +1444,7 @@ export function installTestApi(): void {
     housingSaveOutfit: (id: string) => useGameStore.getState().saveHousingOutfitPreset(id),
     housingApplyOutfit: (id: string) => useGameStore.getState().applyHousingOutfitPreset(id),
     housingClearOutfit: (id: string) => useGameStore.getState().clearHousingOutfitPreset(id),
-    housingCanHost: (kind: string) => useGameStore.getState().canHostHomeActivity(kind as HomeActivityKind),
+    housingCanHost: (kind: string, guestId?: string) => useGameStore.getState().canHostHomeActivity(kind as HomeActivityKind, guestId),
     housingInviteGuest: (npcId: string, kind: string) => useGameStore.getState().sendPlayerInvite(npcId, kind as InvitationActivityKind),
     housingHostAtAnchor: () => useGameStore.getState().openHomeHosting('host'),
     getHomeHosting: () => {
