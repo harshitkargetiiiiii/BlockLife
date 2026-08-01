@@ -9,15 +9,16 @@
  */
 
 export interface StoreListing {
-  /** Catalog id sold here — an ITEM catalog id for 'item' listings (the default), or a
-   *  FURNITURE catalog def id for 'furniture' listings. */
+  /** Catalog id sold here — an ITEM catalog id for 'item' listings (the default), a FURNITURE
+   *  catalog def id for 'furniture' listings, or a VEHICLE def id for 'vehicle' listings. */
   itemId: string
   /** What a sale grants. 'item' (default) → a backpack item via the item catalog;
-   *  'furniture' → a unique housing asset minted by the housing layer AFTER the sale.
-   *  A furniture listing carries its price in `priceOverride` (furniture has no item def). */
-  kind?: 'item' | 'furniture'
-  /** Store-specific price; falls back to the item's catalog price when absent. Furniture
-   *  listings MUST set it (== the furniture catalog price, so display == charge). */
+   *  'furniture' → a unique housing asset minted by the housing layer AFTER the sale;
+   *  'vehicle' → a unique owned vehicle asset minted by the vehicles layer AFTER the sale.
+   *  A furniture/vehicle listing carries its price in `priceOverride` (no item def exists). */
+  kind?: 'item' | 'furniture' | 'vehicle'
+  /** Store-specific price; falls back to the item's catalog price when absent. Furniture and
+   *  vehicle listings MUST set it (== the catalog price, so display == charge). */
   priceOverride?: number
   /** Max units held on the shelf. */
   maxStock: number

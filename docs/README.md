@@ -53,6 +53,12 @@ Start here. Every doc, what it's for, and the order to read them in.
   moves, 19 furniture defs as unique assets, production Furnish mode over authored
   slots, the ONE bounded metric calculator + real sleep/storage/wardrobe/hosting
   effects, the career/social integration, and old-apartment→Starter-Studio migration.
+- **[VEHICLE_OWNERSHIP_PARKING_CUSTOMIZATION.md](VEHICLE_OWNERSHIP_PARKING_CUSTOMIZATION.md)** —
+  the deterministic vehicle-ownership platform: 4 classes, the ONE-shell projection
+  (defaults to the legacy Compact), dealership + trade-in through commerce, authored
+  parking/retrieve/recover, condition/repair/impound + crash wear, per-asset cargo over
+  the inventory service, customization (upgrades + paint), the Garage app, legacy→Compact
+  migration, and the strict owned-vs-stolen identity separation.
 
 ## Reference data
 

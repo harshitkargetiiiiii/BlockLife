@@ -10,6 +10,7 @@ import { NPCManager } from '../game/npc/NPCManager'
 import { AmbientCitizens } from '../game/citizens/AmbientCitizens'
 import { CrimeDirector } from '../game/crime/CrimeDirector'
 import { ParkedVehicles } from '../game/vehicles/ParkedVehicles'
+import { OwnedParkedVehicles } from '../game/vehicles/OwnedParkedVehicles'
 import { EjectedDrivers } from '../game/vehicles/EjectedDrivers'
 import { PoliceUnits } from '../game/police/PoliceUnits'
 import { PlayerWeapon } from '../game/combat/PlayerWeapon'
@@ -60,6 +61,7 @@ export function CanvasRoot() {
       <AmbientCitizens />
       <AmbientCars />
       <ParkedVehicles />
+      <OwnedParkedVehicles />
       <EjectedDrivers />
       <AmbientAnimations />
       <CrimeDirector />

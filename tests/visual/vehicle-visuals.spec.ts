@@ -1,0 +1,143 @@
+import { expect, test, type Page } from '@playwright/test'
+
+/**
+ * Vehicle Ownership, Parking & Customization v1 (issue #19) visual baselines. Deterministic:
+ * fixed time + clear weather, state driven through the dev API, the world PAUSED before each shot.
+ * Garage-app surfaces are scoped to the phone app element (stable DOM); the driving/parked surfaces
+ * shoot the paused viewport with the shell/owned cars projected. 14 surfaces.
+ */
+type Api = Record<string, (...a: unknown[]) => unknown>
+function api(page: Page, method: string, ...args: unknown[]) {
+  return page.evaluate(([m, a]) => (window.GAME_TEST_API as unknown as Api)[m as string](...(a as unknown[])), [method, args] as const)
+}
+async function ready(page: Page): Promise<void> {
+  await page.goto('/')
+  await page.waitForFunction(() => window.GAME_TEST_API?.ready() === true, undefined, { timeout: 45_000 })
+  await page.waitForFunction(() => window.GAME_TEST_API?.assetsSettled() === true, undefined, { timeout: 45_000 })
+  await page.evaluate(() => {
+    const a = window.GAME_TEST_API!
+    a.resetGame()
+    a.setTime(13)
+    a.setWeather('clear')
+  })
+  await api(page, 'setMoney', 100000)
+  for (const d of ['veh_scooter', 'veh_compact', 'veh_van', 'veh_sports']) await api(page, 'vehicleSetDealershipStock', d, 5)
+  await page.waitForTimeout(250)
+}
+async function freeze(page: Page): Promise<void> {
+  await page.evaluate(() => window.GAME_TEST_API!.pauseWorld(true))
+  await page.waitForTimeout(200)
+}
+async function openGarage(page: Page): Promise<void> {
+  await api(page, 'openPhoneApp', 'garage')
+  await page.waitForTimeout(200)
+}
+const garage = (page: Page) => page.getByTestId('phone-garage')
+async function grant(page: Page, defId: string, opts: Record<string, unknown>): Promise<string> {
+  return (await api(page, 'vehicleGrant', defId, opts)) as string
+}
+
+test.describe('Vehicle Ownership v1 — visuals', () => {
+  test('garage dealership listings', async ({ page }) => {
+    await ready(page)
+    await openGarage(page)
+    await freeze(page)
+    await expect(garage(page)).toHaveScreenshot('garage-dealership.png')
+  })
+
+  test('garage with one owned compact', async ({ page }) => {
+    await ready(page)
+    await api(page, 'vehicleBuy', 'veh_compact')
+    await openGarage(page)
+    await freeze(page)
+    await expect(garage(page)).toHaveScreenshot('garage-owned-compact.png')
+  })
+
+  test('garage with a mixed owned fleet', async ({ page }) => {
+    await ready(page)
+    await grant(page, 'veh_compact', { location: 'parked', anchorId: 'park_home_studio' })
+    await grant(page, 'veh_van', { location: 'parked', anchorId: 'park_public_central' })
+    await grant(page, 'veh_scooter', { location: 'parked', anchorId: 'park_public_downtown' })
+    await openGarage(page)
+    await freeze(page)
+    await expect(garage(page)).toHaveScreenshot('garage-fleet.png')
+  })
+
+  test('garage customize & cargo panel open', async ({ page }) => {
+    await ready(page)
+    const id = await grant(page, 'veh_compact', { location: 'parked', anchorId: 'park_public_central' })
+    await api(page, 'giveItem', 'snack', 2)
+    await openGarage(page)
+    await page.getByTestId(`garage-owned-${id}`).locator('summary').click()
+    await freeze(page)
+    await expect(garage(page)).toHaveScreenshot('garage-customize.png')
+  })
+
+  test('garage sports car locked without career', async ({ page }) => {
+    await ready(page)
+    await openGarage(page)
+    await freeze(page)
+    await expect(page.getByTestId('garage-listing-veh_sports')).toHaveScreenshot('garage-sports-locked.png')
+  })
+
+  test('garage impounded vehicle card', async ({ page }) => {
+    await ready(page)
+    await grant(page, 'veh_van', { location: 'impound' })
+    await openGarage(page)
+    await freeze(page)
+    await expect(garage(page)).toHaveScreenshot('garage-impounded.png')
+  })
+
+  test('garage worn vehicle with repair option', async ({ page }) => {
+    await ready(page)
+    await grant(page, 'veh_compact', { location: 'parked', anchorId: 'park_public_central', condition: 35 })
+    await openGarage(page)
+    await freeze(page)
+    await expect(garage(page)).toHaveScreenshot('garage-worn.png')
+  })
+
+  // ---- 3D world surfaces (the one shell projects the active class) ----
+  for (const [defId, name] of [
+    ['veh_compact', 'driving-compact'],
+    ['veh_van', 'driving-van'],
+    ['veh_scooter', 'driving-scooter'],
+    ['veh_sports', 'driving-sports'],
+  ] as const) {
+    test(`driving an owned ${defId}`, async ({ page }) => {
+      await ready(page)
+      const id = await grant(page, defId, { location: 'parked', anchorId: 'park_public_central' })
+      await api(page, 'vehicleRetrieve', id)
+      await page.waitForTimeout(300)
+      await freeze(page)
+      await expect(page).toHaveScreenshot(`${name}.png`, { maxDiffPixelRatio: 0.02 })
+    })
+  }
+
+  test('a lot of owned parked vehicles', async ({ page }) => {
+    await ready(page)
+    await grant(page, 'veh_compact', { location: 'parked', anchorId: 'park_dealer_a' })
+    await grant(page, 'veh_van', { location: 'parked', anchorId: 'park_public_central' })
+    await api(page, 'teleportPlayer', [24, 1.2, 16])
+    await page.waitForTimeout(300)
+    await freeze(page)
+    await expect(page).toHaveScreenshot('parked-lot.png', { maxDiffPixelRatio: 0.02 })
+  })
+
+  test('a custom-painted sports car parked', async ({ page }) => {
+    await ready(page)
+    const id = await grant(page, 'veh_sports', { location: 'parked', anchorId: 'park_public_central' })
+    await api(page, 'vehiclePaint', id, '#2c2c33')
+    await api(page, 'teleportPlayer', [22, 1.2, 20])
+    await page.waitForTimeout(300)
+    await freeze(page)
+    await expect(page).toHaveScreenshot('painted-sports.png', { maxDiffPixelRatio: 0.02 })
+  })
+
+  test('the dealership bays area', async ({ page }) => {
+    await ready(page)
+    await api(page, 'teleportPlayer', [18, 1.2, 12])
+    await page.waitForTimeout(300)
+    await freeze(page)
+    await expect(page).toHaveScreenshot('dealership-bays.png', { maxDiffPixelRatio: 0.02 })
+  })
+})

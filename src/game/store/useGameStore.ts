@@ -24,10 +24,36 @@ import {
   getPlayerCarSourceId,
   getStealable,
   getVehicleCrimeState,
+  isPlayerCarStolen,
   PLAYER_CAR_ID,
   recordTheft,
 } from '../vehicles/vehicleCrimeState'
 import { ejectDriver } from '../vehicles/ejectedDriverRuntime'
+import { serializeVehicleOwnership, applyVehicleOwnershipSave } from '../vehicles/vehicleOwnershipPersistence'
+import {
+  addHistory as addVehicleHistory,
+  getActiveVehicle as getActiveOwnedVehicle,
+  getVehicle as getOwnedVehicle,
+  isAnchorOccupied,
+  markVehicleTxn,
+  mintOwnedVehicle,
+  removeOwnedVehicle,
+  resetVehicleOwnership,
+  setVehicleCondition,
+  setVehicleLocation,
+} from '../vehicles/vehicleOwnershipRuntime'
+import {
+  canBuyVehicle,
+  canTradeIn,
+  commitVehicleSale,
+  reconcileVehicleDealership,
+  vehicleRefusalText,
+} from '../vehicles/vehicleDealership'
+import { canPark, canRecover, canReleaseFromImpound, canRepair, canRetrieve } from '../vehicles/vehicleService'
+import { canInstallUpgrade, canPaint } from '../vehicles/vehicleCustomization'
+import { loadCargo, unloadCargo } from '../vehicles/vehicleCargo'
+import { canParkAtAnchor, nearestParkableAnchorId, pickInitialParkingAnchorId } from '../vehicles/vehicleParkingService'
+import { getParkingAnchor } from '../vehicles/parkingRegistry'
 import { fileReport } from '../crime/reportingSystem'
 import { registerPlayerDamageSink } from '../combat/damageRuntime'
 import { resetCombatSystems } from '../combat/combatSystem'
@@ -223,6 +249,7 @@ export type PhoneAppId =
   | 'jobs'
   | 'bag'
   | 'housing'
+  | 'garage'
   | 'settings'
 
 export interface UIState {
@@ -316,6 +343,9 @@ interface GameDataState {
   /** Bumps on every housing-state mutation so housing-reading UI (Home app, HUD)
    *  re-renders — the housing runtime also lives outside zustand (issue #17). */
   housingVersion: number
+  /** Bumped when vehicle-ownership runtime state changes so the Garage app + HUD re-render
+   *  (the vehicle-ownership runtime lives outside zustand, like housing/commerce/social). */
+  vehicleVersion: number
   saveStatus: string | null
   /** Player health 0–100 (HUD-reactive). Persists across save/load. */
   playerHealth: number
@@ -421,6 +451,30 @@ export interface GameStore extends GameDataState {
   selectFurnishSlot: (slotId: string | null) => void
   /** Buy a furniture piece through the economy (mints one unique asset). */
   buyFurniture: (defId: string) => void
+  /** Buy a vehicle from the dealership through the commerce authority (mints one unique owned
+   *  asset, parked at a safe anchor). Never legitimizes a stolen car. */
+  buyVehicle: (defId: string) => void
+  /** Trade a settled owned vehicle toward a new one — atomic (old removed, new minted, net price
+   *  charged): a failure at any step leaves money AND both vehicles exactly as they were. */
+  tradeInVehicle: (tradeInId: string, newDefId: string) => void
+  /** Fully repair an owned vehicle's condition to 100 through the economy (a deterministic sink). */
+  repairVehicle: (assetId: string) => void
+  /** Send an owned vehicle to safe recovery holding (a fallback for a blocked/lost shell). */
+  recoverVehicle: (assetId: string) => void
+  /** Pay the release fee to get an owned vehicle out of police impound (to recovery holding). */
+  releaseVehicleFromImpound: (assetId: string) => void
+  /** Start driving a parked/recovered owned vehicle: teleports the ONE shell to it + enters driving. */
+  retrieveVehicle: (assetId: string) => void
+  /** Park the currently-driven owned vehicle at the nearest authored anchor (must be stopped). */
+  parkVehicle: () => void
+  /** Install a functional upgrade on an owned vehicle through the economy (one per category). */
+  installVehicleUpgrade: (assetId: string, upgradeId: string) => void
+  /** Repaint an owned vehicle to a palette colour (free cosmetic). */
+  paintVehicle: (assetId: string, color: string) => void
+  /** Load items from the backpack into a vehicle's cargo (atomic — never duplicates/loses). */
+  loadVehicleCargo: (assetId: string, itemId: string, quantity: number) => void
+  /** Unload items from a vehicle's cargo back into the backpack (atomic). */
+  unloadVehicleCargo: (assetId: string, itemId: string, quantity: number) => void
   /** Place a stored asset into an empty compatible slot. */
   placeFurniture: (slotId: string, assetId: string) => void
   /** Rotate the asset placed in a slot. */
@@ -532,6 +586,7 @@ export function createInitialGameState(): GameDataState {
     socialVersion: 0,
     careerVersion: 0,
     housingVersion: 0,
+    vehicleVersion: 0,
     saveStatus: null,
     playerHealth: PLAYER_MAX_HEALTH,
     playerIncapacitated: false,
@@ -1547,6 +1602,224 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     get().showToast(`Bought ${defId.replace(/_/g, ' ')}.`)
   },
 
+  buyVehicle: (defId) => {
+    const s = get()
+    // Lazily restock the dealership to the current game time (never per frame), then run the
+    // SAME commerce purchase gate as any store plus the vehicle gates (wanted/incapacitated/busy,
+    // eligibility, owned cap).
+    reconcileVehicleDealership(gameHoursOf(s))
+    const ctx = {
+      money: s.stats.money,
+      day: s.stats.day,
+      wanted: getWantedLevel() > 0,
+      incapacitated: s.playerIncapacitated,
+      busy: getActiveCareerShift() != null,
+    }
+    const check = canBuyVehicle(defId, ctx)
+    if (!check.ok) return void get().showToast(vehicleRefusalText(check.reason))
+    // Where the new car parks: a free dealership bay / public anchor, else anchor-less recovery.
+    const anchorId = pickInitialParkingAnchorId(defId)
+    // The commerce transaction FIRST: record the sale (stock − 1) + mint a purchase receipt.
+    const { receipt } = commitVehicleSale(defId)
+    // Exact-once guard on the receipt so an accidental replay can never double-mint or double-charge.
+    if (!markVehicleTxn(receipt)) return
+    // Only AFTER the sale succeeds: mint the unique owned asset at its parking spot, then charge
+    // the economy. Minting never touches the stolen-vehicle identity (§2 legitimate-vs-stolen).
+    mintOwnedVehicle(defId, {
+      acquiredVia: 'purchase',
+      receipt,
+      day: s.stats.day,
+      price: check.price,
+      location: anchorId ? { kind: 'parked', anchorId } : { kind: 'recovery' },
+    })
+    audioManager.playClick()
+    set((st) => ({ stats: { ...st.stats, money: st.stats.money - check.price }, vehicleVersion: st.vehicleVersion + 1 }))
+    get().showToast(`Bought a ${defId.replace(/^veh_/, '').replace(/_/g, ' ')}.`)
+  },
+
+  tradeInVehicle: (tradeInId, newDefId) => {
+    const s = get()
+    reconcileVehicleDealership(gameHoursOf(s))
+    const ctx = {
+      money: s.stats.money,
+      day: s.stats.day,
+      wanted: getWantedLevel() > 0,
+      incapacitated: s.playerIncapacitated,
+      busy: getActiveCareerShift() != null,
+    }
+    const check = canTradeIn(tradeInId, newDefId, ctx)
+    if (!check.ok) return void get().showToast(vehicleRefusalText(check.reason))
+    const old = getOwnedVehicle(tradeInId)
+    if (!old) return void get().showToast(vehicleRefusalText('not_owned'))
+    // Re-use the traded car's parked anchor when it had one + it's free; else a fresh safe anchor.
+    const oldAnchor = old.location.kind === 'parked' ? old.location.anchorId : null
+    // The commerce transaction FIRST (sale + receipt); the exact-once guard prevents replay.
+    const { receipt } = commitVehicleSale(newDefId)
+    if (!markVehicleTxn(receipt)) return
+    // Atomic asset move: remove the old (freeing its anchor), then mint the new — both ownership
+    // mutations run here with nothing async between them, so no partial "two homes / lost vehicle"
+    // state can be observed, and the net price is charged exactly once.
+    removeOwnedVehicle(tradeInId)
+    const anchorId = oldAnchor && !isAnchorOccupied(oldAnchor) ? oldAnchor : pickInitialParkingAnchorId(newDefId)
+    const minted = mintOwnedVehicle(newDefId, {
+      acquiredVia: 'trade',
+      receipt,
+      day: s.stats.day,
+      price: check.price,
+      location: anchorId ? { kind: 'parked', anchorId } : { kind: 'recovery' },
+    })
+    addVehicleHistory(minted, { kind: 'traded_in', day: s.stats.day, amount: check.tradeValue, receipt, note: `traded ${old.defId}` })
+    audioManager.playClick()
+    set((st) => ({ stats: { ...st.stats, money: st.stats.money - check.price }, vehicleVersion: st.vehicleVersion + 1 }))
+    get().showToast(`Traded in for a ${newDefId.replace(/^veh_/, '').replace(/_/g, ' ')}.`)
+  },
+
+  repairVehicle: (assetId) => {
+    const s = get()
+    const check = canRepair(assetId, s.stats.money)
+    if (!check.ok) return void get().showToast(vehicleRefusalText(check.reason))
+    setVehicleCondition(assetId, check.quote.toCondition)
+    const asset = getOwnedVehicle(assetId)
+    if (asset) addVehicleHistory(asset, { kind: 'repaired', day: s.stats.day, amount: -check.quote.cost, note: `+${check.quote.points} condition` })
+    audioManager.playClick()
+    set((st) => ({ stats: { ...st.stats, money: st.stats.money - check.quote.cost }, vehicleVersion: st.vehicleVersion + 1 }))
+    get().showToast('Vehicle repaired to pristine condition.')
+  },
+
+  recoverVehicle: (assetId) => {
+    const s = get()
+    const check = canRecover(assetId)
+    if (!check.ok) return void get().showToast(vehicleRefusalText(check.reason))
+    setVehicleLocation(assetId, { kind: 'recovery' })
+    const asset = getOwnedVehicle(assetId)
+    if (asset) addVehicleHistory(asset, { kind: 'recovered', day: s.stats.day, amount: 0 })
+    set((st) => ({ vehicleVersion: st.vehicleVersion + 1 }))
+    get().showToast('Vehicle moved to safe holding.')
+  },
+
+  releaseVehicleFromImpound: (assetId) => {
+    const s = get()
+    const check = canReleaseFromImpound(assetId, s.stats.money)
+    if (!check.ok) return void get().showToast(vehicleRefusalText(check.reason))
+    // A released car returns to anchor-less recovery holding, which the player retrieves from.
+    setVehicleLocation(assetId, { kind: 'recovery' })
+    const asset = getOwnedVehicle(assetId)
+    if (asset) addVehicleHistory(asset, { kind: 'released', day: s.stats.day, amount: -check.fee, note: 'impound release' })
+    audioManager.playClick()
+    set((st) => ({ stats: { ...st.stats, money: st.stats.money - check.fee }, vehicleVersion: st.vehicleVersion + 1 }))
+    get().showToast('Vehicle released from impound.')
+  },
+
+  retrieveVehicle: (assetId) => {
+    if (get().mode === 'driving') return void get().showToast('Park your current vehicle first.')
+    const check = canRetrieve(assetId)
+    if (!check.ok) return void get().showToast(vehicleRefusalText(check.reason))
+    const asset = getOwnedVehicle(assetId)
+    // Retrieve from a parked anchor when it has one; a recovery-held car uses its last known spot.
+    const anchor = asset?.location.kind === 'parked' ? getParkingAnchor(asset.location.anchorId) : undefined
+    const heading = anchor?.headingY ?? asset?.lastTransform?.heading ?? 0
+    const x = anchor?.position[0] ?? asset?.lastTransform?.x ?? registry.vehiclePosition.x
+    const z = anchor?.position[1] ?? asset?.lastTransform?.z ?? registry.vehiclePosition.z
+    // Teleport the ONE physical shell onto the retrieved vehicle's spot (guarded for headless).
+    const body = registry.vehicleBody
+    if (body) {
+      const y = body.translation().y
+      body.setTranslation({ x, y, z }, true)
+      body.setRotation({ x: 0, y: Math.sin(heading / 2), z: 0, w: Math.cos(heading / 2) }, true)
+      body.setLinvel({ x: 0, y: 0, z: 0 }, true)
+      body.setAngvel({ x: 0, y: 0, z: 0 }, true)
+    }
+    registry.vehiclePosition.set(x, registry.vehiclePosition.y, z)
+    setVehicleLocation(assetId, { kind: 'active' })
+    if (asset) asset.lastTransform = { x, z, heading }
+    registry.playerBody?.setEnabled(false)
+    audioManager.playClick()
+    set((st) => ({ mode: 'driving', activeInteractableId: PLAYER_CAR_ID, vehicleVersion: st.vehicleVersion + 1 }))
+    get().showToast('Now driving your vehicle.')
+  },
+
+  parkVehicle: () => {
+    if (get().mode !== 'driving') return
+    const active = getActiveOwnedVehicle()
+    if (!active) return void get().showToast("This isn't a vehicle you own.")
+    if (!canPark(active.id).ok) return void get().showToast("You can't park this vehicle.")
+    if (Math.abs(registry.flags.drivingSpeed) > 0.3) return void get().showToast('Come to a full stop to park.')
+    const anchorId = nearestParkableAnchorId(registry.vehiclePosition.x, registry.vehiclePosition.z, active.defId)
+    if (!anchorId) return void get().showToast('Pull up to a parking spot to park.')
+    const fit = canParkAtAnchor(active.defId, anchorId, active.id)
+    if (!fit.ok) return void get().showToast(vehicleRefusalText(fit.reason))
+    const anchor = getParkingAnchor(anchorId)!
+    // Snap the shell neatly into the bay, then set ownership parked + step out on foot.
+    const body = registry.vehicleBody
+    if (body) {
+      const y = body.translation().y
+      body.setTranslation({ x: anchor.position[0], y, z: anchor.position[1] }, true)
+      body.setRotation({ x: 0, y: Math.sin(anchor.headingY / 2), z: 0, w: Math.cos(anchor.headingY / 2) }, true)
+      body.setLinvel({ x: 0, y: 0, z: 0 }, true)
+    }
+    registry.vehiclePosition.set(anchor.position[0], registry.vehiclePosition.y, anchor.position[1])
+    setVehicleLocation(active.id, { kind: 'parked', anchorId })
+    active.lastTransform = { x: anchor.position[0], z: anchor.position[1], heading: anchor.headingY }
+    // Step out beside the bay (the same clear-exit logic as leaving any vehicle).
+    const [sx, sz] = findClearExitPosition(anchor.position[0], anchor.position[1], anchor.headingY)
+    const [ex, ez] = findClearPlayerSpawn(sx, sz)
+    const pb = registry.playerBody
+    if (pb) {
+      pb.setEnabled(true)
+      pb.setTranslation({ x: ex, y: 1.2, z: ez }, true)
+      pb.setLinvel({ x: 0, y: 0, z: 0 }, true)
+    }
+    registry.playerPosition.set(ex, 1.2, ez)
+    registry.flags.drivingSpeed = 0
+    audioManager.playClick()
+    audioManager.setEngine(0)
+    set((st) => ({ mode: 'walking', vehicleVersion: st.vehicleVersion + 1 }))
+    get().showToast('Vehicle parked.')
+  },
+
+  installVehicleUpgrade: (assetId, upgradeId) => {
+    const s = get()
+    const check = canInstallUpgrade(assetId, upgradeId, s.stats.money)
+    if (!check.ok) return void get().showToast(vehicleRefusalText(check.reason))
+    const asset = getOwnedVehicle(assetId)
+    if (!asset) return
+    asset.customization.upgrades.push(upgradeId)
+    addVehicleHistory(asset, { kind: 'customized', day: s.stats.day, amount: -check.price, note: upgradeId })
+    audioManager.playClick()
+    set((st) => ({ stats: { ...st.stats, money: st.stats.money - check.price }, vehicleVersion: st.vehicleVersion + 1 }))
+    get().showToast('Upgrade installed.')
+  },
+
+  paintVehicle: (assetId, color) => {
+    const check = canPaint(assetId, color)
+    if (!check.ok) return void get().showToast(vehicleRefusalText(check.reason))
+    const asset = getOwnedVehicle(assetId)
+    if (asset) asset.customization.paint = color
+    audioManager.playClick()
+    set((st) => ({ vehicleVersion: st.vehicleVersion + 1 }))
+    get().showToast('New paint applied.')
+  },
+
+  loadVehicleCargo: (assetId, itemId, quantity) => {
+    const asset = getOwnedVehicle(assetId)
+    if (!asset) return
+    const r = loadCargo(get().inventory, asset, itemId, quantity)
+    if (!r.ok) return void get().showToast(vehicleRefusalText(r.reason))
+    asset.cargo = r.cargo
+    set((st) => ({ inventory: r.backpack, vehicleVersion: st.vehicleVersion + 1 }))
+    get().showToast('Loaded into cargo.')
+  },
+
+  unloadVehicleCargo: (assetId, itemId, quantity) => {
+    const asset = getOwnedVehicle(assetId)
+    if (!asset) return
+    const r = unloadCargo(get().inventory, asset, itemId, quantity)
+    if (!r.ok) return void get().showToast(vehicleRefusalText(r.reason))
+    asset.cargo = r.cargo
+    set((st) => ({ inventory: r.backpack, vehicleVersion: st.vehicleVersion + 1 }))
+    get().showToast('Unloaded to backpack.')
+  },
+
   placeFurniture: (slotId, assetId) => {
     if (!canEditFurnish(slotId)) { get().showToast('Step into your own home to furnish it.'); return }
     // If the slot is occupied, this is a replace (old asset → storage); else a place.
@@ -2129,6 +2402,7 @@ export const useGameStore = create<GameStore>()((set, get) => ({
       social: serializeSocial(),
       career: serializeCareers(),
       housing: serializeHousing(),
+      vehicles: serializeVehicleOwnership(),
     })
     try {
       await persistSave(snapshot)
@@ -2178,6 +2452,7 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     resetSocial() // relationships/memories/contacts back to canonical defaults
     resetCareers() // employment/skills/shifts/history back to canonical defaults
     resetHousing() // lease/property/furniture back to the canonical Starter Studio
+    resetVehicleOwnership() // owned vehicles/parking/condition/upgrades back to none (§13)
     resetIntegrityRuntime() // clear mirrored entities + anomaly history on reset
     set({ ...createInitialGameState() })
     teleportPlayer(PLAYER_SPAWN)
@@ -2218,6 +2493,15 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     // into a Starter Studio with one grace period (issue #17 §14). Rent is reconciled
     // lazily just below, after stats (money) are restored.
     applyHousingSave(snapshot.housing, snapshot.stats.day)
+    // Vehicles: restore owned assets (sanitized, idempotent), or MIGRATE a pre-v1 save (no
+    // `vehicles` field) into exactly ONE Compact — never legitimizing an active stolen identity
+    // (§3/§13). Crime state was reset above, so a load never restores a stolen shell; the
+    // residence parking anchor is wired in V3 (until then the migrated Compact holds in recovery).
+    applyVehicleOwnershipSave(snapshot.vehicles, {
+      legacySave: snapshot.vehicles === undefined,
+      loadDay: snapshot.stats.day,
+      stolenActive: isPlayerCarStolen(),
+    })
     const careerShiftDiscarded = snapshot.career?.activeShift != null
     reconcileCareerEmploymentRt(snapshot.stats.day, snapshot.stats.hour)
     // Commerce: restore persistent store stock + restock clocks + receipts;
@@ -2238,6 +2522,7 @@ export const useGameStore = create<GameStore>()((set, get) => ({
       socialVersion: get().socialVersion + 1, // refresh social-reading UI after load
       careerVersion: get().careerVersion + 1, // refresh career-reading UI after load
       housingVersion: get().housingVersion + 1, // refresh housing-reading UI after load
+      vehicleVersion: get().vehicleVersion + 1, // refresh vehicle-reading UI (Garage) after load
       stats: { ...snapshot.stats },
       // Migrate the legacy inventory Record → sanitised backpack stacks (drops
       // unknown ids, floors quantities, trims to capacity; coffee is preserved).

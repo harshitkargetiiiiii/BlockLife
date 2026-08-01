@@ -320,6 +320,20 @@ can't enter.
 
 ---
 
+## Vehicle Ownership, Parking & Customization
+
+[`vehicles/`](../src/game/vehicles/). ONE deterministic vehicle-ownership platform layered on
+the economy/commerce/crime/mission/inventory/housing/social/save/streaming stacks (owning none),
+preserving the one-shell driving model — there is still ONE physical car; `vehicleProjection.ts`
+answers "which owned vehicle does the shell embody?" and DEFAULTS to the legacy Compact when there
+is none, so unowned/stolen/pre-migration driving is unchanged. 4 classes, a validated registry, a
+module-singleton owned-asset runtime (`ov_<n>`, cap 4, one-active/one-per-anchor, exact-once), a
+`vehicle_dealership` retail store + trade-in through **commerce**, 11 authored parking anchors,
+condition/repair/impound + crash wear, per-asset cargo over the **inventory service**'s atomic
+`transferItem`, customization (upgrades + palette paint), the Garage phone app, additive fail-safe
+save + legacy→Compact migration, and the strict owned-vs-stolen id-namespace separation. Full design
+in [VEHICLE_OWNERSHIP_PARKING_CUSTOMIZATION](VEHICLE_OWNERSHIP_PARKING_CUSTOMIZATION.md).
+
 ## Housing, Furniture & Property Progression
 
 [`housing/`](../src/game/housing/). ONE deterministic housing platform layered on

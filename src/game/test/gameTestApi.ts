@@ -175,6 +175,17 @@ import {
 } from '../vehicles/vehicleCrimeState'
 import { getEjectedDrivers } from '../vehicles/ejectedDriverRuntime'
 import {
+  vehicleOwnershipRuntime,
+  mintOwnedVehicle as mintOwnedVehicleRt,
+  setVehicleCondition as setVehicleConditionRt,
+  setVehicleLocation as setVehicleLocationRt,
+} from '../vehicles/vehicleOwnershipRuntime'
+import { vehicleOwnershipReport as vehicleReportRt, type VehicleOwnershipReport } from '../vehicles/vehicleOwnershipObservability'
+import { vehicleStockOf as vehicleStockOfRt, devSetVehicleStock as devSetVehicleStockRt, reconcileVehicleDealership as reconcileVehicleDealershipRt } from '../vehicles/vehicleDealership'
+import { getActiveVehicleProjection as getVehicleProjectionRt } from '../vehicles/vehicleProjection'
+import type { VehicleOwnershipState, VehicleLocationState } from '../vehicles/vehicleOwnershipTypes'
+import type { VehicleDefId } from '../vehicles/vehicleRegistry'
+import {
   activeCounts as policeActiveCounts,
   getPoliceUnit,
   getPoliceUnitsSnapshot,
@@ -547,6 +558,47 @@ export interface GameTestApi {
   housingHostAtAnchor: () => void
   /** DEV/E2E: the active home hosting state (kind + guest + step), or null. */
   getHomeHosting: () => { active: boolean; kind: string; guestId: string; step: string } | null
+  // ---- Vehicle Ownership v1 (issue #19) --------------------------------------
+  /** DEV/E2E: the whole vehicle-ownership state (assets, active id, seq, migrated, txn ledger). */
+  getVehicleState: () => VehicleOwnershipState
+  /** DEV/E2E: a compact vehicle observability report (registry validity, cap, active identity). */
+  getVehicleReport: () => VehicleOwnershipReport
+  /** DEV/E2E: the active projection the ONE shell embodies (defId + key tuning + footprint). */
+  getVehicleProjection: () => { ownedId: string | null; defId: string; maxSpeed: number; halfLength: number; conditionDisabled: boolean }
+  /** DEV/E2E: buy a vehicle (the SAME store action the Garage buy button calls). */
+  vehicleBuy: (defId: string) => void
+  /** DEV/E2E: trade one owned vehicle toward a new one (the SAME store action). */
+  vehicleTradeIn: (tradeInId: string, newDefId: string) => void
+  /** DEV/E2E: retrieve (start driving) a parked owned vehicle (the SAME store action). */
+  vehicleRetrieve: (assetId: string) => void
+  /** DEV/E2E: park the currently-driven owned vehicle (the SAME store action). */
+  vehiclePark: () => void
+  /** DEV/E2E: repair an owned vehicle to pristine (the SAME store action). */
+  vehicleRepair: (assetId: string) => void
+  /** DEV/E2E: send an owned vehicle to recovery holding (the SAME store action). */
+  vehicleRecover: (assetId: string) => void
+  /** DEV/E2E: pay to release an owned vehicle from impound (the SAME store action). */
+  vehicleReleaseImpound: (assetId: string) => void
+  /** DEV/E2E: dealership stock for a def (proves the commerce availability model). */
+  vehicleDealershipStock: (defId: string) => number
+  /** DEV/E2E: force a dealership stock level (proves the out-of-stock refusal). */
+  vehicleSetDealershipStock: (defId: string, units: number) => void
+  /** DEV/E2E: ARRANGE — mint an owned vehicle directly at a location (bypasses commerce), returns id. */
+  vehicleGrant: (defId: string, opts?: { location?: 'parked' | 'recovery' | 'impound' | 'active'; anchorId?: string; condition?: number }) => string | null
+  /** DEV/E2E: ARRANGE — force an owned vehicle's condition (proves wear/disabled/repair paths). */
+  vehicleSetCondition: (assetId: string, condition: number) => void
+  /** DEV/E2E: ARRANGE — force an owned vehicle's location (parked/impound/recovery/active). */
+  vehicleSetLocation: (assetId: string, location: VehicleLocationState) => void
+  /** DEV/E2E: install a functional upgrade (the SAME store action the Garage calls). */
+  vehicleInstallUpgrade: (assetId: string, upgradeId: string) => void
+  /** DEV/E2E: repaint an owned vehicle (the SAME store action). */
+  vehiclePaint: (assetId: string, color: string) => void
+  /** DEV/E2E: load items from the backpack into a vehicle's cargo (the SAME store action). */
+  vehicleLoadCargo: (assetId: string, itemId: string, quantity: number) => void
+  /** DEV/E2E: unload items from a vehicle's cargo to the backpack (the SAME store action). */
+  vehicleUnloadCargo: (assetId: string, itemId: string, quantity: number) => void
+  /** DEV/E2E: open the phone to a specific app (to render + drive a production UI panel). */
+  openPhoneApp: (app: string) => void
   /** Routing: graph counts + content-hash version. */
   getRoadGraphSummary: () => {
     version: number
@@ -1455,6 +1507,54 @@ export function installTestApi(): void {
       if (!a || !isHomeActivityKindRt(a.activityKind)) return null
       return { active: true, kind: a.activityKind, guestId: a.actorId, step: a.step }
     },
+    // ---- Vehicle Ownership v1 (issue #19) ----------------------------------
+    getVehicleState: () => structuredClone(vehicleOwnershipRuntime.state) as VehicleOwnershipState,
+    getVehicleReport: () => vehicleReportRt(),
+    getVehicleProjection: () => {
+      const p = getVehicleProjectionRt()
+      return { ownedId: p.ownedId, defId: p.defId, maxSpeed: p.tuning.maxSpeed, halfLength: p.halfLength, conditionDisabled: p.conditionDisabled }
+    },
+    vehicleBuy: (defId: string) => useGameStore.getState().buyVehicle(defId),
+    vehicleTradeIn: (tradeInId: string, newDefId: string) => useGameStore.getState().tradeInVehicle(tradeInId, newDefId),
+    vehicleRetrieve: (assetId: string) => useGameStore.getState().retrieveVehicle(assetId),
+    vehiclePark: () => useGameStore.getState().parkVehicle(),
+    vehicleRepair: (assetId: string) => useGameStore.getState().repairVehicle(assetId),
+    vehicleRecover: (assetId: string) => useGameStore.getState().recoverVehicle(assetId),
+    vehicleReleaseImpound: (assetId: string) => useGameStore.getState().releaseVehicleFromImpound(assetId),
+    vehicleDealershipStock: (defId: string) => vehicleStockOfRt(defId as VehicleDefId),
+    vehicleSetDealershipStock: (defId: string, units: number) => {
+      // Anchor the restock clock at "now" first so the forced level sticks until the cadence elapses.
+      const st = useGameStore.getState()
+      reconcileVehicleDealershipRt(st.stats.day * 24 + st.stats.hour)
+      devSetVehicleStockRt(defId as VehicleDefId, units)
+    },
+    vehicleGrant: (defId: string, opts) => {
+      const location: VehicleLocationState =
+        opts?.location === 'recovery' ? { kind: 'recovery' }
+        : opts?.location === 'impound' ? { kind: 'impound' }
+        : opts?.location === 'active' ? { kind: 'active' }
+        : { kind: 'parked', anchorId: opts?.anchorId ?? 'park_public_central' }
+      const asset = mintOwnedVehicleRt(defId as VehicleDefId, {
+        acquiredVia: 'purchase', receipt: `dev_${Date.now()}`, day: useGameStore.getState().stats.day, price: 0, location,
+      })
+      if (opts?.condition !== undefined) setVehicleConditionRt(asset.id, opts.condition)
+      if (opts?.location === 'active') setVehicleLocationRt(asset.id, { kind: 'active' })
+      useGameStore.setState((s) => ({ vehicleVersion: s.vehicleVersion + 1 }))
+      return asset.id
+    },
+    vehicleSetCondition: (assetId: string, condition: number) => {
+      setVehicleConditionRt(assetId, condition)
+      useGameStore.setState((s) => ({ vehicleVersion: s.vehicleVersion + 1 }))
+    },
+    vehicleSetLocation: (assetId: string, location: VehicleLocationState) => {
+      setVehicleLocationRt(assetId, location)
+      useGameStore.setState((s) => ({ vehicleVersion: s.vehicleVersion + 1 }))
+    },
+    vehicleInstallUpgrade: (assetId: string, upgradeId: string) => useGameStore.getState().installVehicleUpgrade(assetId, upgradeId),
+    vehiclePaint: (assetId: string, color: string) => useGameStore.getState().paintVehicle(assetId, color),
+    vehicleLoadCargo: (assetId: string, itemId: string, quantity: number) => useGameStore.getState().loadVehicleCargo(assetId, itemId, quantity),
+    vehicleUnloadCargo: (assetId: string, itemId: string, quantity: number) => useGameStore.getState().unloadVehicleCargo(assetId, itemId, quantity),
+    openPhoneApp: (app: string) => useGameStore.setState((s) => ({ ui: { ...s.ui, panel: 'phone', activePhoneApp: app as never } })),
     // ---- Cross-District Traffic Routing v1 ---------------------------------
     getRoadGraphSummary: () => {
       const graph = getRoadGraph()
