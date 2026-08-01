@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import {
   atOwnedCap,
   getActiveVehicle,
+  getOwnedVehicles,
   getVehicleAtAnchor,
   isAnchorOccupied,
   markVehicleTxn,
@@ -115,10 +116,25 @@ describe('vehicle ownership persistence + migration (§3/§13)', () => {
     expect(ownedCount()).toBe(1)
   })
 
-  it('never legitimizes an ACTIVE STOLEN identity on legacy migration (§3)', () => {
-    applyVehicleOwnershipSave(undefined, { legacySave: true, loadDay: 5, stolenActive: true })
-    expect(ownedCount()).toBe(0)
-    expect(vehicleOwnershipRuntime.state.migrated).toBe(false)
+  it('grants a FRESH Compact on legacy migration even with a live stolen shell, held safely (§3)', () => {
+    applyVehicleOwnershipSave(undefined, { legacySave: true, loadDay: 5, stolenActive: true, parkAnchorId: 'park_home_studio' })
+    // §3 requires exactly-one Compact grant. It is a FRESH asset (never the stolen source) and is
+    // held in RECOVERY (not active, not at the residence anchor) so it neither legitimizes nor
+    // displaces the live stolen shell — the stolen identity stays separate in crime state.
+    expect(ownedCount()).toBe(1)
+    const v = getOwnedVehicles()[0]
+    expect(v.defId).toBe('veh_compact')
+    expect(v.acquiredVia).toBe('migration')
+    expect(v.location.kind).toBe('recovery')
+    expect(vehicleOwnershipRuntime.state.activeAssetId).toBeNull()
+    expect(vehicleOwnershipRuntime.state.migrated).toBe(true)
+  })
+
+  it('parks the migrated Compact at the residence anchor when no stolen shell is live (§3)', () => {
+    applyVehicleOwnershipSave(undefined, { legacySave: true, loadDay: 5, parkAnchorId: 'park_home_studio' })
+    const v = getOwnedVehicles()[0]
+    expect(v.location).toEqual({ kind: 'parked', anchorId: 'park_home_studio' })
+    expect(vehicleOwnershipRuntime.state.activeAssetId).toBeNull() // never active — shell stays hidden (§3)
   })
 
   it('round-trips an owned fleet with no duplication', () => {
@@ -166,5 +182,29 @@ describe('vehicle ownership persistence + migration (§3/§13)', () => {
     const v = state.assets.ov_1
     const total = (v.cargo.snack ?? 0) + (v.cargoOverflow.snack ?? 0)
     expect(total).toBe(99) // nothing lost — split across cargo + overflow
+  })
+
+  it('over-CAP load preserves every valid asset in recovery holding (no silent deletion — §5/§13)', () => {
+    const assets: Record<string, unknown> = {}
+    for (let i = 1; i <= 6; i++) assets[`ov_${i}`] = { defId: 'veh_compact', location: { kind: 'parked', anchorId: `a${i}` }, condition: 100 }
+    const state = sanitizeVehicleOwnershipSave({ version: 1, assets, assetSeq: 6, activeAssetId: null, migrated: true, appliedTxnKeys: [] })
+    // All 6 survive (cap is 4) — none deleted; the 2 beyond the cap are held in recovery.
+    expect(Object.keys(state.assets).length).toBe(6)
+    const recovered = Object.values(state.assets).filter((v) => v.location.kind === 'recovery')
+    expect(recovered.length).toBe(2)
+  })
+
+  it('malformed customization: unknown wheel → default, unknown/incompatible upgrades dropped (§13)', () => {
+    const state = sanitizeVehicleOwnershipSave({
+      version: 1,
+      assets: {
+        // Scooter does NOT allow 'performance'; 'up_bogus' is unknown; two cargo upgrades → one kept.
+        ov_1: { defId: 'veh_scooter', location: { kind: 'recovery' }, customization: { paint: '#e2b04a', wheels: 'wheels_bogus', upgrades: ['up_sport_tune', 'up_bogus', 'up_cargo_rack', 'up_cargo_rack'] } },
+      },
+      assetSeq: 1, activeAssetId: null, migrated: false, appliedTxnKeys: [],
+    })
+    const c = state.assets.ov_1.customization
+    expect(c.wheels).toBe('wheels_standard') // unknown wheel → default
+    expect(c.upgrades).toEqual(['up_cargo_rack']) // sport_tune incompatible w/ scooter, bogus unknown, dup dropped
   })
 })

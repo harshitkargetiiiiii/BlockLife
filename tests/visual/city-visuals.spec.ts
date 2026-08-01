@@ -106,6 +106,7 @@ test.describe('city visuals', () => {
 
   test('driving the car', async ({ page }) => {
     await setupScene(page, 15, [13, 1.2, 14])
+    await page.evaluate(() => window.GAME_TEST_API!.vehicleGrant('veh_compact', { location: 'active' })) // §19: own an active shell
     await page.waitForFunction(
       () => window.GAME_TEST_API!.getStats().activeInteractableId === 'vehicle_compact_car_01',
     )

@@ -4,7 +4,8 @@ import { expect, test, type Page } from '@playwright/test'
  * Vehicle Ownership, Parking & Customization v1 (issue #19) visual baselines. Deterministic:
  * fixed time + clear weather, state driven through the dev API, the world PAUSED before each shot.
  * Garage-app surfaces are scoped to the phone app element (stable DOM); the driving/parked surfaces
- * shoot the paused viewport with the shell/owned cars projected. 14 surfaces.
+ * shoot the paused viewport with the shell/owned cars projected. 16 surfaces (incl. wheel styles §9
+ * and an NPC ride passenger §11).
  */
 type Api = Record<string, (...a: unknown[]) => unknown>
 function api(page: Page, method: string, ...args: unknown[]) {
@@ -126,11 +127,37 @@ test.describe('Vehicle Ownership v1 — visuals', () => {
   test('a custom-painted sports car parked', async ({ page }) => {
     await ready(page)
     const id = await grant(page, 'veh_sports', { location: 'parked', anchorId: 'park_public_central' })
+    await api(page, 'vehicleStandAtAnchor', 'park_service') // paint requires the authored service bay (§7/§9)
     await api(page, 'vehiclePaint', id, '#2c2c33')
     await api(page, 'teleportPlayer', [22, 1.2, 20])
     await page.waitForTimeout(300)
     await freeze(page)
     await expect(page).toHaveScreenshot('painted-sports.png', { maxDiffPixelRatio: 0.02 })
+  })
+
+  test('a sports car with off-road wheels fitted', async ({ page }) => {
+    await ready(page)
+    const id = await grant(page, 'veh_sports', { location: 'parked', anchorId: 'park_public_central' })
+    await api(page, 'vehicleStandAtAnchor', 'park_service') // wheels are a service-bay customization (§9)
+    await api(page, 'vehicleSetWheels', id, 'wheels_offroad')
+    await api(page, 'teleportPlayer', [22, 1.2, 20])
+    await page.waitForTimeout(300)
+    await freeze(page)
+    await expect(page).toHaveScreenshot('wheels-offroad.png', { maxDiffPixelRatio: 0.02 })
+  })
+
+  test('driving with an NPC passenger along for the ride', async ({ page }) => {
+    await ready(page)
+    // Befriend Maya through the real social pipeline, then give her a ride (§11).
+    for (let d = 1; d <= 4; d++) await api(page, 'ingestSocialEvent', { id: `ride_vis_${d}`, kind: 'activity_completed', actorId: 'npc_maya_01', gameDay: d, gameHour: 12 })
+    const id = await grant(page, 'veh_van', { location: 'parked', anchorId: 'park_public_central' })
+    await api(page, 'vehicleStandAtAnchor', 'park_public_central')
+    await api(page, 'vehicleRetrieve', id)
+    await page.waitForTimeout(300)
+    await api(page, 'vehicleStartRide', 'npc_maya_01')
+    await page.waitForTimeout(200)
+    await freeze(page)
+    await expect(page).toHaveScreenshot('driving-with-passenger.png', { maxDiffPixelRatio: 0.02 })
   })
 
   test('the dealership bays area', async ({ page }) => {

@@ -13,8 +13,19 @@ const cabinMaterial = new THREE.MeshStandardMaterial({
   roughness: 0.15,
   metalness: 0.3,
 })
-const wheelMaterial = new THREE.MeshStandardMaterial({ color: '#26262c', roughness: 0.9 })
 const driverMaterial = new THREE.MeshStandardMaterial({ color: '#ffd7b0' })
+
+// Wheel hub materials cached per style colour (a handful total). '#26262c' is the classic default,
+// so ambient/parked/stealable cars (which pass no wheel style) render byte-identically.
+const wheelMaterials = new Map<string, THREE.MeshStandardMaterial>()
+function wheelMaterialFor(hub: string): THREE.MeshStandardMaterial {
+  let mat = wheelMaterials.get(hub)
+  if (!mat) {
+    mat = new THREE.MeshStandardMaterial({ color: hub, roughness: 0.9 })
+    wheelMaterials.set(hub, mat)
+  }
+  return mat
+}
 
 // Body materials cached per paint color (a handful of colors total).
 const bodyMaterials = new Map<string, THREE.MeshStandardMaterial>()
@@ -38,7 +49,21 @@ const WHEEL_POSITIONS: [number, number][] = [
  * Shared low-poly car body used by the drivable car, ambient cars and parked
  * cars. Nose faces +z. Roughly 2 wide × 1.6 tall × 3.9 long.
  */
-export function CarMesh({ color, showDriver = false }: { color: string; showDriver?: boolean }) {
+export function CarMesh({
+  color,
+  showDriver = false,
+  showPassenger = false,
+  wheelHub = '#26262c',
+  wheelScale = 1,
+}: {
+  color: string
+  showDriver?: boolean
+  /** A seated NPC passenger (Give-a-Ride, §11) — a validated render flag, no passenger AI. */
+  showPassenger?: boolean
+  /** Wheel-style hub colour + relative radius (§9). Defaults reproduce the classic wheel exactly. */
+  wheelHub?: string
+  wheelScale?: number
+}) {
   return (
     <group name="car-mesh">
       <mesh geometry={bodyGeometry} material={bodyMaterialFor(color)} position={[0, 0.55, 0]} castShadow />
@@ -47,9 +72,10 @@ export function CarMesh({ color, showDriver = false }: { color: string; showDriv
         <mesh
           key={i}
           geometry={wheelGeometry}
-          material={wheelMaterial}
-          position={[x, 0.34, z]}
+          material={wheelMaterialFor(wheelHub)}
+          position={[x, 0.34 * wheelScale, z]}
           rotation-z={Math.PI / 2}
+          scale={wheelScale}
         />
       ))}
       {/* Headlights (front, +z) and taillights */}
@@ -69,6 +95,9 @@ export function CarMesh({ color, showDriver = false }: { color: string; showDriv
       />
       {showDriver && (
         <mesh geometry={driverGeometry} material={driverMaterial} position={[0, 1.25, -0.2]} />
+      )}
+      {showPassenger && (
+        <mesh geometry={driverGeometry} material={driverMaterial} position={[0.5, 1.25, -0.2]} />
       )}
     </group>
   )

@@ -447,6 +447,11 @@ interface Window {
     pauseWorld: (paused: boolean) => void
     setQuestState: (questId: string, state: string) => void
     giveItem: (itemId: string, quantity: number) => void
+    // Vehicle Ownership v1 (issue #19) — DEV arrange for on-foot specs that need the drivable shell.
+    vehicleGrant: (
+      defId: string,
+      opts?: { location?: 'parked' | 'recovery' | 'impound' | 'active'; anchorId?: string; condition?: number },
+    ) => string | null
     resetGame: () => void
     saveGame: () => Promise<boolean>
     loadGame: () => Promise<boolean>

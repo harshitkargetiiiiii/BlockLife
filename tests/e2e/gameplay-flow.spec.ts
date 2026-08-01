@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { getStats, gotoGame, pressE, teleport, waitForActiveInteractable } from './helpers'
+import { acquireDrivableCar, getStats, gotoGame, pressE, teleport, waitForActiveInteractable } from './helpers'
 
 test.describe('gameplay flow', () => {
   test.beforeEach(async ({ page }) => {
@@ -136,6 +136,7 @@ test.describe('gameplay flow', () => {
   })
 
   test('player can enter, drive and exit the car', async ({ page }) => {
+    await acquireDrivableCar(page) // §19: no free car on a new game — own an active Compact shell first
     await teleport(page, [13, 1.2, 14])
     await waitForActiveInteractable(page, 'vehicle_compact_car_01')
 
@@ -157,6 +158,7 @@ test.describe('gameplay flow', () => {
   })
 
   test('the car cannot drive through buildings', async ({ page }) => {
+    await acquireDrivableCar(page) // §19: own an active Compact shell before the classic enter flow
     await teleport(page, [13, 1.2, 14])
     await waitForActiveInteractable(page, 'vehicle_compact_car_01')
     await pressE(page)

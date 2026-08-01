@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { getStats, gotoGame, teleport } from './helpers'
+import { acquireDrivableCar, getStats, gotoGame, teleport } from './helpers'
 
 /**
  * Traffic v2 E2E: signal-controlled crossings, vehicle-vs-vehicle following,
@@ -69,6 +69,7 @@ test.describe('traffic', () => {
     page.on('pageerror', (err) => errors.push(String(err)))
     await gotoGame(page)
     await page.evaluate(() => window.GAME_TEST_API!.resetGame())
+    await acquireDrivableCar(page) // §19: own an active Compact shell (no free car on a new game)
 
     // Get in the car, park it in the eastbound inner lane, facing east.
     await teleport(page, [13, 1.2, 14])

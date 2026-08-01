@@ -46,14 +46,17 @@ import {
   canBuyVehicle,
   canTradeIn,
   commitVehicleSale,
+  nextServiceReceipt,
   reconcileVehicleDealership,
   vehicleRefusalText,
 } from '../vehicles/vehicleDealership'
 import { canPark, canRecover, canReleaseFromImpound, canRepair, canRetrieve } from '../vehicles/vehicleService'
-import { canInstallUpgrade, canPaint } from '../vehicles/vehicleCustomization'
+import { canInstallUpgrade, canPaint, canSetWheels } from '../vehicles/vehicleCustomization'
 import { loadCargo, unloadCargo } from '../vehicles/vehicleCargo'
-import { canParkAtAnchor, nearestParkableAnchorId, pickInitialParkingAnchorId } from '../vehicles/vehicleParkingService'
-import { getParkingAnchor } from '../vehicles/parkingRegistry'
+import { canParkAtAnchor, nearestParkableAnchorId, pickInitialParkingAnchorId, playerNearAnchor, playerNearAnyAnchor } from '../vehicles/vehicleParkingService'
+import { deliveryPayBonus } from '../vehicles/vehicleCareer'
+import { canGiveRide, getRidePassenger, resetVehicleRide, setRidePassenger } from '../vehicles/vehicleSocial'
+import { DEALERSHIP_ANCHOR_IDS, RECOVERY_ANCHOR_ID, SERVICE_ANCHOR_ID, getParkingAnchor, residenceAnchorFor } from '../vehicles/parkingRegistry'
 import { fileReport } from '../crime/reportingSystem'
 import { registerPlayerDamageSink } from '../combat/damageRuntime'
 import { resetCombatSystems } from '../combat/combatSystem'
@@ -175,7 +178,7 @@ import {
 import { activityFromInvitation, activityPrompt, favorActivity, isHomeActivityKind } from '../social/socialActivities'
 import { invitationStartWindow, nextAvailableSlot } from '../social/socialScheduling'
 import { noteArrestWitnessed, noteCrimeWitnessed } from '../social/socialConsequences'
-import type { InvitationActivityKind } from '../social/socialTypes'
+import type { InvitationActivityKind, SocialActorId } from '../social/socialTypes'
 import { getSocialActor, isSocialActor } from '../social/socialActors'
 import {
   availableSocialActions,
@@ -471,6 +474,12 @@ export interface GameStore extends GameDataState {
   installVehicleUpgrade: (assetId: string, upgradeId: string) => void
   /** Repaint an owned vehicle to a palette colour (free cosmetic). */
   paintVehicle: (assetId: string, color: string) => void
+  /** Swap an owned vehicle's wheel style (free cosmetic, like paint; §9). */
+  setVehicleWheels: (assetId: string, wheelId: string) => void
+  /** Offer a friendly NPC a ride in your stopped owned vehicle (§11 social integration). */
+  startVehicleRide: (npcId: string) => void
+  /** Finish the ride, dropping the passenger off — produces one social memory exact-once. */
+  completeVehicleRide: () => void
   /** Load items from the backpack into a vehicle's cargo (atomic — never duplicates/loses). */
   loadVehicleCargo: (assetId: string, itemId: string, quantity: number) => void
   /** Unload items from a vehicle's cargo back into the backpack (atomic). */
@@ -634,6 +643,14 @@ let recoverySeq = 0
 /** In-game hours (day*24 + hour) — the clock stock restock reconciles against. */
 function gameHoursOf(s: { stats: PlayerStats }): number {
   return s.stats.day * 24 + s.stats.hour
+}
+
+/** True when the player may transact at the vehicle service/customization anchor (§7/§9): on foot
+ *  in the open city, not wanted or mid-shift, and standing at the authored service anchor. Repair,
+ *  upgrade install, paint and wheels all share this gate. */
+function atCustomizationLocation(): boolean {
+  const s = useGameStore.getState()
+  return s.mode !== 'driving' && s.location === 'city' && getWantedLevel() === 0 && getActiveCareerShift() == null && playerNearAnchor(SERVICE_ANCHOR_ID)
 }
 
 /**
@@ -1369,7 +1386,10 @@ export const useGameStore = create<GameStore>()((set, get) => ({
   finalizeCareerShift: () => {
     const s = get()
     const shiftId = getActiveCareerShift()?.id ?? ''
-    const out = finalizeCareerShiftRt(s.stats.day, s.stats.hour)
+    // Delivery-vehicle advantage (issue #19 §10): the store reads the read-only vehicle→career
+    // adapter and passes a bounded bonus INTO the career settlement authority, which caps it and
+    // grants it exactly once with the shift's normal pay.
+    const out = finalizeCareerShiftRt(s.stats.day, s.stats.hour, deliveryPayBonus())
     if (!out) return
     // Pay flows through the money authority atomically (exact-once is enforced in the
     // runtime via the shift attemptKey — a repeat finalize reports total 0).
@@ -1377,7 +1397,8 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     // Employer follow-up (praise + memory on a strong shift) + promotion message (§10).
     if (!out.alreadyFinalized) careerNotifyShiftOutcome(out.careerId, 'completed', out.performance.score, shiftId, s.stats.day, s.stats.hour)
     set((st) => ({ careerVersion: st.careerVersion + 1, socialVersion: st.socialVersion + 1 }))
-    get().showToast(`Shift complete — ${out.performance.score}/100 · +$${out.pay.total}`)
+    const bonusNote = out.pay.vehicleBonus ? ` (incl. +$${out.pay.vehicleBonus} delivery vehicle)` : ''
+    get().showToast(`Shift complete — ${out.performance.score}/100 · +$${out.pay.total}${bonusNote}`)
     // A completed shift can earn a promotion — a rank up, higher pay, and a visible unlock.
     if (out.promotedTo) {
       careerNotifyPromoted(out.careerId, out.promotedTo.id, s.stats.day, s.stats.hour)
@@ -1604,21 +1625,27 @@ export const useGameStore = create<GameStore>()((set, get) => ({
 
   buyVehicle: (defId) => {
     const s = get()
+    // Real dealership interaction (§4): the Garage app shows listings, but a purchase completes only
+    // on foot at an authored dealership bay — never as free remote phone commerce from anywhere.
+    if (s.mode === 'driving' || s.location !== 'city' || !playerNearAnyAnchor(DEALERSHIP_ANCHOR_IDS)) {
+      return void get().showToast(vehicleRefusalText('not_at_location'))
+    }
     // Lazily restock the dealership to the current game time (never per frame), then run the
     // SAME commerce purchase gate as any store plus the vehicle gates (wanted/incapacitated/busy,
-    // eligibility, owned cap).
+    // eligibility, owned cap). `busy` covers an active shift OR being inside a store/interior/tour.
     reconcileVehicleDealership(gameHoursOf(s))
     const ctx = {
       money: s.stats.money,
       day: s.stats.day,
       wanted: getWantedLevel() > 0,
       incapacitated: s.playerIncapacitated,
-      busy: getActiveCareerShift() != null,
+      busy: getActiveCareerShift() != null || s.location !== 'city',
     }
     const check = canBuyVehicle(defId, ctx)
     if (!check.ok) return void get().showToast(vehicleRefusalText(check.reason))
-    // Where the new car parks: a free dealership bay / public anchor, else anchor-less recovery.
+    // A purchase must have a safe initial parking/holding destination BEFORE any money moves (§4).
     const anchorId = pickInitialParkingAnchorId(defId)
+    if (!anchorId) return void get().showToast(vehicleRefusalText('no_parking'))
     // The commerce transaction FIRST: record the sale (stock − 1) + mint a purchase receipt.
     const { receipt } = commitVehicleSale(defId)
     // Exact-once guard on the receipt so an accidental replay can never double-mint or double-charge.
@@ -1630,7 +1657,7 @@ export const useGameStore = create<GameStore>()((set, get) => ({
       receipt,
       day: s.stats.day,
       price: check.price,
-      location: anchorId ? { kind: 'parked', anchorId } : { kind: 'recovery' },
+      location: { kind: 'parked', anchorId },
     })
     audioManager.playClick()
     set((st) => ({ stats: { ...st.stats, money: st.stats.money - check.price }, vehicleVersion: st.vehicleVersion + 1 }))
@@ -1639,13 +1666,17 @@ export const useGameStore = create<GameStore>()((set, get) => ({
 
   tradeInVehicle: (tradeInId, newDefId) => {
     const s = get()
+    // Trade completes only on foot at the real dealership (§4), like a purchase.
+    if (s.mode === 'driving' || s.location !== 'city' || !playerNearAnyAnchor(DEALERSHIP_ANCHOR_IDS)) {
+      return void get().showToast(vehicleRefusalText('not_at_location'))
+    }
     reconcileVehicleDealership(gameHoursOf(s))
     const ctx = {
       money: s.stats.money,
       day: s.stats.day,
       wanted: getWantedLevel() > 0,
       incapacitated: s.playerIncapacitated,
-      busy: getActiveCareerShift() != null,
+      busy: getActiveCareerShift() != null || s.location !== 'city',
     }
     const check = canTradeIn(tradeInId, newDefId, ctx)
     if (!check.ok) return void get().showToast(vehicleRefusalText(check.reason))
@@ -1676,11 +1707,14 @@ export const useGameStore = create<GameStore>()((set, get) => ({
 
   repairVehicle: (assetId) => {
     const s = get()
+    // Real service interaction (§7): on foot at the authored service anchor, not during pursuit/shift.
+    if (!atCustomizationLocation()) return void get().showToast(vehicleRefusalText('not_at_location'))
     const check = canRepair(assetId, s.stats.money)
     if (!check.ok) return void get().showToast(vehicleRefusalText(check.reason))
     setVehicleCondition(assetId, check.quote.toCondition)
+    const receipt = nextServiceReceipt() // commerce receipt for the paid service (§7)
     const asset = getOwnedVehicle(assetId)
-    if (asset) addVehicleHistory(asset, { kind: 'repaired', day: s.stats.day, amount: -check.quote.cost, note: `+${check.quote.points} condition` })
+    if (asset) addVehicleHistory(asset, { kind: 'repaired', day: s.stats.day, amount: -check.quote.cost, receipt, note: `+${check.quote.points} condition` })
     audioManager.playClick()
     set((st) => ({ stats: { ...st.stats, money: st.stats.money - check.quote.cost }, vehicleVersion: st.vehicleVersion + 1 }))
     get().showToast('Vehicle repaired to pristine condition.')
@@ -1715,6 +1749,14 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     const check = canRetrieve(assetId)
     if (!check.ok) return void get().showToast(vehicleRefusalText(check.reason))
     const asset = getOwnedVehicle(assetId)
+    // Real-world contract (§5): you must WALK to the vehicle's authored spot — a parked car at its
+    // anchor, or a recovery-held car at the safe recovery anchor. The phone guides you there; it
+    // never teleports a healthy vehicle to you for free.
+    const atAnchor =
+      asset?.location.kind === 'parked' ? asset.location.anchorId
+      : asset?.location.kind === 'recovery' ? RECOVERY_ANCHOR_ID
+      : null
+    if (!atAnchor || !playerNearAnchor(atAnchor)) return void get().showToast(vehicleRefusalText('not_at_location'))
     // Retrieve from a parked anchor when it has one; a recovery-held car uses its last known spot.
     const anchor = asset?.location.kind === 'parked' ? getParkingAnchor(asset.location.anchorId) : undefined
     const heading = anchor?.headingY ?? asset?.lastTransform?.heading ?? 0
@@ -1723,6 +1765,7 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     // Teleport the ONE physical shell onto the retrieved vehicle's spot (guarded for headless).
     const body = registry.vehicleBody
     if (body) {
+      body.setEnabled(true) // the shell may be hidden/disabled (§3); wake it before positioning
       const y = body.translation().y
       body.setTranslation({ x, y, z }, true)
       body.setRotation({ x: 0, y: Math.sin(heading / 2), z: 0, w: Math.cos(heading / 2) }, true)
@@ -1779,18 +1822,23 @@ export const useGameStore = create<GameStore>()((set, get) => ({
 
   installVehicleUpgrade: (assetId, upgradeId) => {
     const s = get()
+    // Customization happens at the authored service/customization anchor, not during pursuit/shift/
+    // interior (§9).
+    if (!atCustomizationLocation()) return void get().showToast(vehicleRefusalText('not_at_location'))
     const check = canInstallUpgrade(assetId, upgradeId, s.stats.money)
     if (!check.ok) return void get().showToast(vehicleRefusalText(check.reason))
     const asset = getOwnedVehicle(assetId)
     if (!asset) return
     asset.customization.upgrades.push(upgradeId)
-    addVehicleHistory(asset, { kind: 'customized', day: s.stats.day, amount: -check.price, note: upgradeId })
+    const receipt = nextServiceReceipt() // commerce receipt for the paid install (§9)
+    addVehicleHistory(asset, { kind: 'customized', day: s.stats.day, amount: -check.price, receipt, note: upgradeId })
     audioManager.playClick()
     set((st) => ({ stats: { ...st.stats, money: st.stats.money - check.price }, vehicleVersion: st.vehicleVersion + 1 }))
     get().showToast('Upgrade installed.')
   },
 
   paintVehicle: (assetId, color) => {
+    if (!atCustomizationLocation()) return void get().showToast(vehicleRefusalText('not_at_location'))
     const check = canPaint(assetId, color)
     if (!check.ok) return void get().showToast(vehicleRefusalText(check.reason))
     const asset = getOwnedVehicle(assetId)
@@ -1798,6 +1846,44 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     audioManager.playClick()
     set((st) => ({ vehicleVersion: st.vehicleVersion + 1 }))
     get().showToast('New paint applied.')
+  },
+
+  setVehicleWheels: (assetId, wheelId) => {
+    if (!atCustomizationLocation()) return void get().showToast(vehicleRefusalText('not_at_location'))
+    const check = canSetWheels(assetId, wheelId)
+    if (!check.ok) return void get().showToast(vehicleRefusalText(check.reason))
+    const asset = getOwnedVehicle(assetId)
+    if (asset) asset.customization.wheels = wheelId
+    audioManager.playClick()
+    set((st) => ({ vehicleVersion: st.vehicleVersion + 1 }))
+    get().showToast('New wheels fitted.')
+  },
+
+  startVehicleRide: (npcId) => {
+    const s = get()
+    const active = getActiveOwnedVehicle()
+    // §11: start requires being STOPPED in your own usable vehicle, with no other social activity in
+    // progress (the same exclusion the home-host uses) and no wanted heat. Vehicle value never buys it.
+    if (s.mode !== 'driving' || !active) return void get().showToast('Get in one of your own vehicles first.')
+    if (Math.abs(registry.flags.drivingSpeed) > 0.3) return void get().showToast('Come to a stop to offer a ride.')
+    if (getActiveActivity() != null || getWantedLevel() > 0) return void get().showToast(vehicleRefusalText('busy'))
+    if (getRidePassenger()) return void get().showToast('You already have a passenger.')
+    const check = canGiveRide(npcId)
+    if (!check.ok) return void get().showToast(vehicleRefusalText(check.reason))
+    setRidePassenger(npcId)
+    set((st) => ({ vehicleVersion: st.vehicleVersion + 1, socialVersion: st.socialVersion + 1 }))
+    get().showToast('Giving them a ride around town.')
+  },
+
+  completeVehicleRide: () => {
+    const npcId = getRidePassenger()
+    if (!npcId) return
+    const s = get()
+    // ONE social consequence through the EXISTING pipeline; the id makes the memory exact-once (§11).
+    ingestSocialEvent({ id: `vehicle_ride:${npcId}:${s.stats.day}:${Math.round(s.stats.hour)}`, kind: 'activity_completed', actorId: npcId as SocialActorId, gameDay: s.stats.day, gameHour: s.stats.hour })
+    setRidePassenger(null)
+    set((st) => ({ vehicleVersion: st.vehicleVersion + 1, socialVersion: st.socialVersion + 1 }))
+    get().showToast('Dropped off your passenger.')
   },
 
   loadVehicleCargo: (assetId, itemId, quantity) => {
@@ -2038,6 +2124,20 @@ export const useGameStore = create<GameStore>()((set, get) => ({
       const t = registry.playerBody?.translation()
       if (t) noteArrestWitnessed([t.x, t.y, t.z], s.stats.day, s.stats.hour)
     }
+    // Vehicle impound (§7): an ARREST while driving an OWNED vehicle seizes THAT vehicle to police
+    // impound (one bounded record; the release fee is paid later via releaseVehicleFromImpound). A
+    // stolen car follows the existing crime resolution and is NEVER converted to impounded owned
+    // property; unrelated parked owned vehicles are untouched. Runs before the crime reset (which
+    // clears the stolen flag) and is exact-once via the single re-entrancy guard above.
+    if (kind === 'arrest' && s.mode === 'driving' && !isPlayerCarStolen()) {
+      const impounded = getActiveOwnedVehicle()
+      if (impounded && impounded.location.kind === 'active') {
+        setVehicleLocation(impounded.id, { kind: 'impound' })
+        addVehicleHistory(impounded, { kind: 'impounded', day: s.stats.day, amount: 0, note: 'arrest' })
+        set((st) => ({ vehicleVersion: st.vehicleVersion + 1 }))
+      }
+    }
+    resetVehicleRide() // an arrest/incapacitation cleanly removes any ride passenger (§11)
     if (s.mode === 'driving') get().exitVehicle()
     // Wanted, police, incidents, stolen-vehicle state, weapon, panic all clear.
     resetCrimeSystems()
@@ -2107,6 +2207,7 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     // Relocate the drivable car onto the stolen vehicle's spot + heading.
     const body = registry.vehicleBody
     if (body) {
+      body.setEnabled(true) // the shell may be hidden/disabled on a fresh game (§3); wake it first
       body.setTranslation({ x: pos[0], y: pos[1], z: pos[2] }, true)
       body.setRotation({ x: 0, y: Math.sin(headingY / 2), z: 0, w: Math.cos(headingY / 2) }, true)
       body.setLinvel({ x: 0, y: 0, z: 0 }, true)
@@ -2453,12 +2554,17 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     resetCareers() // employment/skills/shifts/history back to canonical defaults
     resetHousing() // lease/property/furniture back to the canonical Starter Studio
     resetVehicleOwnership() // owned vehicles/parking/condition/upgrades back to none (§13)
+    resetVehicleRide() // drop any transient ride passenger (never persisted — §11)
     resetIntegrityRuntime() // clear mirrored entities + anomaly history on reset
     set({ ...createInitialGameState() })
     teleportPlayer(PLAYER_SPAWN)
   },
 
   applySnapshot: (snapshot) => {
+    // Capture the pre-load stolen-shell identity BEFORE crime state is reset below, so the legacy
+    // migration reads a real value (§3). Migration always mints a FRESH Compact (never the stolen
+    // source) parked safely, so it can neither legitimize nor displace a stolen identity.
+    const stolenBeforeLoad = isPlayerCarStolen()
     if (get().mode === 'driving') get().exitVehicle()
     // Weather: restore when saved; pre-weather saves default to clear skies.
     const savedKind =
@@ -2481,6 +2587,7 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     applyActivitySave(snapshot.activities)
     resetInteriorCivilians() // no heist loads → civilians start home
     clearTransientActivity() // drop any transient robbery + containment on load
+    resetVehicleRide() // a load never restores/strands a ride passenger (transient — §11)
     // Social: restore relationships/memories/contacts (sanitized, idempotent);
     // an old save (no `social` field) resets to canonical strangers.
     applySocialSave(snapshot.social)
@@ -2494,13 +2601,15 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     // lazily just below, after stats (money) are restored.
     applyHousingSave(snapshot.housing, snapshot.stats.day)
     // Vehicles: restore owned assets (sanitized, idempotent), or MIGRATE a pre-v1 save (no
-    // `vehicles` field) into exactly ONE Compact — never legitimizing an active stolen identity
-    // (§3/§13). Crime state was reset above, so a load never restores a stolen shell; the
-    // residence parking anchor is wired in V3 (until then the migrated Compact holds in recovery).
+    // `vehicles` field) into exactly ONE Compact — a FRESH asset, never the stolen source (§3/§13).
+    // The migrated Compact parks at the CURRENT residence's authored anchor (housing was applied
+    // just above) when available, else safe recovery holding; it is minted parked (never active),
+    // so it never fights or legitimizes a stolen shell.
     applyVehicleOwnershipSave(snapshot.vehicles, {
       legacySave: snapshot.vehicles === undefined,
       loadDay: snapshot.stats.day,
-      stolenActive: isPlayerCarStolen(),
+      stolenActive: stolenBeforeLoad,
+      parkAnchorId: residenceAnchorFor(getCurrentPropertyId())?.id,
     })
     const careerShiftDiscarded = snapshot.career?.activeShift != null
     reconcileCareerEmploymentRt(snapshot.stats.day, snapshot.stats.hour)

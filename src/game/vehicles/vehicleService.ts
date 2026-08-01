@@ -7,6 +7,7 @@
  */
 import { getActiveVehicle, getVehicle, setVehicleCondition } from './vehicleOwnershipRuntime'
 import { getVehicleDef } from './vehicleRegistry'
+import { getParkingAnchor } from './parkingRegistry'
 import { wearFactorOf } from './vehicleCustomization'
 import type { OwnedVehicle, VehicleRefusalReason } from './vehicleOwnershipTypes'
 
@@ -105,12 +106,20 @@ export function canPark(assetId: string): LifecycleCheck {
   return { ok: true }
 }
 
-/** May the player send an owned asset to safe recovery holding (a fallback for a lost/blocked
- *  shell)? Owned, not the active shell, not impounded. */
+/**
+ * May the player send an owned asset to safe recovery holding? This is a BOUNDED EMERGENCY only
+ * (§5), NOT a free "summon any car": permitted when the vehicle is disabled (condition ≤ 0) or its
+ * parking anchor is unknown/removed (e.g. after migration) — a healthy vehicle parked at a valid
+ * anchor is retrieved by DRIVING it, not recovered. Never the active shell or an impounded car.
+ */
 export function canRecover(assetId: string): LifecycleCheck {
   const asset = getVehicle(assetId)
   if (!asset) return { ok: false, reason: 'not_owned' }
   if (asset.location.kind === 'active') return { ok: false, reason: 'busy' }
   if (asset.location.kind === 'impound') return { ok: false, reason: 'unavailable' }
+  const disabled = asset.condition <= 0
+  const lostAnchor = asset.location.kind === 'parked' && !getParkingAnchor(asset.location.anchorId)
+  const inRecovery = asset.location.kind === 'recovery'
+  if (!disabled && !lostAnchor && !inRecovery) return { ok: false, reason: 'unavailable' }
   return { ok: true }
 }

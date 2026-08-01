@@ -146,6 +146,12 @@ export function commitVehicleSale(defId: VehicleDefId): { receipt: string } {
   return { receipt: nextPurchaseReceipt(VEHICLE_DEALERSHIP_ID) }
 }
 
+/** A commerce receipt for a paid SERVICE (repair / upgrade install) through the SAME receipt
+ *  authority as sales (§7/§9) — no second ledger; the service fee is charged by the store action. */
+export function nextServiceReceipt(): string {
+  return nextPurchaseReceipt(VEHICLE_DEALERSHIP_ID)
+}
+
 export function vehicleRefusalText(reason: VehicleRefusalReason): string {
   switch (reason) {
     case 'insufficient_funds': return 'Not enough money for that vehicle.'

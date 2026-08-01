@@ -7,8 +7,14 @@ import { getVehicleDef } from '../vehicles/vehicleRegistry'
 import { getParkingAnchor } from '../vehicles/parkingRegistry'
 import { registry } from '../world/runtimeRegistry'
 
+// Buying/trading/retrieving all require the on-foot player to be AT the authored dealership bay
+// (§4/§5). Bought cars park at park_dealer_a, so standing there also satisfies the retrieve gate.
+const DEALER = getParkingAnchor('park_dealer_a')!
+const SERVICE = getParkingAnchor('park_service')!
+
 function setMoney(money: number, day = 3): void {
-  useGameStore.setState((st) => ({ stats: { ...st.stats, money, day }, playerIncapacitated: false, mode: 'walking' }))
+  useGameStore.setState((st) => ({ stats: { ...st.stats, money, day }, playerIncapacitated: false, mode: 'walking', recovery: null, location: 'city' }))
+  registry.playerPosition.set(DEALER.position[0], 1.2, DEALER.position[1])
 }
 
 beforeEach(() => {
@@ -40,6 +46,32 @@ describe('buyVehicle / tradeInVehicle store actions (atomic money + asset)', () 
     useGameStore.getState().buyVehicle('veh_compact')
     expect(getOwnedVehicles()).toHaveLength(0)
     expect(useGameStore.getState().stats.money).toBe(10)
+  })
+
+  it('refuses a purchase when the player is NOT at the dealership (§4 — no remote commerce)', () => {
+    registry.playerPosition.set(-500, 1.2, -500) // nowhere near a dealership bay
+    useGameStore.getState().buyVehicle('veh_compact')
+    expect(getOwnedVehicles()).toHaveLength(0)
+  })
+
+  it('refuses retrieval when the player is NOT near the vehicle (§5 — no free teleport)', () => {
+    useGameStore.getState().buyVehicle('veh_compact')
+    const v = getOwnedVehicles()[0]
+    registry.playerPosition.set(-500, 1.2, -500) // walked away from the parked car
+    useGameStore.getState().retrieveVehicle(v.id)
+    expect(getActiveVehicle()).toBeUndefined()
+    expect(useGameStore.getState().mode).toBe('walking')
+  })
+
+  it('refuses repair/customization away from the service anchor (§7/§9)', () => {
+    useGameStore.getState().buyVehicle('veh_compact')
+    const v = getOwnedVehicles()[0]
+    v.condition = 40
+    // Still standing at the dealership, NOT the service anchor.
+    const moneyBefore = useGameStore.getState().stats.money
+    useGameStore.getState().repairVehicle(v.id)
+    expect(getOwnedVehicles()[0].condition).toBe(40) // unchanged — refused
+    expect(useGameStore.getState().stats.money).toBe(moneyBefore)
   })
 
   it('refuses at the owned cap — money unchanged, still exactly four vehicles', () => {
@@ -79,6 +111,8 @@ describe('buyVehicle / tradeInVehicle store actions (atomic money + asset)', () 
     useGameStore.getState().buyVehicle('veh_compact')
     const v = getOwnedVehicles()[0]
     v.condition = 40
+    // Repair happens at the SERVICE anchor — walk there first (§7).
+    registry.playerPosition.set(SERVICE.position[0], 1.2, SERVICE.position[1])
     const moneyBefore = useGameStore.getState().stats.money
     useGameStore.getState().repairVehicle(v.id)
     expect(getOwnedVehicles()[0].condition).toBe(100)
@@ -86,9 +120,10 @@ describe('buyVehicle / tradeInVehicle store actions (atomic money + asset)', () 
     expect(useGameStore.getState().stats.money).toBe(moneyBefore - 60 * 12)
   })
 
-  it('recover sends a parked vehicle to safe holding without charging', () => {
+  it('recover sends a DISABLED vehicle to safe holding without charging (§5 emergency)', () => {
     useGameStore.getState().buyVehicle('veh_compact')
     const v = getOwnedVehicles()[0]
+    v.condition = 0 // disabled — a legitimate recovery case (a healthy car would be driven instead)
     const moneyBefore = useGameStore.getState().stats.money
     useGameStore.getState().recoverVehicle(v.id)
     expect(getOwnedVehicles()[0].location.kind).toBe('recovery')
@@ -124,6 +159,19 @@ describe('buyVehicle / tradeInVehicle store actions (atomic money + asset)', () 
     expect(getActiveVehicle()).toBeUndefined() // parking releases the active shell
   })
 
+  it('arrest while driving an owned vehicle impounds THAT vehicle (§7)', () => {
+    useGameStore.getState().buyVehicle('veh_compact')
+    const v = getOwnedVehicles()[0]
+    useGameStore.getState().retrieveVehicle(v.id) // mode driving, v active
+    expect(useGameStore.getState().mode).toBe('driving')
+    useGameStore.getState().respawnAfterIncident('arrest')
+    expect(getOwnedVehicles()[0].location.kind).toBe('impound')
+    // Release restores it to recovery holding for a fee (already covered above); confirm it leaves impound.
+    useGameStore.setState((st) => ({ stats: { ...st.stats, money: 100000 }, recovery: null }))
+    useGameStore.getState().releaseVehicleFromImpound(v.id)
+    expect(getOwnedVehicles()[0].location.kind).toBe('recovery')
+  })
+
   it('cannot park where there is no authored spot nearby', () => {
     useGameStore.getState().buyVehicle('veh_compact')
     const v = getOwnedVehicles()[0]
@@ -138,6 +186,8 @@ describe('buyVehicle / tradeInVehicle store actions (atomic money + asset)', () 
   it('installs an upgrade: charges the price and records it once', () => {
     useGameStore.getState().buyVehicle('veh_compact')
     const v = getOwnedVehicles()[0]
+    // Customization happens at the SERVICE anchor — walk there first (§9).
+    registry.playerPosition.set(SERVICE.position[0], 1.2, SERVICE.position[1])
     const moneyBefore = useGameStore.getState().stats.money
     useGameStore.getState().installVehicleUpgrade(v.id, 'up_sport_tune')
     expect(getOwnedVehicles()[0].customization.upgrades).toContain('up_sport_tune')

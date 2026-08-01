@@ -11,7 +11,7 @@ import {
   noteActiveVehicleImpact,
   repairQuote,
 } from './vehicleService'
-import { mintOwnedVehicle, resetVehicleOwnership, setActiveVehicle, setVehicleLocation } from './vehicleOwnershipRuntime'
+import { mintOwnedVehicle, resetVehicleOwnership, setActiveVehicle } from './vehicleOwnershipRuntime'
 import { getVehicleDef } from './vehicleRegistry'
 
 afterEach(() => resetVehicleOwnership())
@@ -83,11 +83,14 @@ describe('vehicle lifecycle service', () => {
     expect(canPark(active.id)).toEqual({ ok: true })
   })
 
-  it('recover: any owned, non-active, non-impound asset can go to safe holding', () => {
-    const parked = mint('veh_compact', { location: { kind: 'parked', anchorId: 'a' } })
-    expect(canRecover(parked.id)).toEqual({ ok: true })
-    setVehicleLocation(parked.id, { kind: 'active' })
-    expect(canRecover(parked.id)).toEqual({ ok: false, reason: 'busy' })
+  it('recover: a bounded emergency only — a healthy parked car cannot be summoned to holding (§5)', () => {
+    const healthy = mint('veh_compact', { condition: 100, location: { kind: 'parked', anchorId: 'park_dealer_a' } })
+    expect(canRecover(healthy.id)).toEqual({ ok: false, reason: 'unavailable' }) // drive it, don't recover it
+    // A DISABLED car (or one at a lost/unknown anchor) is a legitimate recovery case.
+    const disabled = mint('veh_compact', { condition: 0, location: { kind: 'parked', anchorId: 'park_dealer_b' } })
+    expect(canRecover(disabled.id)).toEqual({ ok: true })
+    const lost = mint('veh_compact', { condition: 100, location: { kind: 'parked', anchorId: 'anchor_that_was_removed' } })
+    expect(canRecover(lost.id)).toEqual({ ok: true })
   })
 
   it('driving impacts wear the active owned vehicle but never a legacy/stolen shell', () => {

@@ -39,6 +39,58 @@ export function getUpgradeDef(id: string): UpgradeDef | undefined {
   return BY_ID[id]
 }
 
+// ---- cosmetic wheel styles (§9: at least three) --------------------------------
+export interface WheelStyleDef {
+  id: string
+  displayName: string
+  /** Render hints the CarMesh wheel adapter reads: hub colour + relative radius. */
+  hubColor: string
+  radiusScale: number
+  sourceRef: { file: string; symbol: string }
+}
+
+/** Wheel styles are class-agnostic cosmetic and — like paint — a free consistent policy (no money,
+ *  no commerce receipt); functional UPGRADES above are the paid, receipted customizations. */
+export const WHEEL_STYLES: readonly WheelStyleDef[] = [
+  { id: 'wheels_standard', displayName: 'Standard', hubColor: '#26262c', radiusScale: 1.0, sourceRef: SRC('wheels_standard') },
+  { id: 'wheels_sport', displayName: 'Sport Alloy', hubColor: '#c9ccd1', radiusScale: 1.0, sourceRef: SRC('wheels_sport') },
+  { id: 'wheels_offroad', displayName: 'Off-Road', hubColor: '#3a3a2e', radiusScale: 1.18, sourceRef: SRC('wheels_offroad') },
+  { id: 'wheels_chrome', displayName: 'Chrome', hubColor: '#e8ecf0', radiusScale: 1.0, sourceRef: SRC('wheels_chrome') },
+]
+const WHEELS_BY_ID: Record<string, WheelStyleDef> = Object.fromEntries(WHEEL_STYLES.map((w) => [w.id, w]))
+export const DEFAULT_WHEEL_STYLE = 'wheels_standard'
+export function getWheelStyle(id: string): WheelStyleDef | undefined {
+  return WHEELS_BY_ID[id]
+}
+export function isWheelStyleId(id: unknown): id is string {
+  return typeof id === 'string' && id in WHEELS_BY_ID
+}
+
+export type WheelCheck = { ok: true } | { ok: false; reason: VehicleRefusalReason }
+/** Validate a wheel swap: owned + a known style. Free cosmetic, consistent with paint (no money). */
+export function canSetWheels(assetId: string, wheelId: string): WheelCheck {
+  const asset = getVehicle(assetId)
+  if (!asset) return { ok: false, reason: 'not_owned' }
+  if (!isWheelStyleId(wheelId)) return { ok: false, reason: 'incompatible' }
+  return { ok: true }
+}
+
+/** Sanitize a persisted upgrade id LIST for a class: keep only known ids compatible with the class,
+ *  at most one per functional category, preserving order. Used by save sanitation (§13). */
+export function sanitizeUpgradeIds(rawUpgrades: string[], def: VehicleDef): string[] {
+  const kept: string[] = []
+  const categories = new Set<string>()
+  for (const id of rawUpgrades) {
+    const up = getUpgradeDef(id)
+    if (!up) continue // unknown upgrade id — drop only this entry
+    if (!def.allowedUpgrades.includes(up.category)) continue // incompatible with this class — drop
+    if (categories.has(up.category)) continue // one functional upgrade per category
+    categories.add(up.category)
+    kept.push(id)
+  }
+  return kept
+}
+
 /** The installed upgrade defs on an asset (dropping any unknown id defensively). */
 export function installedUpgrades(asset: OwnedVehicle): UpgradeDef[] {
   return asset.customization.upgrades.map((id) => BY_ID[id]).filter((u): u is UpgradeDef => u !== undefined)
@@ -101,7 +153,7 @@ export function canPaint(assetId: string, color: string): PaintCheck {
   return { ok: true }
 }
 
-/** Registry validation (§9): unique ids, positive price, sane bounded effects. */
+/** Registry validation (§9): unique ids, positive price, sane bounded effects, ≥3 wheel styles. */
 export function validateUpgradeRegistry(): string[] {
   const errors: string[] = []
   const seen = new Set<string>()
@@ -113,5 +165,12 @@ export function validateUpgradeRegistry(): string[] {
     if (u.cargoSlots !== undefined && !(u.cargoSlots > 0)) errors.push(`${u.id}: cargoSlots must be positive`)
     if ((u.maxSpeedDelta ?? 0) > 2) errors.push(`${u.id}: performance top-speed delta exceeds the streaming-safe headroom (2)`)
   }
+  const wheelSeen = new Set<string>()
+  for (const w of WHEEL_STYLES) {
+    if (wheelSeen.has(w.id)) errors.push(`${w.id}: duplicate wheel style id`)
+    wheelSeen.add(w.id)
+    if (!(w.radiusScale > 0)) errors.push(`${w.id}: non-positive wheel radius scale`)
+  }
+  if (WHEEL_STYLES.length < 3) errors.push('need at least 3 wheel styles (§9)')
   return errors
 }

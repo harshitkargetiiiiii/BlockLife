@@ -16,11 +16,23 @@
 import { VEHICLE_TUNING } from './vehicleTypes'
 import { CAR_HALF_LENGTH, CAR_HALF_WIDTH } from '../traffic/vehicleObstacles'
 import { getActiveVehicle } from './vehicleOwnershipRuntime'
-import { performanceDelta } from './vehicleCustomization'
+import { isPlayerCarStolen } from './vehicleCrimeState'
+import { getWheelStyle, performanceDelta, DEFAULT_WHEEL_STYLE } from './vehicleCustomization'
 import { getVehicleDef, MIGRATION_VEHICLE_DEF_ID, type VehicleDef, type VehicleTuning } from './vehicleRegistry'
 import type { OwnedVehicle } from './vehicleOwnershipTypes'
 
 const clamp01 = (n: number): number => (n < 0 ? 0 : n > 1 ? 1 : n)
+
+/**
+ * Whether the ONE physical driving shell should be present + enterable (§3). True only when an
+ * owned vehicle is active OR a stolen identity is projected onto the shell. On a new game — no
+ * owned vehicle and not stolen — this is false: the shell stays hidden/inactive and there is NO
+ * free legacy car in the new-game loop. The shell body, its mesh, and its "enter" interactable are
+ * all gated on this.
+ */
+export function isDrivingShellActive(): boolean {
+  return getActiveVehicle() != null || isPlayerCarStolen()
+}
 
 export interface VehicleProjection {
   /** Owned asset id projected onto the shell, or null (legacy/stolen/pre-ownership default). */
@@ -31,8 +43,15 @@ export interface VehicleProjection {
   tuning: VehicleTuning
   halfLength: number
   halfWidth: number
+  /** Physics collider half-extents [halfWidth, halfHeight, halfLength] the shell adopts. */
+  collider: readonly [number, number, number]
+  /** Rigid-body mass the shell adopts. */
+  bodyMass: number
   /** Current paint (customization) — the mesh adapter tints the shell with this. */
   paint: string
+  /** Resolved wheel-style render (hub colour + relative radius) for the mesh adapter (§9). */
+  wheelHub: string
+  wheelScale: number
   /** Disabled by condition ≤ 0 (no acceleration); the controller ORs this with the crime wreck. */
   conditionDisabled: boolean
   /** Local-space exit offset (right, forward) for stepping out, mirrored per side. */
@@ -72,7 +91,11 @@ function baseline(): VehicleProjection {
     tuning: def ? def.tuning : { ...VEHICLE_TUNING, mass: 3 },
     halfLength: def?.halfLength ?? CAR_HALF_LENGTH,
     halfWidth: def?.halfWidth ?? CAR_HALF_WIDTH,
+    collider: def?.collider ?? [1, 0.55, 2],
+    bodyMass: def?.bodyMass ?? 60,
     paint: def?.baseColor ?? '#d7e6ee',
+    wheelHub: getWheelStyle(DEFAULT_WHEEL_STYLE)?.hubColor ?? '#26262c',
+    wheelScale: 1,
     conditionDisabled: false,
     exitOffset: def?.exitOffset ?? [1.6, 0],
   }
@@ -94,7 +117,11 @@ export function getActiveVehicleProjection(): VehicleProjection {
     tuning: effectiveTuning(def, active),
     halfLength: def.halfLength,
     halfWidth: def.halfWidth,
+    collider: def.collider,
+    bodyMass: def.bodyMass,
     paint: active.customization.paint || def.baseColor,
+    wheelHub: (getWheelStyle(active.customization.wheels) ?? getWheelStyle(DEFAULT_WHEEL_STYLE))?.hubColor ?? '#26262c',
+    wheelScale: (getWheelStyle(active.customization.wheels) ?? getWheelStyle(DEFAULT_WHEEL_STYLE))?.radiusScale ?? 1,
     conditionDisabled: active.condition <= 0,
     exitOffset: def.exitOffset,
   }

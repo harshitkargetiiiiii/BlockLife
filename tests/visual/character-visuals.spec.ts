@@ -111,6 +111,7 @@ test.describe('character visuals', () => {
       const api = window.GAME_TEST_API!
       api.resetGame()
       api.setTime(10)
+      api.vehicleGrant('veh_compact', { location: 'active' }) // §19: own an active shell (no free car)
       api.teleportTo('parking_lot_test')
     })
     await page.waitForFunction(

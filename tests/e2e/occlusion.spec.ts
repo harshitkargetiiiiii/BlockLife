@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { getStats, gotoGame, waitForActiveInteractable } from './helpers'
+import { acquireDrivableCar, getStats, gotoGame, waitForActiveInteractable } from './helpers'
 
 /**
  * Building Occlusion & Player Visibility v1. The Nook Offices tower
@@ -92,6 +92,7 @@ test.describe('building occlusion', () => {
       window.GAME_TEST_API!.setTime(10)
       window.GAME_TEST_API!.teleportTo('parking_lot_test')
     })
+    await acquireDrivableCar(page) // §19: own an active Compact shell (no free car on a new game)
     await waitForActiveInteractable(page, 'vehicle_compact_car_01')
     await page.keyboard.press('e')
     await page.waitForFunction(() => window.GAME_TEST_API!.getStats().mode === 'driving')

@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { getStats, gotoGame, teleport } from './helpers'
+import { acquireDrivableCar, getStats, gotoGame, teleport } from './helpers'
 
 /**
  * City Expansion v1: three districts connected by real roads. Movement is
@@ -36,6 +36,7 @@ test.describe('districts', () => {
   }) => {
     await gotoGame(page)
     await page.evaluate(() => window.GAME_TEST_API!.resetGame())
+    await acquireDrivableCar(page) // §19: own an active Compact shell (no free car on a new game)
     // Get in the car and stage it at the east connector mouth, facing east.
     await teleport(page, [13, 1.2, 14])
     await page.waitForFunction(

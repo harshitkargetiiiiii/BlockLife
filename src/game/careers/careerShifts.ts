@@ -223,6 +223,7 @@ export function buildResultRecord(
     base: pay.base,
     rankModifier: pay.rankModifier,
     performanceModifier: pay.performanceModifier,
+    vehicleBonus: pay.vehicleBonus ?? 0,
     pay: pay.total,
     day: Math.trunc(day),
   }

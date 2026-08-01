@@ -69,12 +69,42 @@ vehicles stay strictly separate from stolen ones.
   **Garage** phone app (`app/phone/PhoneGarage.tsx`) buys/trades/drives/parks/repairs/recovers/
   releases + customizes + loads cargo through the same store actions.
 
+## The one-shell contract (§3/§6)
+There is still exactly ONE physical car body. It is **hidden + disabled until an owned vehicle is
+active or a car is stolen** (`isDrivingShellActive()`), so a fresh game has no free car — the on-foot
+enter interactable is only offered when the shell is present (`useNearbyInteractable`). On a class
+switch the ONE body reconfigures its **cuboid collider + mesh scale** to the active class, deriving
+collider density so physical mass equals the class's `bodyMass` (the Compact yields exactly the legacy
+`[1,0.55,2]`/mass 60 — baseline preserved). When unowned it projects the classic Compact colour; an
+owned car projects its own paint + wheel style.
+
+## The real-world contract (§4/§5/§7 — no remote summon)
+Location-gated store actions require the player on foot at the authored anchor, and refuse during a
+pursuit / mission / social activity / career shift:
+- **buy / trade** — at a dealership bay; refuse `no_parking` when no safe initial bay exists.
+- **retrieve** — player-nearness to the car's parked (or recovery) anchor; the phone guides, it never
+  teleports a healthy car to you.
+- **repair / install / paint / wheels** — at the authored **service** anchor; repair emits a real
+  service commerce receipt.
+
 ## Store actions (all atomic; money + asset move together)
 `buyVehicle`, `tradeInVehicle`, `retrieveVehicle`, `parkVehicle`, `recoverVehicle`, `repairVehicle`,
-`releaseVehicleFromImpound`, `installVehicleUpgrade`, `paintVehicle`, `loadVehicleCargo`,
-`unloadVehicleCargo`. Purchase/trade run the commerce sale FIRST, guard the receipt exact-once
-(`markVehicleTxn`), THEN mint + charge — so money, vehicles, cargo, upgrades and receipts can never
-duplicate or be lost.
+`releaseVehicleFromImpound`, `installVehicleUpgrade`, `paintVehicle`, `setVehicleWheels`,
+`loadVehicleCargo`, `unloadVehicleCargo`, `startVehicleRide`, `completeVehicleRide`. Purchase/trade run
+the commerce sale FIRST, guard the receipt exact-once (`markVehicleTxn`), THEN mint + charge — so money,
+vehicles, cargo, upgrades and receipts can never duplicate or be lost.
+
+## Cross-system integration
+- **Crime (§7/§22)** — an arrest while driving an OWNED vehicle impounds THAT asset exactly once
+  (before the crime reset, re-entrancy-guarded); stolen + unrelated parked cars are untouched. Release
+  costs the displayed fee and returns the car to recovery holding.
+- **Career (§10)** — `vehicleCareer.deliveryPayBonus()` is a read-only adapter (own a usable
+  delivery-tagged vehicle → a flat capped bonus) folded into the shift's pay total, exact-once via the
+  career `paidAttemptKeys`; the career domain stays decoupled (it receives a number).
+- **Social (§11)** — `vehicleSocial.canGiveRide` (a friendly+ NPC + a usable owned seats≥2 vehicle);
+  `startVehicleRide` seats a transient passenger while stopped in your own car, `completeVehicleRide`
+  banks ONE memory through the existing `ingestSocialEvent`. The passenger is never persisted and is
+  dropped on load or arrest.
 
 ## Owned-vs-stolen separation (§2, by construction)
 Owned assets use `ov_<n>` ids in the ownership runtime and render via `OwnedParkedVehicles`. The
@@ -87,16 +117,21 @@ never touches `vehicleCrimeState`.
   validation, ownership invariants + exact-once, persistence sanitize/migration, projection baseline
   + condition + upgrades, dealership gates + trade valuation, lifecycle rules, customization + cargo,
   and store-action atomicity (money+asset+cargo, owned-vs-stolen).
-- **E2E** (`tests/e2e/vehicles.spec.ts`): 33 named scenarios across the whole feature, driven through
-  the same store actions.
-- **Visual** (`tests/visual/vehicle-visuals.spec.ts`): 14 baselines (Garage states + each class
-  driving + the parked lot + custom paint + dealership bays).
+- **E2E** (`tests/e2e/vehicles.spec.ts`): 41 named scenarios covering all 38 §16 behaviours, each
+  driven through a production store/world action (DEV only arranges prerequisites — `vehicleGrant`,
+  `vehicleStandAtAnchor`, condition/location/stock). Legacy driving specs (gameplay-flow, characters,
+  districts, expansion, phone, occlusion) acquire an owned shell first via the `acquireDrivableCar`
+  helper (no free car since §3).
+- **Migration (§2/§3/§4)** is unit-covered (`vehicleOwnership.test.ts`): exactly one Compact grant,
+  exact-once across reloads, and a live stolen shell never migrated into ownership.
+- **Visual** (`tests/visual/vehicle-visuals.spec.ts`): 16 baselines (Garage states + each class
+  driving + parked lot + custom paint + **off-road wheels** + an **NPC ride passenger** + dealership
+  bays).
 - **Soak** (`tests/e2e/vehicles-soak.spec.ts`): 200 game-days of the full lifecycle; the invariants
   (owned ≤ 4, valid registry, no shared anchors, ≤ 1 active shell, money ≥ 0) hold every iteration.
 
 ## Limitations (v1)
-- The active shell keeps the **compact-sized collider**; per-class visual *scale* applies to PARKED
-  owned cars only (the one physical body stays one size — the projection changes tuning + paint).
-- A dedicated social **give-a-ride** activity is deferred; the seat metadata (`def.seats`) is present.
+- Release-from-impound and cargo transfer are not player-nearness-gated (they act on an already-held
+  or parked asset); buy/retrieve/repair/customize are.
 - Far-sector parking anchors (loft / premium / downtown / east) are certified by the visual baselines
   rather than the central `isPointClear` sweep (which only knows the hand-authored central layout).

@@ -4,7 +4,7 @@ import { getActiveVehicle, getOwnedVehicles } from '../../game/vehicles/vehicleO
 import { getVehicleDef } from '../../game/vehicles/vehicleRegistry'
 import { vehicleEligibility } from '../../game/vehicles/vehicleEligibility'
 import { repairQuote } from '../../game/vehicles/vehicleService'
-import { availableUpgradesFor, installedUpgrades } from '../../game/vehicles/vehicleCustomization'
+import { WHEEL_STYLES, availableUpgradesFor, installedUpgrades } from '../../game/vehicles/vehicleCustomization'
 import { cargoCapacityOf, cargoUsedOf } from '../../game/vehicles/vehicleCargo'
 import { conditionBand, type OwnedVehicle } from '../../game/vehicles/vehicleOwnershipTypes'
 import { getParkingAnchor } from '../../game/vehicles/parkingRegistry'
@@ -42,6 +42,7 @@ export function PhoneGarage() {
   const release = useGameStore((s) => s.releaseVehicleFromImpound)
   const install = useGameStore((s) => s.installVehicleUpgrade)
   const paint = useGameStore((s) => s.paintVehicle)
+  const setWheels = useGameStore((s) => s.setVehicleWheels)
   const loadCargoAction = useGameStore((s) => s.loadVehicleCargo)
   const unloadCargoAction = useGameStore((s) => s.unloadVehicleCargo)
   const backpack = useGameStore((s) => s.inventory)
@@ -99,6 +100,19 @@ export function PhoneGarage() {
                       data-testid={`garage-paint-${v.id}-${color}`}
                       onClick={() => paint(v.id, color)}
                     />
+                  ))}
+                </div>
+                <div className="panel-actions" data-testid={`garage-wheels-${v.id}`}>
+                  {WHEEL_STYLES.map((w) => (
+                    <button
+                      key={w.id}
+                      className="btn btn-small btn-ghost"
+                      data-testid={`garage-wheels-${v.id}-${w.id}`}
+                      disabled={v.customization.wheels === w.id}
+                      onClick={() => setWheels(v.id, w.id)}
+                    >
+                      {v.customization.wheels === w.id ? `✓ ${w.displayName}` : w.displayName}
+                    </button>
                   ))}
                 </div>
                 <div className="panel-actions">

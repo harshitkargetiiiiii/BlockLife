@@ -216,6 +216,9 @@ export interface PayResult {
   base: number
   rankModifier: number
   performanceModifier: number
+  /** Deterministic, capped delivery-vehicle bonus folded into `total` (issue #19 §10); 0/absent
+   *  when no compatible owned vehicle was recognised. Displayed before/after in the shift result. */
+  vehicleBonus?: number
   /** Final integer dollars paid through the economy authority. */
   total: number
 }
@@ -285,6 +288,9 @@ export interface ShiftResultRecord {
   base: number
   rankModifier: number
   performanceModifier: number
+  /** Flat delivery-vehicle advantage folded into `pay` (issue #19 §10); optional/additive — omitted
+   *  or 0 when no delivery vehicle applied (legacy records + non-delivery careers). */
+  vehicleBonus?: number
   pay: number
   day: number
 }

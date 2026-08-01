@@ -28,7 +28,13 @@ import {
   type VehicleOwnershipState,
 } from './vehicleOwnershipTypes'
 import { getVehicleDef, isVehicleDefId, MIGRATION_VEHICLE_DEF_ID } from './vehicleRegistry'
+import { DEFAULT_WHEEL_STYLE, isWheelStyleId, sanitizeUpgradeIds } from './vehicleCustomization'
 import { defaultVehicleOwnershipState, vehicleOwnershipRuntime } from './vehicleOwnershipRuntime'
+
+/** Over-cap loads keep the first CAP as normal owned vehicles; any extra VALID assets are preserved
+ *  in recovery holding (never silently deleted — §5/§13) up to this hard bound, beyond which a save
+ *  is treated as corrupt. */
+const VEHICLE_LOADED_ASSET_MAX = 2 * VEHICLE_OWNED_CAP
 
 const clampInt = (v: unknown, lo: number, hi: number, dflt: number): number =>
   typeof v === 'number' && Number.isFinite(v) ? Math.max(lo, Math.min(hi, Math.trunc(v))) : dflt
@@ -68,11 +74,11 @@ function sanitizeCustomization(raw: unknown, defId: string): VehicleCustomizatio
   const def = getVehicleDef(defId)
   const c = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>
   const paint = typeof c.paint === 'string' && def?.paintPalette.includes(c.paint) ? c.paint : def?.baseColor ?? '#d7e6ee'
-  const wheels = typeof c.wheels === 'string' ? c.wheels : 'wheels_standard'
-  // Unknown/incompatible upgrade ids are dropped (only the invalid entry — the vehicle stays).
-  const upgrades = Array.isArray(c.upgrades)
-    ? [...new Set(c.upgrades.filter((u): u is string => typeof u === 'string'))]
-    : []
+  // Unknown wheel styles fall back to the default; unknown/incompatible upgrade ids (and any second
+  // upgrade in a category) are dropped — only the invalid entry, never the vehicle itself (§13).
+  const wheels = isWheelStyleId(c.wheels) ? c.wheels : DEFAULT_WHEEL_STYLE
+  const rawUpgrades = Array.isArray(c.upgrades) ? c.upgrades.filter((u): u is string => typeof u === 'string') : []
+  const upgrades = def ? sanitizeUpgradeIds(rawUpgrades, def) : []
   return { paint, wheels, upgrades }
 }
 
@@ -168,17 +174,22 @@ export function sanitizeVehicleOwnershipSave(raw: unknown): VehicleOwnershipStat
   const claimedAnchors = new Set<string>()
   let sawActive = false
   for (const [id, rawAsset] of Object.entries(rawAssets)) {
-    if (count >= VEHICLE_OWNED_CAP) break // over-cap load: keep the first CAP (deterministic order)
+    // Bound the array against a corrupt/hostile blob, but only after the reasonable 2×CAP window —
+    // legitimate over-cap assets below that are PRESERVED (in recovery), never silently dropped.
+    if (count >= VEHICLE_LOADED_ASSET_MAX) break
     if (typeof id !== 'string' || id.length === 0) continue
     const asset = sanitizeAsset(id, rawAsset)
     if (!asset) continue
-    // Duplicate parking claim on one anchor → keep the first, recover the rest (§13).
-    if (asset.location.kind === 'parked') {
+    // Beyond the owned cap, extra valid assets are kept in recovery holding (never deleted — §5/§13);
+    // the buy gate keeps the player at/over cap until they trade down.
+    if (count >= VEHICLE_OWNED_CAP) {
+      asset.location = { kind: 'recovery' }
+    } else if (asset.location.kind === 'parked') {
+      // Duplicate parking claim on one anchor → keep the first, recover the rest (§13).
       if (claimedAnchors.has(asset.location.anchorId)) asset.location = { kind: 'recovery' }
       else claimedAnchors.add(asset.location.anchorId)
-    }
-    // Two `active` claims can't both hold the shell → keep the first, recover the rest.
-    if (asset.location.kind === 'active') {
+    } else if (asset.location.kind === 'active') {
+      // Two `active` claims can't both hold the shell → keep the first, recover the rest.
       if (sawActive) asset.location = { kind: 'recovery' }
       else sawActive = true
     }
@@ -214,9 +225,11 @@ export function sanitizeVehicleOwnershipSave(raw: unknown): VehicleOwnershipStat
 /**
  * Load a vehicle-ownership save, OR migrate a pre-v1 legacy save (§3). Idempotent.
  * - `data` present → sanitize it (already-migrated or v1+ save).
- * - `data` absent + `ctx.legacySave` + not driving a stolen car → grant EXACTLY ONE Compact,
- *   parked at `ctx.parkAnchorId` when given (a residence anchor) else recovery holding.
- * - otherwise (new game / reset / stolen-active) → default (no owned vehicle).
+ * - `data` absent + `ctx.legacySave` → grant EXACTLY ONE Compact (a FRESH asset, never the stolen
+ *   source), parked at `ctx.parkAnchorId` when given (the current residence anchor) else recovery
+ *   holding. It is minted PARKED (never active), so a live stolen shell (`ctx.stolenActive`) keeps
+ *   the body and is neither legitimized nor displaced by the grant.
+ * - otherwise (new game / reset) → default (no owned vehicle).
  * The `migrated` marker makes the grant exact-once across reloads and version upgrades.
  */
 export function applyVehicleOwnershipSave(
@@ -228,10 +241,13 @@ export function applyVehicleOwnershipSave(
     return
   }
   const fresh = defaultVehicleOwnershipState()
-  if (ctx.legacySave && !ctx.stolenActive) {
-    // Exactly-once legacy Compact grant.
+  if (ctx.legacySave) {
+    // Exactly-once legacy Compact grant, always PARKED (never active) — a fresh asset that cannot
+    // inherit a transient stolen identity. When a stolen shell is live, hold it in recovery so it
+    // is unambiguously separate until the player parks the stolen car.
     fresh.assetSeq = 1
-    const location: VehicleLocationState = ctx.parkAnchorId ? { kind: 'parked', anchorId: ctx.parkAnchorId } : { kind: 'recovery' }
+    const location: VehicleLocationState =
+      !ctx.stolenActive && ctx.parkAnchorId ? { kind: 'parked', anchorId: ctx.parkAnchorId } : { kind: 'recovery' }
     const def = getVehicleDef(MIGRATION_VEHICLE_DEF_ID)!
     const asset: OwnedVehicle = {
       id: 'ov_1',

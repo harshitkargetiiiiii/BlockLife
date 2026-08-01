@@ -16,7 +16,24 @@ import {
 } from './parkingRegistry'
 import { getVehicleDef } from './vehicleRegistry'
 import { isAnchorOccupied } from './vehicleOwnershipRuntime'
+import { registry } from '../world/runtimeRegistry'
 import type { VehicleRefusalReason } from './vehicleOwnershipTypes'
+
+/** How close (metres) the player must be to an authored anchor to transact there (§4/§5/§7/§9). */
+export const ANCHOR_INTERACT_TOLERANCE = 5
+
+/** True when the on-foot player is within `tol` of the given authored anchor. */
+export function playerNearAnchor(anchorId: string, tol = ANCHOR_INTERACT_TOLERANCE): boolean {
+  const a = getParkingAnchor(anchorId)
+  if (!a) return false
+  const p = registry.playerPosition
+  return Math.hypot(p.x - a.position[0], p.z - a.position[1]) <= tol
+}
+
+/** True when the player is near ANY of the given anchors (e.g. either dealership bay). */
+export function playerNearAnyAnchor(anchorIds: readonly string[], tol = ANCHOR_INTERACT_TOLERANCE): boolean {
+  return anchorIds.some((id) => playerNearAnchor(id, tol))
+}
 
 /** Categories the player may actively park at (impound/recovery are system-managed holdings). */
 const PARKABLE_CATEGORIES: readonly ParkingCategory[] = ['residence', 'public', 'dealership', 'service']

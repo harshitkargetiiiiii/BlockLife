@@ -97,7 +97,7 @@ export interface FinalizeResult {
  * history + standing + performance ledger, and clear the active shift. EXACTLY ONCE —
  * a repeat (reload) returns the same result with zero new pay/XP.
  */
-export function finalizeShift(state: CareerState, career: CareerDefinition, rank: RankDefinition, gameDay: number): FinalizeResult {
+export function finalizeShift(state: CareerState, career: CareerDefinition, rank: RankDefinition, gameDay: number, deliveryBonus = 0): FinalizeResult {
   const shift = state.activeShift
   if (!shift || !shift.objectives || shift.status !== 'active') {
     return { state, pay: { base: 0, rankModifier: 1, performanceModifier: 0, total: 0 }, performance: emptyPerf(), alreadyFinalized: true }
@@ -108,7 +108,15 @@ export function finalizeShift(state: CareerState, career: CareerDefinition, rank
     // Already paid (idempotent finalize) — clear the active shift, grant nothing.
     return { state: { ...state, activeShift: null }, pay: zeroPay(career.basePay, rank.payModifier), performance, alreadyFinalized: true }
   }
-  const pay = computePay(career, rank, performance)
+  const rawPay = computePay(career, rank, performance)
+  // Delivery-vehicle advantage (issue #19 §10): a deterministic bonus, CAPPED at 25% of base pay,
+  // for the delivery career when the caller (which reads the read-only vehicle adapter) reports the
+  // player owns a usable delivery vehicle. Folded into `total`, so it is granted exactly once through
+  // this settlement (the shift's attemptKey already blocks any replay).
+  const vehicleBonus = career.id === 'delivery_driver' && deliveryBonus > 0
+    ? Math.min(Math.round(deliveryBonus), Math.round(rawPay.base * 0.25))
+    : 0
+  const pay: PayResult = vehicleBonus > 0 ? { ...rawPay, vehicleBonus, total: rawPay.total + vehicleBonus } : rawPay
   const h = historyFor(state, career.id)
 
   const next: CareerState = {

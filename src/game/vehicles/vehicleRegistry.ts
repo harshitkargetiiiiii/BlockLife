@@ -63,9 +63,14 @@ export interface VehicleDef {
   baseColor: string
   /** Allowed paint palette (includes baseColor); customization picks from here. */
   paintPalette: readonly string[]
-  /** Half-extents of the collider/footprint (metres). Compact == CAR_HALF_*. */
+  /** Half-extents of the soft traffic-avoidance footprint (metres). Compact == CAR_HALF_*. */
   halfLength: number
   halfWidth: number
+  /** Physics collider half-extents [halfWidth, halfHeight, halfLength] the one shell adopts for
+   *  this class. Compact is the exact legacy `[1, 0.55, 2]` so the baseline is preserved. */
+  collider: readonly [number, number, number]
+  /** Rigid-body mass the shell adopts for this class (Compact == the legacy 60). */
+  bodyMass: number
   /** Local-space offset (right, forward) the player exits to, mirrored per side. */
   exitOffset: [number, number]
   /** Base purchase price and deterministic base trade value (before condition). */
@@ -107,6 +112,8 @@ export const VEHICLE_DEFS: readonly VehicleDef[] = [
     paintPalette: PALETTE,
     halfLength: 1.1,
     halfWidth: 0.55,
+    collider: [0.55, 0.5, 1.1],
+    bodyMass: 25,
     exitOffset: [1.1, 0],
     basePrice: 900,
     baseTradeValue: 500,
@@ -132,6 +139,9 @@ export const VEHICLE_DEFS: readonly VehicleDef[] = [
     // The Compact IS the legacy drivable car: footprint + tuning are the current baseline.
     halfLength: CAR_HALF_LENGTH,
     halfWidth: CAR_HALF_WIDTH,
+    // The exact legacy physics collider + mass — the migration target keeps the baseline.
+    collider: [1, 0.55, 2],
+    bodyMass: 60,
     exitOffset: [1.6, 0],
     basePrice: 4200,
     baseTradeValue: 2600,
@@ -156,6 +166,8 @@ export const VEHICLE_DEFS: readonly VehicleDef[] = [
     paintPalette: PALETTE,
     halfLength: 2.5,
     halfWidth: 1.2,
+    collider: [1.2, 0.7, 2.5],
+    bodyMass: 120,
     exitOffset: [1.9, 0],
     basePrice: 6800,
     baseTradeValue: 4200,
@@ -180,6 +192,8 @@ export const VEHICLE_DEFS: readonly VehicleDef[] = [
     paintPalette: PALETTE,
     halfLength: 2.0,
     halfWidth: 1.05,
+    collider: [1.05, 0.5, 2.0],
+    bodyMass: 55,
     exitOffset: [1.65, 0],
     basePrice: 24000,
     baseTradeValue: 15000,
@@ -228,6 +242,8 @@ export function validateVehicleRegistry(): string[] {
     seen.add(d.id)
     classes.add(d.vehicleClass)
     if (!(d.halfLength > 0) || !(d.halfWidth > 0)) errors.push(`${where}: non-positive footprint`)
+    if (!(d.collider[0] > 0 && d.collider[1] > 0 && d.collider[2] > 0)) errors.push(`${where}: non-positive collider extent`)
+    if (!(d.bodyMass > 0)) errors.push(`${where}: non-positive body mass`)
     if (!(d.basePrice >= 0) || !(d.baseTradeValue >= 0)) errors.push(`${where}: negative price/trade value`)
     if (d.baseTradeValue > d.basePrice) errors.push(`${where}: trade value exceeds price`)
     if (!(d.baseCondition > 0 && d.baseCondition <= 100)) errors.push(`${where}: bad base condition`)

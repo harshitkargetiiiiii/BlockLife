@@ -183,6 +183,9 @@ import {
 import { vehicleOwnershipReport as vehicleReportRt, type VehicleOwnershipReport } from '../vehicles/vehicleOwnershipObservability'
 import { vehicleStockOf as vehicleStockOfRt, devSetVehicleStock as devSetVehicleStockRt, reconcileVehicleDealership as reconcileVehicleDealershipRt } from '../vehicles/vehicleDealership'
 import { getActiveVehicleProjection as getVehicleProjectionRt } from '../vehicles/vehicleProjection'
+import { getRidePassenger as getRidePassengerRt } from '../vehicles/vehicleSocial'
+import { getParkingAnchor as getParkingAnchorRt } from '../vehicles/parkingRegistry'
+import { deliveryPayBonus as deliveryPayBonusRt } from '../vehicles/vehicleCareer'
 import type { VehicleOwnershipState, VehicleLocationState } from '../vehicles/vehicleOwnershipTypes'
 import type { VehicleDefId } from '../vehicles/vehicleRegistry'
 import {
@@ -479,7 +482,7 @@ export interface GameTestApi {
   getActiveCareerShift: () => { id: string; careerId: string; status: string; workplaceInteractableId: string; objectives: { id: string; kind: string; description: string; done: boolean; optional: boolean; anchorId: string | null; requiresCargoItemId: string | null }[] } | null
   getCareerPromotion: (careerId: string) => { currentRank: string; nextRank: string | null; met: boolean; rows: { label: string; have: number; need: number; ok: boolean }[] } | null
   /** DEV/E2E: recent rich shift results (pay decomposition + score breakdown). */
-  getCareerRecentResults: () => { careerId: string; reason: string; score: number; base: number; rankModifier: number; performanceModifier: number; pay: number; onTime: boolean }[]
+  getCareerRecentResults: () => { careerId: string; reason: string; score: number; base: number; rankModifier: number; performanceModifier: number; vehicleBonus: number; pay: number; onTime: boolean }[]
   /** DEV/E2E: has the player earned a specific rank unlock? */
   hasCareerUnlock: (unlockId: string) => boolean
   /** DEV/E2E: grant a rank unlock directly (arrange the benefit without grinding ranks). */
@@ -593,10 +596,24 @@ export interface GameTestApi {
   vehicleInstallUpgrade: (assetId: string, upgradeId: string) => void
   /** DEV/E2E: repaint an owned vehicle (the SAME store action). */
   vehiclePaint: (assetId: string, color: string) => void
+  /** DEV/E2E: swap an owned vehicle's wheel style (the SAME store action). */
+  vehicleSetWheels: (assetId: string, wheelId: string) => void
   /** DEV/E2E: load items from the backpack into a vehicle's cargo (the SAME store action). */
   vehicleLoadCargo: (assetId: string, itemId: string, quantity: number) => void
   /** DEV/E2E: unload items from a vehicle's cargo to the backpack (the SAME store action). */
   vehicleUnloadCargo: (assetId: string, itemId: string, quantity: number) => void
+  /** DEV/E2E: offer a friendly NPC a ride in your stopped owned vehicle (the SAME store action, §11). */
+  vehicleStartRide: (npcId: string) => void
+  /** DEV/E2E: drop off the current ride passenger — banks the social memory (the SAME store action). */
+  vehicleCompleteRide: () => void
+  /** DEV/E2E: the current ride passenger NPC id, or null. */
+  vehicleRidePassenger: () => string | null
+  /** DEV/E2E: ARRANGE — stand the player at a parking anchor so the real nearness gates (buy at a
+   *  dealership bay, retrieve at the car, repair at the service bay — §4/§5/§7) are satisfied. */
+  vehicleStandAtAnchor: (anchorId: string) => boolean
+  /** DEV/E2E: the flat delivery-vehicle pay advantage the career finalize path reads (§10) — the
+   *  SAME adapter the store uses. 0 when no usable delivery vehicle is owned. */
+  vehicleDeliveryBonus: () => number
   /** DEV/E2E: open the phone to a specific app (to render + drive a production UI panel). */
   openPhoneApp: (app: string) => void
   /** Routing: graph counts + content-hash version. */
@@ -1425,7 +1442,7 @@ export function installTestApi(): void {
       const p = getCareerPromotionRt(careerId as CareerId)
       return p ? { currentRank: p.currentRank, nextRank: p.nextRank ? p.nextRank.id : null, met: p.met, rows: p.rows } : null
     },
-    getCareerRecentResults: () => getCareerRecentResultsRt().map((r) => ({ careerId: r.careerId, reason: r.reason, score: r.score, base: r.base, rankModifier: r.rankModifier, performanceModifier: r.performanceModifier, pay: r.pay, onTime: r.onTime })),
+    getCareerRecentResults: () => getCareerRecentResultsRt().map((r) => ({ careerId: r.careerId, reason: r.reason, score: r.score, base: r.base, rankModifier: r.rankModifier, performanceModifier: r.performanceModifier, vehicleBonus: r.vehicleBonus ?? 0, pay: r.pay, onTime: r.onTime })),
     hasCareerUnlock: (unlockId: string) => hasCareerUnlockRt(unlockId),
     grantCareerUnlock: (unlockId: string) => {
       if (!careerRuntime.state.unlocks.includes(unlockId)) careerRuntime.state = { ...careerRuntime.state, unlocks: [...careerRuntime.state.unlocks, unlockId] }
@@ -1552,8 +1569,20 @@ export function installTestApi(): void {
     },
     vehicleInstallUpgrade: (assetId: string, upgradeId: string) => useGameStore.getState().installVehicleUpgrade(assetId, upgradeId),
     vehiclePaint: (assetId: string, color: string) => useGameStore.getState().paintVehicle(assetId, color),
+    vehicleSetWheels: (assetId: string, wheelId: string) => useGameStore.getState().setVehicleWheels(assetId, wheelId),
     vehicleLoadCargo: (assetId: string, itemId: string, quantity: number) => useGameStore.getState().loadVehicleCargo(assetId, itemId, quantity),
     vehicleUnloadCargo: (assetId: string, itemId: string, quantity: number) => useGameStore.getState().unloadVehicleCargo(assetId, itemId, quantity),
+    vehicleStartRide: (npcId: string) => useGameStore.getState().startVehicleRide(npcId),
+    vehicleCompleteRide: () => useGameStore.getState().completeVehicleRide(),
+    vehicleRidePassenger: () => getRidePassengerRt(),
+    vehicleStandAtAnchor: (anchorId: string) => {
+      const anchor = getParkingAnchorRt(anchorId)
+      if (!anchor) return false
+      registry.playerPosition.set(anchor.position[0], 1.2, anchor.position[1])
+      registry.playerBody?.setTranslation({ x: anchor.position[0], y: 1.2, z: anchor.position[1] }, true)
+      return true
+    },
+    vehicleDeliveryBonus: () => deliveryPayBonusRt(),
     openPhoneApp: (app: string) => useGameStore.setState((s) => ({ ui: { ...s.ui, panel: 'phone', activePhoneApp: app as never } })),
     // ---- Cross-District Traffic Routing v1 ---------------------------------
     getRoadGraphSummary: () => {
