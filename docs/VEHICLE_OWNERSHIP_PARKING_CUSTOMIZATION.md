@@ -103,14 +103,17 @@ vehicles, cargo, upgrades and receipts can never duplicate or be lost.
 - **Career (§10)** — `vehicleCareer.deliveryPayBonus()` is a read-only adapter (own a usable
   delivery-tagged vehicle → a flat capped bonus) folded into the shift's pay total, exact-once via the
   career `paidAttemptKeys`; the career domain stays decoupled (it receives a number).
-- **Social (§11)** — Give-a-Ride runs through the EXISTING Social Life activity authority, not a
-  parallel path. `drive_around` is a first-class `InvitationActivityKind`; `startVehicleRide` (gated by
-  `vehicleSocial.canGiveRide`: a friendly+ NPC + a usable owned seats≥2 vehicle, stopped, no other
-  activity) begins a real `drive_around` `SocialActivity` via `beginActivity`; `completeVehicleRide`
-  drives it to `done` via `stepActivity`, which fires the ONE `activity_completed` event + follow-up
-  message. The passenger is DERIVED from `getActiveActivity()` (no separate runtime); leaving the car
-  (exit/park/arrest) cancels the activity through the pipeline (a no-show), and a ride is never
-  serialized — a reload can never strand a passenger.
+- **Social (§11)** — Give-a-Ride runs entirely through the EXISTING Social Life invitation/activity
+  authority + UI, not a bespoke path. `drive_around` is a first-class `InvitationActivityKind`. The
+  player **invites** a friend to a drive from the phone **People** app (`sendPlayerInvite`, offered
+  only when you own a usable seats≥2 vehicle); the NPC accepts on the normal schedule; the player
+  **starts** the confirmed plan from the **Chats** app (`startSocialActivity`, gated on being stopped
+  in your own usable vehicle + free of pursuit/mission/robbery + the shared start-window / active-
+  activity / career-shift gates); and **completes** it with the shared **activity tracker's Continue**
+  button (`advanceSocialActivity` → `stepActivity` → the ONE `activity_completed` event + follow-up
+  message). The passenger is DERIVED from `getActiveActivity()` (no separate runtime); leaving the car
+  (exit/park/arrest) cancels it through the pipeline (a no-show); a ride is never serialized, so a
+  reload never strands a passenger. There is no DEV write-hook start — E2E #34 drives the real DOM.
 
 ## Owned-vs-stolen separation (§2, by construction)
 Owned assets use `ov_<n>` ids in the ownership runtime and render via `OwnedParkedVehicles`. The

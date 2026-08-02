@@ -10,6 +10,8 @@ import {
   isContact,
 } from '../../game/social/socialRuntime'
 import { memorySummary, invitationLabel } from '../../game/social/socialDialogue'
+import { tierAtLeast } from '../../game/social/socialScheduling'
+import { hasUsableRideVehicle } from '../../game/vehicles/vehicleSocial'
 import type { MemoryEntry } from '../../game/social/socialTypes'
 
 const TIER_LABEL: Record<string, string> = {
@@ -32,9 +34,12 @@ function topMemory(id: string): MemoryEntry | undefined {
  * social runtime; re-renders via `socialVersion`.
  */
 export function PhoneContacts() {
-  // Subscribe so social mutations re-render this reader (runtime is outside zustand).
+  // Subscribe so social + vehicle-ownership mutations re-render this reader (runtimes are outside zustand).
   useGameStore((s) => s.socialVersion)
+  useGameStore((s) => s.vehicleVersion)
   const sendPlayerInvite = useGameStore((s) => s.sendPlayerInvite)
+  // A Give-a-Ride (§11) can only be offered once you own a usable passenger vehicle.
+  const canOfferRide = hasUsableRideVehicle()
 
   return (
     <div className="phone-app">
@@ -82,6 +87,18 @@ export function PhoneContacts() {
                     onClick={() => sendPlayerInvite(npc.id)}
                   >
                     Invite out
+                  </button>
+                )}
+                {/* Give a Ride (§19 §11): invite a friend along for a drive — offered only when you
+                    own a usable passenger vehicle. Starts the same invitation → confirmed-plan → start
+                    lifecycle as any plan; you begin it from Messages while stopped in your car. */}
+                {contact && canOfferRide && tierAtLeast(derived.tier, 'friendly') && (
+                  <button
+                    className="btn btn-small btn-social contact-invite-drive"
+                    data-testid={`contact-invite-drive-${npc.id}`}
+                    onClick={() => sendPlayerInvite(npc.id, 'drive_around')}
+                  >
+                    🚗 Offer a drive
                   </button>
                 )}
               </div>

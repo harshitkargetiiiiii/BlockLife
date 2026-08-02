@@ -502,33 +502,53 @@ test.describe('Vehicle Ownership v1', () => {
     expect((await call(page, 'vehicleDeliveryBonus')) as number).toBe(0)
   })
 
-  test('§34 Give a Ride starts and completes through the social path with clean teardown', async ({ page }) => {
-    // Befriend Maya through the real social event pipeline (no back-door).
-    for (let d = 1; d <= 4; d++) {
-      await call(page, 'ingestSocialEvent', { id: `ride_e2e_${d}`, kind: 'activity_completed', actorId: 'npc_maya_01', gameDay: d, gameHour: 12 })
+  // Arrange: befriend Maya to a friend + phone contact (familiarity ≥ 20) through the real event
+  // pipeline, own a usable van and get in it, at a game time when Maya is available so the invite is
+  // accepted + immediately startable. The ride itself is driven ONLY through production social UI.
+  async function arrangeRideReady(page: Page, seed: string): Promise<string> {
+    await call(page, 'setTime', 12) // Maya is available 10–20 → invite accepted, plan startable now
+    for (let i = 0; i < 5; i++) {
+      await call(page, 'ingestSocialEvent', { id: `${seed}_${i}`, kind: 'activity_completed', actorId: 'npc_maya_01', gameDay: 1, gameHour: 12 })
     }
     const id = await grantAt(page, 'veh_van', 'park_public_central')
     await stand(page, 'park_public_central')
-    await call(page, 'vehicleRetrieve', id) // stopped in an owned usable vehicle
-    await page.waitForTimeout(250) // let driving speed settle to a stop
-    await call(page, 'vehicleStartRide', 'npc_maya_01')
+    await call(page, 'vehicleRetrieve', id) // owned, driving, stopped (getting IN the car is arrange)
+    await page.waitForTimeout(250)
+    return id
+  }
+
+  // Invite Maya to a drive from the People app, then start the confirmed plan from the Chats app —
+  // both real DOM buttons. Returns after the ride activity has begun.
+  async function inviteAndStartRideViaUI(page: Page): Promise<void> {
+    await call(page, 'openPhoneApp', 'contacts')
+    await page.getByTestId('contact-invite-drive-npc_maya_01').click() // §11 invitation, real UI
+    const invs = (await call(page, 'getSocialInvitations')) as Array<{ id: string; activityKind: string; status: string; actorId: string }>
+    const plan = invs.find((i) => i.activityKind === 'drive_around' && i.actorId === 'npc_maya_01' && i.status === 'accepted')
+    expect(plan, 'Maya accepts the drive invite → a confirmed plan').toBeTruthy()
+    await call(page, 'openPhoneApp', 'messages')
+    await page.getByTestId(`plan-start-${plan!.id}`).click() // start the confirmed plan, real UI
+  }
+
+  test('§34 Give a Ride is invited, started, and completed entirely through the social UI', async ({ page }) => {
+    await arrangeRideReady(page, 'ride_ui')
+    await inviteAndStartRideViaUI(page)
+    // The ride is now the ONE active social activity, with Maya as the seated passenger.
     expect((await call(page, 'vehicleRidePassenger')) as string | null).toBe('npc_maya_01')
-    await call(page, 'vehicleCompleteRide')
-    expect((await call(page, 'vehicleRidePassenger')) as string | null).toBeNull() // clean teardown
-    // The completed ride banked one social memory (a friendship deepened).
+    // Complete it through the shared activity tracker's Continue button (travel → together → done).
+    await page.keyboard.press('Tab') // close the phone so the HUD activity tracker is interactable
+    await page.waitForTimeout(150)
+    for (let i = 0; i < 3 && ((await call(page, 'vehicleRidePassenger')) as string | null); i++) {
+      await page.getByTestId('sat-continue').click()
+      await page.waitForTimeout(200)
+    }
+    expect((await call(page, 'vehicleRidePassenger')) as string | null).toBeNull() // clean teardown via the pipeline
     const mems = (await call(page, 'getSocialMemories', 'npc_maya_01')) as unknown[]
-    expect(Array.isArray(mems) ? mems.length : 0).toBeGreaterThan(0)
+    expect(Array.isArray(mems) ? mems.length : 0).toBeGreaterThan(0) // the ride banked one memory
   })
 
-  test('§34 an arrest cleanly removes a ride passenger', async ({ page }) => {
-    for (let d = 1; d <= 4; d++) {
-      await call(page, 'ingestSocialEvent', { id: `ride_arrest_${d}`, kind: 'activity_completed', actorId: 'npc_maya_01', gameDay: d, gameHour: 12 })
-    }
-    const id = await grantAt(page, 'veh_van', 'park_public_central')
-    await stand(page, 'park_public_central')
-    await call(page, 'vehicleRetrieve', id)
-    await page.waitForTimeout(250) // let driving speed settle to a stop
-    await call(page, 'vehicleStartRide', 'npc_maya_01')
+  test('§34 an arrest during a UI-started ride cleanly removes the passenger', async ({ page }) => {
+    await arrangeRideReady(page, 'ride_arrest')
+    await inviteAndStartRideViaUI(page)
     expect((await call(page, 'vehicleRidePassenger')) as string | null).toBe('npc_maya_01')
     await call(page, 'respawnPlayer', 'arrest')
     expect((await call(page, 'vehicleRidePassenger')) as string | null).toBeNull()

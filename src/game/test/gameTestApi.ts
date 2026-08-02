@@ -602,11 +602,8 @@ export interface GameTestApi {
   vehicleLoadCargo: (assetId: string, itemId: string, quantity: number) => void
   /** DEV/E2E: unload items from a vehicle's cargo to the backpack (the SAME store action). */
   vehicleUnloadCargo: (assetId: string, itemId: string, quantity: number) => void
-  /** DEV/E2E: offer a friendly NPC a ride in your stopped owned vehicle (the SAME store action, §11). */
-  vehicleStartRide: (npcId: string) => void
-  /** DEV/E2E: drop off the current ride passenger — banks the social memory (the SAME store action). */
-  vehicleCompleteRide: () => void
-  /** DEV/E2E: the current ride passenger NPC id, or null. */
+  /** DEV/E2E: the current ride passenger NPC id, or null. Give a Ride starts/completes through the
+   *  real social UI (Contacts invite → Messages start → activity tracker), never a DEV write hook. */
   vehicleRidePassenger: () => string | null
   /** DEV/E2E: ARRANGE — stand the player at a parking anchor so the real nearness gates (buy at a
    *  dealership bay, retrieve at the car, repair at the service bay — §4/§5/§7) are satisfied. */
@@ -1572,8 +1569,6 @@ export function installTestApi(): void {
     vehicleSetWheels: (assetId: string, wheelId: string) => useGameStore.getState().setVehicleWheels(assetId, wheelId),
     vehicleLoadCargo: (assetId: string, itemId: string, quantity: number) => useGameStore.getState().loadVehicleCargo(assetId, itemId, quantity),
     vehicleUnloadCargo: (assetId: string, itemId: string, quantity: number) => useGameStore.getState().unloadVehicleCargo(assetId, itemId, quantity),
-    vehicleStartRide: (npcId: string) => useGameStore.getState().startVehicleRide(npcId),
-    vehicleCompleteRide: () => useGameStore.getState().completeVehicleRide(),
     vehicleRidePassenger: () => getRidePassengerRt(),
     vehicleStandAtAnchor: (anchorId: string) => {
       const anchor = getParkingAnchorRt(anchorId)

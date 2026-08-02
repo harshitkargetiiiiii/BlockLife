@@ -175,10 +175,10 @@ import {
   socialRuntime,
   stepActivity,
 } from '../social/socialRuntime'
-import { activityFromInvitation, activityPrompt, driveAroundActivity, favorActivity, isHomeActivityKind } from '../social/socialActivities'
+import { activityFromInvitation, activityPrompt, favorActivity, isHomeActivityKind } from '../social/socialActivities'
 import { invitationStartWindow, nextAvailableSlot } from '../social/socialScheduling'
 import { noteArrestWitnessed, noteCrimeWitnessed } from '../social/socialConsequences'
-import type { InvitationActivityKind, SocialActorId } from '../social/socialTypes'
+import type { InvitationActivityKind } from '../social/socialTypes'
 import { getSocialActor, isSocialActor } from '../social/socialActors'
 import {
   availableSocialActions,
@@ -476,10 +476,6 @@ export interface GameStore extends GameDataState {
   paintVehicle: (assetId: string, color: string) => void
   /** Swap an owned vehicle's wheel style (free cosmetic, like paint; §9). */
   setVehicleWheels: (assetId: string, wheelId: string) => void
-  /** Offer a friendly NPC a ride in your stopped owned vehicle (§11 social integration). */
-  startVehicleRide: (npcId: string) => void
-  /** Finish the ride, dropping the passenger off — produces one social memory exact-once. */
-  completeVehicleRide: () => void
   /** Load items from the backpack into a vehicle's cargo (atomic — never duplicates/loses). */
   loadVehicleCargo: (assetId: string, itemId: string, quantity: number) => void
   /** Unload items from a vehicle's cargo back into the backpack (atomic). */
@@ -637,10 +633,6 @@ export function createInitialGameState(): GameDataState {
 
 let toastSeq = 0
 let recoverySeq = 0
-// Transient per-session counter so each Give-a-Ride activity gets a unique id (§11); rides never
-// persist, so this need not survive a reload.
-let vehicleRideSeq = 0
-
 // ---- Personal Economy, Inventory & Shopping v1 helpers --------------------
 
 /** In-game hours (day*24 + hour) — the clock stock restock reconciles against. */
@@ -1180,6 +1172,18 @@ export const useGameStore = create<GameStore>()((set, get) => ({
         return
       }
     }
+    // A `drive_around` plan (issue #19 §11 Give a Ride) can only start while STOPPED in your own
+    // usable vehicle, free of a pursuit / mission / robbery. The schedule-window, active-activity and
+    // career-shift gates are already enforced above — this branch adds the ride-specific ones so the
+    // ride runs through the SAME confirmed-plan start path as every other activity.
+    if (inv.activityKind === 'drive_around') {
+      const active = getActiveOwnedVehicle()
+      if (s.mode !== 'driving' || !active) return void get().showToast('Get in one of your own vehicles first.')
+      if (Math.abs(registry.flags.drivingSpeed) > 0.3) return void get().showToast('Come to a stop to offer a ride.')
+      if (getWantedLevel() > 0 || missionRuntime.active || activityRuntime.active) return void get().showToast(vehicleRefusalText('busy'))
+      const check = canGiveRide(inv.actorId)
+      if (!check.ok) return void get().showToast(vehicleRefusalText(check.reason))
+    }
     const act = activityFromInvitation(inv.id, inv.actorId, inv.activityKind, s.stats.day)
     beginActivity(act)
     audioManager.playClick()
@@ -1226,9 +1230,14 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     // actually AT the venue. A HOME activity's venue is your residence — satisfied
     // when you're inside your own home (issue #17 §9); other venues use the scanner.
     if (act.step === 'travel') {
-      const atVenue = isHomeActivityKind(act.activityKind)
-        ? s.location === 'apartment' && !s.housingTouring && s.currentInteriorId === currentResidenceInteriorId()
-        : s.activeInteractableId === act.venueId
+      // A `drive_around` (§11) venue IS your own vehicle — "arrived" means you're driving it; a home
+      // activity's venue is your residence; everything else uses the world interactable scanner.
+      const atVenue =
+        act.activityKind === 'drive_around'
+          ? s.mode === 'driving' && getActiveOwnedVehicle() != null
+          : isHomeActivityKind(act.activityKind)
+            ? s.location === 'apartment' && !s.housingTouring && s.currentInteriorId === currentResidenceInteriorId()
+            : s.activeInteractableId === act.venueId
       if (!atVenue) {
         get().showToast(`Head to ${act.venueLabel} to meet ${getSocialActor(act.actorId)?.displayName ?? 'them'}.`)
         return
@@ -1883,33 +1892,10 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     get().showToast('New wheels fitted.')
   },
 
-  startVehicleRide: (npcId) => {
-    const s = get()
-    const active = getActiveOwnedVehicle()
-    // §11: start requires being STOPPED in your own usable vehicle, with no other social activity
-    // running (the SAME activity-exclusion the home-host uses) and no wanted heat. The ride is a REAL
-    // `drive_around` Social Life activity begun through the pipeline — never a parallel vehicle path.
-    if (s.mode !== 'driving' || !active) return void get().showToast('Get in one of your own vehicles first.')
-    if (Math.abs(registry.flags.drivingSpeed) > 0.3) return void get().showToast('Come to a stop to offer a ride.')
-    if (getActiveActivity() != null || getWantedLevel() > 0) return void get().showToast(vehicleRefusalText('busy'))
-    const check = canGiveRide(npcId)
-    if (!check.ok) return void get().showToast(vehicleRefusalText(check.reason))
-    const activity = driveAroundActivity(npcId as SocialActorId, s.stats.day, vehicleRideSeq++)
-    if (!beginActivity(activity)) return void get().showToast(vehicleRefusalText('busy'))
-    set((st) => ({ vehicleVersion: st.vehicleVersion + 1, socialVersion: st.socialVersion + 1 }))
-    get().showToast('Giving them a ride around town.')
-  },
-
-  completeVehicleRide: () => {
-    if (!isRideActive()) return
-    const s = get()
-    // Drive the ONE active activity to completion through the pipeline: `stepActivity` fires
-    // `activity_completed` (the exact-once memory) + the follow-up message and clears it (§11).
-    let guard = 0
-    while (isRideActive() && guard++ < 8) stepActivity(s.stats.day, s.stats.hour)
-    set((st) => ({ vehicleVersion: st.vehicleVersion + 1, socialVersion: st.socialVersion + 1 }))
-    get().showToast('Dropped off your passenger.')
-  },
+  // Give a Ride (§11) is NOT a bespoke store action: the player invites an NPC to a `drive_around`
+  // through the phone Contacts (`sendPlayerInvite`), it is accepted like any plan, started from the
+  // confirmed-plans list (`startSocialActivity`, gated above), advanced/completed via the shared
+  // activity tracker (`advanceSocialActivity`), and cancelled on exit/park/arrest — all existing UI.
 
   loadVehicleCargo: (assetId, itemId, quantity) => {
     const asset = getOwnedVehicle(assetId)

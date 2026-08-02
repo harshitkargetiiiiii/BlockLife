@@ -148,14 +148,22 @@ test.describe('Vehicle Ownership v1 — visuals', () => {
 
   test('driving with an NPC passenger along for the ride', async ({ page }) => {
     await ready(page)
-    // Befriend Maya through the real social pipeline, then give her a ride (§11).
-    for (let d = 1; d <= 4; d++) await api(page, 'ingestSocialEvent', { id: `ride_vis_${d}`, kind: 'activity_completed', actorId: 'npc_maya_01', gameDay: d, gameHour: 12 })
+    await api(page, 'setTime', 12) // Maya is available 10–20 → the drive invite is accepted + startable
+    // Befriend Maya to a friend + contact, own a usable van and get in it, then give her a ride
+    // through the SAME production social UI as gameplay (Contacts invite → Chats start — §11).
+    for (let i = 0; i < 5; i++) await api(page, 'ingestSocialEvent', { id: `ride_vis_${i}`, kind: 'activity_completed', actorId: 'npc_maya_01', gameDay: 1, gameHour: 12 })
     const id = await grant(page, 'veh_van', { location: 'parked', anchorId: 'park_public_central' })
     await api(page, 'vehicleStandAtAnchor', 'park_public_central')
     await api(page, 'vehicleRetrieve', id)
     await page.waitForTimeout(300)
-    await api(page, 'vehicleStartRide', 'npc_maya_01')
-    await page.waitForTimeout(200)
+    await api(page, 'openPhoneApp', 'contacts')
+    await page.getByTestId('contact-invite-drive-npc_maya_01').click()
+    const invs = (await api(page, 'getSocialInvitations')) as Array<{ id: string; activityKind: string; status: string; actorId: string }>
+    const plan = invs.find((i) => i.activityKind === 'drive_around' && i.actorId === 'npc_maya_01' && i.status === 'accepted')!
+    await api(page, 'openPhoneApp', 'messages')
+    await page.getByTestId(`plan-start-${plan.id}`).click()
+    await page.keyboard.press('Tab') // close the phone for a clean driving shot
+    await page.waitForTimeout(300)
     await freeze(page)
     await expect(page).toHaveScreenshot('driving-with-passenger.png', { maxDiffPixelRatio: 0.02 })
   })
