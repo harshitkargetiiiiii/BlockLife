@@ -79,8 +79,10 @@ collider density so physical mass equals the class's `bodyMass` (the Compact yie
 owned car projects its own paint + wheel style.
 
 ## The real-world contract (§4/§5/§7 — no remote summon)
-Location-gated store actions require the player on foot at the authored anchor, and refuse during a
-pursuit / mission / social activity / career shift:
+Location-gated store actions require the player on foot at the authored anchor, and refuse while the
+player is mid-anything through the ONE shared `playerInExclusiveActivity()` gate — an active career
+shift, mission, robbery/criminal activity, OR Social Life activity (buy/trade also refuse inside any
+interior; repair/customize also refuse while wanted):
 - **buy / trade** — at a dealership bay; refuse `no_parking` when no safe initial bay exists.
 - **retrieve** — player-nearness to the car's parked (or recovery) anchor; the phone guides, it never
   teleports a healthy car to you.
@@ -101,10 +103,14 @@ vehicles, cargo, upgrades and receipts can never duplicate or be lost.
 - **Career (§10)** — `vehicleCareer.deliveryPayBonus()` is a read-only adapter (own a usable
   delivery-tagged vehicle → a flat capped bonus) folded into the shift's pay total, exact-once via the
   career `paidAttemptKeys`; the career domain stays decoupled (it receives a number).
-- **Social (§11)** — `vehicleSocial.canGiveRide` (a friendly+ NPC + a usable owned seats≥2 vehicle);
-  `startVehicleRide` seats a transient passenger while stopped in your own car, `completeVehicleRide`
-  banks ONE memory through the existing `ingestSocialEvent`. The passenger is never persisted and is
-  dropped on load or arrest.
+- **Social (§11)** — Give-a-Ride runs through the EXISTING Social Life activity authority, not a
+  parallel path. `drive_around` is a first-class `InvitationActivityKind`; `startVehicleRide` (gated by
+  `vehicleSocial.canGiveRide`: a friendly+ NPC + a usable owned seats≥2 vehicle, stopped, no other
+  activity) begins a real `drive_around` `SocialActivity` via `beginActivity`; `completeVehicleRide`
+  drives it to `done` via `stepActivity`, which fires the ONE `activity_completed` event + follow-up
+  message. The passenger is DERIVED from `getActiveActivity()` (no separate runtime); leaving the car
+  (exit/park/arrest) cancels the activity through the pipeline (a no-show), and a ride is never
+  serialized — a reload can never strand a passenger.
 
 ## Owned-vs-stolen separation (§2, by construction)
 Owned assets use `ov_<n>` ids in the ownership runtime and render via `OwnedParkedVehicles`. The
