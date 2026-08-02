@@ -6,6 +6,8 @@ import { vehicleStockOf } from '../vehicles/vehicleDealership'
 import { getVehicleDef } from '../vehicles/vehicleRegistry'
 import { getParkingAnchor } from '../vehicles/parkingRegistry'
 import { registry } from '../world/runtimeRegistry'
+import { beginActivity, cancelActivity, resetSocial } from '../social/socialRuntime'
+import { driveAroundActivity } from '../social/socialActivities'
 
 // Buying/trading/retrieving all require the on-foot player to be AT the authored dealership bay
 // (§4/§5). Bought cars park at park_dealer_a, so standing there also satisfies the retrieve gate.
@@ -217,5 +219,44 @@ describe('buyVehicle / tradeInVehicle store actions (atomic money + asset)', () 
     expect(useGameStore.getState().stealVehicle(v.id)).toBe(false)
     // The owned asset is untouched — still a legitimate parked vehicle, not a crime identity.
     expect(getOwnedVehicles()[0].location.kind).toBe('parked')
+  })
+})
+
+describe('dealership + service refuse during any exclusive activity (§4/§7/§9 review round-3)', () => {
+  beforeEach(() => {
+    resetVehicleOwnership()
+    resetCommerceRuntime()
+    resetSocial()
+    setMoney(100000)
+  })
+  afterEach(() => {
+    resetSocial()
+    resetVehicleOwnership()
+  })
+
+  it('buying is refused while a Social Life activity is running, then allowed once it ends', () => {
+    // At a dealership bay with funds, but mid social-activity → refused (no asset, no charge).
+    beginActivity(driveAroundActivity('npc_maya_01', 3, 0))
+    useGameStore.getState().buyVehicle('veh_compact')
+    expect(getOwnedVehicles()).toHaveLength(0)
+    expect(useGameStore.getState().stats.money).toBe(100000)
+    // End the activity → the same purchase now succeeds.
+    cancelActivity(3, 12)
+    useGameStore.getState().buyVehicle('veh_compact')
+    expect(getOwnedVehicles()).toHaveLength(1)
+  })
+
+  it('paint/customization is refused while a Social Life activity is running', () => {
+    // Own a car parked at the service bay; stand at the service anchor.
+    useGameStore.getState().buyVehicle('veh_compact')
+    const v = getOwnedVehicles()[0]
+    setVehicleLocation(v.id, { kind: 'parked', anchorId: 'park_service' })
+    registry.playerPosition.set(SERVICE.position[0], 1.2, SERVICE.position[1])
+    beginActivity(driveAroundActivity('npc_maya_01', 3, 1))
+    useGameStore.getState().paintVehicle(v.id, '#2c2c33')
+    expect(getOwnedVehicles()[0].customization.paint).not.toBe('#2c2c33') // refused mid-activity
+    cancelActivity(3, 12)
+    useGameStore.getState().paintVehicle(v.id, '#2c2c33')
+    expect(getOwnedVehicles()[0].customization.paint).toBe('#2c2c33') // allowed once free
   })
 })

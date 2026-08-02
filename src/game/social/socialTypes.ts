@@ -216,6 +216,7 @@ export type InvitationActivityKind =
   | 'coffee_home'
   | 'movie_night'
   | 'dinner_home'
+  | 'drive_around'
 
 /**
  * The canonical, exhaustive list of invitation activity kinds — the ONE source persistence,
@@ -233,6 +234,7 @@ const INVITATION_KIND_PRESENCE: Record<InvitationActivityKind, true> = {
   coffee_home: true,
   movie_night: true,
   dinner_home: true,
+  drive_around: true,
 }
 export const INVITATION_ACTIVITY_KINDS = Object.keys(INVITATION_KIND_PRESENCE) as InvitationActivityKind[]
 

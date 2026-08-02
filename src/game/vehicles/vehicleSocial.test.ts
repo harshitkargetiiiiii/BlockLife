@@ -3,8 +3,7 @@ import {
   canGiveRide,
   getRidePassenger,
   hasUsableRideVehicle,
-  resetVehicleRide,
-  setRidePassenger,
+  isRideActive,
 } from './vehicleSocial'
 import {
   mintOwnedVehicle,
@@ -12,7 +11,8 @@ import {
   setVehicleCondition,
   setVehicleLocation,
 } from './vehicleOwnershipRuntime'
-import { getDerivedRelationship, ingestSocialEvent, resetSocial } from '../social/socialRuntime'
+import { beginActivity, cancelActivity, getDerivedRelationship, ingestSocialEvent, resetSocial } from '../social/socialRuntime'
+import { driveAroundActivity } from '../social/socialActivities'
 
 // Maya starts as a pure stranger (defaultRelationship rel({})), so tier transitions here are earned,
 // never seeded — unlike Ravi, who begins friendly.
@@ -37,8 +37,7 @@ function befriend(id: string): void {
 describe('vehicle → social ride adapter (issue #19 §11)', () => {
   beforeEach(() => {
     resetVehicleOwnership()
-    resetSocial()
-    resetVehicleRide()
+    resetSocial() // clears any active drive_around activity — the ride lives in the social runtime
   })
 
   it('hasUsableRideVehicle needs an owned seats>=2 vehicle with positive condition, not impounded', () => {
@@ -77,11 +76,24 @@ describe('vehicle → social ride adapter (issue #19 §11)', () => {
     expect(canGiveRide(MAYA)).toEqual({ ok: false, reason: 'unavailable' })
   })
 
-  it('the passenger runtime is a simple transient slot (set / read / reset)', () => {
+  it('the passenger is DERIVED from the one active social activity, not a separate slot', () => {
     expect(getRidePassenger()).toBeNull()
-    setRidePassenger(MAYA)
+    expect(isRideActive()).toBe(false)
+    // Begin a real `drive_around` activity through the social authority — the passenger reads back
+    // from it (no parallel vehicle-side runtime).
+    beginActivity(driveAroundActivity(MAYA, 1, 0))
     expect(getRidePassenger()).toBe(MAYA)
-    resetVehicleRide()
+    expect(isRideActive()).toBe(true)
+    // Cancelling the activity through the pipeline clears the passenger.
+    cancelActivity(1, 12)
+    expect(getRidePassenger()).toBeNull()
+    expect(isRideActive()).toBe(false)
+  })
+
+  it('a non-ride active activity does not read as a ride passenger', () => {
+    // A home/hangout activity is active, but it is not a `drive_around` — no ride passenger.
+    ingestSocialEvent({ id: 'met', kind: 'met', actorId: MAYA, gameDay: 1 })
+    // (getRidePassenger only reflects drive_around; any other active activity reads as no passenger.)
     expect(getRidePassenger()).toBeNull()
   })
 })

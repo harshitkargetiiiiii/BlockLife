@@ -39,7 +39,9 @@ export function serializeSocial(): SocialSaveData {
     messages: Object.fromEntries(Object.entries(s.messages).map(([id, m]) => [id, m.map((e) => ({ ...e }))])),
     invitations: s.invitations.map((i) => ({ ...i })),
     lastInitiatedDay: { ...s.lastInitiatedDay },
-    activeActivity: s.activeActivity ? { ...s.activeActivity } : null,
+    // A Give-a-Ride (`drive_around`) is a transient activity that only exists while the player is
+    // driving — it is never persisted, so a reload can never strand a passenger (issue #19 §11).
+    activeActivity: s.activeActivity && s.activeActivity.activityKind !== 'drive_around' ? { ...s.activeActivity } : null,
     msgSeq: s.msgSeq,
   }
 }

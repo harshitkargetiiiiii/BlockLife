@@ -1,27 +1,27 @@
 /**
  * Vehicle → social ride adapter (issue #19 §11). "Give a Ride": the player, stopped in an owned
- * usable vehicle, invites a sufficiently-friendly NPC along; a completed ride produces ONE social
- * memory through the EXISTING social event pipeline (`ingestSocialEvent`, exact-once by id). The
- * passenger is a transient seated-render flag — NO passenger driving AI, and it is never persisted
- * (a load never strands a passenger). Vehicle ownership READS social relationships; it never mutates
- * social state except through the one event pipeline.
+ * usable vehicle, offers a sufficiently-friendly NPC a lift. The ride is a REAL Social Life activity
+ * of kind `drive_around` run through the EXISTING activity authority (`beginActivity` / `stepActivity`
+ * / `cancelActivity`) — NOT a parallel vehicle-side runtime. This adapter only READS social state
+ * (relationship tier + the active activity) and derives the current passenger from it; it never owns
+ * ride state or mutates social relationships (the pipeline's completion/cancel events do that).
  */
 import { getOwnedVehicles } from './vehicleOwnershipRuntime'
 import { getVehicleDef } from './vehicleRegistry'
-import { getDerivedRelationship, hasMet } from '../social/socialRuntime'
+import { getActiveActivity, getDerivedRelationship, hasMet } from '../social/socialRuntime'
 import type { RelationshipTier, SocialActorId } from '../social/socialTypes'
 import type { VehicleRefusalReason } from './vehicleOwnershipTypes'
 
-/** Transient ride state — the current passenger NPC id, or null. Never serialized (§11 save policy). */
-export const vehicleRideRuntime = { passengerId: null as string | null }
+/** The current ride passenger NPC id, derived from the ONE active social activity — non-null only
+ *  while a `drive_around` activity is running. Never a separate stored field (no stranded passenger). */
 export function getRidePassenger(): string | null {
-  return vehicleRideRuntime.passengerId
+  const a = getActiveActivity()
+  return a && a.activityKind === 'drive_around' ? a.actorId : null
 }
-export function setRidePassenger(id: string | null): void {
-  vehicleRideRuntime.passengerId = id
-}
-export function resetVehicleRide(): void {
-  vehicleRideRuntime.passengerId = null
+
+/** True when a Give-a-Ride activity is currently in progress. */
+export function isRideActive(): boolean {
+  return getRidePassenger() != null
 }
 
 /** A ride needs a friend or better (never bought with vehicle value — §11). */
@@ -38,7 +38,7 @@ export function hasUsableRideVehicle(): boolean {
 export type RideCheck = { ok: true } | { ok: false; reason: VehicleRefusalReason }
 
 /** Validate offering `npcId` a ride: met, a friendly+ relationship, and a usable owned vehicle.
- *  Stopped/at-the-vehicle/activity-exclusion checks are the store action's (they read live state). */
+ *  Stopped/driving/activity-exclusion checks are the store action's (they read live game state). */
 export function canGiveRide(npcId: string): RideCheck {
   const id = npcId as SocialActorId
   if (!hasMet(id)) return { ok: false, reason: 'ineligible' }

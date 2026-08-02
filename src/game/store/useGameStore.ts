@@ -55,7 +55,7 @@ import { canInstallUpgrade, canPaint, canSetWheels } from '../vehicles/vehicleCu
 import { loadCargo, unloadCargo } from '../vehicles/vehicleCargo'
 import { canParkAtAnchor, nearestParkableAnchorId, pickInitialParkingAnchorId, playerNearAnchor, playerNearAnyAnchor } from '../vehicles/vehicleParkingService'
 import { deliveryPayBonus } from '../vehicles/vehicleCareer'
-import { canGiveRide, getRidePassenger, resetVehicleRide, setRidePassenger } from '../vehicles/vehicleSocial'
+import { canGiveRide, isRideActive } from '../vehicles/vehicleSocial'
 import { DEALERSHIP_ANCHOR_IDS, RECOVERY_ANCHOR_ID, SERVICE_ANCHOR_ID, getParkingAnchor, residenceAnchorFor } from '../vehicles/parkingRegistry'
 import { fileReport } from '../crime/reportingSystem'
 import { registerPlayerDamageSink } from '../combat/damageRuntime'
@@ -175,7 +175,7 @@ import {
   socialRuntime,
   stepActivity,
 } from '../social/socialRuntime'
-import { activityFromInvitation, activityPrompt, favorActivity, isHomeActivityKind } from '../social/socialActivities'
+import { activityFromInvitation, activityPrompt, driveAroundActivity, favorActivity, isHomeActivityKind } from '../social/socialActivities'
 import { invitationStartWindow, nextAvailableSlot } from '../social/socialScheduling'
 import { noteArrestWitnessed, noteCrimeWitnessed } from '../social/socialConsequences'
 import type { InvitationActivityKind, SocialActorId } from '../social/socialTypes'
@@ -637,6 +637,9 @@ export function createInitialGameState(): GameDataState {
 
 let toastSeq = 0
 let recoverySeq = 0
+// Transient per-session counter so each Give-a-Ride activity gets a unique id (§11); rides never
+// persist, so this need not survive a reload.
+let vehicleRideSeq = 0
 
 // ---- Personal Economy, Inventory & Shopping v1 helpers --------------------
 
@@ -645,12 +648,26 @@ function gameHoursOf(s: { stats: PlayerStats }): number {
   return s.stats.day * 24 + s.stats.hour
 }
 
+/** The ONE authoritative "the player is mid-activity" gate the whole app shares (issue #19 §4/§7/§9):
+ *  an active career shift, an active mission, an active robbery/criminal activity, OR an active Social
+ *  Life activity. Vehicle commerce + service/customization all refuse while any of these is running,
+ *  reusing the same authorities rather than inventing per-feature checks. */
+function playerInExclusiveActivity(): boolean {
+  return getActiveCareerShift() != null || !!missionRuntime.active || !!activityRuntime.active || getActiveActivity() != null
+}
+
 /** True when the player may transact at the vehicle service/customization anchor (§7/§9): on foot
- *  in the open city, not wanted or mid-shift, and standing at the authored service anchor. Repair,
- *  upgrade install, paint and wheels all share this gate. */
+ *  in the open city, not wanted, free of any mission/shift/robbery/social activity, and standing at
+ *  the authored service anchor. Repair, upgrade install, paint and wheels all share this gate. */
 function atCustomizationLocation(): boolean {
   const s = useGameStore.getState()
-  return s.mode !== 'driving' && s.location === 'city' && getWantedLevel() === 0 && getActiveCareerShift() == null && playerNearAnchor(SERVICE_ANCHOR_ID)
+  return (
+    s.mode !== 'driving' &&
+    s.location === 'city' &&
+    getWantedLevel() === 0 &&
+    !playerInExclusiveActivity() &&
+    playerNearAnchor(SERVICE_ANCHOR_ID)
+  )
 }
 
 /**
@@ -1632,14 +1649,15 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     }
     // Lazily restock the dealership to the current game time (never per frame), then run the
     // SAME commerce purchase gate as any store plus the vehicle gates (wanted/incapacitated/busy,
-    // eligibility, owned cap). `busy` covers an active shift OR being inside a store/interior/tour.
+    // eligibility, owned cap). `busy` reuses the ONE activity-exclusion gate (active career shift /
+    // mission / robbery / Social Life activity) OR being inside a store/interior/tour (§4).
     reconcileVehicleDealership(gameHoursOf(s))
     const ctx = {
       money: s.stats.money,
       day: s.stats.day,
       wanted: getWantedLevel() > 0,
       incapacitated: s.playerIncapacitated,
-      busy: getActiveCareerShift() != null || s.location !== 'city',
+      busy: playerInExclusiveActivity() || s.location !== 'city',
     }
     const check = canBuyVehicle(defId, ctx)
     if (!check.ok) return void get().showToast(vehicleRefusalText(check.reason))
@@ -1676,7 +1694,7 @@ export const useGameStore = create<GameStore>()((set, get) => ({
       day: s.stats.day,
       wanted: getWantedLevel() > 0,
       incapacitated: s.playerIncapacitated,
-      busy: getActiveCareerShift() != null || s.location !== 'city',
+      busy: playerInExclusiveActivity() || s.location !== 'city',
     }
     const check = canTradeIn(tradeInId, newDefId, ctx)
     if (!check.ok) return void get().showToast(vehicleRefusalText(check.reason))
@@ -1814,9 +1832,15 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     }
     registry.playerPosition.set(ex, 1.2, ez)
     registry.flags.drivingSpeed = 0
+    // Parking mid-ride ends the drive → cancel any Give-a-Ride through the pipeline (a no-show), so
+    // the passenger never outlives the trip (§11). No-op when no ride is running.
+    if (isRideActive()) {
+      const now = get()
+      cancelActivityRt(now.stats.day, now.stats.hour)
+    }
     audioManager.playClick()
     audioManager.setEngine(0)
-    set((st) => ({ mode: 'walking', vehicleVersion: st.vehicleVersion + 1 }))
+    set((st) => ({ mode: 'walking', vehicleVersion: st.vehicleVersion + 1, socialVersion: st.socialVersion + 1 }))
     get().showToast('Vehicle parked.')
   },
 
@@ -1862,26 +1886,27 @@ export const useGameStore = create<GameStore>()((set, get) => ({
   startVehicleRide: (npcId) => {
     const s = get()
     const active = getActiveOwnedVehicle()
-    // §11: start requires being STOPPED in your own usable vehicle, with no other social activity in
-    // progress (the same exclusion the home-host uses) and no wanted heat. Vehicle value never buys it.
+    // §11: start requires being STOPPED in your own usable vehicle, with no other social activity
+    // running (the SAME activity-exclusion the home-host uses) and no wanted heat. The ride is a REAL
+    // `drive_around` Social Life activity begun through the pipeline — never a parallel vehicle path.
     if (s.mode !== 'driving' || !active) return void get().showToast('Get in one of your own vehicles first.')
     if (Math.abs(registry.flags.drivingSpeed) > 0.3) return void get().showToast('Come to a stop to offer a ride.')
     if (getActiveActivity() != null || getWantedLevel() > 0) return void get().showToast(vehicleRefusalText('busy'))
-    if (getRidePassenger()) return void get().showToast('You already have a passenger.')
     const check = canGiveRide(npcId)
     if (!check.ok) return void get().showToast(vehicleRefusalText(check.reason))
-    setRidePassenger(npcId)
+    const activity = driveAroundActivity(npcId as SocialActorId, s.stats.day, vehicleRideSeq++)
+    if (!beginActivity(activity)) return void get().showToast(vehicleRefusalText('busy'))
     set((st) => ({ vehicleVersion: st.vehicleVersion + 1, socialVersion: st.socialVersion + 1 }))
     get().showToast('Giving them a ride around town.')
   },
 
   completeVehicleRide: () => {
-    const npcId = getRidePassenger()
-    if (!npcId) return
+    if (!isRideActive()) return
     const s = get()
-    // ONE social consequence through the EXISTING pipeline; the id makes the memory exact-once (§11).
-    ingestSocialEvent({ id: `vehicle_ride:${npcId}:${s.stats.day}:${Math.round(s.stats.hour)}`, kind: 'activity_completed', actorId: npcId as SocialActorId, gameDay: s.stats.day, gameHour: s.stats.hour })
-    setRidePassenger(null)
+    // Drive the ONE active activity to completion through the pipeline: `stepActivity` fires
+    // `activity_completed` (the exact-once memory) + the follow-up message and clears it (§11).
+    let guard = 0
+    while (isRideActive() && guard++ < 8) stepActivity(s.stats.day, s.stats.hour)
     set((st) => ({ vehicleVersion: st.vehicleVersion + 1, socialVersion: st.socialVersion + 1 }))
     get().showToast('Dropped off your passenger.')
   },
@@ -2055,6 +2080,13 @@ export const useGameStore = create<GameStore>()((set, get) => ({
   },
 
   exitVehicle: () => {
+    // Leaving the car mid-ride abandons the passenger — cancel the ride activity through the
+    // pipeline (a no-show), so a ride never outlives the drive (§11). No-op if none is running.
+    if (isRideActive()) {
+      const st = get()
+      cancelActivityRt(st.stats.day, st.stats.hour)
+      set((s2) => ({ socialVersion: s2.socialVersion + 1, vehicleVersion: s2.vehicleVersion + 1 }))
+    }
     const playerBody = registry.playerBody
     const carPos = registry.vehiclePosition
     // Yaw-only body: rotation quaternion is (0, sin(h/2), 0, cos(h/2)).
@@ -2137,7 +2169,8 @@ export const useGameStore = create<GameStore>()((set, get) => ({
         set((st) => ({ vehicleVersion: st.vehicleVersion + 1 }))
       }
     }
-    resetVehicleRide() // an arrest/incapacitation cleanly removes any ride passenger (§11)
+    // Leaving the car below (exitVehicle) cancels any Give-a-Ride through the pipeline — an
+    // arrest/incapacitation while driving cleanly abandons the passenger (§11).
     if (s.mode === 'driving') get().exitVehicle()
     // Wanted, police, incidents, stolen-vehicle state, weapon, panic all clear.
     resetCrimeSystems()
@@ -2554,7 +2587,7 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     resetCareers() // employment/skills/shifts/history back to canonical defaults
     resetHousing() // lease/property/furniture back to the canonical Starter Studio
     resetVehicleOwnership() // owned vehicles/parking/condition/upgrades back to none (§13)
-    resetVehicleRide() // drop any transient ride passenger (never persisted — §11)
+    // (any Give-a-Ride activity is cleared by resetSocial above — it lives in the social runtime)
     resetIntegrityRuntime() // clear mirrored entities + anomaly history on reset
     set({ ...createInitialGameState() })
     teleportPlayer(PLAYER_SPAWN)
@@ -2587,9 +2620,9 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     applyActivitySave(snapshot.activities)
     resetInteriorCivilians() // no heist loads → civilians start home
     clearTransientActivity() // drop any transient robbery + containment on load
-    resetVehicleRide() // a load never restores/strands a ride passenger (transient — §11)
-    // Social: restore relationships/memories/contacts (sanitized, idempotent);
-    // an old save (no `social` field) resets to canonical strangers.
+    // Social: restore relationships/memories/contacts (sanitized, idempotent); an old save (no
+    // `social` field) resets to canonical strangers. A Give-a-Ride is never serialized, so this
+    // load always yields no active ride — a reload can never strand a passenger (§11).
     applySocialSave(snapshot.social)
     // Careers: restore employment/skills/ranks/history/schedule + reload-safe shift
     // counter (sanitized, idempotent); an active shift never restores mid-flight — the
