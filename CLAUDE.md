@@ -76,7 +76,27 @@ regression) and `scripts/crime-gate.sh`.
 compiles 0 files and always passes. Only `-b --force` really typechecks.
 
 ## Current state
-In progress: **Housing, Furniture & Property Progression v1** (issue #17) — one
+In progress: **Vehicle Ownership, Parking & Customization v1** (issue #19) — one
+**deterministic** vehicle-ownership platform under [`src/game/vehicles/`](src/game/vehicles/) on top
+of the existing economy/commerce/crime/mission/inventory/housing/social/traffic/save/streaming/
+World-Integrity stacks (reimplementing none), preserving the **one-shell arcade driving model**
+(still ONE physical car `PLAYER_CAR_ID`; ownership PROJECTS a class onto it, never a second body).
+Core loop: buy at the dealership → park at an authored anchor → retrieve to drive → the shell
+projects the active class (tuning+footprint+paint) → park → repair/impound/recover → customize →
+carry cargo — owned vehicles kept strictly separate from stolen ones. Ships **4 classes** (Scooter/
+Compact/Van/Sports) with a validated registry (Compact == `VEHICLE_TUNING`/`CAR_HALF_*`, the migration
+target); persistent owned assets (`ov_<n>`, cap **4**, one-active, one-per-anchor, exact-once txn
+ledger); **dealership + trade-in** through the commerce authority (a `vehicle_dealership` retail store);
+**11 authored parking anchors** + park/retrieve/recover; the **one-shell projection** (defaults to the
+legacy Compact when unowned → baseline preserved) with condition wear + performance upgrades;
+**repair/impound/release** + bounded crash→condition wear; per-asset **cargo** over the inventory
+service's atomic `transferItem`; **customization** (Sport Tune/Cargo Rack/Reinforced Frame + palette
+paint); a **Garage** phone app; additive fail-safe **save** + legacy→Compact migration (exact-once);
+DEV observability. Owned-vs-stolen separation is by id-namespace construction (owned cars are never
+stealable). UI re-renders via a `vehicleVersion` counter. See
+[`docs/VEHICLE_OWNERSHIP_PARKING_CUSTOMIZATION.md`](docs/VEHICLE_OWNERSHIP_PARKING_CUSTOMIZATION.md).
+
+Prior sprint (shipped via PR #18, merged): **Housing, Furniture & Property Progression v1** (issue #17) — one
 **deterministic** housing platform under [`src/game/housing/`](src/game/housing/) on top
 of the existing economy/commerce/inventory-storage/interior/wardrobe/career/social/
 mission/crime/game-time/save/streaming/occupancy stacks (reimplementing none). Core

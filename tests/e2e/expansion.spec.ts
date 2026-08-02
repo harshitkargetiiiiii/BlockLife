@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
-import { gotoGame } from './helpers'
+import { acquireDrivableCar, gotoGame } from './helpers'
 
 /**
  * City Expansion Content Pack v1: four kit-compiled sectors (Waterfront
@@ -105,6 +105,7 @@ test.describe('city expansion content pack', () => {
     test.setTimeout(120_000)
     await gotoGame(page)
     await resetWorld(page)
+    await acquireDrivableCar(page) // §19: own an active Compact shell (no free car on a new game)
     await page.evaluate(() => window.GAME_TEST_API!.teleportTo('parking_lot_test'))
     await page.waitForFunction(
       () => window.GAME_TEST_API!.getStats().activeInteractableId === 'vehicle_compact_car_01',

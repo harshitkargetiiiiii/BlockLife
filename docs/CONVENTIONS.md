@@ -485,6 +485,29 @@ generalising:
   53 first-aid kits is 11 slots, not 53. An arrange that ignores stack limits tests
   nothing (or the wrong thing).
 
+### 31. Project onto the ONE shell; default to the legacy baseline (Vehicle Ownership v1)
+Adding 4 drivable classes without a second physics body: a pure `getActiveVehicleProjection()`
+returns the tuning/footprint/paint the ONE shell embodies, and the driving controller/mesh read
+it. The trap is baseline churn — so the projection **returns the EXACT legacy Compact constants
+(`VEHICLE_TUNING`/`CAR_HALF_*`, `DRIVABLE_CAR_COLOR`) whenever no owned vehicle is active** (on foot's
+last car, a stolen car, a pre-migration save). That single default keeps every existing driving/
+traffic/visual test byte-for-byte unchanged; only an explicitly-activated OWNED vehicle changes the
+shell. Class differences that would desync the fixed rapier collider (size) apply to PARKED render
+meshes only, not the active shell.
+
+### 32. Keep owned vs. stolen in separate id namespaces (Vehicle Ownership v1)
+"Strict owned-vs-stolen separation" is cheapest as a namespace invariant, not a runtime check:
+owned assets are `ov_<n>` in the ownership runtime; the theft path resolves targets ONLY from
+`STEALABLE_VEHICLES`/ambient traffic; `mintOwnedVehicle` never touches `vehicleCrimeState`. So a
+bought car is structurally un-stealable and can never become a crime identity — prove it with a
+test (`stealVehicle(ov_id) === false`), don't add a guard that pretends the overlap was possible.
+
+### 33. Batch a soak's per-iteration work into ONE `page.evaluate`
+A lifecycle soak that does 6+ `page.evaluate` round-trips per iteration ×200 iters blows the
+standard 180s soak budget on IPC alone — and the fix is NOT raising the timeout. Do the whole
+iteration (the store-action ops + the invariant snapshot) inside a single `page.evaluate` returning
+the numbers to assert; the browser runs the loop, you pay one round-trip per iteration.
+
 ---
 
 ## The verification workflow (honest gates)

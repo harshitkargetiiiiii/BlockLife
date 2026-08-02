@@ -11,15 +11,19 @@ import { activityPrompt } from '../game/social/socialActivities'
 export function SocialActivityTracker() {
   useGameStore((s) => s.socialVersion)
   const activeInteractableId = useGameStore((s) => s.activeInteractableId)
+  const mode = useGameStore((s) => s.mode)
   const advance = useGameStore((s) => s.advanceSocialActivity)
   const cancel = useGameStore((s) => s.cancelSocialActivity)
 
   const activity = getActiveActivity()
   if (!activity) return null
   const name = getSocialActor(activity.actorId)?.displayName ?? 'them'
-  // Destination integration (PR#14 blocker 4): the "I'm here" step only unlocks
-  // once the player has actually reached the venue (reuses the proximity scanner).
-  const outOfRange = activity.step === 'travel' && activeInteractableId !== activity.venueId
+  // Destination integration (PR#14 blocker 4): the "I'm here" step only unlocks once the player has
+  // reached the venue. A Give-a-Ride's (§19 §11) venue is your own vehicle — "arrived" means you are
+  // driving it; every other venue uses the world proximity scanner.
+  const outOfRange =
+    activity.step === 'travel' &&
+    (activity.activityKind === 'drive_around' ? mode !== 'driving' : activeInteractableId !== activity.venueId)
 
   return (
     <div className="social-activity-tracker" data-testid="social-activity-tracker">

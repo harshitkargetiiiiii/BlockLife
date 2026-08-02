@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { getStats, gotoGame, teleport } from './helpers'
+import { acquireDrivableCar, getStats, gotoGame, teleport } from './helpers'
 
 test.describe('phone', () => {
   test.beforeEach(async ({ page }) => {
@@ -58,6 +58,7 @@ test.describe('phone', () => {
   })
 
   test('blocks driving while open', async ({ page }) => {
+    await acquireDrivableCar(page) // §19: own an active Compact shell (no free car on a new game)
     await teleport(page, [13, 1.2, 14])
     await page.waitForFunction(
       () => window.GAME_TEST_API!.getStats().activeInteractableId === 'vehicle_compact_car_01',

@@ -1,5 +1,6 @@
 import type { StoreDefinition, StoreListing } from './commerceTypes'
 import { FURNITURE_DEFS } from '../housing/furnitureCatalog'
+import { VEHICLE_DEFS } from '../vehicles/vehicleRegistry'
 
 /**
  * The two robbable convenience stores + the furniture showroom. Everything
@@ -66,12 +67,35 @@ const FURNITURE_SHOWROOM: StoreDefinition = {
   sourceRef: { file: 'src/game/commerce/storeDefinitions.ts', symbol: 'FURNITURE_SHOWROOM' },
 }
 
+/** The vehicle dealership — a RETAIL store (no register/interior/robbery), exactly like the
+ *  furniture showroom. Its listings are the vehicle registry defs at their base price (single
+ *  source, so display == charge); a sale decrements real stock, records a receipt, and the
+ *  vehicles layer mints the unique owned asset ONLY after that transaction (issue #19 §4).
+ *  Stock is generous + restocks so a class is "ordered in" rather than scarce, but every sale
+ *  is a real decrement and out-of-stock is a first-class provable state. */
+export const VEHICLE_DEALERSHIP_ID = 'vehicle_dealership'
+const DEALERSHIP_LISTINGS: readonly StoreListing[] = VEHICLE_DEFS.filter((d) => d.listed).map((d) => ({
+  itemId: d.id,
+  kind: 'vehicle',
+  priceOverride: d.basePrice,
+  maxStock: 6,
+  restockAmount: 6,
+}))
+const VEHICLE_DEALERSHIP: StoreDefinition = {
+  id: VEHICLE_DEALERSHIP_ID,
+  name: 'City Motors',
+  kind: 'retail',
+  restockGameHours: 12,
+  listings: DEALERSHIP_LISTINGS,
+  sourceRef: { file: 'src/game/commerce/storeDefinitions.ts', symbol: 'VEHICLE_DEALERSHIP' },
+}
+
 /** Deterministic order (never sorted at runtime). The robbable convenience stores. */
 export const STORE_DEFINITIONS: readonly StoreDefinition[] = [MAINST_STORE, KIOSK_STORE]
-/** EVERY store the commerce runtime owns — the shops PLUS the furniture showroom. Used by
- *  runtime init + persistence so showroom stock is reload-safe; the robbable-only paths
- *  (register/interior maps, robbery validation) keep using STORE_DEFINITIONS. */
-export const ALL_STORE_DEFINITIONS: readonly StoreDefinition[] = [...STORE_DEFINITIONS, FURNITURE_SHOWROOM]
+/** EVERY store the commerce runtime owns — the shops PLUS the retail furniture showroom and the
+ *  vehicle dealership. Used by runtime init + persistence so their stock is reload-safe; the
+ *  robbable-only paths (register/interior maps, robbery validation) keep using STORE_DEFINITIONS. */
+export const ALL_STORE_DEFINITIONS: readonly StoreDefinition[] = [...STORE_DEFINITIONS, FURNITURE_SHOWROOM, VEHICLE_DEALERSHIP]
 
 const BY_ID: Record<string, StoreDefinition> = Object.fromEntries(
   ALL_STORE_DEFINITIONS.map((s) => [s.id, s]),

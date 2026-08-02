@@ -14,6 +14,7 @@ import type { CommerceSaveData } from '../commerce/commercePersistence'
 import type { SocialSaveData } from '../social/socialTypes'
 import type { CareerSaveData } from '../careers/careerTypes'
 import type { HousingSaveData } from '../housing/housingTypes'
+import type { VehicleOwnershipSaveData } from '../vehicles/vehicleOwnershipTypes'
 
 export interface SnapshotInput {
   stats: PlayerStats
@@ -32,6 +33,7 @@ export interface SnapshotInput {
   social?: SocialSaveData
   career?: CareerSaveData
   housing?: HousingSaveData
+  vehicles?: VehicleOwnershipSaveData
 }
 
 export function createSnapshot(input: SnapshotInput): SaveData {
@@ -55,6 +57,7 @@ export function createSnapshot(input: SnapshotInput): SaveData {
     social: input.social,
     career: input.career,
     housing: input.housing,
+    vehicles: input.vehicles,
   })
 }
 

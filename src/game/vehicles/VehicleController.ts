@@ -2,7 +2,8 @@ import { useRef, type RefObject } from 'react'
 import * as THREE from 'three'
 import { useFrame } from '@react-three/fiber'
 import type { RapierRigidBody } from '@react-three/rapier'
-import { VEHICLE_TUNING } from './vehicleTypes'
+import { getActiveVehicleProjection } from './vehicleProjection'
+import { noteActiveVehicleImpact } from './vehicleService'
 import { getMovementKeys, type MovementKeys } from '../controls/useKeyboardControls'
 import { registry } from '../world/runtimeRegistry'
 import { isGameplayInputBlocked, useGameStore } from '../store/useGameStore'
@@ -66,6 +67,11 @@ export function useVehicleController(bodyRef: RefObject<RapierRigidBody | null>)
     // Phone open: pedals/steering read as released, so the car coasts to a stop.
     const blocked = isGameplayInputBlocked(useGameStore.getState().ui.panel)
     const keys = blocked ? IDLE_KEYS : getMovementKeys()
+
+    // One-shell projection (§6): the single physical shell embodies whichever owned vehicle is
+    // active — tuning + footprint come from it. With no owned active vehicle this is the exact
+    // legacy Compact baseline, so unowned/stolen/pre-migration driving is unchanged.
+    const proj = getActiveVehicleProjection()
     const {
       maxSpeed,
       maxReverseSpeed,
@@ -75,10 +81,13 @@ export function useVehicleController(bodyRef: RefObject<RapierRigidBody | null>)
       coastDrag,
       turnRate,
       steerFullSpeed,
-    } = VEHICLE_TUNING
+    } = proj.tuning
+    selfFootprint.halfLength = proj.halfLength
+    selfFootprint.halfWidth = proj.halfWidth
 
-    // A disabled (wrecked) car loses acceleration — it only coasts/brakes.
-    const disabled = getVehicleCrimeState(PLAYER_CAR_ID).disabled
+    // A disabled car loses acceleration — it only coasts/brakes. Both a crime wreck and a
+    // condition≤0 owned vehicle count as disabled.
+    const disabled = getVehicleCrimeState(PLAYER_CAR_ID).disabled || proj.conditionDisabled
     let speed = speedRef.current
     if (keys.forward && !keys.back && !disabled) {
       // Ease off near top speed so hitting max doesn't feel like a wall.
@@ -141,6 +150,7 @@ export function useVehicleController(bodyRef: RefObject<RapierRigidBody | null>)
         if (Math.abs(speed) > COLLISION_SPEED) {
           const rel = Math.abs(speed) + Math.abs(agent?.speed ?? 0)
           if (applyVehicleImpact(PLAYER_CAR_ID, rel, gameTime) > 0) {
+            noteActiveVehicleImpact(rel) // wear the owned vehicle's condition (no-op for legacy/stolen)
             emitCrime(
               { type: 'vehicle_collision', position: [t.x, t.y, t.z], suspectEntityId: 'player', vehicleId: id },
               gameTime,
@@ -174,6 +184,7 @@ export function useVehicleController(bodyRef: RefObject<RapierRigidBody | null>)
       const actual = Math.hypot(t.x - prevPos.current.x, t.z - prevPos.current.z)
       if (intended > 0.05 && actual < intended * 0.4) {
         if (applyVehicleImpact(PLAYER_CAR_ID, Math.abs(speed), gameTime) > 0) {
+          noteActiveVehicleImpact(Math.abs(speed)) // wear the owned vehicle's condition
           emitCrime(
             { type: 'reckless_driving', position: [t.x, t.y, t.z], suspectEntityId: 'player', vehicleId: PLAYER_CAR_ID },
             gameTime,

@@ -11,6 +11,7 @@ import { PhoneJobs } from './PhoneJobs'
 import { PhoneMissions } from './PhoneMissions'
 import { PhoneBag } from './PhoneBag'
 import { PhoneHousing } from './PhoneHousing'
+import { PhoneGarage } from './PhoneGarage'
 import { PhoneSettings } from './PhoneSettings'
 import { getTotalUnread } from '../../game/social/socialRuntime'
 
@@ -53,6 +54,8 @@ function PhoneAppContent() {
       return <PhoneBag />
     case 'housing':
       return <PhoneHousing />
+    case 'garage':
+      return <PhoneGarage />
     case 'settings':
       return <PhoneSettings />
   }

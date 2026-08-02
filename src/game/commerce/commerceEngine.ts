@@ -26,11 +26,11 @@ export function canPurchase(itemId: string, ctx: PurchaseContext): PurchaseCheck
   if (ctx.storeClosed) return { ok: false, reason: 'store_closed' }
   const listing = ctx.store.listings.find((l) => l.itemId === itemId)
   if (!listing) return { ok: false, reason: 'not_sold_here' }
-  // Furniture listings grant a unique housing ASSET (minted by the housing layer after the
-  // sale), not a backpack item — so skip the item-catalog + backpack-room checks. Stock,
-  // funds, and the price (== the furniture catalog price via priceOverride) are the same
-  // authority as any other purchase (PR#18 review #2). The asset cap is the caller's gate.
-  if (listing.kind === 'furniture') {
+  // Furniture and vehicle listings grant a unique ASSET (minted by the housing / vehicles layer
+  // after the sale), not a backpack item — so skip the item-catalog + backpack-room checks.
+  // Stock, funds, and the price (== the catalog price via priceOverride) are the same authority
+  // as any other purchase (PR#18 review #2). The owned-asset cap is the caller's gate.
+  if (listing.kind === 'furniture' || listing.kind === 'vehicle') {
     if (stockOf(ctx.stock, itemId) <= 0) return { ok: false, reason: 'out_of_stock' }
     const price = listing.priceOverride ?? 0
     if (ctx.money < price) return { ok: false, reason: 'insufficient_funds' }

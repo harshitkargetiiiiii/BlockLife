@@ -8,6 +8,7 @@ import type { CommerceSaveData } from '../commerce/commercePersistence'
 import type { SocialSaveData } from '../social/socialTypes'
 import type { CareerSaveData } from '../careers/careerTypes'
 import type { HousingSaveData } from '../housing/housingTypes'
+import type { VehicleOwnershipSaveData } from '../vehicles/vehicleOwnershipTypes'
 
 export const SAVE_KEY = 'blocklife-save-v1'
 export const SAVE_VERSION = 1
@@ -81,4 +82,13 @@ export interface SaveData {
    * malformed housing data is sanitized field-by-field and can never corrupt the save.
    */
   housing?: HousingSaveData
+  /**
+   * Vehicle Ownership, Parking & Customization v1 (additive, optional): legitimate owned
+   * vehicle assets + reload-safe asset sequence, active selection, per-asset condition /
+   * paint / wheels / upgrades / cargo / parking state, bounded histories, exact-once txn
+   * keys, and the migration marker. Older saves lack it and receive exactly ONE Compact
+   * migration grant; malformed vehicle data is sanitized field-by-field and never corrupts
+   * the save. Stolen/transient identities are NEVER serialized here as legitimate ownership.
+   */
+  vehicles?: VehicleOwnershipSaveData
 }

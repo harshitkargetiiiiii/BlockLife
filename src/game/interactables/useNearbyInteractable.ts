@@ -4,6 +4,11 @@ import type { InteractableDef } from './interactableTypes'
 import { ALL_INTERACTABLES } from '../../data/interactables'
 import { registry } from '../world/runtimeRegistry'
 import { useGameStore } from '../store/useGameStore'
+import { isDrivingShellActive } from '../vehicles/vehicleProjection'
+
+// The one drivable shell is only offered on foot when it is present (an owned vehicle is active or
+// a stolen identity is projected). On a new game the shell is hidden, so there is no free car (§3).
+const ON_FOOT_INTERACTABLES = ALL_INTERACTABLES.filter((d) => d.dynamic !== 'vehicle')
 
 interface Candidate {
   id: string
@@ -79,9 +84,11 @@ export function useNearbyInteractable(): void {
       next = 'vehicle_compact_car_01'
     } else {
       const p = registry.playerPosition
+      // Offer the drivable shell's "enter" interactable only when it is actually present.
+      const defs = isDrivingShellActive() ? ALL_INTERACTABLES : ON_FOOT_INTERACTABLES
       next = findNearestInteractable(
         { x: p.x, z: p.z },
-        ALL_INTERACTABLES,
+        defs,
         resolveDynamicPosition,
         state.activeInteractableId,
       )

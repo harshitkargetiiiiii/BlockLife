@@ -61,9 +61,9 @@ describe('social persistence — additive, fail-safe, round-trip (§12)', () => 
     expect(all.filter((id) => ids.has(id)).length).toBe(ids.size) // old ids preserved
   })
 
-  it('the canonical invitation-kind validator covers all eight kinds incl. the home kinds (round-3 review #1)', () => {
-    expect(INVITATION_ACTIVITY_KINDS).toHaveLength(8)
-    for (const k of ['coffee', 'food', 'workout', 'hangout', 'walk', 'coffee_home', 'movie_night', 'dinner_home']) {
+  it('the canonical invitation-kind validator covers all nine kinds incl. the home + drive-around kinds', () => {
+    expect(INVITATION_ACTIVITY_KINDS).toHaveLength(9)
+    for (const k of ['coffee', 'food', 'workout', 'hangout', 'walk', 'coffee_home', 'movie_night', 'dinner_home', 'drive_around']) {
       expect(isInvitationActivityKind(k)).toBe(true)
     }
     expect(isInvitationActivityKind('bogus')).toBe(false)

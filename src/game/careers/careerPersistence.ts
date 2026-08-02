@@ -150,6 +150,7 @@ function sanitizeResults(raw: unknown): ShiftResultRecord[] {
       base: clampInt(r.base, 0, 100000, 0),
       rankModifier: typeof r.rankModifier === 'number' && Number.isFinite(r.rankModifier) ? Math.max(0, Math.min(10, r.rankModifier)) : 1,
       performanceModifier: typeof r.performanceModifier === 'number' && Number.isFinite(r.performanceModifier) ? Math.max(0, Math.min(10, r.performanceModifier)) : 0,
+      vehicleBonus: clampInt(r.vehicleBonus, 0, 100000, 0), // additive; legacy saves default 0 (§10)
       pay: clampInt(r.pay, 0, 100000000, 0),
       day: clampInt(r.day, 0, 1000000, 0),
     })

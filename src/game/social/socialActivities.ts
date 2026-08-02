@@ -43,6 +43,9 @@ const KIND_PLAN: Record<InvitationActivityKind, { template: SocialActivityTempla
   coffee_home: { template: 'hangout', venue: { id: 'home', label: 'your home' } },
   movie_night: { template: 'hangout', venue: { id: 'home', label: 'your home' } },
   dinner_home: { template: 'hangout', venue: { id: 'home', label: 'your home' } },
+  // Give a Ride (issue #19 §11): the "venue" is the player's own owned vehicle; the ride runs
+  // through this same activity authority (begin/step/cancel), NOT a parallel vehicle-side path.
+  drive_around: { template: 'meet', venue: { id: 'vehicle', label: 'a drive around town' } },
 }
 
 /** Whether an invitation kind is hosted at the player's residence. */
@@ -97,6 +100,24 @@ export function favorActivity(
   }
 }
 
+/** Build a spontaneous Give-a-Ride activity (issue #19 §11): a real `drive_around` activity begun
+ *  the moment the player, stopped in an owned vehicle, offers a friendly NPC a lift — no scheduled
+ *  invitation, but the SAME activity authority (begin/step/cancel + activity-exclusion + completion
+ *  event). The seq keeps the id unique across multiple rides in one game-day. */
+export function driveAroundActivity(actorId: SocialActorId, startedDay: number, seq: number): SocialActivity {
+  const plan = KIND_PLAN.drive_around
+  return {
+    id: `ride:${actorId}:${Math.trunc(startedDay)}:${seq}`,
+    actorId,
+    template: plan.template,
+    activityKind: 'drive_around',
+    venueId: plan.venue.id,
+    venueLabel: plan.venue.label,
+    step: 'travel',
+    startedDay: Math.trunc(startedDay),
+  }
+}
+
 /** The next step after the current one for this template (idempotent at `done`). */
 export function nextStep(activity: SocialActivity): SocialActivityStep {
   const steps = templateSteps(activity.template)
@@ -123,6 +144,8 @@ function activityKindNoun(kind: InvitationActivityKind): string {
       return 'a movie night'
     case 'dinner_home':
       return 'dinner at home'
+    case 'drive_around':
+      return 'a drive around town'
     default:
       return kind
   }

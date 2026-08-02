@@ -135,6 +135,8 @@ export function invitationLabel(activityKind: InvitationActivityKind): string {
       return 'come over for movie night'
     case 'dinner_home':
       return 'come over for dinner'
+    case 'drive_around':
+      return 'go for a drive'
   }
 }
 

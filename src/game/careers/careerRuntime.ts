@@ -171,11 +171,13 @@ export interface ShiftFinalizeOutcome {
 
 /** Finalize a completed shift: score, pay (reported), XP (funneled once), history +
  *  standing, then schedule the next shift. The store applies the money. */
-export function finalizeActiveShift(gameDay: number, gameHour: number): ShiftFinalizeOutcome | null {
+export function finalizeActiveShift(gameDay: number, gameHour: number, deliveryBonus = 0): ShiftFinalizeOutcome | null {
   const ctx = activeCareerAndRank()
   const shift = careerRuntime.state.activeShift
   if (!ctx || !ctx.rankDef || !shift) return null
-  const res = finalizeShift(careerRuntime.state, ctx.career, ctx.rankDef, gameDay)
+  // `deliveryBonus` is a plain number supplied by the caller (the store, which reads the read-only
+  // vehicle→career adapter) — the career runtime never imports vehicle ownership (§10 decoupling).
+  const res = finalizeShift(careerRuntime.state, ctx.career, ctx.rankDef, gameDay, deliveryBonus)
   careerRuntime.state = res.state
   if (res.xpEvent) careerRuntime.state = applyCareerEvent(careerRuntime.state, res.xpEvent).state
   // Promotion check (one service): a completed shift may earn the next rank + unlocks.

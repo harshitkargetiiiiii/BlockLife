@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { gotoGame, getStats } from './helpers'
+import { acquireDrivableCar, gotoGame, getStats } from './helpers'
 
 /**
  * Character Model + Animation Pipeline v1.
@@ -131,6 +131,7 @@ test.describe('character pipeline', () => {
   test('driving parks the character in the driving state and restores after exit', async ({ page }) => {
     await gotoGame(page)
     await page.evaluate(() => window.GAME_TEST_API!.resetGame())
+    await acquireDrivableCar(page) // §19: own an active Compact shell (no free car on a new game)
     // Park next to the compact car and enter it.
     await page.evaluate(() => {
       const cars = window.GAME_TEST_API!.getVehiclePositions()
