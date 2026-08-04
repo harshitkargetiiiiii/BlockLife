@@ -43,6 +43,9 @@ its manifest entry to `enabled: true`:
 | quaternius_prop_manholecover.glb | Quaternius | Downtown City MegaKit [Standard], quaternius.com | CC0-1.0 | 2026-07-03 | yes (optimized) | prop_manhole_01 |
 | quaternius_prop_drain.glb | Quaternius | Downtown City MegaKit [Standard], quaternius.com | CC0-1.0 | 2026-07-03 | yes (optimized) | prop_drain_01 |
 | compact_car_01.glb | Meshy AI (generated, original) | meshy.ai (text→image→3D) | Meshy AI generated asset | 2026-08-03 | yes (lowpoly, normalized material) | vehicle_compact_car_01 |
+| scooter_01.glb | Meshy AI (generated, original) | meshy.ai (text→image→3D) | Meshy AI generated asset | 2026-08-04 | yes (remesh ~12k, normalized material) | vehicle_scooter_01 |
+| utility_van_01.glb | Meshy AI (generated, original) | meshy.ai (text→image→3D) | Meshy AI generated asset | 2026-08-04 | yes (remesh ~12k, normalized material) | vehicle_utility_van_01 |
+| sports_car_01.glb | Meshy AI (generated, original) | meshy.ai (text→image→3D) | Meshy AI generated asset | 2026-08-04 | yes (remesh ~12k, normalized material) | vehicle_sports_car_01 |
 | blocklife_apartment_hq_01.glb | Meshy AI (generated, original) | meshy.ai (text→image→3D) | Meshy AI generated asset | 2026-08-03 | yes (lowpoly, texture→1K) | building_townhomes_01 |
 | blocklife_female_01.glb | Meshy AI (generated, original) | meshy.ai (text→image→3D→rig) | Meshy AI generated asset | 2026-08-03 | yes (remesh 15k, texture→1K) | blocklife_female_01 (Maya) |
 | blocklife_male_01.glb | Meshy AI (generated, original) | meshy.ai (text→image→3D→rig) | Meshy AI generated asset | 2026-08-03 | yes (remesh 15k, texture→1K) | blocklife_male_01 (Ravi) |
@@ -73,7 +76,15 @@ its manifest entry to `enabled: true`:
 - **Date added**: 2026-08-03
 - **Modified or unmodified**: modified (decimation + texture optimization + material
   naming; the generated design is unchanged).
-- **Total generation cost**: 171 Meshy credits.
+- **Total generation cost**: 171 Meshy credits (vertical slice).
+
+**Round-2 addendum (2026-08-04)** — the remaining three ownable vehicle classes were
+generated the same way (`image_to_3d` → Meshy `remesh` to ~12k tris → `scripts/normalizeMeshyGlb.mjs`
+names a single `paint` material for the §3 variant system): `scooter_01.glb`,
+`utility_van_01.glb`, `sports_car_01.glb`. Same Meshy license terms + maintainer action as
+above. Round-2 generation cost: ~27 credits (running total ~198 of the approved ~230 envelope).
+Buildings in round 2 reused the already-credited CC0 Quaternius kit (no new generation): the
+backdrop tower reuses `quaternius_building_large_2.glb` with a per-instance palette recolor.
 
 ### Intake record — Downtown City MegaKit [Standard]
 
