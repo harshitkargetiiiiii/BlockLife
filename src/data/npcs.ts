@@ -12,6 +12,8 @@ export const NPC_DEFS: NPCDef[] = [
     bodyColor: '#4a7fd4',
     headColor: '#e8b98a',
     walkSpeed: 1.6,
+    // Issue #21 §4: Ravi walks as a production low-poly male humanoid (Meshy → rig).
+    characterAssetId: 'blocklife_male_01',
     routine: [
       { from: 6, to: 12, mode: 'idle', points: [[-8.5, -5]] },
       { from: 12, to: 18, mode: 'idle', points: [[13.5, -6.5]] },
@@ -31,6 +33,8 @@ export const NPC_DEFS: NPCDef[] = [
     bodyColor: '#e0576f',
     headColor: '#c98a5e',
     walkSpeed: 1.5,
+    // Issue #21 §4: Maya is a production low-poly female humanoid (Meshy → rig).
+    characterAssetId: 'blocklife_female_01',
     routine: [
       // Beside the serving window, clear of the truck's collider footprint.
       { from: 6, to: 22, mode: 'idle', points: [[4.4, -4.4]] },

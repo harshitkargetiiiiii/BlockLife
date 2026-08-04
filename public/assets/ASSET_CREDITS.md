@@ -42,6 +42,38 @@ its manifest entry to `enabled: true`:
 | quaternius_prop_plantersingle.glb | Quaternius | Downtown City MegaKit [Standard], quaternius.com | CC0-1.0 | 2026-07-03 | yes (optimized) | prop_street_planter_01 |
 | quaternius_prop_manholecover.glb | Quaternius | Downtown City MegaKit [Standard], quaternius.com | CC0-1.0 | 2026-07-03 | yes (optimized) | prop_manhole_01 |
 | quaternius_prop_drain.glb | Quaternius | Downtown City MegaKit [Standard], quaternius.com | CC0-1.0 | 2026-07-03 | yes (optimized) | prop_drain_01 |
+| compact_car_01.glb | Meshy AI (generated, original) | meshy.ai (text→image→3D) | Meshy AI generated asset | 2026-08-03 | yes (lowpoly, normalized material) | vehicle_compact_car_01 |
+| blocklife_apartment_hq_01.glb | Meshy AI (generated, original) | meshy.ai (text→image→3D) | Meshy AI generated asset | 2026-08-03 | yes (lowpoly, texture→1K) | building_townhomes_01 |
+| blocklife_female_01.glb | Meshy AI (generated, original) | meshy.ai (text→image→3D→rig) | Meshy AI generated asset | 2026-08-03 | yes (remesh 15k, texture→1K) | blocklife_female_01 (Maya) |
+| blocklife_male_01.glb | Meshy AI (generated, original) | meshy.ai (text→image→3D→rig) | Meshy AI generated asset | 2026-08-03 | yes (remesh 15k, texture→1K) | blocklife_male_01 (Ravi) |
+
+### Intake record — Meshy AI generated assets (issue #21 vertical slice)
+
+- **Source URL**: https://www.meshy.ai (generated via the Meshy MCP: `text_to_image`
+  concept → `image_to_3d` → `rig` for characters)
+- **Creator**: Meshy AI generative model, prompted in this repo. Original works —
+  no third-party IP, no ripped/branded content (prompts describe generic low-poly
+  civilians, a compact car, and a plain apartment).
+- **License**: Meshy AI generated asset. Ownership/commercial use is governed by the
+  Meshy account's plan terms (https://www.meshy.ai/legal). **Action for the
+  maintainer**: confirm the generating account's plan grants commercial/redistribution
+  rights and archive that confirmation as proof-of-license before shipping publicly.
+- **Attribution required**: per Meshy terms; credited here regardless.
+- **Original → converted file names**: Meshy `model.glb` / `Animation_Walking_withSkin.glb`
+  → `compact_car_01.glb`, `blocklife_apartment_hq_01.glb`, `blocklife_female_01.glb`,
+  `blocklife_male_01.glb`.
+- **Optimization notes** (all deterministic, in-repo, geometry-preserving):
+  car — `image_to_3d` lowpoly untextured (9.4k tris) then `scripts/normalizeMeshyGlb.mjs`
+  assigns a named `paint` material for the §3 variant system; building — lowpoly textured
+  (6.6k tris), `scripts/optimizeGlb.mjs` resized its texture 2K→1K (2.1MB→0.48MB);
+  humanoids — `image_to_3d` textured t-pose → Meshy `remesh` to ~15k tris → Meshy `rig`
+  (walk+run) → `scripts/optimizeGlb.mjs` texture 2K→1K (~5.8MB→~2MB each). The character
+  base is the `Animation_Walking_withSkin.glb` (mesh + `Hips` skeleton + walk clip); a
+  distinct run clip is a bounded follow-up.
+- **Date added**: 2026-08-03
+- **Modified or unmodified**: modified (decimation + texture optimization + material
+  naming; the generated design is unchanged).
+- **Total generation cost**: 171 Meshy credits.
 
 ### Intake record — Downtown City MegaKit [Standard]
 

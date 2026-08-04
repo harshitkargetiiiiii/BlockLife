@@ -119,20 +119,8 @@ export const WINDOW_OVERLAYS: WindowOverlayDef[] = [
     seed: 32,
     litRatio: 0.5,
   },
-  // Townhomes (Residential Street) — Building_Medium_2 @ 0.465
-  {
-    buildingAssetId: 'building_townhomes_01',
-    facade: 'south',
-    facadeDistance: 3.1,
-    rows: 4,
-    columns: 3,
-    spacing: [2.0, 2.0],
-    start: [-2.0, 2.8],
-    windowSize: [0.9, 1.1],
-    emissiveIntensity: 0.9,
-    seed: 51,
-    litRatio: 0.5,
-  },
+  // Residential apartment (Residential Street): the issue #21 §6 GLB bakes its own
+  // windows into the texture, so no emissive night overlay is authored for it.
   // Backdrop tower — Building_Large_2 @ 0.48 (distant, sparser + dimmer)
   {
     buildingAssetId: 'building_tower_01',

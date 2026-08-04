@@ -1,23 +1,33 @@
-import * as THREE from 'three'
+import type * as THREE from 'three'
 import type {
   CharacterAppearance,
   CharacterAssetDefinition,
   MaterialSlotMap,
 } from './characterTypes'
+import {
+  applyVariant,
+  createVariantInstances,
+  disposeVariantMaterials,
+  resolveMaterialSlots,
+  type MaterialSlotMap as VariantSlotMap,
+  type ResolvedSlots as VariantResolvedSlots,
+} from '../assets/assetVariants'
 
 /**
- * Material policy:
- * - Slots the wardrobe can recolor (shirt/pants/hair) are ISOLATED: cloned
- *   once per character instance so the player's outfit never touches an
- *   NPC's, and the shared GLB source cache is never mutated.
- * - Untouched slots (skin/shoes/eyes/…) keep the source materials — shared
- *   is fine because nothing writes to them.
- * - Cloning preserves every property (maps, roughness, skinning, alpha,
- *   emissive); appearance application only writes `color`.
+ * Character material policy (issue #21 §3 adapter). The wardrobe's semantic
+ * slots (skin/shirt/pants/hair/…) are the character-specific naming over the ONE
+ * shared variant system in `assetVariants.ts` (which vehicle paint also uses):
+ * - Customizable slots (shirt/pants/hair) are ISOLATED — cloned once per instance
+ *   so the player's outfit never touches an NPC's and the shared GLB cache is
+ *   never mutated.
+ * - Untouched slots (skin/shoes/eyes/…) keep the source materials — shared is fine
+ *   because nothing writes to them.
+ * - Cloning preserves every property (maps, roughness, skinning, alpha, emissive);
+ *   appearance application only writes `color`.
  *
- * Future extension: add a slot to CUSTOMIZABLE_SLOTS + a manifest mapping
- * and it becomes recolorable — skin tones, shoes, accessories need no new
- * machinery. Model swapping/body variants are new manifest entries.
+ * Future extension: add a slot to CUSTOMIZABLE_SLOTS + a manifest mapping and it
+ * becomes recolorable — skin tones, shoes, accessories need no new machinery.
+ * Model swapping/body variants are new manifest + CHARACTER_ASSETS entries.
  */
 
 export const CUSTOMIZABLE_SLOTS = ['shirt', 'pants', 'hair'] as const
@@ -25,64 +35,31 @@ export type CustomizableSlot = (typeof CUSTOMIZABLE_SLOTS)[number]
 
 export type ResolvedSlots = Partial<Record<keyof MaterialSlotMap, THREE.Material[]>>
 
+/** characterTypes' optional-keyed slot map → the variant system's Record<string,string[]>. */
+function toVariantSlotMap(slots: MaterialSlotMap): VariantSlotMap {
+  const out: VariantSlotMap = {}
+  for (const [slot, names] of Object.entries(slots)) if (names && names.length) out[slot] = names
+  return out
+}
+
 /** One traversal: slot name → the material instances currently on meshes. */
 export function resolveCharacterMaterialSlots(
   def: CharacterAssetDefinition,
   scene: THREE.Object3D,
 ): ResolvedSlots {
-  const wanted = new Map<string, keyof MaterialSlotMap>()
-  for (const [slot, names] of Object.entries(def.materialSlots) as [
-    keyof MaterialSlotMap,
-    string[],
-  ][]) {
-    for (const name of names ?? []) wanted.set(name, slot)
-  }
-  const resolved: ResolvedSlots = {}
-  scene.traverse((node) => {
-    const mesh = node as THREE.Mesh
-    if (!mesh.isMesh || !mesh.material) return
-    const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
-    for (const material of materials) {
-      const slot = wanted.get(material.name)
-      if (!slot) continue
-      const list = (resolved[slot] ??= [])
-      if (!list.includes(material)) list.push(material)
-    }
-  })
-  return resolved
+  return resolveMaterialSlots(scene, toVariantSlotMap(def.materialSlots)) as ResolvedSlots
 }
 
 /**
  * Clones the customizable slots' materials and swaps them onto the meshes
- * (supports multi-material meshes and several meshes sharing one slot).
- * Returns the isolated materials per slot. Runs once per instance.
+ * (supports multi-material meshes and several meshes sharing one slot), then
+ * returns ALL resolved slots. Runs once per instance.
  */
 export function createCustomizableMaterialInstances(
   def: CharacterAssetDefinition,
   scene: THREE.Object3D,
 ): ResolvedSlots {
-  const customizableNames = new Set<string>()
-  for (const slot of CUSTOMIZABLE_SLOTS) {
-    for (const name of def.materialSlots[slot] ?? []) customizableNames.add(name)
-  }
-  const clones = new Map<THREE.Material, THREE.Material>()
-  scene.traverse((node) => {
-    const mesh = node as THREE.Mesh
-    if (!mesh.isMesh || !mesh.material) return
-    const swap = (m: THREE.Material): THREE.Material => {
-      if (!customizableNames.has(m.name)) return m
-      let clone = clones.get(m)
-      if (!clone) {
-        clone = m.clone() // preserves maps/roughness/skinning/alpha/emissive
-        clone.name = m.name
-        clones.set(m, clone)
-      }
-      return clone
-    }
-    mesh.material = Array.isArray(mesh.material)
-      ? mesh.material.map(swap)
-      : swap(mesh.material)
-  })
+  createVariantInstances(scene, toVariantSlotMap(def.materialSlots), CUSTOMIZABLE_SLOTS)
   return resolveCharacterMaterialSlots(def, scene)
 }
 
@@ -91,20 +68,14 @@ export function applyCharacterAppearance(
   slots: ResolvedSlots,
   appearance: CharacterAppearance,
 ): void {
-  const paint = (slot: keyof MaterialSlotMap, color: string) => {
-    for (const material of slots[slot] ?? []) {
-      const m = material as THREE.MeshStandardMaterial
-      if (m.color) m.color.set(color)
-    }
-  }
-  paint('shirt', appearance.shirtColor)
-  paint('pants', appearance.pantsColor)
-  paint('hair', appearance.accentColor)
+  applyVariant(slots as VariantResolvedSlots, {
+    shirt: { color: appearance.shirtColor },
+    pants: { color: appearance.pantsColor },
+    hair: { color: appearance.accentColor },
+  })
 }
 
-/** Disposes isolated materials on unmount (no leak across remounts). */
+/** Disposes isolated (customizable) materials on unmount (no leak across remounts). */
 export function disposeIsolatedMaterials(slots: ResolvedSlots): void {
-  for (const slot of CUSTOMIZABLE_SLOTS) {
-    for (const material of slots[slot] ?? []) material.dispose()
-  }
+  disposeVariantMaterials(slots as VariantResolvedSlots, CUSTOMIZABLE_SLOTS)
 }

@@ -33,6 +33,48 @@ export const CHARACTER_ASSETS: Record<string, CharacterAssetDefinition> = {
     anchors: { headY: 2.15, chestY: 1.1 },
     fallback: { primitiveStyle: 'blocklife_primitive' },
   },
+  // ---- Issue #21 §4: production low-poly humanoids (Meshy → rig). Single baked
+  // texture (no wardrobe slots — appearance is the model's own), Hips-rooted rig.
+  // v1 maps all locomotion roles to the one rigged walk clip; a distinct run is a
+  // bounded follow-up (see docs/3D_ASSET_PIPELINE.md). ----
+  blocklife_female_01: {
+    id: 'blocklife_female_01',
+    modelPath: 'assets/models/characters/blocklife_female_01.glb',
+    scale: 1,
+    rotationOffset: 0,
+    verticalOffset: 0,
+    skeletonRootName: 'Hips',
+    materialSlots: {}, // one baked material; no per-slot wardrobe recolor
+    clips: {
+      idle: ['Armature|walking_man|baselayer'],
+      walk: ['Armature|walking_man|baselayer'],
+      run: ['Armature|walking_man|baselayer'],
+    },
+    animationSpeedScale: { walk: 1, run: 1 },
+    staticIdle: true, // rig ships only a walk clip → hold still when idle, don't march in place
+    bounds: { visualHeight: 1.8, radius: 0.4, centerY: 0.9, headY: 1.68 },
+    anchors: { headY: 2.0, chestY: 1.1 },
+    fallback: { primitiveStyle: 'blocklife_primitive' },
+  },
+  blocklife_male_01: {
+    id: 'blocklife_male_01',
+    modelPath: 'assets/models/characters/blocklife_male_01.glb',
+    scale: 1,
+    rotationOffset: 0,
+    verticalOffset: 0,
+    skeletonRootName: 'Hips',
+    materialSlots: {},
+    clips: {
+      idle: ['Armature|walking_man|baselayer'],
+      walk: ['Armature|walking_man|baselayer'],
+      run: ['Armature|walking_man|baselayer'],
+    },
+    animationSpeedScale: { walk: 1, run: 1 },
+    staticIdle: true, // rig ships only a walk clip → hold still when idle, don't march in place
+    bounds: { visualHeight: 1.85, radius: 0.42, centerY: 0.92, headY: 1.72 },
+    anchors: { headY: 2.05, chestY: 1.12 },
+    fallback: { primitiveStyle: 'blocklife_primitive' },
+  },
 }
 
 export const DEFAULT_CHARACTER_ASSET_ID = 'blocklife_person'

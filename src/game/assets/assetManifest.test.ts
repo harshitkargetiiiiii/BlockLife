@@ -5,6 +5,7 @@ import { ASSET_MANIFEST, validateManifest, type AssetManifestEntry } from './ass
 import { getManifestEntry, shouldLoadGlb } from './modelRegistry'
 import { BUILDINGS, FOOD_TRUCK, JOB_KIOSK, PROPS } from '../world/cityLayout'
 import { STATIC_FOOTPRINTS } from '../world/collisionQuery'
+import { CHARACTER_ASSETS } from '../characters/characterManifest'
 
 const LANDMARK_IDS = [
   'building_apartment_01',
@@ -28,8 +29,9 @@ describe('asset manifest', () => {
 
   it('every enabled entry points at a file that exists under public/', () => {
     const enabled = ASSET_MANIFEST.filter((e) => shouldLoadGlb(e))
-    // Quaternius integration: four building landmarks + five street props.
-    expect(enabled.map((e) => e.id).sort()).toEqual([
+    // Quaternius landmark integration: four building landmarks + five street props.
+    const landmarkEnabled = enabled.filter((e) => e.category === 'city' || e.category === 'props')
+    expect(landmarkEnabled.map((e) => e.id).sort()).toEqual([
       'building_apartment_01',
       'building_gym_01',
       'building_office_01',
@@ -41,6 +43,14 @@ describe('asset manifest', () => {
       'prop_manhole_01',
       'prop_street_planter_01',
     ])
+    // Issue #21 §4: three enabled character rigs (default + female + male humanoids).
+    expect(
+      enabled
+        .filter((e) => e.category === 'characters')
+        .map((e) => e.id)
+        .sort(),
+    ).toEqual(['blocklife_female_01', 'blocklife_male_01', 'blocklife_person'])
+    // Every enabled GLB (landmarks + the character rig) points at a real file.
     for (const entry of enabled) {
       const file = join(process.cwd(), 'public', entry.glbPath!)
       expect(existsSync(file), `${entry.id}: missing file ${entry.glbPath}`).toBe(true)
@@ -63,14 +73,20 @@ describe('asset manifest', () => {
     expect(shouldLoadGlb(getManifestEntry('prop_job_kiosk_01'))).toBe(false)
   })
 
-  it('every manifest id maps to layout data, so colliders never depend on GLBs', () => {
+  it('every city/prop manifest id maps to layout data, so colliders never depend on GLBs', () => {
     const layoutIds = new Set([
       ...BUILDINGS.map((b) => b.id),
       FOOD_TRUCK.id,
       JOB_KIOSK.id,
       ...PROPS.map((p) => p.id),
     ])
+    // City + prop GLBs must map to authored layout colliders, so a missing/broken
+    // GLB can never remove a collider. Vehicles (issue #21 §5) get their collider
+    // from the ONE driving shell (getActiveVehicleProjection), and characters from
+    // the character controller capsule — never cityLayout — so they are correctly
+    // excluded here and covered by their own suites (vehicleProjection/characterBounds).
     for (const entry of ASSET_MANIFEST) {
+      if (entry.category === 'vehicles' || entry.category === 'characters') continue
       expect(layoutIds.has(entry.id), `${entry.id} missing from cityLayout`).toBe(true)
     }
     // The physics footprints exist without touching the manifest at all.
@@ -101,5 +117,51 @@ describe('asset manifest', () => {
     expect(errors.some((e) => e.includes('enabled without a glbPath'))).toBe(true)
     expect(errors.some((e) => e.includes('scale must be'))).toBe(true)
     expect(errors.some((e) => e.includes('invalid category'))).toBe(true)
+  })
+
+  it('validation catches broken issue-#21 fields (budget/variants/slots/bounds)', () => {
+    const good = ASSET_MANIFEST[0]
+    const broken: AssetManifestEntry[] = [
+      { ...good, id: 'bad_budget', budget: { maxTriangles: -1 } },
+      { ...good, id: 'empty_slot', materialSlots: { paint: [] } },
+      {
+        ...good,
+        id: 'bad_variant_color',
+        materialSlots: { paint: ['body'] },
+        variants: { red: { paint: { color: 'red' } } },
+      },
+      {
+        ...good,
+        id: 'undeclared_slot',
+        materialSlots: { paint: ['body'] },
+        variants: { x: { wheel: { color: '#ffffff' } } },
+      },
+      { ...good, id: 'bad_bounds', bounds: { width: 0, height: 1, depth: 1 } },
+    ]
+    const errors = validateManifest(broken)
+    expect(errors.some((e) => e.includes('budget.maxTriangles must be positive'))).toBe(true)
+    expect(errors.some((e) => e.includes('materialSlots.paint must be a non-empty'))).toBe(true)
+    expect(errors.some((e) => e.includes('color must be #rrggbb'))).toBe(true)
+    expect(errors.some((e) => e.includes('undeclared slot'))).toBe(true)
+    expect(errors.some((e) => e.includes('bounds must have positive'))).toBe(true)
+  })
+
+  it('registers the vehicle + character canonical rows with sane budgets (§4/§5)', () => {
+    const car = getManifestEntry('vehicle_compact_car_01')
+    expect(car?.category).toBe('vehicles')
+    expect(car?.budget?.maxTriangles).toBe(40000)
+    expect((car?.materialSlots?.paint ?? []).length).toBeGreaterThan(0)
+    const person = getManifestEntry('blocklife_person')
+    expect(person?.category).toBe('characters')
+    expect(person?.budget?.maxTriangles).toBe(45000)
+  })
+
+  it('every character asset def has a matching canonical manifest row (§4)', () => {
+    for (const [id, def] of Object.entries(CHARACTER_ASSETS)) {
+      const entry = getManifestEntry(id)
+      expect(entry, `manifest row for character ${id}`).toBeDefined()
+      expect(entry!.category).toBe('characters')
+      expect(entry!.glbPath).toBe(def.modelPath)
+    }
   })
 })

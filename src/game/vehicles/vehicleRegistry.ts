@@ -60,6 +60,12 @@ export interface VehicleDef {
   listingDescription: string
   /** Render adapter: which mesh to project + its base paint. `car` reuses CarMesh. */
   renderAdapter: 'car'
+  /**
+   * Optional canonical asset id (issue #21 §5): when set AND its manifest entry
+   * is enabled, VehicleAsset projects that GLB onto the ONE shell; otherwise the
+   * procedural CarMesh renders. Physics/footprint never depend on this.
+   */
+  assetId?: string
   baseColor: string
   /** Allowed paint palette (includes baseColor); customization picks from here. */
   paintPalette: readonly string[]
@@ -134,6 +140,9 @@ export const VEHICLE_DEFS: readonly VehicleDef[] = [
     vehicleClass: 'compact',
     listingDescription: 'A balanced city car. The default drive — reliable and easy to park.',
     renderAdapter: 'car',
+    // The migration target ships the first vehicle GLB (§21 §5); other classes
+    // keep CarMesh until their own models land.
+    assetId: 'vehicle_compact_car_01',
     baseColor: '#d7e6ee',
     paintPalette: PALETTE,
     // The Compact IS the legacy drivable car: footprint + tuning are the current baseline.

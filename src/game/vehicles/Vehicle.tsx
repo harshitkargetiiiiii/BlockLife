@@ -3,6 +3,7 @@ import * as THREE from 'three'
 import { useFrame } from '@react-three/fiber'
 import { CuboidCollider, RigidBody, type RapierRigidBody } from '@react-three/rapier'
 import { CarMesh } from './CarMesh'
+import { VehicleAsset } from '../assets/VehicleAsset'
 import { useVehicleController } from './VehicleController'
 import { getActiveVehicleProjection, isDrivingShellActive } from './vehicleProjection'
 import { getRidePassenger } from './vehicleSocial'
@@ -85,7 +86,12 @@ export function Vehicle() {
     >
       <CuboidCollider args={[cw, ch, cl]} position={[0, ch, 0]} density={density} />
       <group name="vehicle_compact_car_01" ref={meshGroup} scale={meshScale}>
-        <CarMesh color={paint} showDriver={driving} showPassenger={driving && getRidePassenger() != null} wheelHub={proj.wheelHub} wheelScale={proj.wheelScale} />
+        {/* §21 §5: a GLB body (when enabled for the active class) projects onto the ONE
+            shell; CarMesh is the always-present fallback. Physics/footprint above are
+            unaffected — they read the projection, never the model. */}
+        <VehicleAsset assetId={proj.assetId} paint={paint} wheelHub={proj.wheelHub}>
+          <CarMesh color={paint} showDriver={driving} showPassenger={driving && getRidePassenger() != null} wheelHub={proj.wheelHub} wheelScale={proj.wheelScale} />
+        </VehicleAsset>
       </group>
     </RigidBody>
   )
