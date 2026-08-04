@@ -272,6 +272,62 @@ export const ASSET_MANIFEST: AssetManifestEntry[] = [
     license: 'Meshy AI generated asset (meshy.ai terms)',
     bounds: { width: 2.0, height: 1.61, depth: 3.81 },
   },
+  // Issue #21 §10: the other three ownable classes ship distinct GLB bodies (all
+  // ≤12k tris, single normalized `paint` material). Projected onto the ONE shell
+  // exactly like the Compact — physics/footprint always from getActiveVehicleProjection().
+  // Scales fill the CarMesh reference footprint (~2×1.6×3.9); Vehicle.tsx's meshScale
+  // then adapts to each class collider. Origin is at the wheels (remesh origin=bottom).
+  {
+    ...defaults,
+    id: 'vehicle_scooter_01',
+    label: 'City Scooter (drivable shell)',
+    category: 'vehicles',
+    glbPath: 'assets/models/vehicles/scooter_01.glb',
+    fallbackKey: 'CarMesh',
+    scale: [2.05, 1.22, 2.25],
+    rotation: [0, Math.PI / 2, 0],
+    positionOffset: [0, 0, 0],
+    enabled: true,
+    budget: { maxTriangles: 40000 },
+    materialSlots: { paint: ['paint'] },
+    attribution: 'Meshy AI — generated original low-poly asset (text→image→3D), remeshed + normalized in-repo',
+    license: 'Meshy AI generated asset (meshy.ai terms)',
+    bounds: { width: 1.8, height: 1.6, depth: 3.9 },
+  },
+  {
+    ...defaults,
+    id: 'vehicle_utility_van_01',
+    label: 'Utility Van (drivable shell)',
+    category: 'vehicles',
+    glbPath: 'assets/models/vehicles/utility_van_01.glb',
+    fallbackKey: 'CarMesh',
+    scale: [2.05, 1.52, 2.48],
+    rotation: [0, Math.PI / 2, 0],
+    positionOffset: [0, 0, 0],
+    enabled: true,
+    budget: { maxTriangles: 40000 },
+    materialSlots: { paint: ['paint'] },
+    attribution: 'Meshy AI — generated original low-poly asset (text→image→3D), remeshed + normalized in-repo',
+    license: 'Meshy AI generated asset (meshy.ai terms)',
+    bounds: { width: 2.0, height: 1.6, depth: 3.9 },
+  },
+  {
+    ...defaults,
+    id: 'vehicle_sports_car_01',
+    label: 'Premium Sports Car (drivable shell)',
+    category: 'vehicles',
+    glbPath: 'assets/models/vehicles/sports_car_01.glb',
+    fallbackKey: 'CarMesh',
+    scale: [2.05, 2.4, 2.32],
+    rotation: [0, Math.PI / 2, 0],
+    positionOffset: [0, 0, 0],
+    enabled: true,
+    budget: { maxTriangles: 40000 },
+    materialSlots: { paint: ['paint'] },
+    attribution: 'Meshy AI — generated original low-poly asset (text→image→3D), remeshed + normalized in-repo',
+    license: 'Meshy AI generated asset (meshy.ai terms)',
+    bounds: { width: 2.0, height: 1.3, depth: 3.9 },
+  },
   // ---- Characters (issue #21 §4): CANONICAL catalog row. The rig-specific detail
   // (skeleton/clips/slots/bounds) lives in characterManifest.ts CHARACTER_ASSETS; a
   // consistency test asserts each character id here matches that def. Characters render

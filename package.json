@@ -16,7 +16,8 @@
     "test:unit": "vitest run src",
     "test:e2e": "playwright test tests/e2e",
     "test:visual": "playwright test tests/visual",
-    "test:build": "npm run build && npm run test && npm run test:e2e"
+    "test:build": "npm run build && npm run test && npm run test:e2e",
+    "gate:assets": "node scripts/assetReport.mjs public/assets/models"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.7",

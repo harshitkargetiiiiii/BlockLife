@@ -91,7 +91,10 @@ function VehicleGlb({
         mesh.receiveShadow = true
       }
     })
-    const slotMap = entry.materialSlots ?? DEFAULT_VEHICLE_SLOTS
+    // Merge declared slots OVER the defaults so a partial declaration (e.g. only
+    // `paint`) still keeps the default `wheel` candidates — otherwise the `??`
+    // dropped the wheel slot and wheel-hub recolor had nothing to target (round-2 #2).
+    const slotMap: MaterialSlotMap = { ...DEFAULT_VEHICLE_SLOTS, ...(entry.materialSlots ?? {}) }
     const slots = createVariantInstances(scene, slotMap, [PAINT_SLOT, WHEEL_SLOT])
     return { scene, slots }
   }, [gltf.scene, entry])
