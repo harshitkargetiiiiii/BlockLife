@@ -68,4 +68,24 @@ test.describe('§13 asset pipeline — production render/lifecycle', () => {
       await settled(page) // the freshly-granted class GLB loads without stranding the scene
     })
   }
+
+  // #4: the SAME production character path that draws the player can drive a Meshy humanoid
+  // (the representative-player avatar path) — proving the path isn't NPC-only.
+  test('representative-player path drives a Meshy humanoid, never the fallback (#4)', async ({ page }) => {
+    await boot(page)
+    // Default player = the wardrobe rig with correct idle/walk/run.
+    const before = (await call(page, 'getCharacterState', 'player')) as { modelLoaded: boolean }
+    expect(before.modelLoaded, 'default player model loaded').toBe(true)
+    // Override the player asset → the same path renders the Meshy male humanoid.
+    await call(page, 'setPlayerCharacterAsset', 'blocklife_male_01')
+    await page.waitForTimeout(2000)
+    const after = (await call(page, 'getCharacterState', 'player')) as {
+      activeVisual: string
+      modelLoaded: boolean
+      fallbackReason: string | null
+    }
+    expect(after.activeVisual, 'player renders a model').toBe('model')
+    expect(after.modelLoaded, 'the Meshy player model loaded via the production path').toBe(true)
+    expect(after.fallbackReason, 'no fallback').toBeNull()
+  })
 })

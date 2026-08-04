@@ -3,7 +3,7 @@ import * as THREE from 'three'
 import { VEHICLE_DEFS } from '../vehicles/vehicleRegistry'
 import { ASSET_MANIFEST_BY_ID } from './assetManifest'
 import { shouldLoadGlb } from './modelRegistry'
-import { CHARACTER_ASSETS } from '../characters/characterManifest'
+import { CHARACTER_ASSETS, DEFAULT_CHARACTER_ASSET_ID } from '../characters/characterManifest'
 import {
   applyCharacterAppearance,
   createCustomizableMaterialInstances,
@@ -85,5 +85,36 @@ describe('§13 #8 — six character variants reuse ONE base geometry, materials 
     // (c) instance-local: each instance's shirt material is a unique object (no shared mutation).
     const shirtMats = instances.map((i) => i.slots.shirt![0])
     expect(new Set(shirtMats).size).toBe(6)
+  })
+})
+
+describe('§13 #4 — shipped-asset motion contract (distinct gaits vs an honest walk-only degrade)', () => {
+  // The animation PIPELINE proves idle/walk/run + the staticIdle hold in
+  // CharacterAnimationController.test.ts. Here we lock the contract for the SPECIFIC
+  // shipped assets the reviewer flagged, so a regression can't silently alias all gaits.
+
+  it("the player's default rig has three genuinely distinct locomotion clips", () => {
+    // The representative-player avatar path rides this rig → real idle/walk/run.
+    const def = CHARACTER_ASSETS[DEFAULT_CHARACTER_ASSET_ID]
+    expect(def.id).toBe('blocklife_person')
+    expect(def.staticIdle).not.toBe(true)
+    const [idle, walk, run] = [def.clips.idle, def.clips.walk, def.clips.run]
+    // No clip-name alias is shared across roles → the three gaits cannot collapse to one clip.
+    const overlap = (a: string[], b: string[]) => a.some((n) => b.includes(n))
+    expect(overlap(idle, walk)).toBe(false)
+    expect(overlap(walk, run)).toBe(false)
+    expect(overlap(idle, run)).toBe(false)
+  })
+
+  it('the two Meshy humanoids declare staticIdle (a walk-only rig holds still, never marches)', () => {
+    // Meshy → rig ships a single walk clip; staticIdle is the honest, tested degradation
+    // (CharacterAnimationController.test.ts §4). This asserts the SHIPPED assets opt into it.
+    for (const id of ['blocklife_male_01', 'blocklife_female_01']) {
+      const def = CHARACTER_ASSETS[id]
+      expect(def, `${id} must be a shipped asset`).toBeDefined()
+      expect(def.staticIdle, `${id} must hold a still idle (walk-only rig)`).toBe(true)
+      // walk is a real clip (so movement is animated); idle aliases it (held at frame 0 by the controller).
+      expect(def.clips.walk.length).toBeGreaterThan(0)
+    }
   })
 })

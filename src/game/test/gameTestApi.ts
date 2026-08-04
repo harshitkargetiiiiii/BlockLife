@@ -1115,6 +1115,9 @@ export interface GameTestApi {
   } | null
   /** Force 'model' | 'primitive' | 'auto' for every character. */
   setCharacterRenderMode: (mode: 'auto' | 'model' | 'primitive') => void
+  /** §21 §4: render the PLAYER as this character asset id through the production path
+   *  (representative-player avatar path); null restores the default rig. */
+  setPlayerCharacterAsset: (id: string | null) => void
   /** Force a semantic gait (null restores normal motion-driven animation). */
   forceCharacterAnimation: (role: 'idle' | 'walk' | 'run' | null) => void
   /** Manifest info for the default character asset. */
@@ -2497,6 +2500,7 @@ export function installTestApi(): void {
       }
     },
     setCharacterRenderMode: (mode) => useGameStore.getState().setCharacterRenderMode(mode),
+    setPlayerCharacterAsset: (id) => useGameStore.getState().setDebugPlayerCharacter(id),
     forceCharacterAnimation: (role) => {
       characterRuntime.forcedAnimation = role
     },

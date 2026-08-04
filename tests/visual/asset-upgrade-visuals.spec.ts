@@ -73,6 +73,49 @@ test.describe('asset upgrade visuals (§21 §14)', () => {
     await expect(page).toHaveScreenshot('asset-humanoids-both.png', { maxDiffPixelRatio: 0.02 })
   })
 
+  // §4/§14: the representative-player avatar path — the SAME production character path that
+  // draws the player, driving a Meshy humanoid. Proves the char pipeline isn't NPC-only.
+  test('player rendered as a Meshy humanoid (representative-player path)', async ({ page }) => {
+    await boot(page)
+    await page.evaluate(() => {
+      const a = window.GAME_TEST_API!
+      a.resetGame()
+      a.setTime(13)
+      a.setWeather('clear')
+      a.setPlayerCharacterAsset('blocklife_male_01')
+      a.teleportPlayer([10, 1.2, 2])
+    })
+    await page.waitForFunction(
+      () => window.GAME_TEST_API!.getCharacterState('player')?.modelLoaded === true,
+      undefined,
+      { timeout: 15_000 },
+    )
+    await settleAndPause(page)
+    await expect(page).toHaveScreenshot('asset-player-humanoid.png', { maxDiffPixelRatio: 0.02 })
+  })
+
+  // §10/§14: character variant variety through the ONE character pipeline. Paused frames
+  // snap each NPC to its canonical routine anchor (NPC.tsx) for determinism, so we pick the
+  // hour (08:00) whose anchors cluster four DISTINCT variants near the plaza — Ravi (Meshy
+  // male) + Maya (Meshy female) + Coach Bruno (blocklife_person orange) + Nisha
+  // (blocklife_person purple). Officer Kim (blue) + Leo (green) are the same rig with their
+  // own palettes (proven exhaustively in round2Contract.test.ts §13 #8 — six variants share
+  // one geometry with instance-local materials) and appear in the wider city baselines.
+  test('named-resident character variety (2 Meshy + blocklife colour variants)', async ({ page }) => {
+    await boot(page)
+    await page.evaluate(() => {
+      const a = window.GAME_TEST_API!
+      a.resetGame()
+      a.setTime(8)
+      a.setWeather('clear')
+      a.teleportPlayer([-1, 1.2, 4])
+    })
+    await waitForNpcModel(page, 'npc_maya_01')
+    await waitForNpcModel(page, 'npc_ravi_01')
+    await settleAndPause(page)
+    await expect(page).toHaveScreenshot('asset-character-lineup.png', { maxDiffPixelRatio: 0.03 })
+  })
+
   // §14/§10: each ownable class projects a DISTINCT GLB body onto the one shell. Grant the
   // class ACTIVE (DEV bypass of the sports career gate), enter + drive so the shell is present,
   // and shoot it centred — the generous waits let the freshly-granted class GLB finish loading
