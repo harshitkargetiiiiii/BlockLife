@@ -88,4 +88,57 @@ test.describe('§13 asset pipeline — production render/lifecycle', () => {
     expect(after.modelLoaded, 'the Meshy player model loaded via the production path').toBe(true)
     expect(after.fallbackReason, 'no fallback').toBeNull()
   })
+
+  // #16: drei's useGLTF shares ONE cached scene per URL — a GLB is fetched at most once no
+  // matter how many instances render. The office and the backdrop tower reuse Building_Large_2,
+  // so a single fetch backs both placements (the reuse the whole §6 story depends on).
+  test('each GLB is fetched at most once and shared across instances', async ({ page }) => {
+    const hits = new Map<string, number>()
+    page.on('request', (req) => {
+      const u = req.url()
+      if (u.split('?')[0].endsWith('.glb')) hits.set(u, (hits.get(u) ?? 0) + 1)
+    })
+    await boot(page)
+    const large2 = [...hits.entries()].find(([u]) => u.includes('quaternius_building_large_2'))
+    expect(large2, 'Building_Large_2 fetched at boot').toBeDefined()
+    expect(large2![1], 'shared archetype fetched ONCE for both office + tower').toBe(1)
+    for (const [u, n] of hits) expect(n, `${u} fetched at most once`).toBeLessThanOrEqual(1)
+  })
+
+  // #17: GLB visuals survive ordinary streaming. Teleport far to unload the central sector, then
+  // back; the scene re-settles with its models and never throws — a stale/ghost mesh or a
+  // throwing per-frame mount on remount would surface as a pageerror or a stuck settle.
+  test('central GLBs survive a sector unload→reload round-trip', async ({ page }) => {
+    const errors: string[] = []
+    page.on('pageerror', (e) => errors.push(String(e)))
+    await boot(page)
+    await call(page, 'teleportPlayer', [80, 1.2, -35]) // far east district → central unloads
+    await page.waitForTimeout(2500)
+    await call(page, 'teleportPlayer', [12, 1.2, -1]) // back to the plaza → central re-mounts
+    await settled(page)
+    expect(errors, 'no pageerror across streaming').toEqual([])
+    expect(await call(page, 'assetsSettled'), 're-settled after reload').toBe(true)
+    const stats = (await call(page, 'getRenderStats')) as { drawCalls: number }
+    expect(stats.drawCalls, 'the reloaded scene is actually drawing').toBeGreaterThan(0)
+  })
+
+  // Regression guard for the "stranded loading overlay" failure mode: the overlay is gated on
+  // world-readiness (a GLB can NEVER hang boot — the primitive fallback shows first, the model
+  // swaps in under it), so once the world is ready the overlay is detached and assets settle.
+  test('the loading overlay is not stranded — it lifts once the world is ready', async ({ page }) => {
+    await page.goto('/')
+    await page.waitForFunction(() => window.GAME_TEST_API?.ready() === true, undefined, { timeout: 45_000 })
+    await expect(page.getByTestId('loading-overlay')).toHaveCount(0)
+    await settled(page) // GLBs settle independently, shortly after readiness
+  })
+
+  // display==execution: the GLB visual layer — palette slots on 4 archetypes + the tower's live
+  // paletteVariant — must not perturb authored placement/collision. Every streamed sector still
+  // validates to ZERO placement defects, so what's drawn never diverges from what's collidable.
+  test('GLB + palette-variant visuals keep authored placement valid (0 defects)', async ({ page }) => {
+    await boot(page)
+    const reports = (await call(page, 'getPlacementReport')) as { sectorId: string; failures: unknown[] }[]
+    expect(reports.length, 'at least one sector reported').toBeGreaterThan(0)
+    for (const r of reports) expect(r.failures, `${r.sectorId} placement failures`).toEqual([])
+  })
 })
