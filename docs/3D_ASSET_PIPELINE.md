@@ -192,6 +192,11 @@ the old all-primitive world but keep draw calls low (shared cached scenes; one f
   for the office + a palette-varied backdrop tower — plus the `blocklife_apartment_hq` townhome.
 
 ## Known limitations (bounded follow-ups)
+- **Ambient crowd stays primitive by design.** The 6+ variant system rides the named cast +
+  player (7 distinct in-world characters; 5 `blocklife_person` colour variants patrol/roam) and
+  is unit-proven to scale. The anonymous ~50-citizen `AmbientCitizens` crowd stays deliberately-
+  cheap shared-primitive meshes (pre-existing): routing 50 skinned rigs would undermine the §12
+  perf budget. Rigging the anonymous crowd is a bounded, opt-in follow-up, not a pipeline gap.
 - The two Meshy humanoid rigs ship a **walk-only** clip (a distinct run/idle is a re-rig /
   `meshy_animate` follow-up); `blocklife_person` already has real idle/walk/run.
 - Meshy rigs use one baked material (no per-slot wardrobe recolor) — by design for named NPCs.
