@@ -1,5 +1,6 @@
 import { useGameStore, canEditFurnish as canEditFurnishRt } from '../store/useGameStore'
 import { registry } from '../world/runtimeRegistry'
+import { perfRuntime } from '../world/perfRuntime'
 import { socialSnapshot, getRelationship as getSocialRel, getDerivedRelationship as getSocialDerived, getMemories as getSocialMems, getContacts as getSocialContactsRt, ingestSocialEvent as ingestSocialEventRt, getInvitations as getSocialInvitationsRt, getMessages as getSocialMessagesRt, getTotalUnread as getSocialUnreadRt, reconcileOutreach as reconcileOutreachRt, getActiveActivity as getActiveActivityRt, getConfirmedPlans as getConfirmedPlansRt, reconcileMissedInvitations as reconcileMissedInvitationsRt } from '../social/socialRuntime'
 import type { SocialEvent } from '../social/socialEvents'
 import type { SocialActionId } from '../social/socialInteraction'
@@ -1025,6 +1026,19 @@ export interface GameTestApi {
   setStreamingEnabled: (enabled: boolean) => void
   setStreamingRings: (activeRing: number, warmRing: number) => void
   getStreamingMetrics: () => Record<string, number>
+  /** §21 §12: renderer perf snapshot (draw calls / triangles / resource counts / smoothed
+   *  FPS + JS heap) for the before/after performance report. */
+  getRenderStats: () => {
+    drawCalls: number
+    triangles: number
+    geometries: number
+    textures: number
+    programs: number
+    frameMs: number
+    fps: number
+    samples: number
+    jsHeapMB: number | null
+  }
   validateSectorOwnership: () => string[]
   getGlobalRoadGraphVersion: () => number
   getAuthoringTemplates: () => Record<string, string[]>
@@ -2342,6 +2356,20 @@ export function installTestApi(): void {
       streamingRuntime.warmRing = warmRing
     },
     getStreamingMetrics: () => ({ ...streamingRuntime.metrics, queue: streamingRuntime.queue.length }),
+    getRenderStats: () => {
+      const mem = (performance as unknown as { memory?: { usedJSHeapSize: number } }).memory
+      return {
+        drawCalls: perfRuntime.drawCalls,
+        triangles: perfRuntime.triangles,
+        geometries: perfRuntime.geometries,
+        textures: perfRuntime.textures,
+        programs: perfRuntime.programs,
+        frameMs: Math.round(perfRuntime.frameMs * 100) / 100,
+        fps: Math.round(perfRuntime.fps),
+        samples: perfRuntime.samples,
+        jsHeapMB: mem ? Math.round(mem.usedJSHeapSize / 1048576) : null,
+      }
+    },
     validateSectorOwnership: () => validateSectorOwnership(),
     getGlobalRoadGraphVersion: () => getRoadGraph().version,
     // ---- District Authoring Kit v1 ---------------------------------------
