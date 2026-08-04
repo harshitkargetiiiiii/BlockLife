@@ -49,16 +49,24 @@ adapter over it — customizable slots shirt/pants/hair) and vehicle paint/wheel
 
 ## §5 Vehicle adapter — one shell, optional GLB
 `Vehicle.tsx` renders exactly ONE physical rigid body. Its visual child is
-`<VehicleAsset assetId={proj.assetId} paint …><CarMesh …/></VehicleAsset>`, where
-`assetId` comes from the active class's `VehicleDef.assetId` via
-`getActiveVehicleProjection()`. When that class's manifest entry is enabled, the GLB
-projects onto the shell (paint recolours the `paint` slot per-instance); otherwise
-CarMesh renders. **The collider half-extents + mass are still derived from the
-projection, never the model** — so the one-shell arcade driving model is untouched
-and the baseline is byte-identical until a GLB is enabled.
+`<VehicleVisual assetId={proj.assetId} …/>`, which composes the GLB **body**
+(`<VehicleAsset>`, from the active class's `VehicleDef.assetId` via
+`getActiveVehicleProjection()`) with the always-present `CarFittings` (wheels,
+headlights, named `taillight` meshes, driver/passenger spheres). When that class's
+manifest entry is enabled the GLB body projects onto the shell (paint recolours the
+`paint` slot per-instance); otherwise `CarShell` renders. **The collider half-extents +
+mass are still derived from the projection, never the model** — so the one-shell arcade
+driving model is untouched and the non-GLB path is byte-identical to the old `CarMesh`.
 
-v1 slice scope: only `vehicle_compact_car_01` ships a GLB. Occupant spheres + the
-brake-light material swap remain CarMesh-only (documented limitation).
+Round-2 scope: **all four ownable classes** ship a distinct GLB — `vehicle_compact_car_01`
+(Compact, the migration target), `vehicle_scooter_01`, `vehicle_utility_van_01`,
+`vehicle_sports_car_01` (each remeshed ≤ ~12k tris, single normalized `paint` material).
+Because `CarFittings` composes over the GLB, brake-lights, occupant spheres and wheel
+behaviour are preserved for every class — parked and active render through the SAME
+`VehicleVisual`, so a parked owned car and the driven shell agree by construction. A
+review fix also corrected `VehicleAsset`'s slot merge (`{...DEFAULT_VEHICLE_SLOTS,
+...entry.materialSlots}`) so a class that declares only `paint` keeps the default wheel
+slot.
 
 **One-shell + stolen cars (pre-existing, by design).** Because there is ONE physical
 shell, an unowned/stolen shell is painted the classic drivable teal
@@ -69,22 +77,34 @@ one-shell identity. Giving stolen cars distinct visuals is a vehicle-identity fe
 (would touch the one-shell architecture this sprint preserves), tracked as a follow-up —
 NOT an asset-pipeline task.
 
-## §4 Character integration — Meshy humanoids
+## §4 Character integration — Meshy humanoids + the representative-player path
 Two production humanoids (`blocklife_female_01`, `blocklife_male_01`) are Meshy
 `image_to_3d` → `remesh` (≤15.4k tris) → `rig` outputs, texture-optimized to 1K.
-They render through the existing `AnimatedCharacter` pipeline, assigned to named
-NPCs via `NPCDef.characterAssetId` (Maya → female, Ravi → male). Two rig realities
-shape the integration, handled as data (plus one small controller flag):
-- **One baked material** (`Material_1`) → `materialSlots: {}` (no per-slot wardrobe
-  recolor; the model's own texture is its appearance — correct for NPCs). The
-  player keeps the slot-based wardrobe on the primitive `blocklife_person` rig.
-- **Walk-only clip** (`Armature|walking_man|baselayer`, `Hips` root) → all three
-  locomotion roles alias it, and the def sets **`staticIdle: true`** so the
-  `CharacterAnimationController` HOLDS the idle at a single frame instead of
-  looping the walk in place while standing (a playtest caught the "marching in
-  place" that plain walk-as-idle produced). Assets with a real idle clip (the
-  player rig) are unaffected — their idle still loops. A distinct run clip + a
-  purpose-made idle are bounded follow-ups.
+They render through the existing `AnimatedCharacter` pipeline. Wiring (Hybrid model):
+- **Named NPCs** ride the Meshy rigs via `NPCDef.characterAssetId` (Maya → female,
+  Ravi → male); Officer Kim rides the slot-rich `blocklife_person`.
+- **The representative-player avatar path**: the player draws through the SAME
+  `AnimatedCharacter` path as any asset. A DEV override (`debugPlayerCharacterId` store
+  field + `GAME_TEST_API.setPlayerCharacterAsset(id)`) makes `CharacterControllerView`
+  pick any `CHARACTER_ASSETS` def — proving the path is not NPC-only (E2E asserts the
+  player loads the Meshy model, never the fallback; a §14 baseline frames it).
+- **Six in-game variants** ride `blocklife_person` (the player + Kim + Bruno/Leo/Nisha
+  via `NPCDef.bodyColor` → `CharacterAppearance`): ONE shared geometry, per-instance
+  shirt/pants/hair materials (unit-proven: 6 distinct people, geometry shared, materials
+  instance-local).
+
+Two Meshy-rig realities are handled as data (plus one controller flag):
+- **One baked material** (`Material_1`) → `materialSlots: {}` (the model's own texture is
+  its appearance — correct for named NPCs; the wardrobe-recolorable rig is `blocklife_person`).
+- **Walk-only clip** (`Armature|walking_man|baselayer`, `Hips` root): the Meshy rigs ship a
+  single walk clip, so all three locomotion roles alias it and the def sets **`staticIdle:
+  true`** — the controller HOLDS a still idle instead of marching in place (a playtest caught
+  the marching that plain walk-as-idle produced). This is an **asset** limitation of the two
+  Meshy rigs, **not** a pipeline one: the character pipeline fully supports distinct idle/walk/
+  run (proven for `blocklife_person`, which the player + Kim ride — `transitions idle→walk→run`
+  + `resolveClips` + `playbackRateFor` unit tests). A distinct Meshy run clip + a purpose-made
+  idle (a re-rig / `meshy_animate` pass) are a bounded follow-up. The shipped-asset motion
+  contract is locked by `round2Contract.test.ts §13 #4`.
 
 ## §8 Shared loader/cache + settle contract
 drei's `useGLTF` (three's `GLTFLoader` + a URL-keyed Suspense cache) is the loader
@@ -121,6 +141,63 @@ Per-category triangle + texture budgets (browser targets):
 each container's JSON chunk directly (no three/DOM — a stable headless before/after
 perf harness), prints tris / KB / textures / clips / material-slot names per asset,
 and **exits 1 if any asset is over budget** so the gate can enforce §12.
+
+## §6 Building palette variants
+The 3 Quaternius archetypes (`medium_2` → apartment, `small_1` → gym, `large_2` → office AND
+the west backdrop tower) are **reused** — `large_2` backs two placements. Each building entry
+declares `materialSlots` (`wall`/`trim`) naming the façade + trim materials; a
+`BuildingDef.paletteVariant` recolors THIS instance's declared slots via `LandmarkAsset`'s
+`variant`. The backdrop tower reuses the office GLB with a warm-brick façade + brass trim, so
+the shared archetype reads as a distinct building. These are **textured** kit materials, so a
+variant TINTS (three.js `map × color`); glass/interior materials are not in a slot, so windows
+never tint. Declaring slots only isolates materials per instance (identity clone) — verified
+**zero** baseline churn (the apartment baseline + the whole city sweep pass byte-identical after
+slots were added). Cosmetic only: colliders / occluders / entrances derive from `cityLayout`, so
+a palette variant can never change gameplay (E2E: every sector stays at 0 placement defects).
+
+## §12 measured render cost (before/after)
+Captured deterministically via `GAME_TEST_API.getRenderStats()` (a DEV `PerfProbe` reading
+`gl.info` + JS heap each frame on the real clamped delta) on the paused city + a driving scene:
+
+| Scene | Draw calls | Triangles | Textures | Geometries | JS heap |
+|---|---|---|---|---|---|
+| City (plaza, paused) | ~1,050 | ~294k | 86 | 592 | ~133 MB |
+| Driving | ~984 | ~314k | 86 | — | ~150 MB |
+
+All well under the E2E perf ceilings (`drawCalls < 2500`, `triangles < 4M`, `textures < 400`),
+so the GLB upgrade stays within a comfortable browser budget: the GLBs add texture memory over
+the old all-primitive world but keep draw calls low (shared cached scenes; one fetch per file).
+
+## Test coverage (§13 production paths / §14 visual matrix)
+- **§13 unit** (`src/game/assets/round2Contract.test.ts`): every ownable class → an enabled
+  paint-slot GLB; 6 character variants share one geometry; the player rig's three gaits are
+  distinct while the Meshy rigs opt into `staticIdle`; building palette variants recolor walls
+  (not glass), share geometry, stay instance-local. Atop the existing
+  `CharacterAnimationController` / `characterManifest` / `assetVariants` suites.
+- **§13 E2E** (`tests/e2e/asset-pipeline-round2.spec.ts`, 11): named NPCs + player load the
+  primary model (never fallback); save→reset→load rehydrates; all 4 classes project onto the
+  one shell + settle; the representative-player path drives a Meshy humanoid; a GLB is fetched
+  once + shared; GLBs survive a streaming unload→reload with no error; the overlay is never
+  stranded; GLB + palette visuals keep placement at 0 defects.
+- **§14 visual** (`tests/visual/asset-upgrade-visuals.spec.ts`, 10 dedicated + the 149-baseline
+  suite in context): apartment, female / both humanoids, player-as-Meshy, named-resident
+  variety, backdrop tower palette variant, and the four driven vehicle classes.
+
+## First-wave asset set (round 2)
+- **Characters**: 2 Meshy humanoids (female / male) + 6 in-game `blocklife_person` colour
+  variants across the player + named cast.
+- **Vehicles**: all 4 ownable classes (Compact / Scooter / Van / Sports) as distinct GLBs on
+  the one shell.
+- **Buildings**: 3 reusable Quaternius archetypes (apartment / gym / office) — `large_2` reused
+  for the office + a palette-varied backdrop tower — plus the `blocklife_apartment_hq` townhome.
+
+## Known limitations (bounded follow-ups)
+- The two Meshy humanoid rigs ship a **walk-only** clip (a distinct run/idle is a re-rig /
+  `meshy_animate` follow-up); `blocklife_person` already has real idle/walk/run.
+- Meshy rigs use one baked material (no per-slot wardrobe recolor) — by design for named NPCs.
+- Every *driven* stolen car shows the teal Compact shell (pre-existing one-shell behaviour,
+  identical on master; a vehicle-identity follow-up, not an asset-pipeline task).
+- No DRACO / meshopt / KTX2 decoder wired (assets are small enough without one).
 
 ## Adding a GLB asset (workflow)
 1. Generate/obtain a licensed GLB (CC0 / original / licensed — never ripped or
