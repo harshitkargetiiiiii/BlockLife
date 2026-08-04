@@ -3,6 +3,11 @@ import * as THREE from 'three'
 import { VEHICLE_DEFS } from '../vehicles/vehicleRegistry'
 import { ASSET_MANIFEST_BY_ID } from './assetManifest'
 import { shouldLoadGlb } from './modelRegistry'
+import {
+  applyVariant,
+  createVariantInstances,
+  type ResolvedSlots,
+} from './assetVariants'
 import { CHARACTER_ASSETS, DEFAULT_CHARACTER_ASSET_ID } from '../characters/characterManifest'
 import {
   applyCharacterAppearance,
@@ -98,7 +103,12 @@ describe('§13 #4 — shipped-asset motion contract (distinct gaits vs an honest
     const def = CHARACTER_ASSETS[DEFAULT_CHARACTER_ASSET_ID]
     expect(def.id).toBe('blocklife_person')
     expect(def.staticIdle).not.toBe(true)
-    const [idle, walk, run] = [def.clips.idle, def.clips.walk, def.clips.run]
+    const idle = def.clips.idle ?? []
+    const walk = def.clips.walk ?? []
+    const run = def.clips.run ?? []
+    expect(idle.length, 'idle aliases').toBeGreaterThan(0)
+    expect(walk.length, 'walk aliases').toBeGreaterThan(0)
+    expect(run.length, 'run aliases').toBeGreaterThan(0)
     // No clip-name alias is shared across roles → the three gaits cannot collapse to one clip.
     const overlap = (a: string[], b: string[]) => a.some((n) => b.includes(n))
     expect(overlap(idle, walk)).toBe(false)
@@ -114,7 +124,55 @@ describe('§13 #4 — shipped-asset motion contract (distinct gaits vs an honest
       expect(def, `${id} must be a shipped asset`).toBeDefined()
       expect(def.staticIdle, `${id} must hold a still idle (walk-only rig)`).toBe(true)
       // walk is a real clip (so movement is animated); idle aliases it (held at frame 0 by the controller).
-      expect(def.clips.walk.length).toBeGreaterThan(0)
+      expect((def.clips.walk ?? []).length).toBeGreaterThan(0)
     }
+  })
+})
+
+describe('§13 #6 — building palette variants recolor a REUSED archetype (no geometry duplication)', () => {
+  // Nook Offices and the west backdrop tower share Building_Large_2. A per-instance palette
+  // variant recolors ONLY the declared wall/trim slots — geometry stays shared, windows/interior
+  // are untouched, and two instances of the archetype never cross-mutate.
+  const slotMap = ASSET_MANIFEST_BY_ID.get('building_office_01')!.materialSlots!
+  const MAT_NAMES = ['MI_InteriorWall', 'MI_Trim_Dark', 'MI_Trim_MetalConcrete', 'MI_Glass']
+
+  function makeBase() {
+    const group = new THREE.Group()
+    const geom = new THREE.BufferGeometry() // ONE shared geometry, like the GLB's single mesh
+    for (const name of MAT_NAMES) {
+      group.add(new THREE.Mesh(geom, new THREE.MeshStandardMaterial({ name, color: '#ffffff' })))
+    }
+    return { group, geom }
+  }
+
+  it('declares wall + trim slots for the shared archetype', () => {
+    expect(Object.keys(slotMap).sort()).toEqual(['trim', 'wall'])
+    expect(slotMap.wall).toContain('MI_InteriorWall')
+  })
+
+  it('office palette vs tower palette differ on walls, share geometry, leave glass alone', () => {
+    const base = makeBase()
+    // three.js clone(true) shares geometry AND materials by reference — exactly how the
+    // GLB loader hands the same cached scene to every placement of the archetype.
+    const office = base.group.clone(true)
+    const tower = base.group.clone(true)
+    const officeSlots = createVariantInstances(office, slotMap, Object.keys(slotMap))
+    const towerSlots = createVariantInstances(tower, slotMap, Object.keys(slotMap))
+    // Office keeps the base palette; the tower gets the warm sandstone variant (as authored).
+    applyVariant(towerSlots, { wall: { color: '#c8895a' }, trim: { color: '#6b4a30' } })
+
+    const wallHex = (s: ResolvedSlots) => (s.wall![0] as THREE.MeshStandardMaterial).color.getHexString()
+    expect(wallHex(officeSlots)).not.toBe(wallHex(towerSlots)) // the shared archetype reads as two buildings
+    expect(wallHex(towerSlots)).toBe('c8895a')
+
+    // (a) geometry SHARED — both instances still reference the one base geometry.
+    for (const inst of [office, tower])
+      for (const child of inst.children as THREE.Mesh[]) expect(child.geometry).toBe(base.geom)
+
+    // (b) instance-local — the office wall material is a distinct object from the tower's.
+    expect(officeSlots.wall![0]).not.toBe(towerSlots.wall![0])
+
+    // (c) glass is NOT a declared slot → never isolated, never tinted (windows stay glass).
+    expect(towerSlots.glass).toBeUndefined()
   })
 })

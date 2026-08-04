@@ -110,6 +110,10 @@ export const ASSET_MANIFEST: AssetManifestEntry[] = [
     scale: [0.6, 0.6, 0.6],
     positionOffset: [0, 0.01, 3.58],
     labelHeight: 16.2,
+    // §6 palette slots: the recolorable façade + trim (windows/interior untouched).
+    // Declaring slots only isolates the materials per instance (identity clone) — the
+    // render is unchanged until a BuildingDef.paletteVariant is applied.
+    materialSlots: { wall: ['MI_InteriorWall'], trim: ['MI_Trim_Green'] },
     enabled: true,
   },
   {
@@ -124,6 +128,7 @@ export const ASSET_MANIFEST: AssetManifestEntry[] = [
     scale: [0.62, 0.62, 0.62],
     positionOffset: [0.62, 0.01, 3.07],
     labelHeight: 11.8,
+    materialSlots: { wall: ['MI_RedBrick_Pale', 'MI_Concrete'], trim: ['MI_Trim', 'MI_Trim_MetalConcrete'] },
     enabled: true,
   },
   {
@@ -140,6 +145,7 @@ export const ASSET_MANIFEST: AssetManifestEntry[] = [
     scale: [0.34, 0.34, 0.34],
     rotation: [0, -Math.PI / 2, 0],
     positionOffset: [-2.72, 0, -0.34],
+    materialSlots: { wall: ['MI_InteriorWall'], trim: ['MI_Trim_Dark', 'MI_Trim_MetalConcrete'] },
     enabled: true,
   },
   {
@@ -155,6 +161,7 @@ export const ASSET_MANIFEST: AssetManifestEntry[] = [
     scale: [0.48, 0.48, 0.48],
     rotation: [0, Math.PI / 2, 0],
     positionOffset: [3.84, 0, 0.48],
+    materialSlots: { wall: ['MI_InteriorWall'], trim: ['MI_Trim_Dark', 'MI_Trim_MetalConcrete'] },
     enabled: true,
   },
   {

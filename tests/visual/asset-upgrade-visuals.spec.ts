@@ -44,6 +44,21 @@ test.describe('asset upgrade visuals (§21 §14)', () => {
     await expect(page).toHaveScreenshot('asset-building-apartment.png', { maxDiffPixelRatio: 0.02 })
   })
 
+  // §6/§14: the backdrop tower REUSES Building_Large_2 (same GLB as Nook Offices) but with a
+  // warm sandstone palette variant, so the shared archetype reads as a distinct building.
+  test('backdrop tower palette variant (reused Large_2 archetype)', async ({ page }) => {
+    await boot(page)
+    await page.evaluate(() => {
+      const a = window.GAME_TEST_API!
+      a.resetGame()
+      a.setTime(13)
+      a.setWeather('clear')
+      a.teleportPlayer([-70, 1.2, -8])
+    })
+    await settleAndPause(page)
+    await expect(page).toHaveScreenshot('asset-building-tower-variant.png', { maxDiffPixelRatio: 0.02 })
+  })
+
   test('female humanoid NPC (Maya) at the food truck', async ({ page }) => {
     await boot(page)
     await page.evaluate(() => {

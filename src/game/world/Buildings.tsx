@@ -201,8 +201,10 @@ function Building({ def, index }: { def: BuildingDef; index: number }) {
           window overlays — lit windows never float over a faded façade.
           The label stays outside: signs are HUD-like chips by policy. */}
       <Occludable descriptor={occluder}>
-        {/* Swappable visual: GLB from the manifest when enabled, else BuildingMesh. */}
-        <LandmarkAsset assetId={def.id}>
+        {/* Swappable visual: GLB from the manifest when enabled, else BuildingMesh.
+            A def.paletteVariant recolors this instance's declared slots (§6) — the
+            GLB clone still shares geometry with every other use of the archetype. */}
+        <LandmarkAsset assetId={def.id} variant={def.paletteVariant}>
           <BuildingMesh def={def} index={index} />
         </LandmarkAsset>
         {/* GLB exports have no emissive windows; add the night glow procedurally.
