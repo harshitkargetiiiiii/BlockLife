@@ -175,6 +175,11 @@ test.describe('Vehicle Ownership v1 — visuals', () => {
     await page.getByTestId(`plan-start-${plan.id}`).click()
     await page.keyboard.press('Tab') // close the phone for a clean driving shot
     await settleVehicle(page)
+    // Pin the driven van to a fixed spot + heading so the shot is deterministic. The social
+    // drive ends the van at a physics-dependent pose that varies just enough to exceed the
+    // tolerance under heavy machine load; the §14 asset-vehicle shots pin position for the same
+    // reason. Camera follows the driven car, so the van stays centred regardless of the spot.
+    await api(page, 'setDrivenCarPosition', [0, -10], 0.3)
     await freeze(page)
     await expect(page).toHaveScreenshot('driving-with-passenger.png', { maxDiffPixelRatio: 0.02 })
   })
