@@ -74,6 +74,12 @@ export interface CharacterAssetDefinition {
   clips: Partial<Record<AnimationRole, string[]>>
   /** Bounded playback-rate scaling relative to movement speed. */
   animationSpeedScale?: { walk?: number; run?: number }
+  /**
+   * When the asset has no distinct idle clip (its `idle` role aliases the walk
+   * clip, e.g. a Meshy rig that only ships walk+run), hold the idle at a single
+   * static frame instead of looping the walk cycle in place while standing.
+   */
+  staticIdle?: boolean
   bounds: CharacterBounds
   anchors: CharacterAnchors
   fallback: { primitiveStyle: string }

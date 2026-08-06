@@ -12,7 +12,17 @@
  *   3. Fill `attribution` / `license` here.
  *   4. Flip `enabled` to true.
  */
+import type { MaterialSlotMap, MaterialVariant } from './assetVariants'
+
 export type AssetCategory = 'city' | 'vehicles' | 'characters' | 'props'
+
+/** Per-category browser budgets (issue #21 §11/§12) the asset-report gate enforces. */
+export interface AssetBudget {
+  /** Max triangles for this asset (over → fails the report/perf gate). */
+  maxTriangles?: number
+  /** Max texture dimension in px (default policy 1024). */
+  maxTexture?: number
+}
 
 export interface AssetManifestEntry {
   /** Stable semantic id — matches layout data and collider definitions. */
@@ -53,6 +63,18 @@ export interface AssetManifestEntry {
     minimumOpacity?: number
     excludeMaterialNames?: string[]
   }
+  /**
+   * Recolorable material slots (issue #21 §3): semantic slot → GLB material
+   * names. Consumed by the variant system so one file backs many colors without
+   * duplicating geometry (vehicle paint/wheel; buildings could expose facade/trim).
+   */
+  materialSlots?: MaterialSlotMap
+  /** Named color/material presets over the declared slots (e.g. paint palette). */
+  variants?: Record<string, MaterialVariant>
+  /** Triangle/texture budget the asset-report gate enforces (§12). */
+  budget?: AssetBudget
+  /** Optional visual bounds (world units) for tooling/labels; render reads the GLB. */
+  bounds?: { width: number; height: number; depth: number }
 }
 
 const defaults = {
@@ -88,6 +110,10 @@ export const ASSET_MANIFEST: AssetManifestEntry[] = [
     scale: [0.6, 0.6, 0.6],
     positionOffset: [0, 0.01, 3.58],
     labelHeight: 16.2,
+    // §6 palette slots: the recolorable façade + trim (windows/interior untouched).
+    // Declaring slots only isolates the materials per instance (identity clone) — the
+    // render is unchanged until a BuildingDef.paletteVariant is applied.
+    materialSlots: { wall: ['MI_InteriorWall'], trim: ['MI_Trim_Green'] },
     enabled: true,
   },
   {
@@ -102,6 +128,7 @@ export const ASSET_MANIFEST: AssetManifestEntry[] = [
     scale: [0.62, 0.62, 0.62],
     positionOffset: [0.62, 0.01, 3.07],
     labelHeight: 11.8,
+    materialSlots: { wall: ['MI_RedBrick_Pale', 'MI_Concrete'], trim: ['MI_Trim', 'MI_Trim_MetalConcrete'] },
     enabled: true,
   },
   {
@@ -118,6 +145,7 @@ export const ASSET_MANIFEST: AssetManifestEntry[] = [
     scale: [0.34, 0.34, 0.34],
     rotation: [0, -Math.PI / 2, 0],
     positionOffset: [-2.72, 0, -0.34],
+    materialSlots: { wall: ['MI_InteriorWall'], trim: ['MI_Trim_Dark', 'MI_Trim_MetalConcrete'] },
     enabled: true,
   },
   {
@@ -133,6 +161,7 @@ export const ASSET_MANIFEST: AssetManifestEntry[] = [
     scale: [0.48, 0.48, 0.48],
     rotation: [0, Math.PI / 2, 0],
     positionOffset: [3.84, 0, 0.48],
+    materialSlots: { wall: ['MI_InteriorWall'], trim: ['MI_Trim_Dark', 'MI_Trim_MetalConcrete'] },
     enabled: true,
   },
   {
@@ -153,17 +182,22 @@ export const ASSET_MANIFEST: AssetManifestEntry[] = [
   },
   {
     ...defaults,
-    ...QUATERNIUS,
     id: 'building_townhomes_01',
-    label: 'Townhomes (future-use landmark, Residential Street)',
+    label: 'Residential apartment (Residential Street)',
     category: 'city',
-    // Reuses Building_Medium_2 at neighborhood scale — one download, cloned.
-    glbPath: 'assets/models/city/quaternius_building_medium_2.glb',
+    // Issue #21 §6: a production low-poly apartment GLB (~6.6k tris, 1K texture)
+    // projected via LandmarkAsset. Colliders/anchors come from cityLayout (7×6×7
+    // lot), never the model. Authored bbox 1.26×1.91×1.27, centered origin →
+    // uniform ~5.5× fills the footprint; offset raises the base to the ground.
+    glbPath: 'assets/models/city/blocklife_apartment_hq_01.glb',
     fallbackKey: 'BuildingMesh',
-    scale: [0.465, 0.465, 0.465],
-    positionOffset: [0, 0.01, 2.77],
-    labelHeight: 12.4,
+    scale: [5.5, 5.5, 5.5],
+    positionOffset: [0, 5.2, 0],
+    labelHeight: 11.5,
     enabled: true,
+    budget: { maxTriangles: 60000 },
+    attribution: 'Meshy AI — generated original low-poly asset (text→image→3D), texture-optimized in-repo',
+    license: 'Meshy AI generated asset (meshy.ai terms)',
   },
   // ---- Street props (Quaternius pack, decorative — no colliders) ----
   {
@@ -221,6 +255,126 @@ export const ASSET_MANIFEST: AssetManifestEntry[] = [
     positionOffset: [0, 0.012, 0],
     enabled: true,
   },
+  // ---- Vehicles (issue #21 §5): a GLB body projects onto the ONE driving shell.
+  // enabled:false keeps the procedural CarMesh until a real, licensed GLB is dropped
+  // in and its material slots verified via the asset-report. Physics/footprint always
+  // come from getActiveVehicleProjection(), never the model. ----
+  {
+    ...defaults,
+    id: 'vehicle_compact_car_01',
+    label: 'Compact Car (drivable shell)',
+    category: 'vehicles',
+    glbPath: 'assets/models/vehicles/compact_car_01.glb',
+    fallbackKey: 'CarMesh',
+    // Low-poly GLB (~9.4k tris). Authored bbox 1.906×1.041×1.022 (length X, up Y);
+    // scaled ~2× and yawed 90° so length runs along +z (the shell's nose axis),
+    // wheels resting on the ground. Normalized to a single `paint` material.
+    scale: [2.0, 1.55, 1.96],
+    rotation: [0, Math.PI / 2, 0],
+    positionOffset: [0, 0.42, 0],
+    enabled: true,
+    budget: { maxTriangles: 40000 },
+    materialSlots: { paint: ['paint'] },
+    attribution: 'Meshy AI — generated original low-poly asset (text→image→3D), normalized in-repo',
+    license: 'Meshy AI generated asset (meshy.ai terms)',
+    bounds: { width: 2.0, height: 1.61, depth: 3.81 },
+  },
+  // Issue #21 §10: the other three ownable classes ship distinct GLB bodies (all
+  // ≤12k tris, single normalized `paint` material). Projected onto the ONE shell
+  // exactly like the Compact — physics/footprint always from getActiveVehicleProjection().
+  // Scales fill the CarMesh reference footprint (~2×1.6×3.9); Vehicle.tsx's meshScale
+  // then adapts to each class collider. Origin is at the wheels (remesh origin=bottom).
+  {
+    ...defaults,
+    id: 'vehicle_scooter_01',
+    label: 'City Scooter (drivable shell)',
+    category: 'vehicles',
+    glbPath: 'assets/models/vehicles/scooter_01.glb',
+    fallbackKey: 'CarMesh',
+    scale: [2.05, 1.22, 2.25],
+    rotation: [0, Math.PI / 2, 0],
+    positionOffset: [0, 0, 0],
+    enabled: true,
+    budget: { maxTriangles: 40000 },
+    materialSlots: { paint: ['paint'] },
+    attribution: 'Meshy AI — generated original low-poly asset (text→image→3D), remeshed + normalized in-repo',
+    license: 'Meshy AI generated asset (meshy.ai terms)',
+    bounds: { width: 1.8, height: 1.6, depth: 3.9 },
+  },
+  {
+    ...defaults,
+    id: 'vehicle_utility_van_01',
+    label: 'Utility Van (drivable shell)',
+    category: 'vehicles',
+    glbPath: 'assets/models/vehicles/utility_van_01.glb',
+    fallbackKey: 'CarMesh',
+    scale: [2.05, 1.52, 2.48],
+    rotation: [0, Math.PI / 2, 0],
+    positionOffset: [0, 0, 0],
+    enabled: true,
+    budget: { maxTriangles: 40000 },
+    materialSlots: { paint: ['paint'] },
+    attribution: 'Meshy AI — generated original low-poly asset (text→image→3D), remeshed + normalized in-repo',
+    license: 'Meshy AI generated asset (meshy.ai terms)',
+    bounds: { width: 2.0, height: 1.6, depth: 3.9 },
+  },
+  {
+    ...defaults,
+    id: 'vehicle_sports_car_01',
+    label: 'Premium Sports Car (drivable shell)',
+    category: 'vehicles',
+    glbPath: 'assets/models/vehicles/sports_car_01.glb',
+    fallbackKey: 'CarMesh',
+    scale: [2.05, 2.4, 2.32],
+    rotation: [0, Math.PI / 2, 0],
+    positionOffset: [0, 0, 0],
+    enabled: true,
+    budget: { maxTriangles: 40000 },
+    materialSlots: { paint: ['paint'] },
+    attribution: 'Meshy AI — generated original low-poly asset (text→image→3D), remeshed + normalized in-repo',
+    license: 'Meshy AI generated asset (meshy.ai terms)',
+    bounds: { width: 2.0, height: 1.3, depth: 3.9 },
+  },
+  // ---- Characters (issue #21 §4): CANONICAL catalog row. The rig-specific detail
+  // (skeleton/clips/slots/bounds) lives in characterManifest.ts CHARACTER_ASSETS; a
+  // consistency test asserts each character id here matches that def. Characters render
+  // through AnimatedCharacter, never LandmarkAsset, so `enabled` here is catalog-only. ----
+  {
+    ...defaults,
+    id: 'blocklife_person',
+    label: 'BlockLife person (default rig)',
+    category: 'characters',
+    glbPath: 'assets/models/characters/blocklife_person.glb',
+    fallbackKey: 'blocklife_primitive',
+    enabled: true,
+    budget: { maxTriangles: 45000 },
+    attribution: 'BlockLife — original in-repo authored rig (scripts/buildCharacterGlb.mjs)',
+    license: 'Original (project license)',
+  },
+  {
+    ...defaults,
+    id: 'blocklife_female_01',
+    label: 'Female civilian humanoid (§21 §4)',
+    category: 'characters',
+    glbPath: 'assets/models/characters/blocklife_female_01.glb',
+    fallbackKey: 'blocklife_primitive',
+    enabled: true,
+    budget: { maxTriangles: 25000 },
+    attribution: 'Meshy AI — generated original low-poly humanoid (text→image→3D→rig), remeshed + texture-optimized in-repo',
+    license: 'Meshy AI generated asset (meshy.ai terms)',
+  },
+  {
+    ...defaults,
+    id: 'blocklife_male_01',
+    label: 'Male civilian humanoid (§21 §4)',
+    category: 'characters',
+    glbPath: 'assets/models/characters/blocklife_male_01.glb',
+    fallbackKey: 'blocklife_primitive',
+    enabled: true,
+    budget: { maxTriangles: 25000 },
+    attribution: 'Meshy AI — generated original low-poly humanoid (text→image→3D→rig), remeshed + texture-optimized in-repo',
+    license: 'Meshy AI generated asset (meshy.ai terms)',
+  },
 ]
 
 export const ASSET_MANIFEST_BY_ID: ReadonlyMap<string, AssetManifestEntry> = new Map(
@@ -231,6 +385,10 @@ const CATEGORIES: AssetCategory[] = ['city', 'vehicles', 'characters', 'props']
 
 function isVec3(v: unknown): v is [number, number, number] {
   return Array.isArray(v) && v.length === 3 && v.every((n) => typeof n === 'number' && Number.isFinite(n))
+}
+
+function isHexColor(v: unknown): boolean {
+  return typeof v === 'string' && /^#[0-9a-fA-F]{6}$/.test(v)
 }
 
 /** Returns a list of problems (empty = valid). Used by tests and dev tooling. */
@@ -257,6 +415,37 @@ export function validateManifest(entries: AssetManifestEntry[]): string[] {
     if (!isVec3(e.scale)) errors.push(`${where}: scale must be [x, y, z]`)
     if (!isVec3(e.rotation)) errors.push(`${where}: rotation must be [x, y, z]`)
     if (!isVec3(e.positionOffset)) errors.push(`${where}: positionOffset must be [x, y, z]`)
+    // Issue #21 additive fields (all optional).
+    if (e.budget) {
+      if (e.budget.maxTriangles !== undefined && !(e.budget.maxTriangles > 0)) {
+        errors.push(`${where}: budget.maxTriangles must be positive`)
+      }
+      if (e.budget.maxTexture !== undefined && !(e.budget.maxTexture > 0)) {
+        errors.push(`${where}: budget.maxTexture must be positive`)
+      }
+    }
+    if (e.materialSlots) {
+      for (const [slot, names] of Object.entries(e.materialSlots)) {
+        if (!Array.isArray(names) || names.length === 0 || names.some((n) => !n)) {
+          errors.push(`${where}: materialSlots.${slot} must be a non-empty string[]`)
+        }
+      }
+    }
+    if (e.variants) {
+      for (const [name, variant] of Object.entries(e.variants)) {
+        for (const [slot, override] of Object.entries(variant)) {
+          if (override.color !== undefined && !isHexColor(override.color)) {
+            errors.push(`${where}: variant "${name}".${slot}.color must be #rrggbb`)
+          }
+          if (e.materialSlots && !(slot in e.materialSlots)) {
+            errors.push(`${where}: variant "${name}" targets undeclared slot "${slot}"`)
+          }
+        }
+      }
+    }
+    if (e.bounds && !(e.bounds.width > 0 && e.bounds.height > 0 && e.bounds.depth > 0)) {
+      errors.push(`${where}: bounds must have positive width/height/depth`)
+    }
   }
   return errors
 }

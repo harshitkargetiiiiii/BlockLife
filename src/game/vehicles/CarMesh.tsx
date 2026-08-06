@@ -45,17 +45,7 @@ const WHEEL_POSITIONS: [number, number][] = [
   [0.92, -1.25],
 ]
 
-/**
- * Shared low-poly car body used by the drivable car, ambient cars and parked
- * cars. Nose faces +z. Roughly 2 wide × 1.6 tall × 3.9 long.
- */
-export function CarMesh({
-  color,
-  showDriver = false,
-  showPassenger = false,
-  wheelHub = '#26262c',
-  wheelScale = 1,
-}: {
+export interface CarMeshProps {
   color: string
   showDriver?: boolean
   /** A seated NPC passenger (Give-a-Ride, §11) — a validated render flag, no passenger AI. */
@@ -63,11 +53,37 @@ export function CarMesh({
   /** Wheel-style hub colour + relative radius (§9). Defaults reproduce the classic wheel exactly. */
   wheelHub?: string
   wheelScale?: number
-}) {
+}
+
+/**
+ * The painted body SHELL (body + cabin) only — the part an external vehicle GLB
+ * replaces (issue #21 §5). Split out so the GLB body can render while the
+ * functional fittings below stay procedural (brake lights, occupants, wheel-style).
+ */
+export function CarShell({ color }: { color: string }) {
   return (
-    <group name="car-mesh">
+    <group name="car-shell">
       <mesh geometry={bodyGeometry} material={bodyMaterialFor(color)} position={[0, 0.55, 0]} castShadow />
       <mesh geometry={cabinGeometry} material={cabinMaterial} position={[0, 1.08, -0.35]} castShadow />
+    </group>
+  )
+}
+
+/**
+ * The functional fittings that must survive a GLB body swap (§5): recolorable/
+ * scalable wheels (the existing wheel-style adapter), headlights, the named
+ * `taillight` meshes the brake-light swap targets, and driver/passenger
+ * indicators. Rendered as an always-present sibling of the body — GLB or not —
+ * so wheel-style, brake lights and passenger visibility keep working on the GLB.
+ */
+export function CarFittings({
+  showDriver = false,
+  showPassenger = false,
+  wheelHub = '#26262c',
+  wheelScale = 1,
+}: Omit<CarMeshProps, 'color'>) {
+  return (
+    <group name="car-fittings">
       {WHEEL_POSITIONS.map(([x, z], i) => (
         <mesh
           key={i}
@@ -99,6 +115,27 @@ export function CarMesh({
       {showPassenger && (
         <mesh geometry={driverGeometry} material={driverMaterial} position={[0.5, 1.25, -0.2]} />
       )}
+    </group>
+  )
+}
+
+/**
+ * Shared low-poly car used by the drivable car, ambient cars and parked cars.
+ * Nose faces +z. Roughly 2 wide × 1.6 tall × 3.9 long. Composed of the body
+ * SHELL + FITTINGS so callers that project a GLB can reuse the fittings while
+ * swapping only the shell. Byte-identical to the pre-split mesh for the
+ * procedural path (ambient/parked/stealable cars).
+ */
+export function CarMesh(props: CarMeshProps) {
+  return (
+    <group name="car-mesh">
+      <CarShell color={props.color} />
+      <CarFittings
+        showDriver={props.showDriver}
+        showPassenger={props.showPassenger}
+        wheelHub={props.wheelHub}
+        wheelScale={props.wheelScale}
+      />
     </group>
   )
 }

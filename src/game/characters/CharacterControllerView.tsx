@@ -24,6 +24,10 @@ export function PlayerCharacter({
   headingRef: MutableRefObject<number>
 }) {
   const appearance = useGameStore((s) => s.appearance)
+  // §21 §4: a DEV override renders the player through the SAME production character path as
+  // any asset (the representative-player avatar path); default is the wardrobe-capable rig.
+  const overrideId = useGameStore((s) => s.debugPlayerCharacterId)
+  const def = (overrideId && CHARACTER_ASSETS[overrideId]) || PLAYER_DEF
   const getMotion = useCallback(
     (dt: number) => getPlayerCharacterMotionState(dt, headingRef.current),
     [headingRef],
@@ -32,7 +36,7 @@ export function PlayerCharacter({
     <AnimatedCharacter
       instanceId="player"
       tier="hero"
-      def={PLAYER_DEF}
+      def={def}
       appearance={appearance}
       getMotion={getMotion}
       fallback={<PlayerMesh />}

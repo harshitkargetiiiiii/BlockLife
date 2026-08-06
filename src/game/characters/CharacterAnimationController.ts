@@ -87,6 +87,12 @@ export class CharacterAnimationController {
     const idle = this.actions.get('idle')
     if (idle) {
       idle.play()
+      // Assets with no distinct idle clip hold a still frame rather than looping
+      // the walk cycle in place while standing.
+      if (def.staticIdle) {
+        idle.time = 0
+        idle.paused = true
+      }
       this.mixer.update(0)
     }
   }
@@ -122,6 +128,7 @@ export class CharacterAnimationController {
     const role = roleForState(this.current)
     const action = this.actions.get(role)
     if (action && (role === 'walk' || role === 'run')) {
+      action.paused = false
       action.timeScale = playbackRateFor(role, motion.speed, this.def.animationSpeedScale)
     }
     this.mixer.update(dt)
@@ -140,6 +147,9 @@ export class CharacterAnimationController {
     to.reset()
     to.timeScale = 1
     to.play()
+    // Static-idle assets hold the idle at frame 0 (reset() already put it there);
+    // every moving clip advances normally.
+    to.paused = toRole === 'idle' && this.def.staticIdle === true
     if (from && from.isRunning()) {
       to.crossFadeFrom(from, duration, false)
     } else {

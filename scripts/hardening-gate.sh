@@ -75,6 +75,11 @@ if npm run build >"$LOG/hg-build.log" 2>&1; then
   [ "$LEAK" -eq 0 ] || { echo "  dist LEAK: FAIL"; FAIL=1; }
 else echo "  build: FAIL"; FAIL=1; tail -10 "$LOG/hg-build.log"; fi
 
+hr; echo "[assets] asset budget + registry validation — an over-budget / missing / invalid GLB fails the gate (§12/§17)"
+if node scripts/assetReport.mjs public/assets/models >"$LOG/hg-assets.log" 2>&1; then
+  ASSET_N=$(num "$LOG/hg-assets.log" '[0-9]+ assets'); echo "  assets: PASS (${ASSET_N:-?} assets, 0 over budget)"
+else echo "  assets: FAIL (over budget / missing / errored)"; FAIL=1; tail -20 "$LOG/hg-assets.log"; fi
+
 hr; echo "[5/8] FULL E2E — all tests/e2e (incl. 180s soak) — passed==$E2E_DEF, failed 0, skipped 0"
 npx playwright test tests/e2e --reporter=line >"$LOG/hg-e2e.log" 2>&1; EEXIT=$?
 EPASS=$(num "$LOG/hg-e2e.log" '[0-9]+ passed'); EPASS=${EPASS:-0}

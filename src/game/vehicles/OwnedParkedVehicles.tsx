@@ -1,4 +1,4 @@
-import { CarMesh } from './CarMesh'
+import { VehicleVisual } from './VehicleVisual'
 import { useGameStore } from '../store/useGameStore'
 import { getOwnedVehicles } from './vehicleOwnershipRuntime'
 import { getParkingAnchor } from './parkingRegistry'
@@ -29,7 +29,9 @@ export function OwnedParkedVehicles() {
         const scale = def ? Math.max(0.6, Math.min(1.4, def.halfLength / 1.95)) : 1
         return (
           <group key={v.id} position={[a.position[0], 0, a.position[1]]} rotation={[0, a.headingY, 0]} scale={scale}>
-            <CarMesh color={paint} showDriver={false} wheelHub={wheel?.hubColor} wheelScale={wheel?.radiusScale} />
+            {/* §5 parked/active parity: parked owned vehicles project the SAME class GLB body
+                + fittings the active shell uses, so a Compact doesn't change model when parked. */}
+            <VehicleVisual assetId={def?.assetId ?? null} color={paint} showDriver={false} wheelHub={wheel?.hubColor} wheelScale={wheel?.radiusScale} />
           </group>
         )
       })}

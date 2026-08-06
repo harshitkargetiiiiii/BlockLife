@@ -28,6 +28,7 @@ import { ActivityDirector } from '../game/criminalActivities/ActivityDirector'
 import { RobberyMarkers } from '../game/criminalActivities/RobberyMarkers'
 import { OcclusionManager } from '../game/visibility/OcclusionManager'
 import { IntegritySystem } from '../game/world/integrity/IntegritySystem'
+import { PerfProbe } from '../game/world/PerfProbe'
 import {
   SectorColliders,
   SectorDirector,
@@ -50,6 +51,7 @@ export function CanvasRoot() {
       <FollowCamera />
       <OcclusionManager />
       {import.meta.env.DEV && <IntegritySystem />}
+      {import.meta.env.DEV && <PerfProbe />}
       <Lighting />
       <WeatherEffects />
       <SectorVisuals />

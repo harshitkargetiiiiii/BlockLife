@@ -16,7 +16,8 @@
     "test:unit": "vitest run src",
     "test:e2e": "playwright test tests/e2e",
     "test:visual": "playwright test tests/visual",
-    "test:build": "npm run build && npm run test && npm run test:e2e"
+    "test:build": "npm run build && npm run test && npm run test:e2e",
+    "gate:assets": "node scripts/assetReport.mjs public/assets/models"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.7",
@@ -29,6 +30,8 @@
     "zustand": "^5.0.14"
   },
   "devDependencies": {
+    "@gltf-transform/core": "^4.4.2",
+    "@gltf-transform/functions": "^4.4.2",
     "@playwright/test": "^1.61.1",
     "@react-three/test-renderer": "^9.1.0",
     "@testing-library/dom": "^10.4.1",

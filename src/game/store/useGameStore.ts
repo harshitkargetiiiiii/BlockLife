@@ -331,6 +331,9 @@ interface GameDataState {
   appearance: PlayerAppearance
   /** Character visual mode: 'auto' prefers the rigged model. Debug/test. */
   characterRenderMode: 'auto' | 'model' | 'primitive'
+  /** DEV/§21 §4: render the PLAYER through the production character path as this asset id
+   *  (the representative-player avatar path). null = the default wardrobe rig. Not persisted. */
+  debugPlayerCharacterId: string | null
   ui: UIState
   worldPaused: boolean
   timeScale: number
@@ -508,6 +511,7 @@ export interface GameStore extends GameDataState {
   /** Update outfit colors (partial merge over the current appearance). */
   setAppearance: (appearance: Partial<PlayerAppearance>) => void
   setCharacterRenderMode: (mode: 'auto' | 'model' | 'primitive') => void
+  setDebugPlayerCharacter: (id: string | null) => void
   requestTeleport: (position: [number, number, number]) => void
   setQuestState: (questId: string, state: QuestState) => void
   giveItem: (itemId: string, quantity: number) => void
@@ -582,6 +586,7 @@ export function createInitialGameState(): GameDataState {
     location: 'city',
     appearance: { ...DEFAULT_APPEARANCE },
     characterRenderMode: 'auto',
+    debugPlayerCharacterId: null,
     ui: { panel: 'none', dialogueNpcId: null, activityId: null, activePhoneApp: 'home' },
     worldPaused: false,
     timeScale: 1,
@@ -2057,6 +2062,8 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     set((s) => ({ appearance: { ...s.appearance, ...appearance } })),
 
   setCharacterRenderMode: (mode) => set({ characterRenderMode: mode }),
+
+  setDebugPlayerCharacter: (id) => set({ debugPlayerCharacterId: id }),
 
   enterVehicle: () => {
     const body = registry.playerBody

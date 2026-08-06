@@ -1,3 +1,5 @@
+import type { MaterialVariant } from '../assets/assetVariants'
+
 export type WorldMood = 'morning' | 'afternoon' | 'evening' | 'night'
 
 export type Vec3 = [number, number, number]
@@ -21,6 +23,13 @@ export interface BuildingDef {
   accentColor?: string
   /** Skip windows (e.g. kiosk-like structures). */
   windows?: boolean
+  /**
+   * Optional GLB palette variant (issue #21 §6): recolors this instance's declared
+   * wall/trim material slots so a REUSED archetype (e.g. office ↔ backdrop tower, both
+   * Building_Large_2) reads as a different building. Purely cosmetic — the collider,
+   * occluder and entrance derive from layout data, never from this.
+   */
+  paletteVariant?: MaterialVariant
 }
 
 export type PropType =

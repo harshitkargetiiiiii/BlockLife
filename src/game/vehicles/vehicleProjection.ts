@@ -39,6 +39,8 @@ export interface VehicleProjection {
   ownedId: string | null
   /** The definition the shell embodies — always a real def; the Compact when unowned. */
   defId: string
+  /** Canonical GLB asset id for the active class (issue #21 §5), or null → CarMesh. */
+  assetId: string | null
   /** Effective arcade tuning the controller reads (class tuning × condition wear). */
   tuning: VehicleTuning
   halfLength: number
@@ -87,6 +89,7 @@ function baseline(): VehicleProjection {
   return {
     ownedId: null,
     defId: MIGRATION_VEHICLE_DEF_ID,
+    assetId: def?.assetId ?? null,
     // veh_compact.tuning === { ...VEHICLE_TUNING, mass: 3 } and its footprint === CAR_HALF_*.
     tuning: def ? def.tuning : { ...VEHICLE_TUNING, mass: 3 },
     halfLength: def?.halfLength ?? CAR_HALF_LENGTH,
@@ -114,6 +117,7 @@ export function getActiveVehicleProjection(): VehicleProjection {
   return {
     ownedId: active.id,
     defId: def.id,
+    assetId: def.assetId ?? null,
     tuning: effectiveTuning(def, active),
     halfLength: def.halfLength,
     halfWidth: def.halfWidth,

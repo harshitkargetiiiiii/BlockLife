@@ -167,3 +167,42 @@ describe('CharacterAnimationController', () => {
     expect(controller.activeActionCount).toBe(0)
   })
 })
+
+describe('CharacterAnimationController — staticIdle (issue #21 §4)', () => {
+  const STATIC_DEF = { ...DEF, staticIdle: true }
+  function makeStatic() {
+    const root = new THREE.Object3D()
+    const clips: Partial<Record<AnimationRole, THREE.AnimationClip>> = {
+      idle: makeClip('idle', 0.9),
+      walk: makeClip('walk', 0.9),
+      run: makeClip('run', 0.62),
+    }
+    return { clips, controller: new CharacterAnimationController(root, STATIC_DEF, clips) }
+  }
+
+  it('holds the idle at a still frame instead of marching in place', () => {
+    const { controller, clips } = makeStatic()
+    const idleAction = controller.mixer.existingAction(clips.idle!)!
+    for (let i = 0; i < 30; i++) controller.update(motion('idle', 0), 1 / 60)
+    expect(idleAction.paused).toBe(true)
+    expect(idleAction.time).toBe(0) // never advances while standing → no walk-in-place
+  })
+
+  it('still animates the walk clip while moving, then re-freezes idle on stop', () => {
+    const { controller, clips } = makeStatic()
+    const walkAction = controller.mixer.existingAction(clips.walk!)!
+    for (let i = 0; i < 10; i++) controller.update(motion('walk', WALK_SPEED), 1 / 60)
+    expect(walkAction.paused).toBe(false)
+    expect(walkAction.time).toBeGreaterThan(0)
+    for (let i = 0; i < 30; i++) controller.update(motion('idle', 0), 1 / 60)
+    expect(controller.mixer.existingAction(clips.idle!)!.paused).toBe(true)
+  })
+
+  it('a normal (looping-idle) asset is unaffected — its idle clip keeps advancing', () => {
+    const { controller, clips } = makeController() // DEF has no staticIdle
+    const idleAction = controller.mixer.existingAction(clips.idle!)!
+    for (let i = 0; i < 30; i++) controller.update(motion('idle', 0), 1 / 60)
+    expect(idleAction.paused).toBe(false)
+    expect(idleAction.time).toBeGreaterThan(0)
+  })
+})

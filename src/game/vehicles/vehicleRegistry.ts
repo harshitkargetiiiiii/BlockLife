@@ -60,6 +60,12 @@ export interface VehicleDef {
   listingDescription: string
   /** Render adapter: which mesh to project + its base paint. `car` reuses CarMesh. */
   renderAdapter: 'car'
+  /**
+   * Optional canonical asset id (issue #21 §5): when set AND its manifest entry
+   * is enabled, VehicleAsset projects that GLB onto the ONE shell; otherwise the
+   * procedural CarMesh renders. Physics/footprint never depend on this.
+   */
+  assetId?: string
   baseColor: string
   /** Allowed paint palette (includes baseColor); customization picks from here. */
   paintPalette: readonly string[]
@@ -108,6 +114,7 @@ export const VEHICLE_DEFS: readonly VehicleDef[] = [
     vehicleClass: 'scooter',
     listingDescription: 'A nimble little scooter — cheap, thrifty on space, tiny cargo box.',
     renderAdapter: 'car',
+    assetId: 'vehicle_scooter_01',
     baseColor: '#e2b04a',
     paintPalette: PALETTE,
     halfLength: 1.1,
@@ -134,6 +141,9 @@ export const VEHICLE_DEFS: readonly VehicleDef[] = [
     vehicleClass: 'compact',
     listingDescription: 'A balanced city car. The default drive — reliable and easy to park.',
     renderAdapter: 'car',
+    // The migration target ships the first vehicle GLB (§21 §5); other classes
+    // keep CarMesh until their own models land.
+    assetId: 'vehicle_compact_car_01',
     baseColor: '#d7e6ee',
     paintPalette: PALETTE,
     // The Compact IS the legacy drivable car: footprint + tuning are the current baseline.
@@ -162,6 +172,7 @@ export const VEHICLE_DEFS: readonly VehicleDef[] = [
     vehicleClass: 'van',
     listingDescription: 'Slower and bulkier, but hauls a lot — the delivery workhorse.',
     renderAdapter: 'car',
+    assetId: 'vehicle_utility_van_01',
     baseColor: '#5b7fc2',
     paintPalette: PALETTE,
     halfLength: 2.5,
@@ -188,6 +199,7 @@ export const VEHICLE_DEFS: readonly VehicleDef[] = [
     vehicleClass: 'sports',
     listingDescription: 'A high-floor performance car. The view alone sells it — if you qualify.',
     renderAdapter: 'car',
+    assetId: 'vehicle_sports_car_01',
     baseColor: '#c25b52',
     paintPalette: PALETTE,
     halfLength: 2.0,

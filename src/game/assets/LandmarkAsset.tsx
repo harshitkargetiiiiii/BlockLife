@@ -3,6 +3,7 @@ import * as THREE from 'three'
 import { useGLTF } from '@react-three/drei'
 import type { AssetManifestEntry } from './assetManifest'
 import { getManifestEntry, reportAssetLoadFailure, resolveGlbUrl, shouldLoadGlb } from './modelRegistry'
+import { applyVariant, createVariantInstances, disposeVariantMaterials, type MaterialVariant } from './assetVariants'
 import { registry } from '../world/runtimeRegistry'
 
 export interface LandmarkAssetProps {
@@ -20,6 +21,12 @@ export interface LandmarkAssetProps {
    * tests and tooling can exercise load paths without touching the manifest.
    */
   entry?: AssetManifestEntry
+  /**
+   * Palette variant (issue #21 §6): recolors the entry's declared material slots
+   * for THIS instance only, so repeated archetypes stop looking cloned. Resolve
+   * from `entry.variants[id]` at the call site, or pass an ad-hoc override.
+   */
+  variant?: MaterialVariant
 }
 
 interface BoundaryProps {
@@ -50,10 +57,13 @@ function GlbModel({
   entry,
   castShadow,
   receiveShadow,
+  variant,
 }: {
   entry: AssetManifestEntry
   castShadow: boolean
   receiveShadow: boolean
+  /** Palette variant (issue #21 §6): recolors the entry's declared material slots. */
+  variant?: MaterialVariant
 }) {
   const gltf = useGLTF(resolveGlbUrl(entry))
 
@@ -66,8 +76,10 @@ function GlbModel({
     }
   }, [])
 
-  // Clone so several landmarks can share one file, and apply shadow flags.
-  const scene = useMemo(() => {
+  // Clone so several landmarks can share one file; apply shadow flags; and — when the
+  // entry declares palette slots (§21 §6) — isolate those materials per instance so a
+  // variant can recolor walls/trim/glass without mutating the shared cache or siblings.
+  const { scene, slots } = useMemo(() => {
     const cloned = gltf.scene.clone(true)
     cloned.traverse((obj) => {
       if ((obj as THREE.Mesh).isMesh) {
@@ -75,8 +87,19 @@ function GlbModel({
         obj.receiveShadow = receiveShadow
       }
     })
-    return cloned
-  }, [gltf.scene, castShadow, receiveShadow])
+    const slotMap = entry.materialSlots
+    const isolated = slotMap ? createVariantInstances(cloned, slotMap, Object.keys(slotMap)) : null
+    return { scene: cloned, slots: isolated }
+  }, [gltf.scene, castShadow, receiveShadow, entry])
+
+  // Dispose the per-instance isolated materials symmetrically with the memo that made them.
+  useEffect(() => () => { if (slots) disposeVariantMaterials(slots) }, [slots])
+
+  // Apply the palette variant — only the declared, isolated slots are recolored.
+  useEffect(() => {
+    if (slots && variant) applyVariant(slots, variant)
+  }, [slots, variant])
+
   return (
     <primitive
       object={scene}
@@ -102,6 +125,7 @@ export function LandmarkAsset({
   receiveShadow = true,
   children,
   entry: entryOverride,
+  variant,
 }: LandmarkAssetProps) {
   const entry = entryOverride ?? getManifestEntry(assetId)
   const useGlb = shouldLoadGlb(entry)
@@ -121,7 +145,7 @@ export function LandmarkAsset({
       {useGlb ? (
         <AssetErrorBoundary assetId={assetId} fallback={children}>
           <Suspense fallback={children}>
-            <GlbModel entry={entry} castShadow={castShadow} receiveShadow={receiveShadow} />
+            <GlbModel entry={entry} castShadow={castShadow} receiveShadow={receiveShadow} variant={variant} />
           </Suspense>
         </AssetErrorBoundary>
       ) : (
