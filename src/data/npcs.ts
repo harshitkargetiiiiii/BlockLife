@@ -12,8 +12,9 @@ export const NPC_DEFS: NPCDef[] = [
     bodyColor: '#4a7fd4',
     headColor: '#e8b98a',
     walkSpeed: 1.6,
-    // Issue #21 §4: Ravi walks as a production low-poly male humanoid (Meshy → rig).
-    characterAssetId: 'blocklife_male_01',
+    // Issue #23: rides the rich blocklife_person rig (real idle/walk/run) with a curated
+    // unique identity from the population appearance registry.
+    characterAssetId: 'blocklife_person',
     routine: [
       { from: 6, to: 12, mode: 'idle', points: [[-8.5, -5]] },
       { from: 12, to: 18, mode: 'idle', points: [[13.5, -6.5]] },
@@ -33,8 +34,9 @@ export const NPC_DEFS: NPCDef[] = [
     bodyColor: '#e0576f',
     headColor: '#c98a5e',
     walkSpeed: 1.5,
-    // Issue #21 §4: Maya is a production low-poly female humanoid (Meshy → rig).
-    characterAssetId: 'blocklife_female_01',
+    // Issue #23: rides the rich blocklife_person rig (real idle/walk/run) with a curated
+    // unique identity from the population appearance registry.
+    characterAssetId: 'blocklife_person',
     routine: [
       // Beside the serving window, clear of the truck's collider footprint.
       { from: 6, to: 22, mode: 'idle', points: [[4.4, -4.4]] },
@@ -53,6 +55,8 @@ export const NPC_DEFS: NPCDef[] = [
     bodyColor: '#d4763a',
     headColor: '#8a5a3c',
     walkSpeed: 1.3,
+    // Issue #23: upgraded from a primitive to the rich blocklife_person rig + registry identity.
+    characterAssetId: 'blocklife_person',
     routine: [{ from: 0, to: 24, mode: 'patrol', points: [[11.5, -9], [17.5, -9]] }],
     ambientLines: [
       'One more rep!',
@@ -67,6 +71,8 @@ export const NPC_DEFS: NPCDef[] = [
     bodyColor: '#6cc24a',
     headColor: '#e8b98a',
     walkSpeed: 2.4,
+    // Issue #23: upgraded from a primitive to the rich blocklife_person rig + registry identity.
+    characterAssetId: 'blocklife_person',
     routine: [
       {
         from: 0,
@@ -113,7 +119,7 @@ export const NPC_DEFS: NPCDef[] = [
     bodyColor: '#3f5f8f',
     headColor: '#c98a5e',
     walkSpeed: 1.8,
-    // Character pipeline v1 proof-of-reuse: Kim walks as a rigged model.
+    // Issue #23: rigged with a curated population identity (like the whole named cast).
     characterAssetId: 'blocklife_person',
     routine: [
       {
@@ -154,6 +160,8 @@ export const NPC_DEFS: NPCDef[] = [
     bodyColor: '#9a5fc0',
     headColor: '#8a5a3c',
     walkSpeed: 1.4,
+    // Issue #23: upgraded from a primitive to the rich blocklife_person rig + registry identity.
+    characterAssetId: 'blocklife_person',
     routine: [
       { from: 6, to: 12, mode: 'idle', points: [[-14, -8.5]] },
       {

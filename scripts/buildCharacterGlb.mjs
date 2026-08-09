@@ -8,8 +8,8 @@
  * low-poly humanoid matching the game's primitive art style, rigid-skinned
  * to a 7-bone skeleton (Hips, Spine, Head, ArmL/R, LegL/R) with three baked
  * animation clips — Idle, Walk, Run. Material slots are named for the
- * wardrobe contract: shirt / pants / hair / skin / shoes (+ eyes, excluded
- * from customization). Regenerating is deterministic: same script → same
+ * wardrobe contract: shirt / pants / hair / skin / shoes / accessory (+ eyes,
+ * excluded from customization). Regenerating is deterministic: same script → same
  * asset. License: same as the project (original work).
  */
 // Minimal FileReader polyfill: GLTFExporter uses it to concatenate binary
@@ -142,6 +142,16 @@ const SLOTS = {
       ],
     ],
   },
+  // Issue #23: the population's recolorable ACCESSORY axis — a scarf/collar band at the
+  // base of the neck, bound to the Spine bone. Chosen over a hat so it NEVER hides the
+  // (wardrobe-customizable) hair. Default colour is neutral; each identity recolors it
+  // per-instance, so a character whose appearance omits accessoryColor keeps this colour.
+  accessory: {
+    color: '#2b2620',
+    parts: [
+      [new THREE.CylinderGeometry(0.27, 0.29, 0.13, 12), [0, 1.38, 0], 'Spine'],
+    ],
+  },
   eyes: {
     color: '#222222',
     parts: [
@@ -271,7 +281,7 @@ exporter.parse(
     const kb = (Buffer.from(result).length / 1024).toFixed(1)
     console.log(`wrote ${OUT}`)
     console.log(
-      `size ${kb} KB · ~${Math.round(triangles)} triangles · ${boneNames.length} bones · 3 clips (Idle/Walk/Run) · 6 material slots`,
+      `size ${kb} KB · ~${Math.round(triangles)} triangles · ${boneNames.length} bones · 3 clips (Idle/Walk/Run) · 7 material slots`,
     )
   },
   (err) => {

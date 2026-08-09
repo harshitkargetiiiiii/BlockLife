@@ -51,7 +51,7 @@ export interface AmbientCitizen {
 }
 
 /** The 13 hand-crafted originals (City Life Density v1). */
-const CORE_CITIZENS: AmbientCitizen[] = [
+export const CORE_CITIZENS: AmbientCitizen[] = [
   // ---- Central Block (4) ----
   {
     id: 'cit_truck_customer',
@@ -255,7 +255,7 @@ const CORE_CITIZENS: AmbientCitizen[] = [
   },
 ]
 
-/* ---- City Expansion v2: 37 more citizens → 50 peds living daily life ---- */
+/* ---- City Expansion v2: 39 more citizens (the procedural crowd) ---- */
 
 const BODY_COLORS = [
   '#c98a5e', '#7a9cc6', '#5a6478', '#a3b18a', '#e07a5f', '#c9a2c4', '#4a7fd4',
@@ -399,6 +399,23 @@ export const AMBIENT_CITIZENS: AmbientCitizen[] = [
   // District Authoring Kit: compiled citizen zones (Main Street East).
   ...COMPILED_SECTORS.flatMap((c) => c.citizens as unknown as AmbientCitizen[]),
 ]
+
+/**
+ * Issue #23 — the bounded subset of ambient citizens promoted to the FULL rigged
+ * character pipeline (real idle/walk/run + the population appearance registry's
+ * skin/hair/clothing/accessory variants). The 13 hand-crafted CORE citizens become
+ * rigged "hero-crowd" people; the ~50 procedural expansion crowd stays on the cheap
+ * Cylinder+Sphere primitive as a perf LOD. Membership here is a HARD upper bound on
+ * how many skinned ambient meshes can ever mount at once — and sector LOD hides the
+ * far ones, so the on-screen skinned count is strictly lower. This keeps the crowd
+ * visual upgrade inside the frame budget (no hidden regression). Tunable in one place.
+ */
+export const MAX_RIGGED_AMBIENT = 16
+export const RIGGED_AMBIENT_IDS: ReadonlySet<string> = new Set(
+  // Standing / walking / queueing core citizens only — the shared rig has idle/walk/run
+  // but no sit clip, so the two bench-sitters stay on the primitive (which poses seated).
+  CORE_CITIZENS.filter((c) => c.behaviorType !== 'sit').map((c) => c.id),
+)
 
 // Road + building footprints come straight from the layout data, so spawn
 // rules can never drift from the rendered geometry.

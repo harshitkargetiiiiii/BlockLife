@@ -76,7 +76,36 @@ regression) and `scripts/crime-gate.sh`.
 compiles 0 files and always passes. Only `-b --force` really typechecks.
 
 ## Current state
-In progress: **Vehicle Ownership, Parking & Customization v1** (issue #19) — one
+In progress: **Character Identity & Population Visual Upgrade v1** (issue #23) — the
+capstone of the #21 character pipeline: every person (the named cast, a bounded rigged
+ambient crowd, and the player) gets a **distinct deterministic visual identity** on the
+ONE `AnimatedCharacter` rig, with NO second rendering/animation/dialogue/population
+system and **visual identity kept separate from gameplay identity** (the id is the
+registry key; colours are derived from it, never stored). Ships: a reusable **population
+appearance registry** ([`populationAppearance.ts`](src/game/characters/populationAppearance.ts):
+skin/hair/shirt/pants/shoes/accessory, ~138k combos, `appearanceForId` curated for the
+named cast + deterministic-seeded otherwise); an **accessory** scarf mesh + slot on the
+in-repo `blocklife_person` rig (real Idle/Walk/Run — retires the #21 Meshy walk-only
+limitation for Ravi/Maya, now the whole cast rides it); a **bounded rigged ambient crowd**
+(`RIGGED_AMBIENT_IDS`, hard cap `MAX_RIGGED_AMBIENT`=16 — the non-sitting core citizens
+rendered through the pipeline as a purely-visual child of the existing citizen group,
+0.82-scaled, behind a **distance LOD**: the 7-mesh unculled rig mounts only while a
+citizen is FULL-tier/near, else the cheap primitive — so a far crowd/commute pays no
+skinned cost, the fix for a real off-camera-render regression the full E2E caught, see
+CONVENTIONS #18; the ~50 procedural expansion crowd stays primitive); an identity-aware
+**dialogue** header (avatar + relationship-tier badge, presentation
+only); and bounded skinned-population **observability** (`characterPopulationStats`).
+Browser-measured 18 skinned / ~89 fps at spawn. See
+[`docs/CHARACTER_IDENTITY_AND_POPULATION.md`](docs/CHARACTER_IDENTITY_AND_POPULATION.md).
+
+Prior sprint (shipped via PR #22, merged): **3D Asset Pipeline & Visual Upgrade v1**
+(issue #21) — the production GLB pipeline for characters / the drivable vehicle shell /
+buildings / props behind a "gameplay never depends on the model" contract (canonical
+manifest superset, category-agnostic material **variants**, a vehicle GLB adapter onto
+the ONE driving shell, deterministic asset-report/budget harness). See
+[`docs/3D_ASSET_PIPELINE.md`](docs/3D_ASSET_PIPELINE.md).
+
+Prior sprint (shipped via PR #20, merged): **Vehicle Ownership, Parking & Customization v1** (issue #19) — one
 **deterministic** vehicle-ownership platform under [`src/game/vehicles/`](src/game/vehicles/) on top
 of the existing economy/commerce/crime/mission/inventory/housing/social/traffic/save/streaming/
 World-Integrity stacks (reimplementing none), preserving the **one-shell arcade driving model**

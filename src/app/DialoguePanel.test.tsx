@@ -43,6 +43,25 @@ describe('DialoguePanel', () => {
     expect(screen.getByTestId('dialogue-npc-name')).toHaveTextContent('Maya')
   })
 
+  // Issue #23: dialogue presentation — a registry-tinted identity avatar always shows;
+  // the relationship-tier badge appears only once the NPC is a known contact.
+  it('renders the identity avatar, and a tier badge once the NPC is known', () => {
+    // Panel open for a not-yet-met NPC (opened directly, no meet): avatar, no badge.
+    useGameStore.setState({
+      ui: { panel: 'dialogue' as const, dialogueNpcId: 'npc_ravi_01', activityId: null, activePhoneApp: 'home' as const },
+    })
+    const { unmount } = render(<DialoguePanel />)
+    // Avatar built from three registry swatches (hair / skin / shirt).
+    expect(screen.getByTestId('dialogue-avatar').querySelectorAll('span')).toHaveLength(3)
+    expect(screen.queryByTestId('dialogue-tier-badge')).not.toBeInTheDocument()
+    unmount()
+
+    // Meeting Ravi (a first-meeting contact) unlocks him → the tier badge appears.
+    useGameStore.getState().openDialogue('npc_ravi_01')
+    render(<DialoguePanel />)
+    expect(screen.getByTestId('dialogue-tier-badge')).toBeInTheDocument()
+  })
+
   describe('social menu (Slice 2)', () => {
     it('offers the contextual social menu for a named social actor', () => {
       useGameStore.getState().openDialogue('npc_maya_01') // fires first-meeting

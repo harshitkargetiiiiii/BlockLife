@@ -105,6 +105,20 @@ test.describe('character visuals', () => {
     await page.evaluate(() => window.GAME_TEST_API!.setCharacterRenderMode('auto'))
   })
 
+  test('rigged ambient crowd around the food truck (issue #23)', async ({ page }) => {
+    await boot(page)
+    await page.evaluate(() => {
+      const api = window.GAME_TEST_API!
+      api.resetGame()
+      api.setTime(10)
+      // Among the food-truck queue: several central core citizens (now rigged) and
+      // Maya snap to their canonical anchors here on pause — a deterministic crowd.
+      api.teleportPlayer([1.5, 0.8, -4.5])
+    })
+    await settleAndPause(page)
+    await expect(page).toHaveScreenshot('character-ambient-crowd-rigged.png')
+  })
+
   test('driving hides the character model inside the car', async ({ page }) => {
     await boot(page)
     await page.evaluate(() => {

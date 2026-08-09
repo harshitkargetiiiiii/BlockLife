@@ -74,7 +74,7 @@ import { isWeatherKind, type WeatherKind } from '../weather/weatherTypes'
 import type { PlayerAppearance, PlayerLocationMode } from '../interiors/interiorTypes'
 import { APARTMENT_SPAWN } from '../interiors/apartmentLayout'
 import { clearAllFades, visibilityRuntime } from '../visibility/visibilityRuntime'
-import { characterRuntime } from '../characters/characterRuntime'
+import { characterRuntime, characterPopulationStats } from '../characters/characterRuntime'
 import { CHARACTER_ASSETS, DEFAULT_CHARACTER_ASSET_ID } from '../characters/characterManifest'
 import { getRoadGraph, pointAtProgress } from '../traffic/routing/roadGraphBuilder'
 import { routeRuntime } from '../traffic/routing/routeRuntime'
@@ -144,7 +144,7 @@ import {
   INTERSECTIONS,
 } from '../traffic/intersections/intersectionRegistry'
 import { citizenPoseOverrides } from '../citizens/AmbientCitizens'
-import { AMBIENT_CITIZENS } from '../citizens/ambientCitizenData'
+import { AMBIENT_CITIZENS, MAX_RIGGED_AMBIENT } from '../citizens/ambientCitizenData'
 import {
   CROSSING_ART,
   crossingArtDebug,
@@ -1115,6 +1115,15 @@ export interface GameTestApi {
   } | null
   /** Force 'model' | 'primitive' | 'auto' for every character. */
   setCharacterRenderMode: (mode: 'auto' | 'model' | 'primitive') => void
+  /** Live skinned-character population (issue #23): total + per-tier counts and how
+   *  many are actually rendering the GLB — bounded observability for the perf report. */
+  getCharacterPopulationStats: () => {
+    total: number
+    byTier: Record<string, number>
+    modelActive: number
+    primitiveActive: number
+    maxRiggedAmbient: number
+  }
   /** §21 §4: render the PLAYER as this character asset id through the production path
    *  (representative-player avatar path); null restores the default rig. */
   setPlayerCharacterAsset: (id: string | null) => void
@@ -2500,6 +2509,10 @@ export function installTestApi(): void {
       }
     },
     setCharacterRenderMode: (mode) => useGameStore.getState().setCharacterRenderMode(mode),
+    getCharacterPopulationStats: () => ({
+      ...characterPopulationStats(),
+      maxRiggedAmbient: MAX_RIGGED_AMBIENT,
+    }),
     setPlayerCharacterAsset: (id) => useGameStore.getState().setDebugPlayerCharacter(id),
     forceCharacterAnimation: (role) => {
       characterRuntime.forcedAnimation = role

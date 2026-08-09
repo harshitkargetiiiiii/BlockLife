@@ -36,6 +36,12 @@ export interface AnimatedCharacterProps {
   /** Normalized motion supplier, called once per frame (no allocations). */
   getMotion: (dt: number) => CharacterMotionState
   renderMode?: CharacterRenderMode
+  /** Optional per-frame gate: when it returns false the animation mixer is NOT
+   *  advanced this frame (the model holds its pose). Used to skip the skinning/mixer
+   *  cost for hidden actors — e.g. an ambient citizen whose sector is dormant — so
+   *  the bounded rigged crowd never adds per-frame cost for anyone off-screen. Omitted
+   *  ⇒ always animate (player + named NPCs are unchanged). */
+  active?: () => boolean
   /** Primitive fallback — always available, wardrobe-colored. */
   fallback: ReactNode
 }
@@ -68,11 +74,13 @@ function ModelInstance({
   def,
   appearance,
   getMotion,
+  active,
   info,
 }: {
   def: CharacterAssetDefinition
   appearance: CharacterAppearance
   getMotion: (dt: number) => CharacterMotionState
+  active?: () => boolean
   info: CharacterInstanceInfo
 }) {
   const gltf = useGLTF(resolveModelUrl(def))
@@ -145,6 +153,11 @@ function ModelInstance({
     }
     if (controller.frozen) controller.unfreeze()
 
+    // Hidden actors (e.g. an ambient citizen in a dormant sector) hold their pose —
+    // skipping the mixer keeps the bounded rigged crowd from adding any per-frame cost
+    // for anyone off-screen (headless-sim perf; CONVENTIONS #18).
+    if (active && !active()) return
+
     const motion = getMotion(dt)
     // Debug override (dev/test): force a gait without touching gameplay.
     const forced = characterRuntime.forcedAnimation
@@ -184,6 +197,7 @@ export function AnimatedCharacter({
   def,
   appearance,
   getMotion,
+  active,
   renderMode = 'auto',
   fallback,
 }: AnimatedCharacterProps) {
@@ -211,7 +225,13 @@ export function AnimatedCharacter({
   return (
     <ModelErrorBoundary info={info} fallback={fallback}>
       <Suspense fallback={fallback}>
-        <ModelInstance def={def} appearance={appearance} getMotion={getMotion} info={info} />
+        <ModelInstance
+          def={def}
+          appearance={appearance}
+          getMotion={getMotion}
+          active={active}
+          info={info}
+        />
       </Suspense>
     </ModelErrorBoundary>
   )

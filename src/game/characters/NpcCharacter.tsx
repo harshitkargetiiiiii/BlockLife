@@ -4,28 +4,22 @@ import { AnimatedCharacter } from './AnimatedCharacter'
 import { CHARACTER_ASSETS, DEFAULT_CHARACTER_ASSET_ID } from './characterManifest'
 import { createMotionState, getNpcCharacterMotionState } from './characterAnimationState'
 import { characterRuntime } from './characterRuntime'
-import { shade } from '../world/materials'
-import type { CharacterAppearance } from './characterTypes'
+import { appearanceForId } from './populationAppearance'
 
 /**
  * A named NPC rendered through the shared character pipeline. Motion comes
  * from the NPC behavior loop's published intent (characterRuntime.npcMotion)
- * — behavior stays authoritative, this only draws it. Appearance is a fixed
- * palette derived from the NPC's classic colors, isolated per instance so
- * the player's wardrobe can never touch it.
+ * — behavior stays authoritative, this only draws it. Visual identity comes from
+ * the ONE population appearance registry (issue #23): each named NPC gets a curated,
+ * unique multi-axis identity (skin/hair/shirt/pants/shoes/accessory), isolated per
+ * instance so the player's wardrobe can never touch it. Gameplay identity (the NPC
+ * id) is the registry KEY — it is never derived from the appearance.
  */
 export function NpcCharacter({ def, fallback }: { def: NPCDef; fallback: React.ReactNode }) {
   const assetDef =
     CHARACTER_ASSETS[def.characterAssetId ?? ''] ?? CHARACTER_ASSETS[DEFAULT_CHARACTER_ASSET_ID]
 
-  const appearance = useMemo<CharacterAppearance>(
-    () => ({
-      shirtColor: def.bodyColor,
-      pantsColor: shade(def.bodyColor, 0.5),
-      accentColor: '#5c4033',
-    }),
-    [def.bodyColor],
-  )
+  const appearance = useMemo(() => appearanceForId(def.id), [def.id])
 
   const motionScratch = useMemo(() => createMotionState(), [])
   const getMotion = useCallback(

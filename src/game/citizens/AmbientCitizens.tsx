@@ -1,12 +1,18 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { useFrame } from '@react-three/fiber'
 import {
   AMBIENT_CITIZENS,
   isCitizenActive,
   isCitizenOutInRain,
+  RIGGED_AMBIENT_IDS,
   type AmbientCitizen,
 } from './ambientCitizenData'
+import { AnimatedCharacter } from '../characters/AnimatedCharacter'
+import { CHARACTER_ASSETS, DEFAULT_CHARACTER_ASSET_ID } from '../characters/characterManifest'
+import type { CharacterAssetDefinition } from '../characters/characterTypes'
+import { createMotionState, getNpcCharacterMotionState } from '../characters/characterAnimationState'
+import { appearanceForId } from '../characters/populationAppearance'
 import { isRaining, weatherRuntime } from '../weather/weatherSystem'
 import { getNearestShelter } from '../weather/weatherData'
 import type { Vec2 } from '../world/worldTypes'
@@ -125,6 +131,16 @@ const parcelMaterial = new THREE.MeshStandardMaterial({ color: '#b48a5a', roughn
 const CAR_CLEARANCE = 2.3
 const PLAYER_CLEARANCE = 0.85
 
+// Issue #23: rigged "hero-crowd" citizens ride the ONE shared character rig
+// (blocklife_person — real idle/walk/run), scaled down to blend with the shorter
+// primitive crowd (the rig stands ~1.9 tall; the primitive citizen ~1.5). Scaling the
+// DEF scales only the model; the primitive fallback stays at its native size.
+const AMBIENT_RIG_SCALE = 0.82
+const AMBIENT_RIG_DEF: CharacterAssetDefinition = {
+  ...CHARACTER_ASSETS[DEFAULT_CHARACTER_ASSET_ID],
+  scale: AMBIENT_RIG_SCALE,
+}
+
 function CitizenBody({ def, sitting }: { def: AmbientCitizen; sitting: boolean }) {
   return (
     <>
@@ -183,6 +199,31 @@ function Citizen({ def }: { def: AmbientCitizen }) {
     pauseSeq: 0,
     tripLastDist: Infinity,
   })
+
+  // Issue #23: a bounded subset of citizens renders through the shared rigged
+  // pipeline (real idle/walk/run + the population appearance registry). Everyone
+  // else stays on the cheap primitive. Visual only — the frame loop below owns all
+  // position/heading/traffic state exactly as before, so the rig just draws it.
+  const rigged = RIGGED_AMBIENT_IDS.has(def.id)
+  const appearance = useMemo(() => appearanceForId(def.id), [def.id])
+  const motionScratch = useMemo(() => createMotionState(), [])
+  const getMotion = useCallback(() => {
+    const s = rt.current
+    return getNpcCharacterMotionState(motionScratch, {
+      walking: s.walking,
+      speed: s.walking ? def.walkSpeed ?? 1.4 : 0,
+      heading: s.heading,
+    })
+  }, [def, motionScratch])
+  // Distance LOD for the rigged subset: the skinned rig (7 meshes, unculled so it draws
+  // even off-camera) is mounted ONLY while this citizen's sector is FULL-tier (near the
+  // player); far citizens fall back to the cheap Cylinder+Sphere primitive. So a
+  // cross-district commute or any far crowd pays no skinned-render cost — the on-screen
+  // skinned count stays a handful. `showRig` flips only on tier transitions (never per
+  // frame), so there is no per-frame churn and no mount/unmount thrash while stationary.
+  const [showRig, setShowRig] = useState(false)
+  // Belt-and-suspenders: even while mounted, skip the mixer if the group is hidden.
+  const isRigActive = useCallback(() => group.current?.visible !== false, [])
 
   useEffect(() => {
     const p = rt.current.pos
@@ -281,6 +322,10 @@ function Citizen({ def }: { def: AmbientCitizen }) {
     // frame work (identity/position/schedule persist); reduced sectors step
     // at ~15 Hz with batched dt. Full sectors run every frame as before.
     const gate = gateEntitySimulation(s.pos[0], s.pos[1], dt, s.lod)
+    // Promote to the rig only when near (full-tier); demote to the primitive otherwise.
+    // setState bails when unchanged, so this only re-renders on an actual tier crossing.
+    const wantRig = rigged && gate.tier === 'full'
+    if (wantRig !== showRig) setShowRig(wantRig)
     if (!gate.simulate) {
       if (g.visible) {
         g.visible = false
@@ -536,7 +581,8 @@ function Citizen({ def }: { def: AmbientCitizen }) {
         : def.behaviorType === 'idle_stand'
           ? Math.sin(t * 0.35) * 0.02
           : 0
-    const bob = s.walking ? Math.abs(Math.sin(t * 8)) * 0.06 : 0
+    // Rigged citizens carry their own baked walk bob — don't double it at the group.
+    const bob = s.walking && !rigged ? Math.abs(Math.sin(t * 8)) * 0.06 : 0
     g.position.set(s.pos[0] + wobble, bob, s.pos[1])
     g.rotation.y = lerpAngle(g.rotation.y, s.heading, Math.min(1, dt * 6))
     if (head.current && (sitting || def.behaviorType === 'idle_stand')) {
@@ -575,7 +621,22 @@ function Citizen({ def }: { def: AmbientCitizen }) {
 
   return (
     <group ref={group} name={`citizen:${def.id}`} position={[def.position[0], 0, def.position[1]]}>
-      <CitizenBody def={def} sitting={def.behaviorType === 'sit' || tripSitting} />
+      {showRig ? (
+        // The parent group owns position + heading (set every frame above); the rig
+        // is purely visual and plays idle/walk/run from getMotion. Primitive stays as
+        // the graceful fallback (far LOD / load failure / forced-primitive / tests).
+        <AnimatedCharacter
+          instanceId={def.id}
+          tier="ambient"
+          def={AMBIENT_RIG_DEF}
+          appearance={appearance}
+          getMotion={getMotion}
+          active={isRigActive}
+          fallback={<CitizenBody def={def} sitting={false} />}
+        />
+      ) : (
+        <CitizenBody def={def} sitting={def.behaviorType === 'sit' || tripSitting} />
+      )}
       {bubble && <SpeechBubble text={bubble} offset={2} />}
     </group>
   )

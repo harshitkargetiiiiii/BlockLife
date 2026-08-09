@@ -30,7 +30,12 @@ import {
  * Model swapping/body variants are new manifest + CHARACTER_ASSETS entries.
  */
 
-export const CUSTOMIZABLE_SLOTS = ['shirt', 'pants', 'hair'] as const
+// Issue #23: the population-identity axes. skin/shoes/accessory join shirt/pants/hair as
+// per-instance isolated (recolorable) slots. Isolation clones a slot's material only when
+// the asset actually declares it (a rig without an `accessory` material simply isolates
+// nothing for it) and recolor happens only when the appearance specifies that colour — so
+// characters that set only shirt/pants/accent stay byte-identical.
+export const CUSTOMIZABLE_SLOTS = ['shirt', 'pants', 'hair', 'skin', 'shoes', 'accessory'] as const
 export type CustomizableSlot = (typeof CUSTOMIZABLE_SLOTS)[number]
 
 export type ResolvedSlots = Partial<Record<keyof MaterialSlotMap, THREE.Material[]>>
@@ -63,16 +68,22 @@ export function createCustomizableMaterialInstances(
   return resolveCharacterMaterialSlots(def, scene)
 }
 
-/** Wardrobe → materials. Missing slots are silently fine (fail-graceful). */
+/** Wardrobe → materials. Missing slots are silently fine (fail-graceful). The three
+ *  core axes always apply; the #23 skin/shoes/accessory axes apply ONLY when specified,
+ *  so an appearance that omits them leaves those slots at their source colour. */
 export function applyCharacterAppearance(
   slots: ResolvedSlots,
   appearance: CharacterAppearance,
 ): void {
-  applyVariant(slots as VariantResolvedSlots, {
+  const variant: Record<string, { color?: string }> = {
     shirt: { color: appearance.shirtColor },
     pants: { color: appearance.pantsColor },
     hair: { color: appearance.accentColor },
-  })
+  }
+  if (appearance.skinColor) variant.skin = { color: appearance.skinColor }
+  if (appearance.shoesColor) variant.shoes = { color: appearance.shoesColor }
+  if (appearance.accessoryColor) variant.accessory = { color: appearance.accessoryColor }
+  applyVariant(slots as VariantResolvedSlots, variant)
 }
 
 /** Disposes isolated (customizable) materials on unmount (no leak across remounts). */
