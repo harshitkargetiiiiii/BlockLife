@@ -14,6 +14,8 @@ import { resolveClips } from './characterManifest'
 import { CharacterAnimationController } from './CharacterAnimationController'
 import {
   applyCharacterAppearance,
+  applyCharacterVariants,
+  bodyBuildScale,
   createCustomizableMaterialInstances,
   disposeIsolatedMaterials,
 } from './characterMaterials'
@@ -135,6 +137,9 @@ function ModelInstance({
   // Wardrobe: colors apply immediately and only to THIS instance.
   useEffect(() => {
     applyCharacterAppearance(instance.slots, appearance)
+    // Issue #23 (PR #24): show this identity's hair + accessory variant meshes (hide the
+    // rest). Body build is composed into the render scale below. No-op on variant-less rigs.
+    applyCharacterVariants(instance.scene, appearance)
     info.appearance = { ...appearance }
   }, [instance, appearance, info])
 
@@ -175,10 +180,12 @@ function ModelInstance({
     info.activeActionCount = controller.activeActionCount
   })
 
+  // Body silhouette (issue #23): compose the scale-safe build onto the asset scale.
+  const build = bodyBuildScale(appearance)
   return (
     <primitive
       object={instance.scene}
-      scale={def.scale}
+      scale={[def.scale * build[0], def.scale * build[1], def.scale * build[2]]}
       rotation-y={def.rotationOffset ?? 0}
       position-y={def.verticalOffset ?? 0}
     />

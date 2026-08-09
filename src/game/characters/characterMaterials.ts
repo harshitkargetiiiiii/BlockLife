@@ -86,6 +86,54 @@ export function applyCharacterAppearance(
   applyVariant(slots as VariantResolvedSlots, variant)
 }
 
+// ---- Issue #23 (PR #24 review): GEOMETRY variants -----------------------------------
+// The rig authors one mesh per hair / accessory variant (buildCharacterGlb `VARIANT_GROUPS`);
+// the runtime shows exactly ONE per identity and hides the rest. Body silhouette is a
+// scale-safe build composed with the asset scale. All orthogonal to the colour recolor above.
+
+export const HAIR_VARIANTS = ['short', 'long', 'bun', 'bald'] as const
+export const ACCESSORY_VARIANTS = ['scarf', 'glasses', 'bag', 'none'] as const
+/** x/z width + y height, multiplied onto the asset scale — visibly distinct silhouettes. */
+export const BODY_BUILDS: Record<string, readonly [number, number, number]> = {
+  slim: [0.9, 1.01, 0.9],
+  average: [1, 1, 1],
+  broad: [1.13, 0.99, 1.13],
+  tall: [0.97, 1.07, 0.97],
+  stocky: [1.08, 0.93, 1.08],
+}
+export const BODY_BUILD_KEYS = Object.keys(BODY_BUILDS)
+
+const HAIR_PREFIX = 'person_hair__'
+const ACCESSORY_PREFIX = 'person_accessory__'
+
+/**
+ * Toggle the authored hair + accessory variant meshes so exactly the chosen variant is
+ * visible (defaults: `short` hair, `scarf` accessory; `bald`/`none` show neither). A
+ * hidden variant mesh isn't rendered, so the unused geometry costs nothing. Recolor is
+ * orthogonal — it targets the shared per-group material regardless of which mesh shows.
+ * No-op on rigs without variant meshes (e.g. the Meshy humanoids), so it's universally safe.
+ */
+export function applyCharacterVariants(
+  scene: THREE.Object3D,
+  appearance: CharacterAppearance,
+): void {
+  const hair = HAIR_PREFIX + (appearance.hairVariant ?? 'short')
+  const accessory = ACCESSORY_PREFIX + (appearance.accessoryVariant ?? 'scarf')
+  scene.traverse((node) => {
+    const mesh = node as THREE.Mesh
+    if (!mesh.isMesh) return
+    if (mesh.name.startsWith(HAIR_PREFIX)) mesh.visible = mesh.name === hair
+    else if (mesh.name.startsWith(ACCESSORY_PREFIX)) mesh.visible = mesh.name === accessory
+  })
+}
+
+/** The silhouette scale [x,y,z] for an appearance's build (defaults to `average`). */
+export function bodyBuildScale(
+  appearance: CharacterAppearance,
+): readonly [number, number, number] {
+  return BODY_BUILDS[appearance.bodyBuild ?? 'average'] ?? BODY_BUILDS.average
+}
+
 /** Disposes isolated (customizable) materials on unmount (no leak across remounts). */
 export function disposeIsolatedMaterials(slots: ResolvedSlots): void {
   disposeVariantMaterials(slots as VariantResolvedSlots, CUSTOMIZABLE_SLOTS)

@@ -1,5 +1,6 @@
 import type { CharacterAppearance } from './characterTypes'
 import { createRng, hashString, type SeededRng } from '../traffic/routing/routeRng'
+import { HAIR_VARIANTS, ACCESSORY_VARIANTS, BODY_BUILD_KEYS } from './characterMaterials'
 
 /**
  * Issue #23 — the ONE reusable population appearance registry. It turns a stable
@@ -52,6 +53,11 @@ export function appearanceForSeed(seed: number): CharacterAppearance {
     pantsColor: pick(PANTS_COLORS, rng),
     shoesColor: pick(SHOES_COLORS, rng),
     accessoryColor: pick(ACCESSORY_COLORS, rng),
+    // Geometry variants (issue #23 / PR #24 review) — drawn independently so silhouette,
+    // hairstyle and accessory type vary across the crowd, not just colour.
+    hairVariant: pick(HAIR_VARIANTS, rng),
+    accessoryVariant: pick(ACCESSORY_VARIANTS, rng),
+    bodyBuild: pick(BODY_BUILD_KEYS, rng),
   }
 }
 
@@ -63,17 +69,17 @@ export function appearanceForSeed(seed: number): CharacterAppearance {
  */
 export const NAMED_IDENTITIES: Record<string, CharacterAppearance> = {
   // Ravi — your friend; warm casual, signature blue.
-  npc_ravi_01: { skinColor: '#e0ac69', accentColor: '#2b1b17', shirtColor: '#4a7fd4', pantsColor: '#2b3a55', shoesColor: '#2b2620', accessoryColor: '#b62032' },
+  npc_ravi_01: { skinColor: '#e0ac69', accentColor: '#2b1b17', shirtColor: '#4a7fd4', pantsColor: '#2b3a55', shoesColor: '#2b2620', accessoryColor: '#b62032', hairVariant: 'short', accessoryVariant: 'scarf', bodyBuild: 'average' },
   // Maya — food-truck owner; apron warmth, signature pink.
-  npc_maya_01: { skinColor: '#c68642', accentColor: '#0b0b0b', shirtColor: '#e0576f', pantsColor: '#333333', shoesColor: '#2b2620', accessoryColor: '#f4a259' },
+  npc_maya_01: { skinColor: '#c68642', accentColor: '#0b0b0b', shirtColor: '#e0576f', pantsColor: '#333333', shoesColor: '#2b2620', accessoryColor: '#f4a259', hairVariant: 'bun', accessoryVariant: 'none', bodyBuild: 'average' },
   // Officer Kim — neighbourhood patrol; uniform blue + cap.
-  npc_kim_01: { skinColor: '#f1c27d', accentColor: '#2b1b17', shirtColor: '#3f5f8f', pantsColor: '#2b3a55', shoesColor: '#111111', accessoryColor: '#1e2631' },
+  npc_kim_01: { skinColor: '#f1c27d', accentColor: '#2b1b17', shirtColor: '#3f5f8f', pantsColor: '#2b3a55', shoesColor: '#111111', accessoryColor: '#1e2631', hairVariant: 'short', accessoryVariant: 'glasses', bodyBuild: 'broad' },
   // Coach Bruno — gym trainer; athletic orange.
-  npc_bruno_01: { skinColor: '#8d5524', accentColor: '#0b0b0b', shirtColor: '#d4763a', pantsColor: '#333333', shoesColor: '#5c4033', accessoryColor: '#b62032' },
+  npc_bruno_01: { skinColor: '#8d5524', accentColor: '#0b0b0b', shirtColor: '#d4763a', pantsColor: '#333333', shoesColor: '#5c4033', accessoryColor: '#b62032', hairVariant: 'short', accessoryVariant: 'none', bodyBuild: 'stocky' },
   // Leo — delivery; hi-vis green + bag.
-  npc_leo_01: { skinColor: '#ffdbac', accentColor: '#a8763e', shirtColor: '#6cc24a', pantsColor: '#333333', shoesColor: '#2b2620', accessoryColor: '#e2b04a' },
+  npc_leo_01: { skinColor: '#ffdbac', accentColor: '#a8763e', shirtColor: '#6cc24a', pantsColor: '#333333', shoesColor: '#2b2620', accessoryColor: '#e2b04a', hairVariant: 'short', accessoryVariant: 'bag', bodyBuild: 'tall' },
   // Nisha — your neighbour; signature purple.
-  npc_nisha_01: { skinColor: '#c68642', accentColor: '#2b1b17', shirtColor: '#9a5fc0', pantsColor: '#3d405b', shoesColor: '#5c4033', accessoryColor: '#d9b382' },
+  npc_nisha_01: { skinColor: '#c68642', accentColor: '#2b1b17', shirtColor: '#9a5fc0', pantsColor: '#3d405b', shoesColor: '#5c4033', accessoryColor: '#d9b382', hairVariant: 'long', accessoryVariant: 'scarf', bodyBuild: 'average' },
 }
 
 /**
