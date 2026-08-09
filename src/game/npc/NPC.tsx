@@ -29,6 +29,7 @@ const PLAYER_CLEARANCE = 0.85
 /** A rolling car this close makes an NPC read as stepping aside. */
 const YIELD_AWARENESS = 3.2
 import { SpeechBubble } from '../ui3d/SpeechBubble'
+import { hashString, stableUnit } from '../traffic/routing/routeRng'
 import { NpcCharacter } from '../characters/NpcCharacter'
 import { characterRuntime } from '../characters/characterRuntime'
 import { COFFEE_QUEST_ID } from '../../data/quests'
@@ -83,6 +84,9 @@ function QuestIndicator({ def }: { def: NPCDef }) {
 export function NPC({ def }: { def: NPCDef }) {
   const group = useRef<THREE.Group>(null)
   const [bubble, setBubble] = useState<string | null>(null)
+  // Deterministic capture: barks never render while the world is paused (the
+  // screenshot state), so a frozen frame is reproducible run-to-run.
+  const worldPaused = useGameStore((s) => s.worldPaused)
 
   const runtime = useRef({
     pos: [...getRoutineForHour(def, 8).points[0]] as Vec2,
@@ -90,7 +94,8 @@ export function NPC({ def }: { def: NPCDef }) {
     heading: 0,
     lod: { reducedDt: 0 },
     // Stagger first lines so the block doesn't all talk at once on load.
-    nextBubbleAt: 10 + Math.random() * 16,
+    nextBubbleAt: 10 + stableUnit(def.id + ':nbark:0') * 16,
+    barkOrdinal: 0,
     bubbleUntil: 0,
     walking: false,
     pedState: 'walking_sidewalk' as PedestrianState,
@@ -212,10 +217,11 @@ export function NPC({ def }: { def: NPCDef }) {
         if (rt.pedState === 'crossing') {
           rt.pedState = 'walking_sidewalk'
           // A rare little wave for whoever waited.
-          if (!bubble && Math.random() < 0.3) {
+          rt.barkOrdinal++
+          if (!bubble && stableUnit(def.id + ':wave:' + rt.barkOrdinal) < 0.3) {
             setBubble('thanks! 👋')
             rt.bubbleUntil = clock.elapsedTime + 2
-            rt.nextBubbleAt = clock.elapsedTime + 18 + Math.random() * 22
+            rt.nextBubbleAt = clock.elapsedTime + 18 + stableUnit(def.id + ':nbark:' + rt.barkOrdinal) * 22
           }
         }
       }
@@ -287,10 +293,12 @@ export function NPC({ def }: { def: NPCDef }) {
       if (bubble && t > rt.bubbleUntil) {
         setBubble(null)
       } else if (!bubble && t > rt.nextBubbleAt && def.ambientLines.length > 0) {
-        const line = def.ambientLines[Math.floor(Math.random() * def.ambientLines.length)]
+        rt.barkOrdinal++
+        const line =
+          def.ambientLines[hashString(def.id + ':barkline:' + rt.barkOrdinal) % def.ambientLines.length]
         setBubble(line)
         rt.bubbleUntil = t + 4.2
-        rt.nextBubbleAt = t + 18 + Math.random() * 22
+        rt.nextBubbleAt = t + 18 + stableUnit(def.id + ':nbark:' + rt.barkOrdinal) * 22
       }
     }
 
@@ -344,7 +352,7 @@ export function NPC({ def }: { def: NPCDef }) {
       )}
       <WorldLabel text={def.name} className="npc-name" offset={2.15} />
       <QuestIndicator def={def} />
-      {bubble && <SpeechBubble text={bubble} />}
+      {bubble && !worldPaused && <SpeechBubble text={bubble} />}
     </group>
   )
 }

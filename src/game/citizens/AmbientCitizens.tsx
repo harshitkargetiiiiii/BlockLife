@@ -41,6 +41,7 @@ import {
 } from '../traffic/trafficRuntime'
 import type { PedestrianState } from '../traffic/trafficTypes'
 import { SpeechBubble } from '../ui3d/SpeechBubble'
+import { hashString, stableUnit } from '../traffic/routing/routeRng'
 import { gateEntitySimulation } from '../world/sectors/sectorSimulation'
 import { DESTINATIONS_BY_ID } from './destinations/pedestrianDestinations'
 import {
@@ -181,20 +182,26 @@ function Citizen({ def }: { def: AmbientCitizen }) {
   // destination_trips: sitting pose while performing a bench activity
   // (rare state flips on arrival/departure only — never per frame).
   const [tripSitting, setTripSitting] = useState(false)
+  // Deterministic capture: barks never render in a paused (screenshot) world, so a
+  // frozen frame is reproducible regardless of when the pause-snap clears the state.
+  const worldPaused = useGameStore((st) => st.worldPaused)
 
   const rt = useRef({
     pos: [...def.position] as Vec2,
     heading: def.heading ?? 0,
     waypointIndex: 0,
     dwellUntil: 0,
-    nextTurnAt: 4 + Math.random() * 5,
+    nextTurnAt: 4 + stableUnit(def.id + ':turn:0') * 5,
+    turnOrdinal: 0,
+    barkOrdinal: 0,
+    dwellOrdinal: 0,
     pedState: 'walking_sidewalk' as PedestrianState,
     crosswalkId: null as string | null,
     waitTime: 0,
     walking: false,
     active: true,
     lod: { reducedDt: 0 },
-    nextBubbleAt: 20 + Math.random() * 30,
+    nextBubbleAt: 20 + stableUnit(def.id + ':bark:0') * 30,
     bubbleUntil: 0,
     pauseSeq: 0,
     tripLastDist: Infinity,
@@ -525,7 +532,8 @@ function Citizen({ def }: { def: AmbientCitizen }) {
         } else {
           s.waypointIndex = (s.waypointIndex + 1) % def.waypoints.length
           if (s.pedState === 'crossing') s.pedState = 'walking_sidewalk'
-          if (def.behaviorType === 'visit_spot') s.dwellUntil = t + 3.5 + Math.random() * 4
+          if (def.behaviorType === 'visit_spot')
+            s.dwellUntil = t + 3.5 + stableUnit(def.id + ':dwell:' + s.dwellOrdinal++) * 4
         }
       } else {
         s.walking = false
@@ -558,8 +566,9 @@ function Citizen({ def }: { def: AmbientCitizen }) {
       fleeGunfire(s, def, dt)
     } else if (def.behaviorType === 'idle_stand' && t >= s.nextTurnAt) {
       // Occasionally shift to face a new direction.
-      s.nextTurnAt = t + 4 + Math.random() * 5
-      s.heading = (def.heading ?? 0) + (Math.random() - 0.5) * 1.4
+      s.turnOrdinal++
+      s.nextTurnAt = t + 4 + stableUnit(def.id + ':turn:' + s.turnOrdinal) * 5
+      s.heading = (def.heading ?? 0) + (stableUnit(def.id + ':turnh:' + s.turnOrdinal) - 0.5) * 1.4
     }
 
     // Universal post-movement occupancy: EVERY citizen (walking, idle, queueing,
@@ -592,9 +601,12 @@ function Citizen({ def }: { def: AmbientCitizen }) {
     // Rare bubble barks.
     if (bubble && t > s.bubbleUntil) setBubble(null)
     else if (!bubble && t > s.nextBubbleAt && def.bubbleLines?.length) {
-      setBubble(def.bubbleLines[Math.floor(Math.random() * def.bubbleLines.length)])
+      s.barkOrdinal++
+      setBubble(
+        def.bubbleLines[hashString(def.id + ':barkline:' + s.barkOrdinal) % def.bubbleLines.length],
+      )
       s.bubbleUntil = t + 3
-      s.nextBubbleAt = t + 30 + Math.random() * 40
+      s.nextBubbleAt = t + 30 + stableUnit(def.id + ':bark:' + s.barkOrdinal) * 40
     }
 
     // Publish live positions for cars/debug/tests.
@@ -637,7 +649,7 @@ function Citizen({ def }: { def: AmbientCitizen }) {
       ) : (
         <CitizenBody def={def} sitting={def.behaviorType === 'sit' || tripSitting} />
       )}
-      {bubble && <SpeechBubble text={bubble} offset={2} />}
+      {bubble && !worldPaused && <SpeechBubble text={bubble} offset={2} />}
     </group>
   )
 }

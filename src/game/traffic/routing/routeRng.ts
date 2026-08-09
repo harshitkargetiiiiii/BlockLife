@@ -15,6 +15,17 @@ export function hashString(input: string): number {
 
 export type SeededRng = () => number
 
+/**
+ * Stable [0, 1) drawn from a string key — deterministic and CLOCK-INDEPENDENT.
+ * Unlike a running RNG stream (whose value depends on how many prior draws
+ * happened, which in a headless run varies with the frame count), a value keyed
+ * by `id:purpose:ordinal` is reproducible across runs. Used for ambient
+ * citizen / NPC bark + wander jitter so those are seeded, never `Math.random`.
+ */
+export function stableUnit(key: string): number {
+  return createRng(hashString(key))()
+}
+
 /** mulberry32 — small, fast, deterministic sequence generator in [0, 1). */
 export function createRng(seed: number): SeededRng {
   let a = seed >>> 0
