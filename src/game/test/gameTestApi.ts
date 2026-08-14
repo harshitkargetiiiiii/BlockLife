@@ -75,6 +75,7 @@ import type { PlayerAppearance, PlayerLocationMode } from '../interiors/interior
 import { APARTMENT_SPAWN } from '../interiors/apartmentLayout'
 import { clearAllFades, visibilityRuntime } from '../visibility/visibilityRuntime'
 import { characterRuntime, characterPopulationStats } from '../characters/characterRuntime'
+import type { CharacterAppearance } from '../characters/characterTypes'
 import { CHARACTER_ASSETS, DEFAULT_CHARACTER_ASSET_ID } from '../characters/characterManifest'
 import { getRoadGraph, pointAtProgress } from '../traffic/routing/roadGraphBuilder'
 import { routeRuntime } from '../traffic/routing/routeRuntime'
@@ -1112,6 +1113,9 @@ export interface GameTestApi {
     resolvedSlots: string[]
     fallbackReason: string | null
     modelLoaded: boolean
+    /** The applied per-instance identity (colours + geometry variants) — a real
+     *  appearance signature, not just slot names, so save/load rehydration is provable. */
+    appearance: CharacterAppearance | null
   } | null
   /** Force 'model' | 'primitive' | 'auto' for every character. */
   setCharacterRenderMode: (mode: 'auto' | 'model' | 'primitive') => void
@@ -2506,6 +2510,7 @@ export function installTestApi(): void {
         resolvedSlots: [...c.resolvedSlots],
         fallbackReason: c.fallbackReason,
         modelLoaded: c.modelLoaded,
+        appearance: c.appearance ? { ...c.appearance } : null,
       }
     },
     setCharacterRenderMode: (mode) => useGameStore.getState().setCharacterRenderMode(mode),
