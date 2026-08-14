@@ -1,0 +1,52 @@
+name: E2E (full Playwright)
+
+# The FULL browser E2E gate on a dedicated, idle GitHub runner — the "genuinely suitable
+# idle runner" the load-saturated macOS dev machine cannot provide (PR #24 review). Kept
+# out of the fast `ci.yml` gate because it is heavy (~1-3h); it runs on pushes to the
+# active feature branch and on demand. Visual-regression screenshots are NOT run here:
+# their baselines are macOS-specific and would not match a Linux runner's rendering — the
+# visual ×2 gate must run on a macOS host that matches the committed goldens.
+
+on:
+  push:
+    branches: [character-identity-population-v1]
+  workflow_dispatch:
+
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  e2e:
+    name: full E2E — 0 failed / 0 skipped
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node (pinned via .nvmrc)
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright chromium + OS deps
+        run: npx playwright install --with-deps chromium
+
+      # Serial (workers=1) on a dedicated runner: no competing load, so the timing-sensitive
+      # commute/soak tests get a consistent, un-starved slice — the whole point of moving the
+      # gate off the shared dev machine. No retries and no raised timeouts (honest gate).
+      - name: Full E2E (tests/e2e)
+        run: npx playwright test tests/e2e --workers=1
+
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
