@@ -18,9 +18,15 @@ concurrency:
 
 jobs:
   e2e:
-    name: full E2E — 0 failed / 0 skipped
+    name: E2E shard ${{ matrix.shard }}
     runs-on: ubuntu-latest
-    timeout-minutes: 240
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        # 4 parallel shards keep each job well under the timeout that a single serial run
+        # (which was cancelled at 4h) blew past. Each shard is serial (workers=1).
+        shard: ['1/4', '2/4', '3/4', '4/4']
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -37,11 +43,13 @@ jobs:
       - name: Install Playwright chromium + OS deps
         run: npx playwright install --with-deps chromium
 
-      # Serial (workers=1) on a dedicated runner: no competing load, so the timing-sensitive
-      # commute/soak tests get a consistent, un-starved slice — the whole point of moving the
-      # gate off the shared dev machine. No retries and no raised timeouts (honest gate).
-      - name: Full E2E (tests/e2e)
-        run: npx playwright test tests/e2e --workers=1
+      # HONEST gate: --retries=0 explicitly overrides playwright.config's `retries: CI ? 1 : 0`
+      # so a flake can never be masked by a silent CI retry. --workers=1 within each shard.
+      # NOTE: some wall-clock-budgeted tests (e.g. the cross-district commute's 380s window)
+      # need a FAST host; a free 2-core ubuntu runner can be too slow for those — see the
+      # delivery report §7 for the honest per-host picture.
+      - name: E2E shard (workers=1, retries=0)
+        run: npx playwright test tests/e2e --workers=1 --retries=0 --shard=${{ matrix.shard }}
 
       - name: Upload Playwright report on failure
         if: failure()

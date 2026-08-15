@@ -78,7 +78,16 @@ test.describe('§13 asset pipeline — production render/lifecycle', () => {
     expect(before.modelLoaded, 'default player model loaded').toBe(true)
     // Override the player asset → the same path renders the Meshy male humanoid.
     await call(page, 'setPlayerCharacterAsset', 'blocklife_male_01')
-    await page.waitForTimeout(2000)
+    // State-driven, not a fixed delay: wait until the Meshy GLB has actually loaded and the
+    // production path is rendering the model (never the fallback) — robust on any host speed.
+    await page.waitForFunction(
+      () => {
+        const s = window.GAME_TEST_API!.getCharacterState('player')
+        return s?.modelLoaded === true && s.activeVisual === 'model' && s.fallbackReason === null
+      },
+      undefined,
+      { timeout: 20_000 },
+    )
     const after = (await call(page, 'getCharacterState', 'player')) as {
       activeVisual: string
       modelLoaded: boolean
