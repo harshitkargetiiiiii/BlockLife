@@ -1104,6 +1104,9 @@ export interface GameTestApi {
   /** Live character-pipeline snapshot for an instance ('player' default). */
   getCharacterState: (id?: string) => {
     id: string
+    /** The character-asset id currently rendered (e.g. `blocklife_male_01`) — proves WHICH
+     *  model the production path resolved, not just that some model loaded. */
+    assetId: string
     activeVisual: string
     renderMode: string
     animState: string
@@ -2501,6 +2504,7 @@ export function installTestApi(): void {
       if (!c) return null
       return {
         id: c.id,
+        assetId: c.assetId,
         activeVisual: c.activeVisual,
         renderMode: c.renderMode,
         animState: c.animState,

@@ -7,14 +7,16 @@ name: E2E (full Playwright)
 # their baselines are macOS-specific and would not match a Linux runner's rendering — the
 # visual ×2 gate must run on a macOS host that matches the committed goldens.
 
+# Durable gate: protects master and every PR (not a throwaway feature branch), plus on demand.
 on:
   push:
-    branches: [character-identity-population-v1]
+    branches: [master]
+  pull_request:
   workflow_dispatch:
 
 concurrency:
   group: e2e-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   e2e:
@@ -24,9 +26,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # 4 parallel shards keep each job well under the timeout that a single serial run
-        # (which was cancelled at 4h) blew past. Each shard is serial (workers=1).
-        shard: ['1/4', '2/4', '3/4', '4/4']
+        # 8 parallel shards: keeps each job well under the timeout AND spreads the handful of
+        # long soak suites so they can't all land in one shard (round-4 review). Serial per shard.
+        shard: ['1/8', '2/8', '3/8', '4/8', '5/8', '6/8', '7/8', '8/8']
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -55,6 +57,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report
+          # Unique per shard — a shared name collides across the parallel matrix jobs (round-4).
+          name: playwright-report-shard-${{ strategy.job-index }}
           path: playwright-report/
           retention-days: 7
