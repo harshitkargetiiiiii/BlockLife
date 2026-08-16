@@ -91,7 +91,9 @@ test.describe('§13 asset pipeline — production render/lifecycle', () => {
         )
       },
       undefined,
-      { timeout: 20_000 },
+      // A cold first-load of the Meshy GLB (fetch + parse) is variable; give the wait-for-state
+      // honest headroom (it returns the instant the asset resolves — normally a few seconds).
+      { timeout: 45_000 },
     )
     const after = (await call(page, 'getCharacterState', 'player')) as {
       assetId: string
