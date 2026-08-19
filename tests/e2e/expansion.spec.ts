@@ -124,7 +124,21 @@ test.describe('city expansion content pack', () => {
       undefined,
       { timeout: 30_000 },
     )
+    // The first placement can land the car in mid-air over s2_-1 while that
+    // sector's floor collider is still loading; the car then free-falls under
+    // gravity during the wait above and never recovers. Now that the floor is
+    // READY, re-seat the car ON it and let it settle, so the crossing starts
+    // from a known-grounded pose. (This mirrors real play, where the streaming
+    // safety ring keeps a floor under the moving car — the mid-air teleport is
+    // a test-harness-only sequencing artifact, not a gameplay path.)
+    await page.evaluate(() => window.GAME_TEST_API!.setDrivenCarPosition([200, -96], Math.PI / 2))
     await page.waitForTimeout(800)
+    // Precondition — NOT the assertion under test: prove the car is resting on
+    // the ready floor before we drive. If a real floor GAP ever opens here this
+    // fails loudly at setup; the post-drive y-check below still catches any
+    // tunnelling DURING the crossing, so this can never mask a real regression.
+    const groundedStartY = await page.evaluate(() => window.GAME_TEST_API!.getStats().position[1])
+    expect(groundedStartY, 'car grounded on the ready s2_-1 floor before driving').toBeGreaterThan(-1)
     await page.keyboard.down('w')
     await page.waitForFunction(
       () => window.GAME_TEST_API!.getStats().position[0] > 232,
