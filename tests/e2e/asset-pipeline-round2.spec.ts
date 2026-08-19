@@ -91,9 +91,12 @@ test.describe('§13 asset pipeline — production render/lifecycle', () => {
         )
       },
       undefined,
-      // A cold first-load of the Meshy GLB (fetch + parse) is variable; give the wait-for-state
-      // honest headroom (it returns the instant the asset resolves — normally a few seconds).
-      { timeout: 45_000 },
+      // 20s is the original honest budget. This Meshy GLB's cold first-load is CPU-bound
+      // (GLTF parse + skinned-scene clone + a 1MB-texture decode — ~7.5x the default rig's
+      // 2k-tri/no-texture weight), so its wall-time scales with machine load: measured
+      // 16-34s under heavy CPU contention. The prior 45s masked that environmental cost; the
+      // cooled-shard gate runs each shard cool (low contention), restoring the margin 20s needs.
+      { timeout: 20_000 },
     )
     const after = (await call(page, 'getCharacterState', 'player')) as {
       assetId: string
