@@ -138,7 +138,7 @@ manifest also stores per-asset attribution and license metadata.
 - `models/characters/blocklife_person.glb` — **original BlockLife asset**,
   procedurally authored by `scripts/buildCharacterGlb.mjs` (run
   `node scripts/buildCharacterGlb.mjs` to regenerate deterministically).
-  Low-poly rigid-skinned humanoid: 7 bones, ~1.4k triangles, 235 KB, clips
+  Low-poly rigid-skinned humanoid: 7 bones, ~1.5k triangles, 243 KB, clips
   `Idle` / `Walk` / `Run`, material slots `shirt` / `pants` / `hair` /
-  `skin` / `shoes` / `eyes`. License: same as the project (original work,
-  no third-party IP).
+  `skin` / `shoes` / `accessory` (a scarf, issue #23) / `eyes`. License: same
+  as the project (original work, no third-party IP).

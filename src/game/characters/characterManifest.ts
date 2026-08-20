@@ -21,6 +21,7 @@ export const CHARACTER_ASSETS: Record<string, CharacterAssetDefinition> = {
       shirt: ['shirt'],
       pants: ['pants'],
       shoes: ['shoes'],
+      accessory: ['accessory'], // issue #23: recolorable cap (the population accessory axis)
     },
     clips: {
       // Aliases tried in order — future packs list their own names here.

@@ -4,6 +4,7 @@ import { NPC_BY_ID } from '../data/npcs'
 import { getItemDefinition } from '../game/items/itemCatalog'
 import { getActiveActivity, getDerivedRelationship, isContact } from '../game/social/socialRuntime'
 import { tierAtLeast } from '../game/social/socialScheduling'
+import { appearanceForId } from '../game/characters/populationAppearance'
 
 /** Conversation window: NPC name, current line, quest actions, and — for named
  *  social actors — the contextual social menu (talk / check in / gift / favor /
@@ -30,16 +31,39 @@ export function DialoguePanel() {
 
   const dialogue = getDialogue(npc, questStates, npcMemory[npc.id])
   const social = getSocialMenu(npc.id)
+  // Issue #23: the speaker's own registry identity — the same colors their in-world
+  // character wears — shown as a small avatar. Presentation only; the gameplay/social
+  // id (npc.id) is the registry key and is never derived from these colors.
+  const look = appearanceForId(npc.id)
+  const known = isContact(npc.id)
+  const relationshipTier = known ? getDerivedRelationship(npc.id).tier : null
 
   return (
     <div className="center-panel-wrap">
       <div className="center-panel dialogue-panel" data-testid="dialogue-panel">
         <div className="panel-header">
-          <div>
-            <div className="dialogue-npc-name" data-testid="dialogue-npc-name">
-              {dialogue.npcName}
+          <div className="dialogue-speaker">
+            <div className="dialogue-avatar" data-testid="dialogue-avatar" aria-hidden="true">
+              <span className="dialogue-avatar-body" style={{ background: look.shirtColor }} />
+              <span
+                className="dialogue-avatar-head"
+                style={{ background: look.skinColor ?? '#e8b98a' }}
+              />
+              <span className="dialogue-avatar-hair" style={{ background: look.accentColor }} />
             </div>
-            <div className="dialogue-npc-role">{dialogue.role}</div>
+            <div>
+              <div className="dialogue-name-row">
+                <span className="dialogue-npc-name" data-testid="dialogue-npc-name">
+                  {dialogue.npcName}
+                </span>
+                {relationshipTier && (
+                  <span className="dialogue-tier-badge" data-testid="dialogue-tier-badge">
+                    {relationshipTier}
+                  </span>
+                )}
+              </div>
+              <div className="dialogue-npc-role">{dialogue.role}</div>
+            </div>
           </div>
           <button className="panel-close" onClick={closePanel} aria-label="Close">
             ✕

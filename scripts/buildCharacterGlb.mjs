@@ -8,8 +8,8 @@
  * low-poly humanoid matching the game's primitive art style, rigid-skinned
  * to a 7-bone skeleton (Hips, Spine, Head, ArmL/R, LegL/R) with three baked
  * animation clips — Idle, Walk, Run. Material slots are named for the
- * wardrobe contract: shirt / pants / hair / skin / shoes (+ eyes, excluded
- * from customization). Regenerating is deterministic: same script → same
+ * wardrobe contract: shirt / pants / hair / skin / shoes / accessory (+ eyes,
+ * excluded from customization). Regenerating is deterministic: same script → same
  * asset. License: same as the project (original work).
  */
 // Minimal FileReader polyfill: GLTFExporter uses it to concatenate binary
@@ -132,22 +132,60 @@ const SLOTS = {
       [new THREE.SphereGeometry(0.075, 8, 8), [0.38, 0.8, 0], 'ArmR'],
     ],
   },
-  hair: {
-    color: '#5c4033',
-    parts: [
-      [
-        new THREE.SphereGeometry(0.285, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.55),
-        [0, 1.77, -0.04],
-        'Head',
-      ],
-    ],
-  },
+  // hair + accessory are VARIANT GROUPS (multiple authored geometries — see
+  // VARIANT_GROUPS below), not single meshes: issue #23 / PR #24 review asked for real
+  // hairstyle + accessory-TYPE variation, not only colour. The runtime shows exactly one
+  // variant per identity and hides the rest.
   eyes: {
     color: '#222222',
     parts: [
       [new THREE.SphereGeometry(0.04, 6, 6), [-0.11, 1.64, 0.265], 'Head'],
       [new THREE.SphereGeometry(0.04, 6, 6), [0.11, 1.64, 0.265], 'Head'],
     ],
+  },
+}
+
+/**
+ * Issue #23 / PR #24 review — real GEOMETRY variants. Each group authors several
+ * distinct meshes bound to the SAME skeleton; the runtime shows exactly ONE per
+ * identity (a deterministic pick) and hides the rest — one gameplay actor, one rig,
+ * visibly distinct silhouettes. All variants in a group share the group's single
+ * material (named for the slot), so the per-instance recolor still lands on whichever
+ * is shown. Hair adds hairstyles (short / long / bun; "bald" = show none); accessory
+ * adds TYPES (scarf / glasses / bag; "none" = show none) — none of which hide the
+ * wardrobe-customizable hair.
+ */
+const cap = () => [
+  new THREE.SphereGeometry(0.285, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.55),
+  [0, 1.77, -0.04],
+  'Head',
+]
+const VARIANT_GROUPS = {
+  hair: {
+    color: '#5c4033',
+    variants: {
+      short: [cap()],
+      long: [cap(), [new THREE.BoxGeometry(0.44, 0.34, 0.14), [0, 1.5, -0.22], 'Head']],
+      bun: [cap(), [new THREE.SphereGeometry(0.12, 10, 8), [0, 2.03, -0.03], 'Head']],
+    },
+  },
+  accessory: {
+    color: '#2b2620',
+    variants: {
+      // Neck scarf (bound to Spine — never touches the hair).
+      scarf: [[new THREE.CylinderGeometry(0.27, 0.29, 0.13, 12), [0, 1.38, 0], 'Spine']],
+      // Glasses: two lenses + a bridge across the face.
+      glasses: [
+        [new THREE.BoxGeometry(0.12, 0.09, 0.03), [-0.11, 1.64, 0.27], 'Head'],
+        [new THREE.BoxGeometry(0.12, 0.09, 0.03), [0.11, 1.64, 0.27], 'Head'],
+        [new THREE.BoxGeometry(0.1, 0.03, 0.03), [0, 1.64, 0.27], 'Head'],
+      ],
+      // Satchel with a shoulder strap (bound to Spine).
+      bag: [
+        [new THREE.BoxGeometry(0.22, 0.28, 0.14), [0.29, 1.0, -0.05], 'Spine'],
+        [new THREE.CylinderGeometry(0.025, 0.025, 0.52, 6), [0.12, 1.22, 0.02], 'Spine'],
+      ],
+    },
   },
 }
 
@@ -169,6 +207,24 @@ for (const [slot, def] of Object.entries(SLOTS)) {
   mesh.castShadow = true
   mesh.bind(skeleton)
   root.add(mesh)
+}
+
+// Variant-group meshes: ONE shared material per group (named for the slot so recolor
+// still resolves it) across all of the group's variant meshes; the runtime toggles
+// visibility so exactly one shows per identity.
+let variantMeshes = 0
+for (const [group, gdef] of Object.entries(VARIANT_GROUPS)) {
+  const material = new THREE.MeshStandardMaterial({ color: gdef.color, roughness: 0.85, name: group })
+  for (const [variant, parts] of Object.entries(gdef.variants)) {
+    const merged = mergeParts(parts.map(([geo, pos, bone]) => part(geo, pos, bone)))
+    triangles += merged.attributes.position.count / 3
+    const mesh = new THREE.SkinnedMesh(merged, material)
+    mesh.name = `person_${group}__${variant}`
+    mesh.castShadow = true
+    mesh.bind(skeleton)
+    root.add(mesh)
+    variantMeshes++
+  }
 }
 
 // ---- Animations (baked keyframes) --------------------------------------
@@ -271,7 +327,7 @@ exporter.parse(
     const kb = (Buffer.from(result).length / 1024).toFixed(1)
     console.log(`wrote ${OUT}`)
     console.log(
-      `size ${kb} KB · ~${Math.round(triangles)} triangles · ${boneNames.length} bones · 3 clips (Idle/Walk/Run) · 6 material slots`,
+      `size ${kb} KB · ~${Math.round(triangles)} triangles · ${boneNames.length} bones · 3 clips (Idle/Walk/Run) · 5 slots + ${variantMeshes} variant meshes (hair×3/accessory×3)`,
     )
   },
   (err) => {

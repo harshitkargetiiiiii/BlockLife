@@ -3,7 +3,10 @@ import ReactThreeTestRenderer from '@react-three/test-renderer'
 import { render, screen } from '@testing-library/react'
 import {
   AMBIENT_CITIZENS,
+  CORE_CITIZENS,
   isCitizenActive,
+  MAX_RIGGED_AMBIENT,
+  RIGGED_AMBIENT_IDS,
   validateAmbientCitizens,
 } from './ambientCitizenData'
 import { ambientCitizenRuntime, AmbientCitizens } from './AmbientCitizens'
@@ -67,6 +70,23 @@ describe('ambient citizen data', () => {
     expect(isCitizenActive({ ...jogger, activeHours: [22, 4] }, 23)).toBe(true)
     expect(isCitizenActive({ ...jogger, activeHours: [22, 4] }, 12)).toBe(false)
     expect(isCitizenActive({ ...jogger, activeHours: undefined }, 3)).toBe(true)
+  })
+
+  // Issue #23: the bounded subset promoted to the rigged character pipeline.
+  it('rigged ambient subset is bounded, in-crowd, and never a sitter', () => {
+    const ids = new Set(AMBIENT_CITIZENS.map((c) => c.id))
+    expect(RIGGED_AMBIENT_IDS.size).toBeGreaterThan(0)
+    // Hard cap: the skinned-ambient count can never blow the frame budget.
+    expect(RIGGED_AMBIENT_IDS.size).toBeLessThanOrEqual(MAX_RIGGED_AMBIENT)
+    for (const id of RIGGED_AMBIENT_IDS) {
+      expect(ids.has(id), `${id} is a real citizen`).toBe(true)
+      const c = AMBIENT_CITIZENS.find((x) => x.id === id)!
+      // The shared rig has idle/walk/run but no sit clip → sitters stay primitive.
+      expect(c.behaviorType, `${id} is not a sitter`).not.toBe('sit')
+    }
+    // Deterministic membership: exactly the non-sitting core citizens.
+    const expected = CORE_CITIZENS.filter((c) => c.behaviorType !== 'sit').map((c) => c.id)
+    expect([...RIGGED_AMBIENT_IDS].sort()).toEqual(expected.sort())
   })
 })
 

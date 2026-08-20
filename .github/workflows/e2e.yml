@@ -1,0 +1,63 @@
+name: E2E (full Playwright)
+
+# The FULL browser E2E gate on a dedicated, idle GitHub runner — the "genuinely suitable
+# idle runner" the load-saturated macOS dev machine cannot provide (PR #24 review). Kept
+# out of the fast `ci.yml` gate because it is heavy (~1-3h); it runs on pushes to the
+# active feature branch and on demand. Visual-regression screenshots are NOT run here:
+# their baselines are macOS-specific and would not match a Linux runner's rendering — the
+# visual ×2 gate must run on a macOS host that matches the committed goldens.
+
+# Durable gate: protects master and every PR (not a throwaway feature branch), plus on demand.
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    name: E2E shard ${{ matrix.shard }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        # 8 parallel shards: keeps each job well under the timeout AND spreads the handful of
+        # long soak suites so they can't all land in one shard (round-4 review). Serial per shard.
+        shard: ['1/8', '2/8', '3/8', '4/8', '5/8', '6/8', '7/8', '8/8']
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node (pinned via .nvmrc)
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright chromium + OS deps
+        run: npx playwright install --with-deps chromium
+
+      # HONEST gate: --retries=0 explicitly overrides playwright.config's `retries: CI ? 1 : 0`
+      # so a flake can never be masked by a silent CI retry. --workers=1 within each shard.
+      # NOTE: some wall-clock-budgeted tests (e.g. the cross-district commute's 380s window)
+      # need a FAST host; a free 2-core ubuntu runner can be too slow for those — see the
+      # delivery report §7 for the honest per-host picture.
+      - name: E2E shard (workers=1, retries=0)
+        run: npx playwright test tests/e2e --workers=1 --retries=0 --shard=${{ matrix.shard }}
+
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          # Unique per shard — a shared name collides across the parallel matrix jobs (round-4).
+          name: playwright-report-shard-${{ strategy.job-index }}
+          path: playwright-report/
+          retention-days: 7

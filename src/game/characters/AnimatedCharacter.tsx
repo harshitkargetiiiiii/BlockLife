@@ -14,6 +14,8 @@ import { resolveClips } from './characterManifest'
 import { CharacterAnimationController } from './CharacterAnimationController'
 import {
   applyCharacterAppearance,
+  applyCharacterVariants,
+  bodyBuildScale,
   createCustomizableMaterialInstances,
   disposeIsolatedMaterials,
 } from './characterMaterials'
@@ -36,6 +38,12 @@ export interface AnimatedCharacterProps {
   /** Normalized motion supplier, called once per frame (no allocations). */
   getMotion: (dt: number) => CharacterMotionState
   renderMode?: CharacterRenderMode
+  /** Optional per-frame gate: when it returns false the animation mixer is NOT
+   *  advanced this frame (the model holds its pose). Used to skip the skinning/mixer
+   *  cost for hidden actors — e.g. an ambient citizen whose sector is dormant — so
+   *  the bounded rigged crowd never adds per-frame cost for anyone off-screen. Omitted
+   *  ⇒ always animate (player + named NPCs are unchanged). */
+  active?: () => boolean
   /** Primitive fallback — always available, wardrobe-colored. */
   fallback: ReactNode
 }
@@ -68,11 +76,13 @@ function ModelInstance({
   def,
   appearance,
   getMotion,
+  active,
   info,
 }: {
   def: CharacterAssetDefinition
   appearance: CharacterAppearance
   getMotion: (dt: number) => CharacterMotionState
+  active?: () => boolean
   info: CharacterInstanceInfo
 }) {
   const gltf = useGLTF(resolveModelUrl(def))
@@ -127,6 +137,9 @@ function ModelInstance({
   // Wardrobe: colors apply immediately and only to THIS instance.
   useEffect(() => {
     applyCharacterAppearance(instance.slots, appearance)
+    // Issue #23 (PR #24): show this identity's hair + accessory variant meshes (hide the
+    // rest). Body build is composed into the render scale below. No-op on variant-less rigs.
+    applyCharacterVariants(instance.scene, appearance)
     info.appearance = { ...appearance }
   }, [instance, appearance, info])
 
@@ -145,6 +158,11 @@ function ModelInstance({
     }
     if (controller.frozen) controller.unfreeze()
 
+    // Hidden actors (e.g. an ambient citizen in a dormant sector) hold their pose —
+    // skipping the mixer keeps the bounded rigged crowd from adding any per-frame cost
+    // for anyone off-screen (headless-sim perf; CONVENTIONS #18).
+    if (active && !active()) return
+
     const motion = getMotion(dt)
     // Debug override (dev/test): force a gait without touching gameplay.
     const forced = characterRuntime.forcedAnimation
@@ -162,10 +180,12 @@ function ModelInstance({
     info.activeActionCount = controller.activeActionCount
   })
 
+  // Body silhouette (issue #23): compose the scale-safe build onto the asset scale.
+  const build = bodyBuildScale(appearance)
   return (
     <primitive
       object={instance.scene}
-      scale={def.scale}
+      scale={[def.scale * build[0], def.scale * build[1], def.scale * build[2]]}
       rotation-y={def.rotationOffset ?? 0}
       position-y={def.verticalOffset ?? 0}
     />
@@ -184,6 +204,7 @@ export function AnimatedCharacter({
   def,
   appearance,
   getMotion,
+  active,
   renderMode = 'auto',
   fallback,
 }: AnimatedCharacterProps) {
@@ -211,7 +232,13 @@ export function AnimatedCharacter({
   return (
     <ModelErrorBoundary info={info} fallback={fallback}>
       <Suspense fallback={fallback}>
-        <ModelInstance def={def} appearance={appearance} getMotion={getMotion} info={info} />
+        <ModelInstance
+          def={def}
+          appearance={appearance}
+          getMotion={getMotion}
+          active={active}
+          info={info}
+        />
       </Suspense>
     </ModelErrorBoundary>
   )

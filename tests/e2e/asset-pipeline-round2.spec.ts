@@ -78,12 +78,33 @@ test.describe('§13 asset pipeline — production render/lifecycle', () => {
     expect(before.modelLoaded, 'default player model loaded').toBe(true)
     // Override the player asset → the same path renders the Meshy male humanoid.
     await call(page, 'setPlayerCharacterAsset', 'blocklife_male_01')
-    await page.waitForTimeout(2000)
+    // State-driven, not a fixed delay: wait until the specific MESHY asset is the resolved,
+    // loaded model (never the fallback) — verifies WHICH model, robust on any host speed.
+    await page.waitForFunction(
+      () => {
+        const s = window.GAME_TEST_API!.getCharacterState('player')
+        return (
+          s?.assetId === 'blocklife_male_01' &&
+          s.modelLoaded === true &&
+          s.activeVisual === 'model' &&
+          s.fallbackReason === null
+        )
+      },
+      undefined,
+      // 20s is the original honest budget. This Meshy GLB's cold first-load is CPU-bound
+      // (GLTF parse + skinned-scene clone + a 1MB-texture decode — ~7.5x the default rig's
+      // 2k-tri/no-texture weight), so its wall-time scales with machine load: measured
+      // 16-34s under heavy CPU contention. The prior 45s masked that environmental cost; the
+      // cooled-shard gate runs each shard cool (low contention), restoring the margin 20s needs.
+      { timeout: 20_000 },
+    )
     const after = (await call(page, 'getCharacterState', 'player')) as {
+      assetId: string
       activeVisual: string
       modelLoaded: boolean
       fallbackReason: string | null
     }
+    expect(after.assetId, 'the resolved model IS the Meshy humanoid asset').toBe('blocklife_male_01')
     expect(after.activeVisual, 'player renders a model').toBe('model')
     expect(after.modelLoaded, 'the Meshy player model loaded via the production path').toBe(true)
     expect(after.fallbackReason, 'no fallback').toBeNull()

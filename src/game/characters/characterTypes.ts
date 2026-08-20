@@ -97,9 +97,27 @@ export interface CharacterMotionState {
   moving: boolean
 }
 
-/** Per-instance appearance (mirrors the wardrobe's PlayerAppearance). */
+/** Per-instance appearance (mirrors the wardrobe's PlayerAppearance).
+ *  The three required fields keep the wardrobe/save contract; issue #23 adds the
+ *  richer population-identity axes as OPTIONAL — when a colour is omitted the rig's
+ *  source material for that slot is left untouched (no recolor), so existing
+ *  characters that set only shirt/pants/accent render byte-identically. */
 export interface CharacterAppearance {
   shirtColor: string
   pantsColor: string
+  /** Hair colour (legacy name kept for the player wardrobe + save shape). */
   accentColor: string
+  /** Issue #23 colour axes (optional, additive). */
+  skinColor?: string
+  shoesColor?: string
+  accessoryColor?: string
+  /**
+   * Issue #23 (PR #24 review) GEOMETRY-variant axes — which authored variant mesh /
+   * silhouette to show, not just its colour. Optional + additive: when omitted the rig
+   * shows its default (`short` hair, `scarf` accessory, `average` build). One gameplay
+   * identity, one rig — the runtime toggles mesh visibility + a scale-safe body build.
+   */
+  hairVariant?: string
+  accessoryVariant?: string
+  bodyBuild?: string
 }

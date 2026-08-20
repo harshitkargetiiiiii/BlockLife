@@ -75,6 +75,39 @@ export function registerCharacterInstance(info: CharacterInstanceInfo): void {
   characterRuntime.instances.set(info.id, info)
 }
 
+export interface CharacterPopulationStats {
+  /** Every registered instance (player + named NPCs + rigged ambient). */
+  total: number
+  byTier: Record<CharacterQualityTier, number>
+  /** Instances actually showing the skinned GLB right now (the real GPU cost). */
+  modelActive: number
+  /** Instances on the primitive fallback (load pending / forced / failed). */
+  primitiveActive: number
+}
+
+/**
+ * Live population snapshot for the perf report + tests (issue #23). Lets the
+ * browser-performance validation attribute frame cost to a concrete, bounded
+ * skinned-character count instead of guessing — and lets a test assert the cap
+ * holds (no hidden regression from routing the ambient crowd through the rig).
+ */
+export function characterPopulationStats(): CharacterPopulationStats {
+  const byTier: Record<CharacterQualityTier, number> = {
+    hero: 0,
+    namedNpc: 0,
+    ambient: 0,
+    primitive: 0,
+  }
+  let modelActive = 0
+  let primitiveActive = 0
+  for (const info of characterRuntime.instances.values()) {
+    byTier[info.tier] = (byTier[info.tier] ?? 0) + 1
+    if (info.activeVisual === 'model') modelActive++
+    else primitiveActive++
+  }
+  return { total: characterRuntime.instances.size, byTier, modelActive, primitiveActive }
+}
+
 /**
  * Identity-guarded: only removes the entry if it still belongs to this info
  * object, so a stale cleanup (StrictMode remount, HMR) can't evict a newer

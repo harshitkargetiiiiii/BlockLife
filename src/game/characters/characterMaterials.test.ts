@@ -36,13 +36,17 @@ function makeSourceScene() {
     pants: mat('pants', '#3d405b'),
     hair: mat('hair', '#5c4033'),
     skin: mat('skin', '#e0ac69'),
+    // `eyes` is a real rig material that is NOT declared in materialSlots, so it is
+    // never resolved/isolated — the stays-shared control for the isolation contract.
+    eyes: mat('eyes', '#222222'),
   }
   const torso = new THREE.Mesh(geo, shirt)
   const sleeves = new THREE.Mesh(geo, shirt) // shared shirt material
   const legs = new THREE.Mesh(geo, materials.pants)
   const head = new THREE.Mesh(geo, [materials.skin, materials.hair]) // multi-material
-  scene.add(torso, sleeves, legs, head)
-  return { scene, materials, meshes: { torso, sleeves, legs, head } }
+  const face = new THREE.Mesh(geo, materials.eyes) // undeclared slot → shared
+  scene.add(torso, sleeves, legs, head, face)
+  return { scene, materials, meshes: { torso, sleeves, legs, head, face } }
 }
 
 describe('resolveCharacterMaterialSlots', () => {
@@ -63,13 +67,14 @@ describe('resolveCharacterMaterialSlots', () => {
 })
 
 describe('createCustomizableMaterialInstances', () => {
-  it('clones customizable slots and leaves the rest shared', () => {
-    const { scene, materials } = makeSourceScene()
+  it('clones the customizable slots (incl. #23 skin) and leaves undeclared slots shared', () => {
+    const { scene, materials, meshes } = makeSourceScene()
     const slots = createCustomizableMaterialInstances(DEF, scene)
     expect(slots.shirt![0]).not.toBe(materials.shirt) // isolated
     expect(slots.pants![0]).not.toBe(materials.pants)
     expect(slots.hair![0]).not.toBe(materials.hair)
-    expect(slots.skin![0]).toBe(materials.skin) // shared untouched slot
+    expect(slots.skin![0]).not.toBe(materials.skin) // #23: skin is now an identity axis → isolated
+    expect(meshes.face.material).toBe(materials.eyes) // undeclared slot stays shared
   })
 
   it('reuses ONE clone for a material shared across meshes', () => {
@@ -78,12 +83,13 @@ describe('createCustomizableMaterialInstances', () => {
     expect(meshes.torso.material).toBe(meshes.sleeves.material)
   })
 
-  it('handles multi-material meshes', () => {
+  it('handles multi-material meshes (both declared slots isolated)', () => {
     const { scene, meshes, materials } = makeSourceScene()
     createCustomizableMaterialInstances(DEF, scene)
     const headMats = meshes.head.material as THREE.Material[]
-    expect(headMats[0]).toBe(materials.skin) // skin stays shared
-    expect(headMats[1]).not.toBe(materials.hair) // hair got isolated
+    expect(headMats[0]).not.toBe(materials.skin) // #23: skin now isolated
+    expect(headMats[0].name).toBe('skin')
+    expect(headMats[1]).not.toBe(materials.hair) // hair isolated
     expect(headMats[1].name).toBe('hair')
   })
 
