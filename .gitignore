@@ -27,3 +27,8 @@ dist-ssr
 test-results/
 playwright-report/
 blob-report/
+
+# Meshy asset harvest — raw candidates, private dashboard/plan evidence, local binary
+# archive. Only accepted+optimized production GLBs (public/assets/models) and the text
+# provenance ledger (docs/asset-harvest-log.md) are committed. See issue #25.
+asset-archive/
