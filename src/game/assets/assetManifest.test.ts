@@ -80,14 +80,24 @@ describe('asset manifest', () => {
       JOB_KIOSK.id,
       ...PROPS.map((p) => p.id),
     ])
-    // City + prop GLBs must map to authored layout colliders, so a missing/broken
-    // GLB can never remove a collider. Vehicles (issue #21 §5) get their collider
-    // from the ONE driving shell (getActiveVehicleProjection), and characters from
-    // the character controller capsule — never cityLayout — so they are correctly
-    // excluded here and covered by their own suites (vehicleProjection/characterBounds).
+    // Reusable visual archetypes (issue #25) are referenced via BuildingDef.visual.assetId,
+    // never placed directly; each PLACEMENT keeps its own def.id collider, so the archetype
+    // id itself needs no direct layout entry and a missing archetype GLB still cannot remove
+    // a collider — the invariant holds through the placement.
+    const archetypeIds = new Set(
+      BUILDINGS.map((b) => b.visual?.assetId).filter((id): id is string => Boolean(id)),
+    )
+    // City + prop GLBs must map to authored layout colliders (directly, or via a placement
+    // that references them as an archetype), so a missing/broken GLB can never remove a
+    // collider. Vehicles (issue #21 §5) get their collider from the ONE driving shell
+    // (getActiveVehicleProjection), and characters from the character controller capsule —
+    // never cityLayout — so they are correctly excluded here and covered by their own suites.
     for (const entry of ASSET_MANIFEST) {
       if (entry.category === 'vehicles' || entry.category === 'characters') continue
-      expect(layoutIds.has(entry.id), `${entry.id} missing from cityLayout`).toBe(true)
+      expect(
+        layoutIds.has(entry.id) || archetypeIds.has(entry.id),
+        `${entry.id} missing from cityLayout`,
+      ).toBe(true)
     }
     // The physics footprints exist without touching the manifest at all.
     expect(STATIC_FOOTPRINTS.length).toBeGreaterThan(0)

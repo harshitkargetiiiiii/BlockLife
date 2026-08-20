@@ -166,6 +166,22 @@ export const ASSET_MANIFEST: AssetManifestEntry[] = [
   },
   {
     ...defaults,
+    id: 'arch_residential_house_01',
+    label: 'Residential house archetype',
+    category: 'city',
+    // Issue #25: reusable low-poly house archetype calibrated to the [5,4,5] template
+    // footprint, projected onto many gameplay ids via BuildingDef.visual. scale/offset are
+    // tuned to the generated model at integration; enabled only when the licensed GLB lands.
+    // Stage A: one calibration placement (building_house_r1); no palette slots yet (tinting
+    // for the ~25-placement reuse is a Stage-B concern). Colliders/anchors come from
+    // cityLayout, never the model.
+    glbPath: 'assets/models/city/arch_residential_house_01.glb',
+    fallbackKey: 'BuildingMesh',
+    labelHeight: 6.2,
+    budget: { maxTriangles: 60000 },
+  },
+  {
+    ...defaults,
     id: 'food_truck_01',
     label: "Maya's Snack Truck",
     category: 'city',

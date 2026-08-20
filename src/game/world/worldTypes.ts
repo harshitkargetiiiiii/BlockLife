@@ -30,6 +30,31 @@ export interface BuildingDef {
    * occluder and entrance derive from layout data, never from this.
    */
   paletteVariant?: MaterialVariant
+  /**
+   * Optional reusable-archetype visual projection (issue #25): render a shared archetype
+   * GLB (`visual.assetId`) in place of this id's, fitted per-placement. PURELY VISUAL —
+   * resolved (buildingProjection.ts) to a nested position/rotation/scale applied to the
+   * GLB primitive + its asset-local overlays ONLY. The procedural fallback and every
+   * gameplay read (collision/occlusion/routing/anchors/footprint/coords) ignore it;
+   * `id`/`size`/`position` stay authoritative.
+   */
+  visual?: BuildingVisualProjection
+}
+
+/** Reusable-archetype visual projection (issue #25). See buildingProjection.ts. */
+export interface BuildingVisualProjection {
+  /** Archetype manifest id whose GLB renders in place of this building's id. */
+  assetId: string
+  /** Authored footprint the archetype GLB is calibrated to; visual scale = clamp(size/reference). */
+  referenceSize: Vec3
+  /** Direction the model's front points as authored (default 'south' = +z). */
+  canonicalFacing?: 'north' | 'south' | 'east' | 'west'
+  /** Max per-axis visual scale deviation from 1 (default 0.15); beyond → clamped (documented fit). */
+  maxScaleDeviation?: number
+  /** Visual-only offset (default [0,0,0]); never moves colliders/anchors. */
+  visualOffset?: Vec3
+  /** Per-instance wall/trim recolor (from authored colors); shared immutably per palette. */
+  paletteVariant?: MaterialVariant
 }
 
 export type PropType =
