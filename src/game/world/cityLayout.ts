@@ -376,6 +376,11 @@ export const BUILDINGS: BuildingDef[] = [
     roofColor: '#a5705c',
     door: 'south',
     accentColor: '#f2d5a0',
+    // Issue #25 Stage A calibration: draw the reusable residential-house archetype GLB here
+    // (exact [5,4,5] footprint + south door → scale [1,1,1], rotation 0). Gameplay identity,
+    // collider and anchors stay keyed to building_house_r1; the fallback renders until the
+    // archetype GLB is generated + enabled.
+    visual: { assetId: 'arch_residential_house_01', referenceSize: [5, 4, 5], canonicalFacing: 'south' },
   },
   {
     id: 'building_house_r2',

@@ -9,7 +9,9 @@ import { computeFacadeDetails, type FacadeBox } from './surfaces/facadeDetails'
 import { WorldLabel } from '../ui3d/WorldLabel'
 import { LandmarkAsset } from '../assets/LandmarkAsset'
 import { getManifestEntry, hasRealModel } from '../assets/modelRegistry'
+import { variantCacheKey } from '../assets/variantMaterialCache'
 import { BuildingWindowOverlays } from './WindowOverlays'
+import { projectedLabelHeight, resolveBuildingVisual } from './buildingProjection'
 
 const windowGeometry = new THREE.PlaneGeometry(0.85, 1.05)
 
@@ -187,12 +189,27 @@ export function BuildingMesh({ def, index }: { def: BuildingDef; index: number }
 }
 
 function Building({ def, index }: { def: BuildingDef; index: number }) {
-  // Real models are usually taller than the primitive, so the sign height
-  // comes from the manifest while a GLB is active.
-  const entry = getManifestEntry(def.id)
-  const labelOffset =
-    hasRealModel(def.id) && entry?.labelHeight ? entry.labelHeight : def.size[1] + 1.6
-  // Occluder bounds derive from the same layout data as the colliders.
+  // Issue #25: a projected building draws a shared archetype GLB (def.visual.assetId)
+  // fitted per-placement; a legacy building resolves to `undefined` and renders exactly
+  // as before (id-keyed, no projection). Gameplay identity stays def.id / def.size.
+  const visual = useMemo(() => resolveBuildingVisual(def), [def])
+  const visualId = visual?.assetId ?? def.id
+  const paletteVariant = visual?.paletteVariant ?? def.paletteVariant
+  const entry = getManifestEntry(visualId)
+  // Reused archetypes share one immutable tinted material-set per (source, slots, palette).
+  const cacheKey =
+    visual && entry?.materialSlots
+      ? variantCacheKey(visualId, entry.materialSlots, paletteVariant)
+      : undefined
+  const projection = visual
+    ? { rotationY: visual.rotationY, scale: visual.scale, offset: visual.offset }
+    : undefined
+  // Real models are usually taller than the primitive, so the sign height comes from the
+  // manifest while a GLB is active — transformed by the projection's Y scale + offset.
+  const rawLabelHeight =
+    hasRealModel(visualId) && entry?.labelHeight ? entry.labelHeight : def.size[1] + 1.6
+  const labelOffset = projectedLabelHeight(visual, rawLabelHeight)
+  // Occluder bounds derive from the same layout data as the colliders — NEVER the model.
   const occluder = useMemo(() => getBuildingOccluderDescriptor(def), [def])
   return (
     <group name={def.id} position={[def.position[0], 0, def.position[1]]}>
@@ -201,15 +218,32 @@ function Building({ def, index }: { def: BuildingDef; index: number }) {
           window overlays — lit windows never float over a faded façade.
           The label stays outside: signs are HUD-like chips by policy. */}
       <Occludable descriptor={occluder}>
-        {/* Swappable visual: GLB from the manifest when enabled, else BuildingMesh.
-            A def.paletteVariant recolors this instance's declared slots (§6) — the
-            GLB clone still shares geometry with every other use of the archetype. */}
-        <LandmarkAsset assetId={def.id} variant={def.paletteVariant}>
+        {/* Swappable visual: archetype/legacy GLB when enabled, else BuildingMesh.
+            The procedural fallback renders OUTSIDE the projection group (unrotated,
+            unscaled); only the GLB primitive is projected. */}
+        <LandmarkAsset
+          assetId={visualId}
+          variant={paletteVariant}
+          projection={projection}
+          variantCacheKey={cacheKey}
+        >
           <BuildingMesh def={def} index={index} />
         </LandmarkAsset>
-        {/* GLB exports have no emissive windows; add the night glow procedurally.
-            The primitive fallback has its own lit windows, so only GLB gets this. */}
-        {hasRealModel(def.id) && <BuildingWindowOverlays assetId={def.id} />}
+        {/* GLB exports have no emissive windows; add the night glow procedurally, under the
+            SAME projection so lit windows track the scaled/rotated façade. Per-building seed
+            keeps reused archetypes from sharing one lit-window pattern. */}
+        {hasRealModel(visualId) &&
+          (projection ? (
+            <group
+              position={projection.offset}
+              rotation-y={projection.rotationY}
+              scale={projection.scale}
+            >
+              <BuildingWindowOverlays assetId={visualId} seed={visual?.overlaySeed} />
+            </group>
+          ) : (
+            <BuildingWindowOverlays assetId={visualId} />
+          ))}
       </Occludable>
       {/* The sign is UI, not part of the asset — it survives a GLB swap. */}
       {def.label && (

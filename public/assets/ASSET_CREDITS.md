@@ -6,11 +6,16 @@
 
 ## Status
 
-The first real asset pack is integrated: **Downtown City MegaKit [Standard]
-by Quaternius (CC0-1.0)** now provides four building landmarks. Everything
-else (food truck, kiosk, props, characters, vehicles, audio) remains
-procedural, and every GLB keeps its procedural fallback — set an entry to
-`enabled: false` in `src/game/assets/assetManifest.ts` to restore primitives.
+Real GLB assets are integrated across several sprints: **Downtown City MegaKit
+[Standard] by Quaternius (CC0-1.0)** (four building landmarks + five street
+props), and **Meshy AI generated original** assets (four ownable vehicle
+shells, three character rigs, an apartment/townhome, and — issue #25 — a
+reusable residential-house archetype and the job-board kiosk). Audio and the
+remaining props/buildings stay procedural. **Every GLB keeps its procedural
+fallback** — set an entry to `enabled: false` in
+`src/game/assets/assetManifest.ts` to restore the primitive. Colliders,
+footprints and anchors are layout-driven, never mesh-driven, so a
+missing/disabled/broken GLB changes pixels only.
 
 ## Asset intake checklist
 
@@ -47,6 +52,8 @@ its manifest entry to `enabled: true`:
 | utility_van_01.glb | Meshy AI (generated, original) | meshy.ai (text→image→3D) | Meshy AI generated asset | 2026-08-04 | yes (remesh ~12k, normalized material) | vehicle_utility_van_01 |
 | sports_car_01.glb | Meshy AI (generated, original) | meshy.ai (text→image→3D) | Meshy AI generated asset | 2026-08-04 | yes (remesh ~12k, normalized material) | vehicle_sports_car_01 |
 | blocklife_apartment_hq_01.glb | Meshy AI (generated, original) | meshy.ai (text→image→3D) | Meshy AI generated asset | 2026-08-03 | yes (lowpoly, texture→1K) | building_townhomes_01 |
+| arch_residential_house_01.glb | Meshy AI (generated, original) | meshy.ai (text→image→3D) | Meshy AI generated asset | 2026-08-20 | yes (lowpoly 7936 tris, texture→1K) | arch_residential_house_01 (issue #25) |
+| prop_job_kiosk_01.glb | Meshy AI (generated, original) | meshy.ai (text→image→3D) | Meshy AI generated asset | 2026-08-20 | yes (lowpoly 4703 tris, texture→1K) | prop_job_kiosk_01 (issue #25) |
 | blocklife_female_01.glb | Meshy AI (generated, original) | meshy.ai (text→image→3D→rig) | Meshy AI generated asset | 2026-08-03 | yes (remesh 15k, texture→1K) | blocklife_female_01 (Maya) |
 | blocklife_male_01.glb | Meshy AI (generated, original) | meshy.ai (text→image→3D→rig) | Meshy AI generated asset | 2026-08-03 | yes (remesh 15k, texture→1K) | blocklife_male_01 (Ravi) |
 
@@ -85,6 +92,16 @@ names a single `paint` material for the §3 variant system): `scooter_01.glb`,
 above. Round-2 generation cost: ~27 credits (running total ~198 of the approved ~230 envelope).
 Buildings in round 2 reused the already-credited CC0 Quaternius kit (no new generation): the
 backdrop tower reuses `quaternius_building_large_2.glb` with a per-instance palette recolor.
+
+**Issue #25 Stage A addendum (2026-08-20)** — two Meshy AI generated original assets via the
+Meshy MCP: `text_to_image` (nano-banana-pro) concept reference → `image_to_3d` (meshy-6/latest,
+lowpoly, textured), then `scripts/optimizeGlb.mjs` texture 2K→1K (no Meshy remesh — lowpoly was
+already in budget). `arch_residential_house_01.glb` (reusable residential-house archetype, 7936
+tris) and `prop_job_kiosk_01.glb` (job-board kiosk, 4703 tris). Prompts describe generic,
+IP-clean low-poly objects with blank signage; no third-party/branded content. Full provenance +
+credit ledger: `docs/asset-harvest-log.md`. Stage A generation cost: 78 credits (2 references ×
+9 + 2 image-to-3d × 30). Same Meshy license terms + maintainer action (confirm the plan grants
+commercial/redistribution rights and archive that confirmation) as above.
 
 ### Intake record — Downtown City MegaKit [Standard]
 
