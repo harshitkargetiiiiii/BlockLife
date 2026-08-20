@@ -31,7 +31,10 @@ describe('asset manifest', () => {
     const enabled = ASSET_MANIFEST.filter((e) => shouldLoadGlb(e))
     // Quaternius landmark integration: four building landmarks + five street props.
     const landmarkEnabled = enabled.filter((e) => e.category === 'city' || e.category === 'props')
+    // Quaternius landmarks + the Meshy townhome + issue #25 Stage A (the residential-house
+    // archetype + the now-enabled job kiosk).
     expect(landmarkEnabled.map((e) => e.id).sort()).toEqual([
+      'arch_residential_house_01',
       'building_apartment_01',
       'building_gym_01',
       'building_office_01',
@@ -40,6 +43,7 @@ describe('asset manifest', () => {
       'prop_ac_unit_01',
       'prop_bollard_01',
       'prop_drain_01',
+      'prop_job_kiosk_01',
       'prop_manhole_01',
       'prop_street_planter_01',
     ])
@@ -68,9 +72,10 @@ describe('asset manifest', () => {
     for (const entry of ASSET_MANIFEST) {
       expect(entry.fallbackKey, `${entry.id} fallbackKey`).toBeTruthy()
     }
-    // Landmarks that have no suitable pack model stay procedural-only.
+    // The food truck stays procedural-only (its GLB is a later harvest target); the job
+    // kiosk is enabled in issue #25 Stage A (its fallback JobKioskMesh is still registered).
     expect(shouldLoadGlb(getManifestEntry('food_truck_01'))).toBe(false)
-    expect(shouldLoadGlb(getManifestEntry('prop_job_kiosk_01'))).toBe(false)
+    expect(getManifestEntry('prop_job_kiosk_01')?.fallbackKey).toBe('JobKioskMesh')
   })
 
   it('every city/prop manifest id maps to layout data, so colliders never depend on GLBs', () => {

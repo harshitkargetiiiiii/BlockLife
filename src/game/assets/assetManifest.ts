@@ -169,16 +169,21 @@ export const ASSET_MANIFEST: AssetManifestEntry[] = [
     id: 'arch_residential_house_01',
     label: 'Residential house archetype',
     category: 'city',
-    // Issue #25: reusable low-poly house archetype calibrated to the [5,4,5] template
-    // footprint, projected onto many gameplay ids via BuildingDef.visual. scale/offset are
-    // tuned to the generated model at integration; enabled only when the licensed GLB lands.
-    // Stage A: one calibration placement (building_house_r1); no palette slots yet (tinting
-    // for the ~25-placement reuse is a Stage-B concern). Colliders/anchors come from
-    // cityLayout, never the model.
+    // Issue #25: reusable low-poly house archetype (Meshy image→3D, lowpoly textured — 7936
+    // tris, 1K texture), projected onto many gameplay ids via BuildingDef.visual. Uniform
+    // scale fills the [5,4,5] template footprint (model ~1.7×1.9×1.4); the model is
+    // center-origin, so the offset raises its base to the ground. Colliders/anchors come from
+    // cityLayout, never the model. Stage A: one calibration placement (building_house_r1); no
+    // palette slots yet (tinting for the ~25-placement reuse is a Stage-B concern).
     glbPath: 'assets/models/city/arch_residential_house_01.glb',
     fallbackKey: 'BuildingMesh',
+    scale: [2.95, 2.95, 2.95],
+    positionOffset: [0, 2.81, 0],
     labelHeight: 6.2,
+    enabled: true,
     budget: { maxTriangles: 60000 },
+    attribution: 'Meshy AI — generated original low-poly asset (text→image→3D), texture-optimized in-repo',
+    license: 'Meshy AI generated asset (meshy.ai terms)',
   },
   {
     ...defaults,
@@ -193,8 +198,16 @@ export const ASSET_MANIFEST: AssetManifestEntry[] = [
     id: 'prop_job_kiosk_01',
     label: 'Job board kiosk',
     category: 'props',
+    // Issue #25: Meshy image→3D low-poly kiosk (4703 tris, 1K texture). Uniform scale + base
+    // offset fit the ~1.7×2.2×0.5 kiosk footprint (center-origin model); the collider stays
+    // in CityColliders, so a missing GLB falls back to JobKioskMesh with no gameplay change.
     glbPath: 'assets/models/props/prop_job_kiosk_01.glb',
     fallbackKey: 'JobKioskMesh',
+    scale: [1.3, 1.3, 1.3],
+    positionOffset: [0, 1.24, 0],
+    enabled: true,
+    attribution: 'Meshy AI — generated original low-poly asset (text→image→3D), texture-optimized in-repo',
+    license: 'Meshy AI generated asset (meshy.ai terms)',
   },
   {
     ...defaults,
