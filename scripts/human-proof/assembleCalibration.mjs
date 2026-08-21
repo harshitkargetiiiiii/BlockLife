@@ -17,7 +17,8 @@
  */
 import { NodeIO } from '@gltf-transform/core'
 
-const DIR = 'public/assets/models/characters/_proof/'
+// Diagnostics/intermediates live OUTSIDE public/ so the production build never copies them.
+const DIR = 'dev-review-assets/_proof/'
 const io = new NodeIO()
 
 // ---- quaternion helpers (x,y,z,w) ----

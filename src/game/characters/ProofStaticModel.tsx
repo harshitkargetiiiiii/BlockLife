@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { useGLTF } from '@react-three/drei'
+import { clone as skeletonClone } from 'three/examples/jsm/utils/SkeletonUtils.js'
 import * as THREE from 'three'
 
 /**
@@ -23,7 +24,9 @@ export function ProofStaticModel({
   const url = `${import.meta.env.BASE_URL}${path}`
   const gltf = useGLTF(url)
   const scene = useMemo(() => {
-    const s = gltf.scene.clone(true)
+    // SkeletonUtils.clone rebinds skinned meshes to the CLONED skeleton (plain .clone(true) leaves
+    // them bound to the original's bones → the mesh renders collapsed/empty). Works for un-rigged too.
+    const s = skeletonClone(gltf.scene)
     // Ground it: drop the lowest vertex to y=0 (models arrive centered or bottom-origin).
     const box = new THREE.Box3().setFromObject(s)
     s.position.y -= box.min.y

@@ -9,6 +9,7 @@ import { dampFactor } from '../utils/math'
 
 // Classic diorama angle: up-right-back from the target, never rotating.
 const CAMERA_OFFSET = new THREE.Vector3(12, 18, 12)
+const UP = new THREE.Vector3(0, 1, 0) // Y axis for the DEV review-orbit
 const MIN_ZOOM = 20
 const MAX_ZOOM = 60
 
@@ -90,8 +91,17 @@ export function FollowCamera() {
 
     const k = dampFactor(driving ? FOLLOW_RATE_DRIVE : FOLLOW_RATE_WALK, dt)
     smoothed.current.lerp(focus, k)
-    cam.position.copy(smoothed.current).add(CAMERA_OFFSET)
-    cam.lookAt(smoothed.current)
+    // DEV/test only (issue #27 H0): orbit the fixed offset around the target for drift-free
+    // front/side/rear/profile review shots. No effect at the default azimuth 0.
+    let offset = CAMERA_OFFSET
+    let lookY = 0
+    if (import.meta.env.DEV) {
+      const az = useGameStore.getState().debugCameraAzimuth
+      if (az !== 0) offset = CAMERA_OFFSET.clone().applyAxisAngle(UP, az)
+      lookY = useGameStore.getState().debugCameraLookY
+    }
+    cam.position.copy(smoothed.current).add(offset)
+    cam.lookAt(smoothed.current.x, smoothed.current.y + lookY, smoothed.current.z)
 
     // Mode-based zoom (wider while driving, tighter indoors), eased so
     // transitions read well.

@@ -22,14 +22,21 @@ const TRI_BUDGET = { characters: 45000, vehicles: 40000, city: 60000, props: 100
 const NPC_TRI_BAR = 25000 // characters that aren't the hero
 const MAX_TEXTURE = 1024
 
+// Diagnostic/proof artifacts must NEVER live under a production asset root (Vite copies public/
+// verbatim into dist/). Finding one is a hard FAILURE, not something to quietly skip.
+const stray = []
 function walk(dir) {
   const out = []
   for (const name of readdirSync(dir)) {
     const p = join(dir, name)
     const s = statSync(p)
-    // Skip underscore-prefixed diagnostic dirs (e.g. _proof/): gitignored, never shipped.
-    if (s.isDirectory()) { if (!name.startsWith('_')) out.push(...walk(p)) }
-    else if (extname(p).toLowerCase() === '.glb') out.push(p)
+    if (s.isDirectory()) {
+      // An underscore-prefixed dir (e.g. _proof/) under a production root is a leak.
+      if (name.startsWith('_')) { stray.push(p + '/'); continue }
+      out.push(...walk(p))
+    } else if (extname(p).toLowerCase() === '.fbx') {
+      stray.push(p) // FBX is a diagnostic/interchange format — never a shipped web asset.
+    } else if (extname(p).toLowerCase() === '.glb') out.push(p)
   }
   return out
 }
@@ -168,10 +175,16 @@ for (const r of rows) {
 console.log('-'.repeat(104))
 console.log('materials/slots per asset (for variant mapping):')
 for (const r of rows) if (!r.error) console.log(`  ${basename(r.file)}: [${r.materials.join(', ') || '(none)'}]`)
-console.log(`\n${rows.length} assets, ${overBudget} over budget/errored.\n`)
+console.log(`\n${rows.length} assets, ${overBudget} over budget/errored.`)
+if (stray.length) {
+  console.error(`\n✗ ${stray.length} diagnostic/proof artifact(s) found under the production asset root — these would ship into dist/:`)
+  for (const s of stray) console.error(`    ${relative(ROOT, s)}`)
+  console.error('  Move diagnostics OUTSIDE public/ (e.g. dev-review-assets/). See docs/HUMAN_PROOF_H0.md.')
+}
+console.log('')
 
 if (jsonOut) {
   writeFileSync(jsonOut, JSON.stringify({ modelsDir: relative(ROOT, MODELS), rows }, null, 2))
   console.log(`wrote ${jsonOut}`)
 }
-process.exit(overBudget > 0 ? 1 : 0)
+process.exit(overBudget > 0 || stray.length > 0 ? 1 : 0)

@@ -1137,8 +1137,13 @@ export interface GameTestApi {
   /** Force a semantic gait (null restores normal motion-driven animation). */
   forceCharacterAnimation: (role: 'idle' | 'walk' | 'run' | null) => void
   /** Issue #27 H0 proof (DEV): render the player through a synthetic def at `glbPath` with all
-   *  roles aliased to `clipName`. Pass (null, '') to clear. */
-  setPlayerProofDef: (glbPath: string | null, clipName: string) => void
+   *  roles aliased to `clipName` (forced-clip review). `verticalOffset` seats a Seated clip onto a
+   *  bench anchor; `rotationOffset` orients it. Pass (null, '') to clear. */
+  setPlayerProofDef: (glbPath: string | null, clipName: string, verticalOffset?: number, rotationOffset?: number) => void
+  /** Issue #27 H0 (DEV): load a REVIEW-only GLB through the real animation path with its true
+   *  idle/walk/run clip mapping (controller-selected by gait). `verticalOffset` seats it onto a
+   *  bench; `rotationOffset` spins the model for front/side/rear shots. Pass (null) to clear. */
+  setReviewCharacterGlb: (glbPath: string | null, verticalOffset?: number, rotationOffset?: number) => void
   /** DEV: freeze the current clip at absolute time `t` seconds while the world is paused. */
   setProofFreezeTime: (t: number | null) => void
   /** Issue #27 H0 Calibration (DEV): statically render an un-rigged candidate GLB in the player
@@ -1148,6 +1153,11 @@ export interface GameTestApi {
   /** Issue #27 H0 Calibration (DEV): multiply the follow-camera zoom (overrides the cap) for a
    *  close candidate read. 1 = normal. */
   setCameraZoomMul: (m: number) => void
+  /** Issue #27 H0 (DEV): orbit the follow camera around the target by `rad` (azimuth) so a paused
+   *  subject can be shot front/side/rear/profile without touching its heading. 0 = default diorama. */
+  setCameraAzimuth: (rad: number) => void
+  /** Issue #27 H0 (DEV): raise the camera look-at target `m` metres to frame the face up close. */
+  setCameraLookY: (m: number) => void
   /** Manifest info for the default character asset. */
   getCharacterAssetInfo: () => { id: string; modelPath: string; clips: string[]; bounds: unknown }
   setTime: (hour: number) => void
@@ -2542,7 +2552,7 @@ export function installTestApi(): void {
     // GLB (not the manifest), with every locomotion role aliased to `clipName`, so any embedded
     // clip can be reviewed through the real AnimatedCharacter/CharacterAnimationController path.
     // null clears back to the normal rig.
-    setPlayerProofDef: (glbPath, clipName) => {
+    setPlayerProofDef: (glbPath, clipName, verticalOffset = 0, rotationOffset = 0) => {
       if (glbPath === null) {
         useGameStore.getState().setPlayerProofDef(null)
         return
@@ -2551,12 +2561,40 @@ export function installTestApi(): void {
         id: 'proof',
         modelPath: glbPath,
         scale: 1,
+        rotationOffset, // orient a forced Turn/Seated clip for review
+        verticalOffset, // seats a forced Seated clip onto a real bench anchor for review
         skeletonRootName: 'Hips',
         materialSlots: {},
         clips: { idle: [clipName], walk: [clipName], run: [clipName] },
         staticIdle: false,
         bounds: { visualHeight: 1.8, radius: 0.4, centerY: 0.9, headY: 1.68 },
         anchors: { headY: 2.0, chestY: 1.1 },
+        fallback: { primitiveStyle: 'blocklife_primitive' },
+      })
+    },
+    /** DEV (issue #27 H0): load a REVIEW-only character GLB through the real AnimatedCharacter /
+     *  CharacterAnimationController path with its true multi-clip mapping (idle→Idle, walk→Walk,
+     *  run→Run) — so the controller SELECTS clips by gait, distinct from single-clip forced review.
+     *  Not a production manifest entry; the asset is served dev-only from /dev-review/. Pass null to clear. */
+    setReviewCharacterGlb: (glbPath, verticalOffset = 0, rotationOffset = 0) => {
+      if (glbPath === null) {
+        useGameStore.getState().setPlayerProofDef(null)
+        return
+      }
+      useGameStore.getState().setPlayerProofDef({
+        id: 'review',
+        modelPath: glbPath,
+        scale: 1,
+        // rotationOffset spins the MODEL in place (immune to the idle controller resetting heading
+        // to 0) so review shots can show front/3-4/profile/rear against the well-lit default camera.
+        rotationOffset,
+        verticalOffset, // used only to seat the model onto a real bench anchor for the Seated shot
+        skeletonRootName: 'Hips',
+        materialSlots: {},
+        clips: { idle: ['Idle'], walk: ['Walk'], run: ['Run'] },
+        staticIdle: false,
+        bounds: { visualHeight: 1.75, radius: 0.4, centerY: 0.88, headY: 1.63 },
+        anchors: { headY: 1.95, chestY: 1.05 },
         fallback: { primitiveStyle: 'blocklife_primitive' },
       })
     },
@@ -2577,6 +2615,12 @@ export function installTestApi(): void {
     },
     setCameraZoomMul: (m) => {
       useGameStore.getState().setCameraZoomMul(m)
+    },
+    setCameraAzimuth: (rad) => {
+      useGameStore.getState().setCameraAzimuth(rad)
+    },
+    setCameraLookY: (m) => {
+      useGameStore.getState().setCameraLookY(m)
     },
     getCharacterAssetInfo: () => {
       const def = CHARACTER_ASSETS[DEFAULT_CHARACTER_ASSET_ID]

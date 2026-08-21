@@ -375,20 +375,9 @@ export const ASSET_MANIFEST: AssetManifestEntry[] = [
     attribution: 'Meshy AI — generated original low-poly humanoid (text→image→3D→rig), remeshed + texture-optimized in-repo',
     license: 'Meshy AI generated asset (meshy.ai terms)',
   },
-  {
-    ...defaults,
-    // Issue #27 H0 Calibration: the gold-standard calibration human. DEV/review ONLY (enabled:false —
-    // never preloaded or assigned to the population); loaded on demand via setPlayerCharacterAsset.
-    id: 'human_gold_calibration_01',
-    label: 'Gold-standard calibration human (#27 H0)',
-    category: 'characters',
-    glbPath: 'assets/models/characters/human_gold_calibration_01.glb',
-    fallbackKey: 'blocklife_primitive',
-    enabled: false,
-    budget: { maxTriangles: 8000 },
-    attribution: 'Meshy AI — original low-poly human (text→image→3D→remesh→Smart Rig, free walk/run), authored idle/turn/seated + assembled + texture-optimized in-repo',
-    license: 'Meshy AI generated asset (meshy.ai terms)',
-  },
+  // NOTE (issue #27 H0): `human_gold_calibration_01` is intentionally NOT in this production manifest.
+  // It is a not-yet-approved REVIEW asset kept outside public/ (dev-review-assets/) and loaded only
+  // through the DEV review harness — see the note in characterManifest.ts. Not shipped in dist/.
 ]
 
 export const ASSET_MANIFEST_BY_ID: ReadonlyMap<string, AssetManifestEntry> = new Map(

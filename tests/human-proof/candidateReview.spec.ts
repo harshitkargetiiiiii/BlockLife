@@ -16,9 +16,9 @@ type Api = Record<string, (...a: unknown[]) => unknown>
 const call = (page: Page, m: string, ...a: unknown[]) =>
   page.evaluate(([mm, aa]) => (window.GAME_TEST_API as unknown as Api)[mm as string](...(aa as unknown[])), [m, a] as const)
 
-const dir = 'assets/models/characters/_proof/'
+const dir = 'dev-review/_proof/'
 const which = process.env.CAND ?? 'cand1_preview'
-const GLB = 'public/' + dir + which + '.glb'
+const GLB = 'dev-review-assets/_proof/' + which + '.glb'
 const YAWS = [0, 45, 90, 135, 180, 225, 270, 315]
 
 test.describe('issue #27 H0 Calibration — candidate all-sides review', () => {

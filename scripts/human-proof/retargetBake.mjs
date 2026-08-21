@@ -32,7 +32,8 @@ const { retargetClip } = await import('three/examples/jsm/utils/SkeletonUtils.js
 import { inspect } from './inspectRig.mjs'
 
 const CH = 'public/assets/models/characters/'
-const OUT = CH + '_proof/'
+// Diagnostic output lives OUTSIDE public/ so `vite build` never copies it into dist/.
+const OUT = 'dev-review-assets/_proof/'
 mkdirSync(OUT, { recursive: true })
 
 const parse = (p) => { const b = readFileSync(p); const ab = b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength); return new Promise((res, rej) => new GLTFLoader().parse(ab, '', res, rej)) }

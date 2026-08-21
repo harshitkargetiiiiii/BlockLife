@@ -19,8 +19,8 @@ type Api = Record<string, (...a: unknown[]) => unknown>
 const call = (page: Page, m: string, ...a: unknown[]) =>
   page.evaluate(([mm, aa]) => (window.GAME_TEST_API as unknown as Api)[mm as string](...(aa as unknown[])), [m, a] as const)
 
-const dir = 'assets/models/characters/_proof/'
-const PROOF = 'public/' + dir + 'male_proof.glb'
+const dir = 'dev-review/_proof/'
+const PROOF = 'dev-review-assets/_proof/male_proof.glb'
 // [body label, glb, [clip, freeze-time(s)]...]
 const REVIEW: [string, string, [string, number][]][] = [
   ['male_proof', dir + 'male_proof.glb', [['Walk', 0.62], ['Run', 0.2], ['ElbowKnee', 1.0], ['Seated', 0.0]]],
