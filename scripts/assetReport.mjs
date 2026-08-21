@@ -27,7 +27,8 @@ function walk(dir) {
   for (const name of readdirSync(dir)) {
     const p = join(dir, name)
     const s = statSync(p)
-    if (s.isDirectory()) out.push(...walk(p))
+    // Skip underscore-prefixed diagnostic dirs (e.g. _proof/): gitignored, never shipped.
+    if (s.isDirectory()) { if (!name.startsWith('_')) out.push(...walk(p)) }
     else if (extname(p).toLowerCase() === '.glb') out.push(p)
   }
   return out

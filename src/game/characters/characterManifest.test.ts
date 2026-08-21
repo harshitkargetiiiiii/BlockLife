@@ -28,6 +28,21 @@ describe('validateCharacterAsset', () => {
     }
   })
 
+  // Issue #27 H0 Calibration: the gold-standard calibration human is a valid DEV-only entry with
+  // its own distinct Idle/Walk/Run clips (real Meshy walk/run + authored idle) — NOT the default,
+  // so it is never auto-assigned to the player or population (only the DEV override loads it).
+  it('carries the H0 calibration human as a valid, non-default, distinct-clip entry', () => {
+    const cal = getCharacterAsset('human_gold_calibration_01')
+    expect(cal).toBeDefined()
+    expect(validateCharacterAsset(cal!)).toEqual([])
+    expect(DEFAULT_CHARACTER_ASSET_ID).not.toBe('human_gold_calibration_01')
+    expect(cal!.clips.idle).toEqual(['Idle'])
+    expect(cal!.clips.walk).toEqual(['Walk'])
+    expect(cal!.clips.run).toEqual(['Run'])
+    expect(cal!.rotationOffset).toBe(0)
+    expect(cal!.staticIdle).toBe(false)
+  })
+
   it('rejects a non-glb model path', () => {
     const errors = validateCharacterAsset(validDef({ modelPath: 'assets/person.fbx' }))
     expect(errors.some((e) => e.includes('.glb'))).toBe(true)

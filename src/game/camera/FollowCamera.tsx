@@ -97,11 +97,17 @@ export function FollowCamera() {
     // transitions read well.
     const indoors = useGameStore.getState().location === 'apartment'
     const baseZoom = indoors ? ZOOM_APARTMENT : driving ? ZOOM_DRIVING : ZOOM_WALKING
-    const targetZoom = THREE.MathUtils.clamp(
+    let targetZoom = THREE.MathUtils.clamp(
       baseZoom + zoomOffset.current,
       MIN_ZOOM,
       indoors ? ZOOM_APARTMENT + 10 : MAX_ZOOM,
     )
+    // DEV/test only (issue #27 H0 Calibration): a zoom multiplier that overrides the cap so a
+    // static candidate can be inspected up close. No effect at the default 1.
+    if (import.meta.env.DEV) {
+      const mul = useGameStore.getState().debugCameraZoomMul
+      if (mul !== 1) targetZoom = baseZoom * mul
+    }
     if (Math.abs(cam.zoom - targetZoom) > 0.01) {
       cam.zoom += (targetZoom - cam.zoom) * dampFactor(3, dt)
       cam.updateProjectionMatrix()

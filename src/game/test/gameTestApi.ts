@@ -1141,6 +1141,13 @@ export interface GameTestApi {
   setPlayerProofDef: (glbPath: string | null, clipName: string) => void
   /** DEV: freeze the current clip at absolute time `t` seconds while the world is paused. */
   setProofFreezeTime: (t: number | null) => void
+  /** Issue #27 H0 Calibration (DEV): statically render an un-rigged candidate GLB in the player
+   *  slot, grounded + rotated `yawDeg`, scaled `scale` about the feet and lifted `lift` metres so
+   *  the diorama camera can frame the face. Pass (null) to clear. */
+  setPlayerStaticGlb: (glbPath: string | null, yawDeg?: number, scale?: number, lift?: number) => void
+  /** Issue #27 H0 Calibration (DEV): multiply the follow-camera zoom (overrides the cap) for a
+   *  close candidate read. 1 = normal. */
+  setCameraZoomMul: (m: number) => void
   /** Manifest info for the default character asset. */
   getCharacterAssetInfo: () => { id: string; modelPath: string; clips: string[]; bounds: unknown }
   setTime: (hour: number) => void
@@ -2556,6 +2563,20 @@ export function installTestApi(): void {
     /** DEV: freeze the current clip at this absolute time (s) while paused, for a frame sequence. */
     setProofFreezeTime: (t) => {
       characterRuntime.proofFreezeTime = t
+    },
+    /** DEV (issue #27 H0 Calibration): review an UN-RIGGED candidate GLB statically in the player
+     *  slot, grounded, rotated `yawDeg` for all-sides inspection. null clears back to the rig. */
+    setPlayerStaticGlb: (glbPath, yawDeg, scale, lift) => {
+      useGameStore
+        .getState()
+        .setPlayerStaticGlb(
+          glbPath === null
+            ? null
+            : { path: glbPath, yawDeg: yawDeg ?? 0, scale: scale ?? 1, lift: lift ?? 0 },
+        )
+    },
+    setCameraZoomMul: (m) => {
+      useGameStore.getState().setCameraZoomMul(m)
     },
     getCharacterAssetInfo: () => {
       const def = CHARACTER_ASSETS[DEFAULT_CHARACTER_ASSET_ID]

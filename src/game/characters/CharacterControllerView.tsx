@@ -1,6 +1,7 @@
-import { useCallback, type MutableRefObject } from 'react'
+import { Suspense, useCallback, type MutableRefObject } from 'react'
 import { useGLTF } from '@react-three/drei'
 import { AnimatedCharacter } from './AnimatedCharacter'
+import { ProofStaticModel } from './ProofStaticModel'
 import { CHARACTER_ASSETS, DEFAULT_CHARACTER_ASSET_ID } from './characterManifest'
 import { getPlayerCharacterMotionState } from './characterAnimationState'
 import { useGameStore } from '../store/useGameStore'
@@ -29,11 +30,25 @@ export function PlayerCharacter({
   const overrideId = useGameStore((s) => s.debugPlayerCharacterId)
   // Issue #27 H0 proof (DEV): a synthetic def (e.g. a diagnostic _proof GLB) not in the manifest.
   const proofDef = useGameStore((s) => s.debugPlayerProofDef)
+  // Issue #27 H0 Calibration (DEV): review an UN-RIGGED candidate GLB statically in the player slot.
+  const staticGlb = useGameStore((s) => s.debugPlayerStaticGlb)
   const def = proofDef || (overrideId && CHARACTER_ASSETS[overrideId]) || PLAYER_DEF
   const getMotion = useCallback(
     (dt: number) => getPlayerCharacterMotionState(dt, headingRef.current),
     [headingRef],
   )
+  if (staticGlb) {
+    return (
+      <Suspense fallback={<PlayerMesh />}>
+        <ProofStaticModel
+          path={staticGlb.path}
+          yawDeg={staticGlb.yawDeg}
+          scale={staticGlb.scale}
+          lift={staticGlb.lift}
+        />
+      </Suspense>
+    )
+  }
   return (
     <AnimatedCharacter
       instanceId="player"

@@ -338,6 +338,13 @@ interface GameDataState {
   /** DEV/test only (issue #27 H0 proof): render the player through a synthetic character def
    *  (e.g. a diagnostic _proof GLB) not in the static manifest. null = normal. Not persisted. */
   debugPlayerProofDef: CharacterAssetDefinition | null
+  /** DEV/test only (issue #27 H0 Calibration): render an UN-RIGGED GLB statically in the player
+   *  slot for candidate review (no clips needed), grounded then scaled/lifted + yaw-rotated so the
+   *  diorama camera can frame the whole body or a close face. null = normal. */
+  debugPlayerStaticGlb: { path: string; yawDeg: number; scale: number; lift: number } | null
+  /** DEV/test only (issue #27 H0 Calibration): multiply the follow-camera zoom (overrides the
+   *  normal cap) so a candidate can be inspected up close. 1 = normal. Not persisted. */
+  debugCameraZoomMul: number
   ui: UIState
   worldPaused: boolean
   timeScale: number
@@ -517,6 +524,8 @@ export interface GameStore extends GameDataState {
   setCharacterRenderMode: (mode: 'auto' | 'model' | 'primitive') => void
   setDebugPlayerCharacter: (id: string | null) => void
   setPlayerProofDef: (def: CharacterAssetDefinition | null) => void
+  setPlayerStaticGlb: (v: { path: string; yawDeg: number; scale: number; lift: number } | null) => void
+  setCameraZoomMul: (m: number) => void
   requestTeleport: (position: [number, number, number]) => void
   setQuestState: (questId: string, state: QuestState) => void
   giveItem: (itemId: string, quantity: number) => void
@@ -593,6 +602,8 @@ export function createInitialGameState(): GameDataState {
     characterRenderMode: 'auto',
     debugPlayerCharacterId: null,
     debugPlayerProofDef: null,
+    debugPlayerStaticGlb: null,
+    debugCameraZoomMul: 1,
     ui: { panel: 'none', dialogueNpcId: null, activityId: null, activePhoneApp: 'home' },
     worldPaused: false,
     timeScale: 1,
@@ -2071,6 +2082,8 @@ export const useGameStore = create<GameStore>()((set, get) => ({
 
   setDebugPlayerCharacter: (id) => set({ debugPlayerCharacterId: id }),
   setPlayerProofDef: (def) => set({ debugPlayerProofDef: def }),
+  setPlayerStaticGlb: (v) => set({ debugPlayerStaticGlb: v }),
+  setCameraZoomMul: (m) => set({ debugCameraZoomMul: m }),
 
   enterVehicle: () => {
     const body = registry.playerBody

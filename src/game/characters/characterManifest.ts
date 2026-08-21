@@ -76,6 +76,29 @@ export const CHARACTER_ASSETS: Record<string, CharacterAssetDefinition> = {
     anchors: { headY: 2.05, chestY: 1.12 },
     fallback: { primitiveStyle: 'blocklife_primitive' },
   },
+  // Issue #27 H0 Calibration: the ONE gold-standard calibration human (Meshy image→3D→remesh→
+  // Smart-Rig, per-body-embedded clips). DEV/review ONLY — not the default and not assigned to the
+  // player or any NPC; loadable via setDebugPlayerCharacter. 24-bone canonical rig (sig c432d433d51d),
+  // 7.6k tris, 1024 webp, real Idle/Walk/Run + authored Turn/Seated. See docs/HUMAN_PROOF_H0.md.
+  human_gold_calibration_01: {
+    id: 'human_gold_calibration_01',
+    modelPath: 'assets/models/characters/human_gold_calibration_01.glb',
+    scale: 1,
+    rotationOffset: 0,
+    verticalOffset: 0,
+    skeletonRootName: 'Hips',
+    materialSlots: {},
+    clips: {
+      idle: ['Idle'],
+      walk: ['Walk'],
+      run: ['Run'],
+    },
+    animationSpeedScale: { walk: 1, run: 1 },
+    staticIdle: false, // ships a real Idle clip
+    bounds: { visualHeight: 1.75, radius: 0.4, centerY: 0.88, headY: 1.63 },
+    anchors: { headY: 1.95, chestY: 1.05 },
+    fallback: { primitiveStyle: 'blocklife_primitive' },
+  },
 }
 
 export const DEFAULT_CHARACTER_ASSET_ID = 'blocklife_person'
