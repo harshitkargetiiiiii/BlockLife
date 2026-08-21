@@ -73,6 +73,9 @@ if npm run build >"$LOG/hg-build.log" 2>&1; then
   LEAK=$(grep -rlE 'GAME_TEST_API|spawnPoliceResponse|givePlayerWeapon|firePlayerWeaponAt|forcePoliceDismount|isNpcPanicking' dist/ 2>/dev/null | wc -l | tr -d ' ')
   echo "  build: PASS; test-API strings in dist: $LEAK"
   [ "$LEAK" -eq 0 ] || { echo "  dist LEAK: FAIL"; FAIL=1; }
+  # Diagnostic/proof/review artifacts must never ship (issue #27 H0 — _proof/ once leaked 128 MB).
+  if node scripts/checkDistClean.mjs >"$LOG/hg-distclean.log" 2>&1; then echo "  dist diagnostics: PASS ($(tail -1 "$LOG/hg-distclean.log"))"
+  else echo "  dist diagnostics: FAIL"; FAIL=1; tail -8 "$LOG/hg-distclean.log"; fi
 else echo "  build: FAIL"; FAIL=1; tail -10 "$LOG/hg-build.log"; fi
 
 hr; echo "[assets] asset budget + registry validation — an over-budget / missing / invalid GLB fails the gate (§12/§17)"

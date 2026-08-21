@@ -28,6 +28,13 @@ describe('validateCharacterAsset', () => {
     }
   })
 
+  // Issue #27 H0: the calibration human is a REVIEW-only asset — it must NOT leak into the
+  // production character manifest (that would ship an unapproved human). Guard against re-adding it.
+  it('does not carry the not-yet-approved calibration human in the production manifest', () => {
+    expect(getCharacterAsset('human_gold_calibration_01')).toBeUndefined()
+    expect(Object.keys(CHARACTER_ASSETS)).not.toContain('human_gold_calibration_01')
+  })
+
   it('rejects a non-glb model path', () => {
     const errors = validateCharacterAsset(validDef({ modelPath: 'assets/person.fbx' }))
     expect(errors.some((e) => e.includes('.glb'))).toBe(true)

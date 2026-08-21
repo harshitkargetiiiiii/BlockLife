@@ -76,6 +76,11 @@ export const CHARACTER_ASSETS: Record<string, CharacterAssetDefinition> = {
     anchors: { headY: 2.05, chestY: 1.12 },
     fallback: { primitiveStyle: 'blocklife_primitive' },
   },
+  // NOTE (issue #27 H0): the calibration human `human_gold_calibration_01` is deliberately NOT a
+  // production CHARACTER_ASSETS entry — it is a not-yet-approved REVIEW asset. It lives outside
+  // public/ (dev-review-assets/, absent from the production dist/ bundle) and is loaded only through
+  // the DEV review harness (test-API `setReviewCharacterGlb`, which builds a synthetic def). Do NOT
+  // add it here until it earns visual sign-off and H1 authorization. See docs/HUMAN_PROOF_H0.md.
 }
 
 export const DEFAULT_CHARACTER_ASSET_ID = 'blocklife_person'

@@ -36,6 +36,12 @@ export interface CharacterRuntime {
       read, so no React subscription needed (unlike render mode, which lives
       in the store). */
   forcedAnimation: 'idle' | 'walk' | 'run' | null
+  /**
+   * DEV/test only (issue #27 H0 proof): while the world is paused, freeze the current clip at
+   * this absolute time (seconds) instead of t=0, so a motion review can capture a deterministic
+   * frame sequence of one clip. Null = normal (freeze at 0). Never set in production.
+   */
+  proofFreezeTime: number | null
   /** Per-NPC published locomotion intent (walking/speed/heading). */
   npcMotion: Map<string, { walking: boolean; speed: number; heading: number }>
 }
@@ -43,6 +49,7 @@ export interface CharacterRuntime {
 export const characterRuntime: CharacterRuntime = {
   instances: new Map(),
   forcedAnimation: null,
+  proofFreezeTime: null,
   npcMotion: new Map(),
 }
 
