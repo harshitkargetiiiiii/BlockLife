@@ -87,6 +87,7 @@ function ModelInstance({
 }) {
   const gltf = useGLTF(resolveModelUrl(def))
   const pauseSeq = useRef(-1)
+  const proofT = useRef<number | null>(null)
   const controllerRef = useRef<CharacterAnimationController | null>(null)
 
   // One-time per instance: skeleton-safe clone, material isolation, clip
@@ -149,10 +150,14 @@ function ModelInstance({
     const dt = Math.min(rawDt, 0.1)
     const paused = useGameStore.getState().worldPaused
     if (paused) {
-      // Deterministic pose for visual tests: freeze at clip t=0 once per pause.
-      if (pauseSeq.current !== registry.pauseSeq) {
+      // Deterministic pose for visual tests: freeze at clip t=0 once per pause. Issue #27 H0
+      // proof: a DEV proofFreezeTime freezes the current clip at an arbitrary time so a motion
+      // review can step through one clip's frames (re-freezes whenever the target time changes).
+      const pt = characterRuntime.proofFreezeTime
+      if (pauseSeq.current !== registry.pauseSeq || proofT.current !== pt) {
         pauseSeq.current = registry.pauseSeq
-        controller.freezeAt(0)
+        proofT.current = pt
+        controller.freezeAt(pt ?? 0)
       }
       return
     }

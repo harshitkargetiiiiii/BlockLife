@@ -27,7 +27,9 @@ export function PlayerCharacter({
   // §21 §4: a DEV override renders the player through the SAME production character path as
   // any asset (the representative-player avatar path); default is the wardrobe-capable rig.
   const overrideId = useGameStore((s) => s.debugPlayerCharacterId)
-  const def = (overrideId && CHARACTER_ASSETS[overrideId]) || PLAYER_DEF
+  // Issue #27 H0 proof (DEV): a synthetic def (e.g. a diagnostic _proof GLB) not in the manifest.
+  const proofDef = useGameStore((s) => s.debugPlayerProofDef)
+  const def = proofDef || (overrideId && CHARACTER_ASSETS[overrideId]) || PLAYER_DEF
   const getMotion = useCallback(
     (dt: number) => getPlayerCharacterMotionState(dt, headingRef.current),
     [headingRef],

@@ -1136,6 +1136,11 @@ export interface GameTestApi {
   setPlayerCharacterAsset: (id: string | null) => void
   /** Force a semantic gait (null restores normal motion-driven animation). */
   forceCharacterAnimation: (role: 'idle' | 'walk' | 'run' | null) => void
+  /** Issue #27 H0 proof (DEV): render the player through a synthetic def at `glbPath` with all
+   *  roles aliased to `clipName`. Pass (null, '') to clear. */
+  setPlayerProofDef: (glbPath: string | null, clipName: string) => void
+  /** DEV: freeze the current clip at absolute time `t` seconds while the world is paused. */
+  setProofFreezeTime: (t: number | null) => void
   /** Manifest info for the default character asset. */
   getCharacterAssetInfo: () => { id: string; modelPath: string; clips: string[]; bounds: unknown }
   setTime: (hour: number) => void
@@ -2525,6 +2530,32 @@ export function installTestApi(): void {
     setPlayerCharacterAsset: (id) => useGameStore.getState().setDebugPlayerCharacter(id),
     forceCharacterAnimation: (role) => {
       characterRuntime.forcedAnimation = role
+    },
+    // Issue #27 H0 proof (DEV): render the player through a synthetic def pointing at a diagnostic
+    // GLB (not the manifest), with every locomotion role aliased to `clipName`, so any embedded
+    // clip can be reviewed through the real AnimatedCharacter/CharacterAnimationController path.
+    // null clears back to the normal rig.
+    setPlayerProofDef: (glbPath, clipName) => {
+      if (glbPath === null) {
+        useGameStore.getState().setPlayerProofDef(null)
+        return
+      }
+      useGameStore.getState().setPlayerProofDef({
+        id: 'proof',
+        modelPath: glbPath,
+        scale: 1,
+        skeletonRootName: 'Hips',
+        materialSlots: {},
+        clips: { idle: [clipName], walk: [clipName], run: [clipName] },
+        staticIdle: false,
+        bounds: { visualHeight: 1.8, radius: 0.4, centerY: 0.9, headY: 1.68 },
+        anchors: { headY: 2.0, chestY: 1.1 },
+        fallback: { primitiveStyle: 'blocklife_primitive' },
+      })
+    },
+    /** DEV: freeze the current clip at this absolute time (s) while paused, for a frame sequence. */
+    setProofFreezeTime: (t) => {
+      characterRuntime.proofFreezeTime = t
     },
     getCharacterAssetInfo: () => {
       const def = CHARACTER_ASSETS[DEFAULT_CHARACTER_ASSET_ID]

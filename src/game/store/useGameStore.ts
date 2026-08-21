@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import type { PlayerStats } from '../player/playerTypes'
+import type { CharacterAssetDefinition } from '../characters/characterTypes'
 import { INITIAL_STATS, PLAYER_MAX_HEALTH, PLAYER_SPAWN } from '../player/playerTypes'
 import type { QuestState } from '../quests/questTypes'
 import type { NPCMemory } from '../npc/npcTypes'
@@ -334,6 +335,9 @@ interface GameDataState {
   /** DEV/§21 §4: render the PLAYER through the production character path as this asset id
    *  (the representative-player avatar path). null = the default wardrobe rig. Not persisted. */
   debugPlayerCharacterId: string | null
+  /** DEV/test only (issue #27 H0 proof): render the player through a synthetic character def
+   *  (e.g. a diagnostic _proof GLB) not in the static manifest. null = normal. Not persisted. */
+  debugPlayerProofDef: CharacterAssetDefinition | null
   ui: UIState
   worldPaused: boolean
   timeScale: number
@@ -512,6 +516,7 @@ export interface GameStore extends GameDataState {
   setAppearance: (appearance: Partial<PlayerAppearance>) => void
   setCharacterRenderMode: (mode: 'auto' | 'model' | 'primitive') => void
   setDebugPlayerCharacter: (id: string | null) => void
+  setPlayerProofDef: (def: CharacterAssetDefinition | null) => void
   requestTeleport: (position: [number, number, number]) => void
   setQuestState: (questId: string, state: QuestState) => void
   giveItem: (itemId: string, quantity: number) => void
@@ -587,6 +592,7 @@ export function createInitialGameState(): GameDataState {
     appearance: { ...DEFAULT_APPEARANCE },
     characterRenderMode: 'auto',
     debugPlayerCharacterId: null,
+    debugPlayerProofDef: null,
     ui: { panel: 'none', dialogueNpcId: null, activityId: null, activePhoneApp: 'home' },
     worldPaused: false,
     timeScale: 1,
@@ -2064,6 +2070,7 @@ export const useGameStore = create<GameStore>()((set, get) => ({
   setCharacterRenderMode: (mode) => set({ characterRenderMode: mode }),
 
   setDebugPlayerCharacter: (id) => set({ debugPlayerCharacterId: id }),
+  setPlayerProofDef: (def) => set({ debugPlayerProofDef: def }),
 
   enterVehicle: () => {
     const body = registry.playerBody
