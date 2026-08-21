@@ -49,8 +49,17 @@ jobs:
             echo "== chromium binary =="; "$(node -e "console.log(require('playwright').chromium.executablePath())")" --version 2>/dev/null || true
           } | tee diagnostics-output/runner-hardware.txt
 
-      - name: Run bounded diagnostic (single spec, NO 8-shard suite)
+      - name: A/B render-suppression proof (single spec, NO 8-shard suite)
         run: npx playwright test tests/diagnostics/e2e-environment.spec.ts --workers=1 --retries=0
+
+      # Only reached if the A/B proof PASSED (a failed step stops the job). Runs the EXACT existing
+      # recurring CI failure — original body, assertions and 420s timeout, retries=0 — with the app
+      # auto-suppressing rendering AFTER assets settle (VITE_SUPPRESS_AFTER_SETTLE). A pass here means
+      # the unchanged assertions are satisfied through REAL domain progress, not by hiding gameplay.
+      - name: Existing failing test under render suppression (unchanged assertions)
+        env:
+          VITE_SUPPRESS_AFTER_SETTLE: '1'
+        run: npx playwright test tests/e2e/citizen-destinations.spec.ts -g "yard worker completes a cross-district commute" --workers=1 --retries=0
 
       - name: Upload telemetry (browser JSON + runner hardware, report only if produced)
         if: always()

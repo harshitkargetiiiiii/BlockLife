@@ -30,6 +30,7 @@ import { OcclusionManager } from '../game/visibility/OcclusionManager'
 import { IntegritySystem } from '../game/world/integrity/IntegritySystem'
 import { PerfProbe } from '../game/world/PerfProbe'
 import { DiagnosticProbe } from '../game/world/DiagnosticProbe'
+import { RenderSuppressorProbe } from '../game/world/RenderSuppressorProbe'
 import {
   SectorColliders,
   SectorDirector,
@@ -54,6 +55,7 @@ export function CanvasRoot() {
       {import.meta.env.DEV && <IntegritySystem />}
       {import.meta.env.DEV && <PerfProbe />}
       {import.meta.env.DEV && <DiagnosticProbe />}
+      {import.meta.env.DEV && <RenderSuppressorProbe />}
       <Lighting />
       <WeatherEffects />
       <SectorVisuals />
