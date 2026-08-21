@@ -27,3 +27,10 @@ dist-ssr
 test-results/
 playwright-report/
 blob-report/
+
+# E2E-environment telemetry experiment output (CI artifact / local run — not committed).
+diagnostics-output/
+
+# Leftover diagnostic/review artifacts from other branches (never production; not committed here).
+asset-archive/
+dev-review-assets/
