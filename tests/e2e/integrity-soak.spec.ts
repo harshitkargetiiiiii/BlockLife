@@ -11,7 +11,7 @@ import { gotoGame } from './helpers'
  * bounded entity/self-heal growth, and no page/console error across the run.
  */
 
-test('300-second integrity soak: cycle the whole city, zero sustained corruption', async ({ page }) => {
+test('300-second integrity soak: cycle the whole city, zero sustained corruption', { tag: '@simulation-only' }, async ({ page }) => {
   test.setTimeout(400_000)
   const errors: string[] = []
   page.on('pageerror', (e) => errors.push(String(e)))

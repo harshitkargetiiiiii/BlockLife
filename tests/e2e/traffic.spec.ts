@@ -7,7 +7,7 @@ import { acquireDrivableCar, getStats, gotoGame, teleport } from './helpers'
  * (signal phase control + agent repositioning) for determinism.
  */
 test.describe('traffic', () => {
-  test('an ambient car brakes for the player instead of driving through them', async ({
+  test('an ambient car brakes for the player instead of driving through them', { tag: '@simulation-only' }, async ({
     page,
   }) => {
     test.slow()
@@ -63,7 +63,7 @@ test.describe('traffic', () => {
     expect(moved, 'car should resume once the road clears').toBeGreaterThan(2)
   })
 
-  test('ambient car follows the driven car without ever overlapping it', async ({ page }) => {
+  test('ambient car follows the driven car without ever overlapping it', { tag: '@simulation-only' }, async ({ page }) => {
     test.slow()
     const errors: string[] = []
     page.on('pageerror', (err) => errors.push(String(err)))
@@ -117,7 +117,7 @@ test.describe('traffic', () => {
     expect(errors).toEqual([])
   })
 
-  test('cars stop at red and proceed on green', async ({ page }) => {
+  test('cars stop at red and proceed on green', { tag: '@simulation-only' }, async ({ page }) => {
     test.slow()
     await gotoGame(page)
     await page.evaluate(() => {
@@ -227,7 +227,7 @@ test.describe('traffic', () => {
     )
   })
 
-  test('Officer Kim uses the west crosswalk with signal etiquette', async ({ page }) => {
+  test('Officer Kim uses the west crosswalk with signal etiquette', { tag: '@simulation-only' }, async ({ page }) => {
     test.slow()
     await gotoGame(page)
     await page.evaluate(() => {

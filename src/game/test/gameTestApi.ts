@@ -1,6 +1,8 @@
 import { useGameStore, canEditFurnish as canEditFurnishRt } from '../store/useGameStore'
 import { registry } from '../world/runtimeRegistry'
 import { perfRuntime } from '../world/perfRuntime'
+import { diagnosticProbe } from '../world/diagnosticTelemetry'
+import { renderSuppressor } from '../world/renderSuppressor'
 import { socialSnapshot, getRelationship as getSocialRel, getDerivedRelationship as getSocialDerived, getMemories as getSocialMems, getContacts as getSocialContactsRt, ingestSocialEvent as ingestSocialEventRt, getInvitations as getSocialInvitationsRt, getMessages as getSocialMessagesRt, getTotalUnread as getSocialUnreadRt, reconcileOutreach as reconcileOutreachRt, getActiveActivity as getActiveActivityRt, getConfirmedPlans as getConfirmedPlansRt, reconcileMissedInvitations as reconcileMissedInvitationsRt } from '../social/socialRuntime'
 import type { SocialEvent } from '../social/socialEvents'
 import type { SocialActionId } from '../social/socialInteraction'
@@ -1040,6 +1042,16 @@ export interface GameTestApi {
     samples: number
     jsHeapMB: number | null
   }
+  /** E2E-environment telemetry (branch e2e-ci-telemetry-probe): begin a fresh raw-throughput
+   *  measurement window. Pair with getDiagnostics() after a fixed real-time interval. */
+  resetDiagnostics: () => void
+  /** E2E-environment telemetry: raw FPS, raw-vs-clamped delta rates, frame-delta histogram,
+   *  render/renderer/browser info, and citizen/traffic domain progress for the current window. */
+  getDiagnostics: () => Record<string, unknown>
+  /** DEV render-suppression proof: make the R3F root scene non-visible (drawing suppressed, loop +
+   *  useFrame + physics + directors preserved). Default false; cleared by resetGame + reload. */
+  setRenderSuppressed: (v: boolean) => void
+  isRenderSuppressed: () => boolean
   validateSectorOwnership: () => string[]
   getGlobalRoadGraphVersion: () => number
   getAuthoringTemplates: () => Record<string, string[]>
@@ -2389,6 +2401,12 @@ export function installTestApi(): void {
         jsHeapMB: mem ? Math.round(mem.usedJSHeapSize / 1048576) : null,
       }
     },
+    // E2E-environment telemetry (branch e2e-ci-telemetry-probe) — RAW throughput, not the
+    // clamped PerfProbe FPS. Begin a window, wait a fixed real interval, then read.
+    resetDiagnostics: () => diagnosticProbe.reset(),
+    getDiagnostics: () => diagnosticProbe.snapshot(),
+    setRenderSuppressed: (v: boolean) => renderSuppressor.setSuppressed(v),
+    isRenderSuppressed: () => renderSuppressor.isSuppressed(),
     validateSectorOwnership: () => validateSectorOwnership(),
     getGlobalRoadGraphVersion: () => getRoadGraph().version,
     // ---- District Authoring Kit v1 ---------------------------------------
@@ -2547,6 +2565,7 @@ export function installTestApi(): void {
       citizenPoseOverrides.clear()
       trafficRuntime.signal.pinned = null
       for (const id of tripRuntime.trips.keys()) resetSingleTrip(id)
+      renderSuppressor.reset() // never leak render suppression into a later test
       useGameStore.getState().resetGame()
     },
     saveGame: () => useGameStore.getState().saveNow(),

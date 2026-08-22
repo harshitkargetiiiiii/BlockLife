@@ -8,7 +8,7 @@ test.describe('phone', () => {
     await page.waitForTimeout(300)
   })
 
-  test('opens with Tab, switches apps, closes, and movement resumes', async ({ page }) => {
+  test('opens with Tab, switches apps, closes, and movement resumes', { tag: '@simulation-only' }, async ({ page }) => {
     await teleport(page, [0, 1.2, 0])
 
     await page.keyboard.press('Tab')

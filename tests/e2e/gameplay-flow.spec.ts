@@ -8,7 +8,7 @@ test.describe('gameplay flow', () => {
     await page.waitForTimeout(300)
   })
 
-  test('player moves with the keyboard and runs with shift', async ({ page }) => {
+  test('player moves with the keyboard and runs with shift', { tag: '@simulation-only' }, async ({ page }) => {
     await teleport(page, [0, 1.2, 0])
     const start = (await getStats(page)).position
 
@@ -50,7 +50,7 @@ test.describe('gameplay flow', () => {
     await expect(page.getByTestId('activity-panel')).toBeHidden()
   })
 
-  test('gym, job board and apartment interactions work', async ({ page }) => {
+  test('gym, job board and apartment interactions work', { tag: '@simulation-only' }, async ({ page }) => {
     // Gym: train
     await teleport(page, [14, 1.2, -9.2])
     await waitForActiveInteractable(page, 'gym')
