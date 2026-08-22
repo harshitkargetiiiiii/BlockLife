@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test'
 import { getStats, gotoGame } from './helpers'
 
-test.describe('save / load', { tag: '@simulation-only' }, () => {
+test.describe('save / load', () => {
   test('persists stats, quest state, inventory and position', async ({ page }) => {
     await gotoGame(page)
     await page.evaluate(async () => {

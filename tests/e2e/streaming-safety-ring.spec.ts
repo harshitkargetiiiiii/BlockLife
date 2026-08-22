@@ -14,7 +14,7 @@ import { gotoGame, teleport } from './helpers'
  * tests (pure over the streaming state).
  */
 
-test.describe('streaming safety ring', { tag: '@simulation-only' }, () => {
+test.describe('streaming safety ring', () => {
   test('coverage invariant holds around the active subject (spawn + a district)', async ({ page }) => {
     await gotoGame(page)
     await page.waitForTimeout(1500)

@@ -50,7 +50,7 @@ async function goToObjective(page: Page, interactId?: string): Promise<void> {
   )
 }
 
-test.describe('missions & activities', { tag: '@simulation-only' }, () => {
+test.describe('missions & activities', () => {
   test('1 — mission definitions validate against the live world', async ({ page }) => {
     await fresh(page)
     const errs = await page.evaluate(() => window.GAME_TEST_API!.getMissionValidation())

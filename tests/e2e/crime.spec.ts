@@ -24,7 +24,7 @@ async function playerXZ(page: Page): Promise<[number, number]> {
   return [s.position[0], s.position[2]]
 }
 
-test.describe('crime & law enforcement', { tag: '@simulation-only' }, () => {
+test.describe('crime & law enforcement', () => {
   test('1 — the handgun equips full and drawn', async ({ page }) => {
     await freshGame(page)
     const w = await page.evaluate(() => {
@@ -117,7 +117,7 @@ test.describe('crime & law enforcement', { tag: '@simulation-only' }, () => {
     })
   })
 
-  test('6 — police arrest a cornered, stopped suspect', async ({ page }) => {
+  test('6 — police arrest a cornered, stopped suspect', { tag: '@simulation-only' }, async ({ page }) => {
     await freshGame(page)
     const [px, pz] = await playerXZ(page)
     await page.evaluate(
@@ -198,7 +198,7 @@ test.describe('crime & law enforcement', { tag: '@simulation-only' }, () => {
     expect((await getStats(page)).mode).toBe('driving')
   })
 
-  test('8b — the carjacked driver flees the scene then despawns', async ({ page }) => {
+  test('8b — the carjacked driver flees the scene then despawns', { tag: '@simulation-only' }, async ({ page }) => {
     await freshGame(page)
     const start = await page.evaluate(() => {
       const api = window.GAME_TEST_API!
@@ -426,7 +426,7 @@ test.describe('crime & law enforcement', { tag: '@simulation-only' }, () => {
     )
   })
 
-  test('16 — a quest NPC (Ravi) flees gunfire then recovers toward his anchor', async ({
+  test('16 — a quest NPC (Ravi) flees gunfire then recovers toward his anchor', { tag: '@simulation-only' }, async ({
     page,
   }) => {
     await freshGame(page)

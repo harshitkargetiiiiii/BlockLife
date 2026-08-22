@@ -27,7 +27,7 @@ async function waitForSectorReady(page: Page, sectorId: string, timeout = 25_000
   )
 }
 
-test.describe('city expansion content pack', { tag: '@simulation-only' }, () => {
+test.describe('city expansion content pack', () => {
   test('boot: expanded graph, all four sectors validate, ownership clean', async ({ page }) => {
     const errors: string[] = []
     page.on('pageerror', (err) => errors.push(String(err)))
@@ -157,7 +157,7 @@ test.describe('city expansion content pack', { tag: '@simulation-only' }, () => 
     expect(state.y).toBeLessThan(4)
   })
 
-  test('routed freight trip completes to the Industrial Yard loading dock', async ({ page }) => {
+  test('routed freight trip completes to the Industrial Yard loading dock', { tag: '@simulation-only' }, async ({ page }) => {
     // The trip crosses Harbor Cross northbound; split-phase can hold the
     // approach red for up to 38s (measured healthy trip: ~126s sim). Under
     // full-gate CPU load sim time runs at roughly HALF wall speed, so the
@@ -197,7 +197,7 @@ test.describe('city expansion content pack', { tag: '@simulation-only' }, () => 
     expect(overlaps).toEqual([])
   })
 
-  test('routed trip completes to the Waterfront promenade', async ({ page }) => {
+  test('routed trip completes to the Waterfront promenade', { tag: '@simulation-only' }, async ({ page }) => {
     // Also crosses Harbor Cross — worst-case 38s red hold, doubled for
     // full-gate CPU load (sim time lags wall time).
     test.setTimeout(280_000)
@@ -352,7 +352,7 @@ test.describe('city expansion content pack', { tag: '@simulation-only' }, () => 
     expect(errors).toEqual([])
   })
 
-  test('large-world soak: routed trips to every new sector while streaming churns', async ({
+  test('large-world soak: routed trips to every new sector while streaming churns', { tag: '@simulation-only' }, async ({
     page,
   }) => {
     test.setTimeout(240_000)

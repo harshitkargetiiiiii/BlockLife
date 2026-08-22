@@ -15,7 +15,7 @@ async function arriveAtFoodTruck(page: Page): Promise<void> {
   })
 }
 
-test.describe('social platform', { tag: '@simulation-only' }, () => {
+test.describe('social platform', () => {
   test.beforeEach(async ({ page }) => {
     await gotoGame(page)
     await page.evaluate(() => window.GAME_TEST_API!.resetGame())

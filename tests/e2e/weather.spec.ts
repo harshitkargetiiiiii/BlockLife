@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test'
 import { gotoGame } from './helpers'
 
 /** Weather System v1: deterministic director, effects, reactions, UI. */
-test.describe('weather system', { tag: '@simulation-only' }, () => {
+test.describe('weather system', () => {
   test('day 1 starts clear and the HUD/phone show the weather', async ({ page }) => {
     await gotoGame(page)
     await page.evaluate(() => window.GAME_TEST_API!.resetGame())

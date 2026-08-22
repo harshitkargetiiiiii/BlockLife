@@ -2,9 +2,11 @@
  * E2E partition accounting (branch e2e-ci-telemetry-probe).
  *
  * Proves the render-suppression rollout partitions the suite EXACTLY ONCE:
- *   simulation-only (@simulation-only)  +  normal-render (everything else)  =  full suite
+ *   simulation-only (@simulation-only, 29)  +  normal-render (everything else, 338)  =  367
  * with an empty intersection and a complete union — deterministically, from Playwright's own
- * `--list` output, so the CI gate can't run a test twice or drop one silently.
+ * `--list` output, so the CI gate can't run a test twice or drop one silently. The 29 are the
+ * CAUSALLY-VALIDATED starvation set (see docs/e2e-suppression-audit.md); everything else defaults
+ * to normal rendering.
  *
  * Usage: node scripts/e2e-partition-check.mjs [expectedTotal]
  *   expectedTotal defaults to 367 (the accepted baseline). If legitimate branch changes alter the

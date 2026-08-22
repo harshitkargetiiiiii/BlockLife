@@ -1,15 +1,17 @@
 name: E2E (full Playwright)
 
-# The FULL browser E2E gate, split into two partitions so the timing/soak suites stop failing on the
-# render-starved CI runner (see docs/e2e-simulation-only.md + the render-suppression proof):
-#   • normal-render     — pixel-dependent tests (draw calls, GLB/model, occlusion), NORMAL WebGL.
-#   • simulation-only    — @simulation-only tests whose verdict is pixel-independent; drawing is
-#                          suppressed after settle so the single useFrame authority runs near real
-#                          time (test bodies, assertions and timeouts UNCHANGED; retries=0).
-# MEASURED runner (not assumed): a standard public runner was AMD EPYC 9V74, 4 logical vCPU, 16 GB,
-# Ubuntu 24.04 (Azure), rendering WebGL via SwiftShader (software) — NOT the stale "free 2-core"
-# note, and GitHub may change the exact CPU model at any time. Visual-regression screenshots are NOT
-# run here (macOS-specific baselines).
+# THE sole authoritative full-E2E gate (the temporary branch-validation workflow has been removed).
+# Two render-eligibility partitions over the 367-test suite (see docs/e2e-simulation-only.md +
+# docs/e2e-suppression-audit.md):
+#   • normal-render   — the default: 338 tests on NORMAL software WebGL, sharded ×8.
+#   • simulation-only  — 29 CAUSALLY-VALIDATED tests that starve on the software renderer AND are
+#                        render-independent; drawing is suppressed after settle so the single useFrame
+#                        authority runs near real time, sharded ×2. Test bodies, assertions, timeouts
+#                        and retries=0 are UNCHANGED.
+# Deterministic build + production-bundle exclusion (no diagnostic/suppression/test API in dist/) is the
+# job of the REQUIRED companion gate ci.yml — not duplicated here. Merge requires BOTH ci.yml + this gate.
+# Measured runner: AMD EPYC 9V74, 4 logical vCPU, 16 GB, Ubuntu 24.04 (Azure), SwiftShader (software
+# WebGL) — GitHub may change the exact CPU at any time. Visual-regression screenshots are NOT run here.
 on:
   push:
     branches: [master]
@@ -21,7 +23,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # ---- deterministic partition accounting: 325 + 42 = 367, empty intersection, complete union ----
+  # ---- exact-once partition accounting: 29 + 338 = 367, empty intersection, complete union ----
   accounting:
     name: partition accounting (exact-once)
     runs-on: ubuntu-latest
@@ -32,10 +34,28 @@ jobs:
         with: { node-version-file: .nvmrc, cache: npm }
       - run: npm ci
       - run: npx playwright install --with-deps chromium
-      - name: Exact-once partition check
+      - name: Exact-once partition check (29 + 338 = 367)
         run: node scripts/e2e-partition-check.mjs 367
 
-  # ---- normal-render partition: NO suppression, sharded (2). Render-sensitive tests only. ----
+  # ---- render-suppression guard (NO env): a normal-render run cannot inherit suppression ----
+  suppression-guard:
+    name: render-suppression guard (default-off)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version-file: .nvmrc, cache: npm }
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Guard spec (WITHOUT VITE_SUPPRESS_AFTER_SETTLE — must stay default-off + restore)
+        run: |
+          PLAYWRIGHT_JSON_OUTPUT_NAME=pw-guard.json \
+            npx playwright test tests/diagnostics/suppression-guard.spec.ts \
+            --workers=1 --retries=0 --forbid-only --reporter=line,json || true
+          node scripts/assert-playwright-run.mjs pw-guard.json "suppression-guard"
+
+  # ---- normal-render partition: NO suppression, sharded ×8 (338 tests) ----
   normal-render:
     name: normal-render ${{ matrix.shard }}
     needs: accounting
@@ -44,7 +64,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: ['1/2', '2/2']
+        shard: ['1/8', '2/8', '3/8', '4/8', '5/8', '6/8', '7/8', '8/8']
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -68,7 +88,7 @@ jobs:
             pw-results.json
           retention-days: 7
 
-  # ---- simulation-only partition: suppression enabled after settle, sharded (4). ----
+  # ---- simulation-only partition: suppression after settle, sharded ×2 (29 tests) ----
   simulation-only:
     name: simulation-only ${{ matrix.shard }}
     needs: accounting
@@ -77,10 +97,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: ['1/4', '2/4', '3/4', '4/4']
+        shard: ['1/2', '2/2']
     env:
-      # Auto-engage render suppression after asset/scene settle. This env is used ONLY here, paired
-      # with the @simulation-only filter — never with the unfiltered suite (see the guard tests).
+      # Auto-engage render suppression after settle — used ONLY in this job, paired with the
+      # @simulation-only filter. Never applied to the unfiltered suite (proven by the guard job).
       VITE_SUPPRESS_AFTER_SETTLE: '1'
     steps:
       - uses: actions/checkout@v4
@@ -94,7 +114,6 @@ jobs:
             npx playwright test tests/e2e --grep "@simulation-only" \
             --workers=1 --retries=0 --forbid-only \
             --reporter=line,json,html --shard=${{ matrix.shard }} || true
-          # The exit code alone is not trusted: assert the JSON report is clean (0 failed/skipped/flaky, >0 ran).
           node scripts/assert-playwright-run.mjs pw-results.json "simulation-only ${{ matrix.shard }}"
       - if: always()
         uses: actions/upload-artifact@v4
@@ -105,17 +124,17 @@ jobs:
             pw-results.json
           retention-days: 7
 
-  # ---- fail-closed conclusion: any partition/accounting failure OR cancellation fails the gate. ----
+  # ---- fail-closed conclusion: any job failure / cancellation / skip fails the gate ----
   conclusion:
     name: E2E gate conclusion
-    needs: [accounting, normal-render, simulation-only]
+    needs: [accounting, suppression-guard, normal-render, simulation-only]
     if: always()
     runs-on: ubuntu-latest
     steps:
-      - name: Require every partition to have succeeded (no cancel / skip / failure)
+      - name: Require every job to have succeeded (no cancel / skip / failure)
         run: |
-          echo "accounting=${{ needs.accounting.result }} normal=${{ needs.normal-render.result }} simulation=${{ needs.simulation-only.result }}"
-          for r in "${{ needs.accounting.result }}" "${{ needs.normal-render.result }}" "${{ needs.simulation-only.result }}"; do
-            if [ "$r" != "success" ]; then echo "::error::E2E gate FAILED — a partition result was '$r' (not success)"; exit 1; fi
+          echo "accounting=${{ needs.accounting.result }} guard=${{ needs.suppression-guard.result }} normal=${{ needs.normal-render.result }} simulation=${{ needs.simulation-only.result }}"
+          for r in "${{ needs.accounting.result }}" "${{ needs.suppression-guard.result }}" "${{ needs.normal-render.result }}" "${{ needs.simulation-only.result }}"; do
+            if [ "$r" != "success" ]; then echo "::error::E2E gate FAILED — a job result was '$r' (not success)"; exit 1; fi
           done
-          echo "E2E gate PASS — both partitions succeeded, accounting exact-once."
+          echo "E2E gate PASS — accounting exact-once, guard held, both partitions clean."

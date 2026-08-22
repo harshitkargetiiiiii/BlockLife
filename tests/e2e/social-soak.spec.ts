@@ -18,7 +18,7 @@ const DISTRICT_SPOTS: [number, number, number][] = [
   [12, 1.2, -26],
 ]
 
-test.describe('social lifecycle soak', { tag: '@simulation-only' }, () => {
+test.describe('social lifecycle soak', () => {
   test('cycles the whole cast without duplication, leaks, or integrity damage', async ({ page }) => {
     test.setTimeout(180_000)
 

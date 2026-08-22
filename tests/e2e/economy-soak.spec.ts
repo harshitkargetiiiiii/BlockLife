@@ -70,7 +70,7 @@ async function cycle(page: Page, i: number): Promise<void> {
   await page.waitForTimeout(150)
 }
 
-test('economy soak — shopping/inventory/restock stay clean under streaming', { tag: '@simulation-only' }, async ({ page }) => {
+test('economy soak — shopping/inventory/restock stay clean under streaming', async ({ page }) => {
   const errors: string[] = []
   page.on('pageerror', (e) => errors.push(e.message))
   page.on('console', (m) => {

@@ -7,7 +7,7 @@ import { gotoGame } from './helpers'
  * any hand-authored sector.
  */
 
-test.describe('district authoring kit', { tag: '@simulation-only' }, () => {
+test.describe('district authoring kit', () => {
   test('kit validates live: templates, compiled counts, source refs, zero errors', async ({
     page,
   }) => {
@@ -70,7 +70,7 @@ test.describe('district authoring kit', { tag: '@simulation-only' }, () => {
     expect(state.citizens.length).toBeGreaterThanOrEqual(1)
   })
 
-  test('routed traffic drives the compiled road to the kit destination', async ({ page }) => {
+  test('routed traffic drives the compiled road to the kit destination', { tag: '@simulation-only' }, async ({ page }) => {
     test.setTimeout(180_000)
     await gotoGame(page)
     await page.evaluate(() => {

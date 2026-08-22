@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test'
 import { gotoGame, getStats } from './helpers'
 
-test.describe('game load', { tag: '@simulation-only' }, () => {
+test.describe('game load', () => {
   test('loads without console errors and shows the HUD', async ({ page }) => {
     const errors: string[] = []
     page.on('console', (msg) => {

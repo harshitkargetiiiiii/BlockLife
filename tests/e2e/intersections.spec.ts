@@ -19,7 +19,7 @@ async function resetWorld(page: Page) {
   await page.waitForTimeout(600)
 }
 
-test.describe('signalized cross-street intersection', { tag: '@simulation-only' }, () => {
+test.describe('signalized cross-street intersection', () => {
   test('boot: intersection registered, plan valid, movements permitted per phase', async ({
     page,
   }) => {
@@ -52,7 +52,7 @@ test.describe('signalized cross-street intersection', { tag: '@simulation-only' 
     expect(errors).toEqual([])
   })
 
-  test('red approach stops a routed car at the stop line without replanning; green resumes', async ({
+  test('red approach stops a routed car at the stop line without replanning; green resumes', { tag: '@simulation-only' }, async ({
     page,
   }) => {
     test.setTimeout(120_000)
@@ -109,7 +109,7 @@ test.describe('signalized cross-street intersection', { tag: '@simulation-only' 
     expect(after.recoveryStage).toBe(0)
   })
 
-  test('a routed trip TURNS through the intersection to a harbor arm', async ({ page }) => {
+  test('a routed trip TURNS through the intersection to a harbor arm', { tag: '@simulation-only' }, async ({ page }) => {
     test.setTimeout(180_000)
     await gotoGame(page)
     await resetWorld(page)

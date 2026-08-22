@@ -16,7 +16,7 @@ async function resetWorld(page: Page) {
   await page.waitForTimeout(400)
 }
 
-test.describe('sector streaming foundation', { tag: '@simulation-only' }, () => {
+test.describe('sector streaming foundation', () => {
   test('boot: player in s0_0 active, neighbors mounted, ownership valid', async ({ page }) => {
     const errors: string[] = []
     page.on('pageerror', (err) => errors.push(String(err)))

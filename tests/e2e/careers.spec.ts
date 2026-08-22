@@ -68,7 +68,7 @@ async function runOneDeliveryShift(page: Page): Promise<void> {
   })
 }
 
-test.describe('careers platform', { tag: '@simulation-only' }, () => {
+test.describe('careers platform', () => {
   test.beforeEach(async ({ page }) => {
     await gotoGame(page)
     await page.evaluate(() => window.GAME_TEST_API!.resetGame())

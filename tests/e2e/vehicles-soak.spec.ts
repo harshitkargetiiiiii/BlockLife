@@ -53,7 +53,7 @@ async function soakIteration(page: Page, i: number): Promise<Snap> {
   }, i)
 }
 
-test('vehicle lifecycle soak — invariants hold over 200 game-days', { tag: '@simulation-only' }, async ({ page }) => {
+test('vehicle lifecycle soak — invariants hold over 200 game-days', async ({ page }) => {
   test.setTimeout(180_000)
   await gotoGame(page)
   await page.evaluate(() => {

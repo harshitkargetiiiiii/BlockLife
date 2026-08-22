@@ -36,7 +36,7 @@ async function arriveAtHarborCross(page: Page) {
   )
 }
 
-test.describe('crossing-aware citizen destinations', { tag: '@simulation-only' }, () => {
+test.describe('crossing-aware citizen destinations', () => {
   test('boot: graph summary, destination catalog, deterministic trip states', async ({ page }) => {
     const errors: string[] = []
     page.on('pageerror', (err) => errors.push(String(err)))
@@ -86,7 +86,7 @@ test.describe('crossing-aware citizen destinations', { tag: '@simulation-only' }
     )
   })
 
-  test('waits at the curb, crosses on all-walk, reaches the destination', async ({ page }) => {
+  test('waits at the curb, crosses on all-walk, reaches the destination', { tag: '@simulation-only' }, async ({ page }) => {
     test.setTimeout(300_000)
     await gotoGame(page)
     await arriveAtHarborCross(page)
@@ -162,7 +162,7 @@ test.describe('crossing-aware citizen destinations', { tag: '@simulation-only' }
     )
   })
 
-  test('the yard worker completes a cross-district commute to the warehouse door', async ({
+  test('the yard worker completes a cross-district commute to the warehouse door', { tag: '@simulation-only' }, async ({
     page,
   }) => {
     test.setTimeout(420_000)
@@ -315,7 +315,7 @@ test.describe('crossing-aware citizen destinations', { tag: '@simulation-only' }
     expect(overlaps).toEqual([])
   })
 
-  test('150s mixed soak: trips keep completing, nobody strands, occupancy never leaks', async ({
+  test('150s mixed soak: trips keep completing, nobody strands, occupancy never leaks', { tag: '@simulation-only' }, async ({
     page,
   }) => {
     test.setTimeout(300_000)

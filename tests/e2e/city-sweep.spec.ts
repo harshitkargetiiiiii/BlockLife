@@ -11,7 +11,7 @@ import { gotoGame, teleport } from './helpers'
  * of bug that "a human accidentally seeing the right camera angle" used to find.
  */
 
-test.describe('automated city sweeper', { tag: '@simulation-only' }, () => {
+test.describe('automated city sweeper', () => {
   test('traverses every district with continuous integrity assertions', async ({ page }) => {
     const pageErrors: string[] = []
     page.on('pageerror', (e) => pageErrors.push(String(e)))

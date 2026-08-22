@@ -9,7 +9,7 @@ import { gotoGame } from './helpers'
  * real-time waits): game time is advanced via the dev clock, rent reconciled on the
  * lazy touch points (Home-app open), and every mutation goes through the store.
  */
-test('housing lifecycle soak — bounded, no duplication or loss over many game-weeks', { tag: '@simulation-only' }, async ({ page }) => {
+test('housing lifecycle soak — bounded, no duplication or loss over many game-weeks', async ({ page }) => {
   test.setTimeout(180_000)
   await gotoGame(page)
   const errors: string[] = []

@@ -34,7 +34,7 @@ const bag = (page: Page) => page.evaluate(() => window.GAME_TEST_API!.getBackpac
 const stock = (page: Page, storeId: string, itemId: string) =>
   page.evaluate(([s, i]) => window.GAME_TEST_API!.getStoreStockState(s).stock[i] ?? 0, [storeId, itemId] as const)
 
-test.describe('personal economy', { tag: '@simulation-only' }, () => {
+test.describe('personal economy', () => {
   test('1 — catalog + stores validate against the live world', async ({ page }) => {
     await fresh(page)
     const v = await page.evaluate(() => ({

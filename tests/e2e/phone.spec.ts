@@ -1,14 +1,14 @@
 import { expect, test } from '@playwright/test'
 import { acquireDrivableCar, getStats, gotoGame, teleport } from './helpers'
 
-test.describe('phone', { tag: '@simulation-only' }, () => {
+test.describe('phone', () => {
   test.beforeEach(async ({ page }) => {
     await gotoGame(page)
     await page.evaluate(() => window.GAME_TEST_API!.resetGame())
     await page.waitForTimeout(300)
   })
 
-  test('opens with Tab, switches apps, closes, and movement resumes', async ({ page }) => {
+  test('opens with Tab, switches apps, closes, and movement resumes', { tag: '@simulation-only' }, async ({ page }) => {
     await teleport(page, [0, 1.2, 0])
 
     await page.keyboard.press('Tab')

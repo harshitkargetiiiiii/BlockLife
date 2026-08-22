@@ -7,7 +7,7 @@ import { gotoGame } from './helpers'
  * authoring flows, live in the running game.
  */
 
-test.describe('city polish & density', { tag: '@simulation-only' }, () => {
+test.describe('city polish & density', () => {
   test('density lands validated: fixed props, queues/sitters, service vehicles', async ({
     page,
   }) => {
