@@ -99,7 +99,7 @@ async function fastExitRun(page: Page): Promise<void> {
   )
 }
 
-test('getaway soak — containment + civilians + Fast Exit stay clean under streaming', async ({ page }) => {
+test('getaway soak — containment + civilians + Fast Exit stay clean under streaming', { tag: '@simulation-only' }, async ({ page }) => {
   const errors: string[] = []
   page.on('pageerror', (e) => errors.push(e.message))
   page.on('console', (m) => {

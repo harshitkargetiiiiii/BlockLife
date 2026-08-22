@@ -67,7 +67,7 @@ async function activity(page: Page) {
   return page.evaluate(() => window.GAME_TEST_API!.getActivityState())
 }
 
-test.describe('store robbery', () => {
+test.describe('store robbery', { tag: '@simulation-only' }, () => {
   test('1 — convenience-store robbery end to end (threat → loot → secure)', async ({ page }) => {
     await fresh(page)
     const money0 = await page.evaluate(() => window.GAME_TEST_API!.getStats().money)

@@ -36,7 +36,7 @@ async function arriveAtHarborCross(page: Page) {
   )
 }
 
-test.describe('crossing-aware citizen destinations', () => {
+test.describe('crossing-aware citizen destinations', { tag: '@simulation-only' }, () => {
   test('boot: graph summary, destination catalog, deterministic trip states', async ({ page }) => {
     const errors: string[] = []
     page.on('pageerror', (err) => errors.push(String(err)))

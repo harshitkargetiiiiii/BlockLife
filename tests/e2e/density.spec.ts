@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test'
 import { getStats, gotoGame, teleport } from './helpers'
 
 /** City Life Density v1: background citizens + a denser, still-playable city. */
-test.describe('city life density', () => {
+test.describe('city life density', { tag: '@simulation-only' }, () => {
   test('every district has background citizens and they stay off the roads', async ({ page }) => {
     const errors: string[] = []
     page.on('pageerror', (err) => errors.push(String(err)))

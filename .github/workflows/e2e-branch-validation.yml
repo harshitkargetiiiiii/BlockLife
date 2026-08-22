@@ -1,0 +1,169 @@
+name: E2E Branch Validation (render-suppression rollout)
+
+# Branch-scoped PRE-PR validation for the render-suppression rollout (docs/e2e-simulation-only.md).
+# Runs the exact partitioned gate the production workflows (ci.yml + e2e.yml) will run on the PR, so
+# the branch is proven green on ONE SHA before a draft PR is opened. Five checks, fail-closed:
+#   1. accounting        — deterministic exact-once partition (325 + 42 = 367, empty intersection).
+#   2. deterministic-ci  — tsc -b --force, oxlint, vitest, production build, dist test-API exclusion.
+#   3. suppression-guard — Playwright guard WITHOUT the env: a normal-render run never inherits suppression.
+#   4. normal-render     — pixel-dependent partition, NORMAL WebGL, sharded (2), workers=1, retries=0.
+#   5. simulation-only   — @simulation-only partition, render suppressed after settle, sharded (4).
+# Nothing here raises a timeout, enables retries, or weakens an assertion. Visual baselines are NOT run
+# (macOS-specific). This file is a temporary branch gate; delete it once the rollout PR merges.
+on:
+  push:
+    branches: [e2e-ci-telemetry-probe]
+  workflow_dispatch:
+
+concurrency:
+  group: e2e-branch-validation-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ---- 1. exact-once partition accounting ----
+  accounting:
+    name: partition accounting (exact-once)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version-file: .nvmrc, cache: npm }
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Runner hardware (for the record — not asserted)
+        run: |
+          echo "CPU model : $(grep -m1 'model name' /proc/cpuinfo | cut -d: -f2 | xargs)"
+          echo "vCPU      : $(nproc)"
+          echo "RAM       : $(free -h | awk '/Mem:/{print $2}')"
+      - name: Exact-once partition check (325 + 42 = 367)
+        run: node scripts/e2e-partition-check.mjs 367
+
+  # ---- 2. deterministic CI gate + production-bundle exclusion ----
+  deterministic-ci:
+    name: tsc · lint · unit · build · dist-exclusion
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version-file: .nvmrc, cache: npm }
+      - run: npm ci
+      # The REAL typecheck (`tsc --noEmit` is vacuous here — references-only root tsconfig).
+      - name: Typecheck (tsc -b --force)
+        run: npx tsc -b --force
+      - name: Lint (oxlint, 0 errors)
+        run: npm run lint
+      - name: Unit + component tests (vitest — includes renderSuppressor guard)
+        run: npm run test
+      - name: Production build
+        run: npm run build
+      - name: Assert no test/diagnostic API in dist/
+        run: |
+          set -euo pipefail
+          if grep -rlE 'GAME_TEST_API|spawnPoliceResponse|givePlayerWeapon|firePlayerWeaponAt|forcePoliceDismount|isNpcPanicking|renderSuppressor|setRenderSuppressed|isRenderSuppressed|VITE_SUPPRESS_AFTER_SETTLE|enableAutoAfterSettle|diagnosticProbe|getDiagnostics|resetDiagnostics' dist/; then
+            echo "::error::Test/diagnostic API strings leaked into the production bundle (dist/)."
+            exit 1
+          fi
+          echo "dist/ is clean — no test or diagnostic API strings."
+
+  # ---- 3. render-suppression guard (NO env): a normal-render run cannot inherit suppression ----
+  suppression-guard:
+    name: render-suppression guard (default-off)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version-file: .nvmrc, cache: npm }
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Guard spec (WITHOUT VITE_SUPPRESS_AFTER_SETTLE — must stay default-off)
+        run: |
+          PLAYWRIGHT_JSON_OUTPUT_NAME=pw-guard.json \
+            npx playwright test tests/diagnostics/suppression-guard.spec.ts \
+            --workers=1 --retries=0 --forbid-only --reporter=line,json || true
+          node scripts/assert-playwright-run.mjs pw-guard.json "suppression-guard"
+
+  # ---- 4. normal-render partition: NO suppression, sharded (2) ----
+  normal-render:
+    name: normal-render ${{ matrix.shard }}
+    needs: accounting
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ['1/2', '2/2']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version-file: .nvmrc, cache: npm }
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Normal-render partition (NO suppression, workers=1, retries=0)
+        run: |
+          PLAYWRIGHT_JSON_OUTPUT_NAME=pw-results.json \
+            npx playwright test tests/e2e --grep-invert "@simulation-only" \
+            --workers=1 --retries=0 --forbid-only \
+            --reporter=line,json,html --shard=${{ matrix.shard }} || true
+          node scripts/assert-playwright-run.mjs pw-results.json "normal-render ${{ matrix.shard }}"
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bv-report-normal-${{ strategy.job-index }}
+          path: |
+            playwright-report/
+            pw-results.json
+          retention-days: 7
+
+  # ---- 5. simulation-only partition: suppression after settle, sharded (4) ----
+  simulation-only:
+    name: simulation-only ${{ matrix.shard }}
+    needs: accounting
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ['1/4', '2/4', '3/4', '4/4']
+    env:
+      # Auto-engage render suppression after settle — ONLY here, paired with the @simulation-only
+      # filter. Never applied to the unfiltered suite (proven by the suppression-guard job above).
+      VITE_SUPPRESS_AFTER_SETTLE: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version-file: .nvmrc, cache: npm }
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Simulation-only partition (render-suppressed, workers=1, retries=0)
+        run: |
+          PLAYWRIGHT_JSON_OUTPUT_NAME=pw-results.json \
+            npx playwright test tests/e2e --grep "@simulation-only" \
+            --workers=1 --retries=0 --forbid-only \
+            --reporter=line,json,html --shard=${{ matrix.shard }} || true
+          node scripts/assert-playwright-run.mjs pw-results.json "simulation-only ${{ matrix.shard }}"
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bv-report-simulation-${{ strategy.job-index }}
+          path: |
+            playwright-report/
+            pw-results.json
+          retention-days: 7
+
+  # ---- fail-closed conclusion: any job failure / cancellation / skip fails the branch gate ----
+  conclusion:
+    name: branch validation conclusion
+    needs: [accounting, deterministic-ci, suppression-guard, normal-render, simulation-only]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every job to have succeeded
+        run: |
+          echo "accounting=${{ needs.accounting.result }} ci=${{ needs.deterministic-ci.result }} guard=${{ needs.suppression-guard.result }} normal=${{ needs.normal-render.result }} simulation=${{ needs.simulation-only.result }}"
+          for r in "${{ needs.accounting.result }}" "${{ needs.deterministic-ci.result }}" "${{ needs.suppression-guard.result }}" "${{ needs.normal-render.result }}" "${{ needs.simulation-only.result }}"; do
+            if [ "$r" != "success" ]; then echo "::error::Branch validation FAILED — a job result was '$r' (not success)"; exit 1; fi
+          done
+          echo "Branch validation PASS — accounting exact-once, deterministic CI green, guard held, both partitions green."

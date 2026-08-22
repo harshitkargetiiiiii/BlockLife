@@ -5,7 +5,7 @@ import { gotoGame } from './helpers'
  * City Expansion v2: six blocks, 50 peds, solid everything. These checks run
  * against the live simulation — no staged scenarios.
  */
-test.describe('city expansion v2', () => {
+test.describe('city expansion v2', { tag: '@simulation-only' }, () => {
   test('50 citizens live across all six blocks', async ({ page }) => {
     const errors: string[] = []
     page.on('pageerror', (err) => errors.push(String(err)))

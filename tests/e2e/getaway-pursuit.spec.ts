@@ -50,7 +50,7 @@ async function aimAtCashier(page: Page): Promise<void> {
   )
 }
 
-test.describe('robbery pursuit & getaway', () => {
+test.describe('robbery pursuit & getaway', { tag: '@simulation-only' }, () => {
   test('1 — containment arms and advances while wanted inside a robbed store', async ({ page }) => {
     await fresh(page)
     await page.evaluate(() => {

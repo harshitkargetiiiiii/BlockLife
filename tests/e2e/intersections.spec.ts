@@ -19,7 +19,7 @@ async function resetWorld(page: Page) {
   await page.waitForTimeout(600)
 }
 
-test.describe('signalized cross-street intersection', () => {
+test.describe('signalized cross-street intersection', { tag: '@simulation-only' }, () => {
   test('boot: intersection registered, plan valid, movements permitted per phase', async ({
     page,
   }) => {

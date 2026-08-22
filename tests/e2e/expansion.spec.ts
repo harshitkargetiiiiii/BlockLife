@@ -27,7 +27,7 @@ async function waitForSectorReady(page: Page, sectorId: string, timeout = 25_000
   )
 }
 
-test.describe('city expansion content pack', () => {
+test.describe('city expansion content pack', { tag: '@simulation-only' }, () => {
   test('boot: expanded graph, all four sectors validate, ownership clean', async ({ page }) => {
     const errors: string[] = []
     page.on('pageerror', (err) => errors.push(String(err)))

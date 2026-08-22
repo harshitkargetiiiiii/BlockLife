@@ -44,7 +44,7 @@ async function arriveAtHarborCross(page: Page) {
   )
 }
 
-test.describe('live pedestrian crossings at Harbor Cross', () => {
+test.describe('live pedestrian crossings at Harbor Cross', { tag: '@simulation-only' }, () => {
   test('citizens queue at the curb through the vehicle phases and never enter on dont_walk', async ({
     page,
   }) => {

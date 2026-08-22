@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test'
 import { getStats, gotoGame, pressE, waitForActiveInteractable } from './helpers'
 
 /** Apartment / Home Base v1: enter/exit, sleep, wardrobe, storage, phone. */
-test.describe('apartment home base', () => {
+test.describe('apartment home base', { tag: '@simulation-only' }, () => {
   test('player enters from the street door and exits back to the city', async ({ page }) => {
     const errors: string[] = []
     page.on('pageerror', (err) => errors.push(String(err)))

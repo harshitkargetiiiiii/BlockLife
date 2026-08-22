@@ -60,7 +60,7 @@ async function robCycle(page: Page, store: typeof STORE | typeof KIOSK, secure: 
   )
 }
 
-test('robbery soak — repeated cycles stay clean under streaming', async ({ page }) => {
+test('robbery soak — repeated cycles stay clean under streaming', { tag: '@simulation-only' }, async ({ page }) => {
   const errors: string[] = []
   page.on('pageerror', (e) => errors.push(e.message))
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()) })

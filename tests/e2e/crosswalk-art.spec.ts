@@ -34,7 +34,7 @@ async function arriveAtHarborCross(page: Page) {
   )
 }
 
-test.describe('crosswalk surface art', () => {
+test.describe('crosswalk surface art', { tag: '@simulation-only' }, () => {
   test('every registered crossing has validated art: 4 signalized + 3 painted', async ({
     page,
   }) => {

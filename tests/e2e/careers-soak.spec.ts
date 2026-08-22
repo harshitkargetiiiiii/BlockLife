@@ -13,7 +13,7 @@ import { gotoGame, teleport } from './helpers'
  */
 const CAREERS = ['delivery_driver', 'cafe_retail', 'gym_trainer', 'trade_worker'] as const
 
-test.describe('career lifecycle soak', () => {
+test.describe('career lifecycle soak', { tag: '@simulation-only' }, () => {
   test('cycles all four careers without duplication, leaks, or integrity damage', async ({ page }) => {
     test.setTimeout(180_000)
 

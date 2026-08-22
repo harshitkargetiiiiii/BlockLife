@@ -8,7 +8,7 @@ import { gotoGame } from './helpers'
  * citizens never overlap, and no uncaught page error fires across the whole run.
  */
 
-test('180-second crime soak: pursuits, arrests, recoveries — bounded + no errors', async ({
+test('180-second crime soak: pursuits, arrests, recoveries — bounded + no errors', { tag: '@simulation-only' }, async ({
   page,
 }) => {
   test.setTimeout(300_000)

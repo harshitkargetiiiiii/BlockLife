@@ -5,7 +5,7 @@ import { acquireDrivableCar, getStats, gotoGame, teleport } from './helpers'
  * City Expansion v1: three districts connected by real roads. Movement is
  * screen-relative — W+D walks due north, S+D due east.
  */
-test.describe('districts', () => {
+test.describe('districts', { tag: '@simulation-only' }, () => {
   test('player can walk from Central up the connector into Residential Street', async ({
     page,
   }) => {

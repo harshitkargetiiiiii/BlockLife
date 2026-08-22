@@ -24,7 +24,7 @@ async function playerXZ(page: Page): Promise<[number, number]> {
   return [s.position[0], s.position[2]]
 }
 
-test.describe('crime & law enforcement', () => {
+test.describe('crime & law enforcement', { tag: '@simulation-only' }, () => {
   test('1 — the handgun equips full and drawn', async ({ page }) => {
     await freshGame(page)
     const w = await page.evaluate(() => {

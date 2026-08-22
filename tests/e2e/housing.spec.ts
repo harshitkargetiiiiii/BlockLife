@@ -35,7 +35,7 @@ async function runDeliveryShifts(page: import('@playwright/test').Page, n: numbe
   }, n)
 }
 
-test.describe('housing — properties & moving', () => {
+test.describe('housing — properties & moving', { tag: '@simulation-only' }, () => {
   test.beforeEach(async ({ page }) => {
     await gotoGame(page)
     await page.evaluate(() => window.GAME_TEST_API!.resetGame())
@@ -185,7 +185,7 @@ test.describe('housing — properties & moving', () => {
   })
 })
 
-test.describe('housing — furnishing', () => {
+test.describe('housing — furnishing', { tag: '@simulation-only' }, () => {
   test.beforeEach(async ({ page }) => {
     await gotoGame(page)
     await page.evaluate(() => window.GAME_TEST_API!.resetGame())
@@ -436,7 +436,7 @@ test.describe('housing — furnishing', () => {
   })
 })
 
-test.describe('housing — benefits', () => {
+test.describe('housing — benefits', { tag: '@simulation-only' }, () => {
   test.beforeEach(async ({ page }) => {
     await gotoGame(page)
     await page.evaluate(() => window.GAME_TEST_API!.resetGame())
@@ -548,7 +548,7 @@ test.describe('housing — benefits', () => {
   })
 })
 
-test.describe('housing — hosting', () => {
+test.describe('housing — hosting', { tag: '@simulation-only' }, () => {
   test.beforeEach(async ({ page }) => {
     await gotoGame(page)
     await page.evaluate(() => window.GAME_TEST_API!.resetGame())
@@ -814,7 +814,7 @@ test.describe('housing — hosting', () => {
   })
 })
 
-test.describe('housing — rent, lifecycle & integrity', () => {
+test.describe('housing — rent, lifecycle & integrity', { tag: '@simulation-only' }, () => {
   test.beforeEach(async ({ page }) => {
     await gotoGame(page)
     await page.evaluate(() => window.GAME_TEST_API!.resetGame())

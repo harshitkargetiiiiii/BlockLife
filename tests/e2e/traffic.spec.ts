@@ -6,7 +6,7 @@ import { acquireDrivableCar, getStats, gotoGame, teleport } from './helpers'
  * and no-overlap guarantees. Scenarios are staged through the dev/test API
  * (signal phase control + agent repositioning) for determinism.
  */
-test.describe('traffic', () => {
+test.describe('traffic', { tag: '@simulation-only' }, () => {
   test('an ambient car brakes for the player instead of driving through them', async ({
     page,
   }) => {

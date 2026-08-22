@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test'
 import { acquireDrivableCar, getStats, gotoGame, teleport } from './helpers'
 
-test.describe('phone', () => {
+test.describe('phone', { tag: '@simulation-only' }, () => {
   test.beforeEach(async ({ page }) => {
     await gotoGame(page)
     await page.evaluate(() => window.GAME_TEST_API!.resetGame())

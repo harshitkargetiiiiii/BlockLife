@@ -7,7 +7,7 @@ import { gotoGame } from './helpers'
  * any hand-authored sector.
  */
 
-test.describe('district authoring kit', () => {
+test.describe('district authoring kit', { tag: '@simulation-only' }, () => {
   test('kit validates live: templates, compiled counts, source refs, zero errors', async ({
     page,
   }) => {

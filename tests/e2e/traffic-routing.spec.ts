@@ -26,7 +26,7 @@ async function resetTraffic(page: Page) {
   await page.waitForTimeout(600)
 }
 
-test.describe('cross-district traffic routing', () => {
+test.describe('cross-district traffic routing', { tag: '@simulation-only' }, () => {
   test('boots a mixed fleet: routed cars with plans, loop cars untouched', async ({ page }) => {
     const errors: string[] = []
     page.on('pageerror', (err) => errors.push(String(err)))

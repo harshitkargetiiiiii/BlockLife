@@ -45,7 +45,7 @@ async function grantAt(page: Page, defId: string, anchorId: string, condition?: 
   return (await call(page, 'vehicleGrant', defId, { location: 'parked', anchorId, ...(condition !== undefined ? { condition } : {}) })) as string
 }
 
-test.describe('Vehicle Ownership v1', () => {
+test.describe('Vehicle Ownership v1', { tag: '@simulation-only' }, () => {
   test.beforeEach(async ({ page }) => {
     await gotoGame(page)
     await call(page, 'setMoney', 100000)
