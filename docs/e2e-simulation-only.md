@@ -130,25 +130,37 @@ terminal domain invariant above; the boundary is **eligibility, not pass/fail**.
 
 The exact per-test list (325 titles) is generated below and re-verified by `e2e-partition-check.mjs`.
 
-## Branch-validation results (run 32543246143, SHA f0cdf36) — honest state
-Accounting ✅, deterministic CI ✅, dist-exclusion ✅, default-off guard ✅. Partitions: **363/367 pass**
-(sim **322/325**, normal **41/42**), 0 skipped, retries=0. **This rollout adds ZERO product code** (tags
-+ workflows + docs + 2 guard tests + 2 scripts), so the 4 failures below are **pre-existing behaviors the
-real-speed sim EXPOSES, not regressions this PR causes** — the old 8-shard gate HID them behind
-render-starvation timeouts. None is an infra defect or a pixel-misclassification (all 4 are
-pixel-independent; they fail for domain/timing reasons). Per the rollout rules they are **diagnosed and
-recorded, NOT weakened, skipped, timeout-raised, or moved**.
+## CI results — TWO runs, and the flaky-tail finding
+The infra checks are green on **both** runs: partition accounting ✅, deterministic CI ✅, dist-exclusion
+✅, default-off guard ✅. **This rollout adds ZERO product code** (tags + workflows + docs + 2 guard tests
++ 2 scripts), so every failure below is a **pre-existing behavior the real-speed sim EXPOSES, not a
+regression** — the old 8-shard gate HID them all behind render-starvation timeouts.
 
-| test | partition | determinism | error | root cause | recommended follow-up |
-|---|---|---|---|---|---|
-| `population-soak.spec.ts:46` | normal | — | timedOut | render-dependent 300 s LOD soak; ~1 FPS software renderer can't finish | GPU-accelerated runner |
-| `integrity-soak.spec.ts:14` | sim | real defect | sustained `person_person_overlap: cit_dd_waterfront_gazer + cit_hc_loop_cw @30` at cycle 524 | authored lockstep: a loop-walker's path crosses a stationary gazer; the occupancy resolver can't separate a stationary yield-target (CONVENTIONS: runtime separation can't fix lockstep actors). The now-running soak (524 cycles vs a handful under starvation) reaches it | **de-conflict the two citizens' authoring** (reroute the loop or move the gazer) |
-| `getaway-pursuit.spec.ts:196` | sim | deterministic (fails local + CI) | got `secure_proceeds`, expected `lose_wanted` | at real-time sim the wanted level is already resolved when the exact car is entered, so the objective correctly cascades past `lose_wanted`; the test's exact-stage expectation was calibrated to the 0.05× starved sim | assert the objective **advanced past `enter_vehicle`** (or freeze wanted decay before the leg) instead of the exact next stage |
-| `traffic.spec.ts:10` | sim | flaky (passes local M2, fails 4-vCPU CI) | min car-player distance 1.31 < 1.8 | the ambient-car braking margin is sensitive to frame-dt granularity; under suppression's coarser/variable dt on the slower runner the car overshoots its brake point | harden the braking integration against large dt (sub-step the approach or clamp per-frame closing speed) |
+| run | SHA | partitions | failures |
+|---|---|---|---|
+| branch-validation 32543246143 | f0cdf36 | **363/367** (sim 322/325, normal 41/42) | 4 |
+| PR head e2e.yml 32545535805 | 6ac0553 | **360/367** (sim 320/325, normal 40/42) | 7 |
 
-Consequence: the two-partition gate is **RED on 4 diagnosed pre-existing issues**, which is strictly more
-honest than the old gate's red-by-timeout that surfaced nothing. 363/367 now carry a **trustworthy**
-verdict. The infra itself (accounting, guards, dist-exclusion, sharding, fail-closed conclusion) is green.
+Both runs: 0 skipped, retries=0. Comparing them separates **consistent** reds from a **flaky tail**:
+
+| test | part | f0cdf36 | 6ac0553 | class | root cause | follow-up |
+|---|---|:--:|:--:|---|---|---|
+| `getaway-pursuit:196` | sim | ❌ | ❌ | **deterministic** | real-time wanted-decay skips the `lose_wanted` stage the test expects (calibrated to the 0.05× starved sim) | recalibrate: assert advanced-past-`enter_vehicle`, or freeze wanted decay |
+| `integrity-soak:14` | sim | ❌ | ❌ | **real defect** | sustained `cit_dd_waterfront_gazer + cit_hc_loop_cw` overlap the now-running 500+-cycle soak reaches (authored lockstep; resolver can't move a stationary yield-target) | de-conflict the two citizens' authoring |
+| `traffic:10` | sim | ❌ | ❌ | **hardware-dt** (fails 4-vCPU CI both runs; passes fast M2) | braking margin (1.31<1.8) sensitive to frame-dt; coarse dt on the slow runner overshoots the brake point | harden braking integration vs large dt |
+| `population-soak:46` | normal | ❌ | ❌ | **render blocker** | render-dependent 300 s LOD soak; 1 FPS can't finish | GPU-accelerated runner |
+| `citizen-destinations:165` | sim | ✅ | ❌ | **flaky** | yard-worker cross-district commute must finish inside the test window; variable frame timing on the slow runner occasionally misses it | dt-hardening / faster runner |
+| `pedestrian-crossings:142` | sim | ✅ | ❌ | **flaky** | green-approach car hold/clear timing | dt-hardening / faster runner |
+| `asset-pipeline-round2:74` | normal | ✅ | ❌ | **flaky (render)** | GLB-vs-fallback under SwiftShader; drive-progress + render timing | GPU-accelerated runner |
+
+**Key finding: render suppression de-starves the sim (≈350–363/367 vs ≈0 under the old gate) but does NOT
+by itself make the gate deterministically green on the 4-vCPU software runner.** Four reds are consistent
+(2 test/data issues fixable in follow-ups, 1 hardware-dt, 1 render blocker); the rest are a **flaky tail**
+of timing/render-tight tests whose verdict wobbles with the runner's frame-timing variance. Closing the
+tail needs a **faster/GPU runner** (less timing variance, render tests real) and/or **per-system dt
+hardening** — NOT retries, weakened assertions, or raised timeouts (all excluded). The infra itself
+(accounting, guards, dist-exclusion, sharding, fail-closed conclusion) is green on both runs; the gate now
+fails *honestly and specifically* instead of the old red-by-timeout that surfaced nothing.
 
 ### Generated `@simulation-only` test list (325)
 ```
