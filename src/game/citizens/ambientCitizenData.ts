@@ -360,12 +360,17 @@ const EXPANSION_CITIZENS: AmbientCitizen[] = (
  */
 const HARBOR_CROSS_CITIZENS: AmbientCitizen[] = (
   [
-    { id: 'cit_hc_loop_cw', district: 'downtown_gateway', archetype: 'Harbor Commuter', behaviorType: 'loop_walk', position: [41, -152.9], waypoints: [[41, -152.9], [55, -152.9], [55, -167.1], [41, -167.1]], walkSpeed: 1.4, weatherBehavior: 'any', bubbleLines: ['light’s about to change.'] },
-    // Concentric INNER lane (shrunk 0.9 off every edge of cit_hc_loop_cw's loop):
-    // the two commuters circle the same plaza in opposite directions but on lanes
-    // ≥0.9 apart (> PERSON_SEP_RADIUS 0.72), so they never meet head-on at a shared
-    // corner — the opposite-direction lockstep the 300s soak caught (CONVENTIONS #17).
-    { id: 'cit_hc_loop_ccw', district: 'downtown_gateway', archetype: 'Harbor Commuter', behaviorType: 'loop_walk', position: [54.1, -166.2], waypoints: [[54.1, -166.2], [54.1, -153.8], [41.9, -153.8], [41.9, -166.2]], walkSpeed: 1.3, weatherBehavior: 'any' },
+    // Harbor Commuters PACE THE EAST-ARM north sidewalk, well east of the Harbor
+    // Cross intersection ring [48,-160] (issue #31). The loops used to circle that
+    // ring — but the ring IS the signalized crossing where trip citizens WAIT to
+    // cross, and its edges carry the pier/dock shuttles' dwell points. A loop_walk
+    // segment sweeping through those stationary waiters/dwellers is the sustained
+    // person-person lockstep the 300s integrity soak caught (cit_hc_loop_cw vs
+    // east_shuttle / waterfront_gazer / plaza_stroller). Now they pace a clear
+    // east-arm strip as two PARALLEL lanes ~1.5 apart (> PERSON_SEP_RADIUS 0.72),
+    // opposite directions so they never meet head-on (CONVENTIONS #21).
+    { id: 'cit_hc_loop_cw', district: 'downtown_gateway', archetype: 'Harbor Commuter', behaviorType: 'loop_walk', position: [60, -152.5], waypoints: [[60, -152.5], [70, -152.5]], walkSpeed: 1.4, weatherBehavior: 'any', bubbleLines: ['light’s about to change.'] },
+    { id: 'cit_hc_loop_ccw', district: 'downtown_gateway', archetype: 'Harbor Commuter', behaviorType: 'loop_walk', position: [70, -154], waypoints: [[70, -154], [60, -154]], walkSpeed: 1.3, weatherBehavior: 'any' },
     { id: 'cit_hc_south_shuttle', district: 'downtown_gateway', archetype: 'Dock Worker', behaviorType: 'visit_spot', position: [41, -154.6], waypoints: [[41, -154.6], [55, -154.6]], walkSpeed: 1.4, weatherBehavior: 'any', carriesBox: true },
     { id: 'cit_hc_east_shuttle', district: 'downtown_gateway', archetype: 'Pier Regular', behaviorType: 'visit_spot', position: [55, -152.9], waypoints: [[55, -152.9], [55, -167.1]], walkSpeed: 1.3, weatherBehavior: 'any', bubbleLines: ['harbor air.'] },
     { id: 'cit_hc_west_shuttle', district: 'downtown_gateway', archetype: 'Evening Walker', behaviorType: 'visit_spot', position: [41, -167.1], waypoints: [[41, -167.1], [41, -152.9]], walkSpeed: 1.2, weatherBehavior: 'any' },
