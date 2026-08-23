@@ -60,11 +60,56 @@ function distPointSeg(p: Vec2, a: Vec2, b: Vec2): number {
   return Math.hypot(p[0] - (a[0] + t * dx), p[1] - (a[1] + t * dz))
 }
 
-/** Min distance from a segment to an AABB (0 if it enters the box). */
-function distSegBox(a: Vec2, b: Vec2, box: { minX: number; maxX: number; minZ: number; maxZ: number }): number {
-  const inside = (p: Vec2) => p[0] >= box.minX && p[0] <= box.maxX && p[1] >= box.minZ && p[1] <= box.maxZ
-  if (inside(a) || inside(b)) return 0
-  const corners: Vec2[] = [
+export interface Aabb {
+  minX: number
+  maxX: number
+  minZ: number
+  maxZ: number
+}
+
+/**
+ * Segment/AABB intersection via Liang-Barsky slab clipping. True when [a,b]
+ * touches or crosses the box — endpoint(s) inside, crossing straight through
+ * with BOTH endpoints outside, tangent to an edge/corner, or a degenerate
+ * zero-length segment sitting inside/on the boundary. (The previous
+ * endpoints-inside check missed the crossing-through case.)
+ */
+export function segIntersectsAabb(a: Vec2, b: Vec2, box: Aabb): boolean {
+  const dx = b[0] - a[0]
+  const dz = b[1] - a[1]
+  // Half-plane form p·t ≤ q for the four slabs; clip the parameter to [t0, t1].
+  const p = [-dx, dx, -dz, dz]
+  const q = [a[0] - box.minX, box.maxX - a[0], a[1] - box.minZ, box.maxZ - a[1]]
+  let t0 = 0
+  let t1 = 1
+  for (let i = 0; i < 4; i++) {
+    if (p[i] === 0) {
+      if (q[i] < 0) return false // parallel to this slab and wholly outside it
+    } else {
+      const r = q[i] / p[i]
+      if (p[i] < 0) {
+        if (r > t1) return false
+        if (r > t0) t0 = r
+      } else {
+        if (r < t0) return false
+        if (r < t1) t1 = r
+      }
+    }
+  }
+  return t0 <= t1
+}
+
+/**
+ * Exact minimum distance from a segment to an AABB. Returns 0 whenever the
+ * segment intersects or touches the box (crossing-through included); otherwise
+ * the true segment-to-boundary distance. Correct for horizontal / vertical /
+ * diagonal / tangent / near-but-outside / degenerate segments — no sampling.
+ */
+export function distSegBox(a: Vec2, b: Vec2, box: Aabb): number {
+  if (segIntersectsAabb(a, b, box)) return 0
+  // Outside and non-crossing → closest approach is to one of the four edges;
+  // for two non-crossing 2D segments that is the min of the four endpoint→segment distances.
+  const c: Vec2[] = [
     [box.minX, box.minZ],
     [box.maxX, box.minZ],
     [box.maxX, box.maxZ],
@@ -72,9 +117,9 @@ function distSegBox(a: Vec2, b: Vec2, box: { minX: number; maxX: number; minZ: n
   ]
   let best = Infinity
   for (let i = 0; i < 4; i++) {
-    const c1 = corners[i]
-    const c2 = corners[(i + 1) % 4]
-    best = Math.min(best, distPointSeg(c1, a, b), distPointSeg(c2, a, b), distPointSeg(a, c1, c2), distPointSeg(b, c1, c2))
+    const e0 = c[i]
+    const e1 = c[(i + 1) % 4]
+    best = Math.min(best, distPointSeg(a, e0, e1), distPointSeg(b, e0, e1), distPointSeg(e0, a, b), distPointSeg(e1, a, b))
   }
   return best
 }

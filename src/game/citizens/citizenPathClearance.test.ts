@@ -1,7 +1,54 @@
 import { describe, it, expect } from 'vitest'
 import { AMBIENT_CITIZENS, type AmbientCitizen } from './ambientCitizenData'
 import { INTERSECTIONS } from '../traffic/intersections/intersectionRegistry'
-import { findLoopWalkClearanceViolations } from './citizenPathClearance'
+import { findLoopWalkClearanceViolations, distSegBox, segIntersectsAabb, type Aabb } from './citizenPathClearance'
+
+/**
+ * Segment/AABB geometry — the junction-box clearance depends on a correct
+ * segment-to-box distance. The earlier version only tested endpoints-inside and
+ * therefore missed a segment that crosses straight THROUGH the box with both
+ * endpoints outside; cases 1–3 below fail on that version and pass on the
+ * slab-clipping one.
+ */
+describe('segment/AABB geometry (issue #31 validator)', () => {
+  const box: Aabb = { minX: 0, maxX: 10, minZ: 0, maxZ: 10 }
+  it('1. horizontal segment crossing the box, both endpoints outside → 0', () => {
+    expect(segIntersectsAabb([-5, 5], [15, 5], box)).toBe(true)
+    expect(distSegBox([-5, 5], [15, 5], box)).toBe(0)
+  })
+  it('2. vertical segment crossing the box, both endpoints outside → 0', () => {
+    expect(distSegBox([5, -5], [5, 15], box)).toBe(0)
+  })
+  it('3. diagonal segment crossing the box → 0', () => {
+    expect(distSegBox([-5, -5], [15, 15], box)).toBe(0)
+  })
+  it('4. tangent to an edge and to a corner → 0', () => {
+    expect(distSegBox([-5, 0], [15, 0], box)).toBe(0) // runs along the bottom edge
+    expect(distSegBox([12, 8], [8, 12], box)).toBe(0) // passes through corner (10,10)
+  })
+  it('5. outside but within JUNCTION_MARGIN → 0 < d < 2', () => {
+    const d = distSegBox([11, 5], [13, 5], box) // 1.0 right of the x=10 edge
+    expect(d).toBeGreaterThan(0)
+    expect(d).toBeCloseTo(1, 5)
+    expect(d).toBeLessThan(2)
+  })
+  it('6. outside and safely beyond JUNCTION_MARGIN → d ≥ 2', () => {
+    expect(distSegBox([15, 5], [17, 5], box)).toBeCloseTo(5, 5)
+    expect(segIntersectsAabb([15, 5], [17, 5], box)).toBe(false)
+  })
+  it('7. zero-length segment inside → 0', () => {
+    expect(distSegBox([5, 5], [5, 5], box)).toBe(0)
+  })
+  it('8. zero-length segment outside → true point distance', () => {
+    expect(distSegBox([15, 5], [15, 5], box)).toBeCloseTo(5, 5)
+    expect(distSegBox([13, 5], [13, 5], box)).toBeCloseTo(3, 5)
+  })
+  it('near-but-outside diagonal that does NOT enter the box stays > 0', () => {
+    // corner-skimming line just outside the (10,10) corner
+    expect(segIntersectsAabb([11, 12], [12, 11], box)).toBe(false)
+    expect(distSegBox([11, 12], [12, 11], box)).toBeGreaterThan(0)
+  })
+})
 
 /**
  * Issue #31 — loop-walk citizens must clear stationary dwell points and
