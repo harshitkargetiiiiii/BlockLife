@@ -60,8 +60,9 @@ test.describe('traffic', () => {
 
     let minDistance = Infinity
     let approached = false
-    let yielded = false
+    let yieldedForPlayer = false
     let closest: Record<string, unknown> | null = null
+    let yieldSample: Record<string, unknown> | null = null
     for (let i = 0; i < 50; i++) {
       const s = await page.evaluate((car) => {
         const api = window.GAME_TEST_API!
@@ -91,19 +92,38 @@ test.describe('traffic', () => {
         closest = s
       }
       if (s.d < 6) approached = true
-      if (s.speed !== null && s.speed < 0.2 && s.targetSpeed === 0) yielded = true
+      // A stop only counts when it is CAUSED by the on-foot player or the occupied
+      // crossing. An unrelated `signal` / `follow` / `stop_sign` stop must never
+      // satisfy this scenario. Both causal reasons are legitimate here: depending on
+      // exactly where the staged player registers, the decision reports the crossing
+      // occupant (`crosswalk`) or the corridor point obstacle (`obstacle`).
+      if (
+        !yieldedForPlayer &&
+        s.speed !== null &&
+        s.speed < 0.2 &&
+        s.targetSpeed === 0 &&
+        (s.reason === 'crosswalk' || s.reason === 'obstacle')
+      ) {
+        yieldedForPlayer = true
+        yieldSample = s
+      }
       if (approached && i > 40) break
       await page.waitForTimeout(200)
     }
     // Bounded failure observability: identify the staged car and its decision.
-    if (!approached || minDistance <= 1.8 || !yielded) {
+    if (!approached || minDistance <= 1.8 || !yieldedForPlayer) {
       console.log(
-        'TRAFFIC_BRAKE_DIAG ' + JSON.stringify({ minDistance, approached, yielded, closest }),
+        'TRAFFIC_BRAKE_DIAG ' +
+          JSON.stringify({ minDistance, approached, yieldedForPlayer, closest, yieldSample }),
       )
     }
     expect(approached, 'the staged car should have approached the player').toBe(true)
     expect(minDistance, 'car overlapped the player').toBeGreaterThan(1.8)
-    expect(yielded, 'the staged car should stop/yield for the player').toBe(true)
+    expect(
+      yieldedForPlayer,
+      'the staged car must stop/yield BECAUSE of the on-foot player or the occupied crossing ' +
+        '(reason crosswalk|obstacle) — an unrelated signal/follow/stop_sign stop does not count',
+    ).toBe(true)
 
     // Step out of the road on a green: the SAME staged car gets moving again.
     const before = await page.evaluate(
