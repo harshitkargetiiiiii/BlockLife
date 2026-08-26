@@ -51,7 +51,7 @@ async function aimAtCashier(page: Page): Promise<void> {
 }
 
 test.describe('robbery pursuit & getaway', () => {
-  test('1 — containment arms and advances while wanted inside a robbed store', async ({ page }) => {
+  test('1 — containment arms and advances while wanted inside a robbed store', { tag: '@simulation-only' }, async ({ page }) => {
     await fresh(page)
     await page.evaluate(() => {
       const api = window.GAME_TEST_API!
@@ -74,7 +74,7 @@ test.describe('robbery pursuit & getaway', () => {
     expect(c.storeId).toBe('robbery_mainst_store')
   })
 
-  test('2 — a fair breach warning fires, then forces the player out to the street', async ({ page }) => {
+  test('2 — a fair breach warning fires, then forces the player out to the street', { tag: '@simulation-only' }, async ({ page }) => {
     await fresh(page)
     await page.evaluate(() => {
       const api = window.GAME_TEST_API!

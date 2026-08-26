@@ -31,7 +31,7 @@ test.describe('districts', () => {
     expect(errors).toEqual([])
   })
 
-  test('player can drive from Central through the east connector into the Market Strip', async ({
+  test('player can drive from Central through the east connector into the Market Strip', { tag: '@simulation-only' }, async ({
     page,
   }) => {
     await gotoGame(page)
@@ -92,7 +92,7 @@ test.describe('districts', () => {
     await page.keyboard.press('Escape')
   })
 
-  test('an ambient car works the residential loop and holds at the stop sign', async ({
+  test('an ambient car works the residential loop and holds at the stop sign', { tag: '@simulation-only' }, async ({
     page,
   }) => {
     test.slow()
@@ -148,7 +148,7 @@ test.describe('districts', () => {
     )
   })
 
-  test('Officer Kim patrols into Residential Street', async ({ page }) => {
+  test('Officer Kim patrols into Residential Street', { tag: '@simulation-only' }, async ({ page }) => {
     await gotoGame(page)
     await page.evaluate(() => {
       const api = window.GAME_TEST_API!

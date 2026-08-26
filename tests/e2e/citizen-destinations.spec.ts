@@ -86,7 +86,7 @@ test.describe('crossing-aware citizen destinations', () => {
     )
   })
 
-  test('waits at the curb, crosses on all-walk, reaches the destination', async ({ page }) => {
+  test('waits at the curb, crosses on all-walk, reaches the destination', { tag: '@simulation-only' }, async ({ page }) => {
     test.setTimeout(300_000)
     await gotoGame(page)
     await arriveAtHarborCross(page)
@@ -162,7 +162,7 @@ test.describe('crossing-aware citizen destinations', () => {
     )
   })
 
-  test('the yard worker completes a cross-district commute to the warehouse door', async ({
+  test('the yard worker completes a cross-district commute to the warehouse door', { tag: '@simulation-only' }, async ({
     page,
   }) => {
     test.setTimeout(420_000)
@@ -315,7 +315,7 @@ test.describe('crossing-aware citizen destinations', () => {
     expect(overlaps).toEqual([])
   })
 
-  test('150s mixed soak: trips keep completing, nobody strands, occupancy never leaks', async ({
+  test('150s mixed soak: trips keep completing, nobody strands, occupancy never leaks', { tag: '@simulation-only' }, async ({
     page,
   }) => {
     test.setTimeout(300_000)

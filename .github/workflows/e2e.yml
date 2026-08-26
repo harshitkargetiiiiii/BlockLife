@@ -1,13 +1,17 @@
 name: E2E (full Playwright)
 
-# The FULL browser E2E gate on a dedicated, idle GitHub runner — the "genuinely suitable
-# idle runner" the load-saturated macOS dev machine cannot provide (PR #24 review). Kept
-# out of the fast `ci.yml` gate because it is heavy (~1-3h); it runs on pushes to the
-# active feature branch and on demand. Visual-regression screenshots are NOT run here:
-# their baselines are macOS-specific and would not match a Linux runner's rendering — the
-# visual ×2 gate must run on a macOS host that matches the committed goldens.
-
-# Durable gate: protects master and every PR (not a throwaway feature branch), plus on demand.
+# THE sole authoritative full-E2E gate (the temporary branch-validation workflow has been removed).
+# Two render-eligibility partitions over the 367-test suite (see docs/e2e-simulation-only.md +
+# docs/e2e-suppression-audit.md):
+#   • normal-render   — the default: 338 tests on NORMAL software WebGL, sharded ×8.
+#   • simulation-only  — 29 CAUSALLY-VALIDATED tests that starve on the software renderer AND are
+#                        render-independent; drawing is suppressed after settle so the single useFrame
+#                        authority runs near real time, sharded ×2. Test bodies, assertions, timeouts
+#                        and retries=0 are UNCHANGED.
+# Deterministic build + production-bundle exclusion (no diagnostic/suppression/test API in dist/) is the
+# job of the REQUIRED companion gate ci.yml — not duplicated here. Merge requires BOTH ci.yml + this gate.
+# Measured runner: AMD EPYC 9V74, 4 logical vCPU, 16 GB, Ubuntu 24.04 (Azure), SwiftShader (software
+# WebGL) — GitHub may change the exact CPU at any time. Visual-regression screenshots are NOT run here.
 on:
   push:
     branches: [master]
@@ -19,45 +23,118 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  e2e:
-    name: E2E shard ${{ matrix.shard }}
+  # ---- exact-once partition accounting: 29 + 338 = 367, empty intersection, complete union ----
+  accounting:
+    name: partition accounting (exact-once)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version-file: .nvmrc, cache: npm }
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Exact-once partition check (29 + 338 = 367)
+        run: node scripts/e2e-partition-check.mjs 367
+
+  # ---- render-suppression guard (NO env): a normal-render run cannot inherit suppression ----
+  suppression-guard:
+    name: render-suppression guard (default-off)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version-file: .nvmrc, cache: npm }
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Guard spec (WITHOUT VITE_SUPPRESS_AFTER_SETTLE — must stay default-off + restore)
+        run: |
+          PLAYWRIGHT_JSON_OUTPUT_NAME=pw-guard.json \
+            npx playwright test tests/diagnostics/suppression-guard.spec.ts \
+            --workers=1 --retries=0 --forbid-only --reporter=line,json || true
+          node scripts/assert-playwright-run.mjs pw-guard.json "suppression-guard"
+
+  # ---- normal-render partition: NO suppression, sharded ×8 (338 tests) ----
+  normal-render:
+    name: normal-render ${{ matrix.shard }}
+    needs: accounting
     runs-on: ubuntu-latest
     timeout-minutes: 120
     strategy:
       fail-fast: false
       matrix:
-        # 8 parallel shards: keeps each job well under the timeout AND spreads the handful of
-        # long soak suites so they can't all land in one shard (round-4 review). Serial per shard.
         shard: ['1/8', '2/8', '3/8', '4/8', '5/8', '6/8', '7/8', '8/8']
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Node (pinned via .nvmrc)
-        uses: actions/setup-node@v4
-        with:
-          node-version-file: .nvmrc
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Install Playwright chromium + OS deps
-        run: npx playwright install --with-deps chromium
-
-      # HONEST gate: --retries=0 explicitly overrides playwright.config's `retries: CI ? 1 : 0`
-      # so a flake can never be masked by a silent CI retry. --workers=1 within each shard.
-      # NOTE: some wall-clock-budgeted tests (e.g. the cross-district commute's 380s window)
-      # need a FAST host; a free 2-core ubuntu runner can be too slow for those — see the
-      # delivery report §7 for the honest per-host picture.
-      - name: E2E shard (workers=1, retries=0)
-        run: npx playwright test tests/e2e --workers=1 --retries=0 --shard=${{ matrix.shard }}
-
-      - name: Upload Playwright report on failure
-        if: failure()
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version-file: .nvmrc, cache: npm }
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Normal-render partition (NO suppression, workers=1, retries=0)
+        run: |
+          PLAYWRIGHT_JSON_OUTPUT_NAME=pw-results.json \
+            npx playwright test tests/e2e --grep-invert "@simulation-only" \
+            --workers=1 --retries=0 --forbid-only \
+            --reporter=line,json,html --shard=${{ matrix.shard }} || true
+          # The exit code alone is not trusted: assert the JSON report is clean (0 failed/skipped/flaky, >0 ran).
+          node scripts/assert-playwright-run.mjs pw-results.json "normal-render ${{ matrix.shard }}"
+      - if: always()
         uses: actions/upload-artifact@v4
         with:
-          # Unique per shard — a shared name collides across the parallel matrix jobs (round-4).
-          name: playwright-report-shard-${{ strategy.job-index }}
-          path: playwright-report/
+          name: report-normal-${{ strategy.job-index }}
+          path: |
+            playwright-report/
+            pw-results.json
           retention-days: 7
+
+  # ---- simulation-only partition: suppression after settle, sharded ×2 (29 tests) ----
+  simulation-only:
+    name: simulation-only ${{ matrix.shard }}
+    needs: accounting
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ['1/2', '2/2']
+    env:
+      # Auto-engage render suppression after settle — used ONLY in this job, paired with the
+      # @simulation-only filter. Never applied to the unfiltered suite (proven by the guard job).
+      VITE_SUPPRESS_AFTER_SETTLE: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version-file: .nvmrc, cache: npm }
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Simulation-only partition (render-suppressed, workers=1, retries=0)
+        run: |
+          PLAYWRIGHT_JSON_OUTPUT_NAME=pw-results.json \
+            npx playwright test tests/e2e --grep "@simulation-only" \
+            --workers=1 --retries=0 --forbid-only \
+            --reporter=line,json,html --shard=${{ matrix.shard }} || true
+          node scripts/assert-playwright-run.mjs pw-results.json "simulation-only ${{ matrix.shard }}"
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: report-simulation-${{ strategy.job-index }}
+          path: |
+            playwright-report/
+            pw-results.json
+          retention-days: 7
+
+  # ---- fail-closed conclusion: any job failure / cancellation / skip fails the gate ----
+  conclusion:
+    name: E2E gate conclusion
+    needs: [accounting, suppression-guard, normal-render, simulation-only]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every job to have succeeded (no cancel / skip / failure)
+        run: |
+          echo "accounting=${{ needs.accounting.result }} guard=${{ needs.suppression-guard.result }} normal=${{ needs.normal-render.result }} simulation=${{ needs.simulation-only.result }}"
+          for r in "${{ needs.accounting.result }}" "${{ needs.suppression-guard.result }}" "${{ needs.normal-render.result }}" "${{ needs.simulation-only.result }}"; do
+            if [ "$r" != "success" ]; then echo "::error::E2E gate FAILED — a job result was '$r' (not success)"; exit 1; fi
+          done
+          echo "E2E gate PASS — accounting exact-once, guard held, both partitions clean."

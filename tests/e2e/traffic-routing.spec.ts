@@ -52,7 +52,7 @@ test.describe('cross-district traffic routing', () => {
     expect(errors).toEqual([])
   })
 
-  test('central → north freight: connector + arterial T traversal completes a trip', async ({
+  test('central → north freight: connector + arterial T traversal completes a trip', { tag: '@simulation-only' }, async ({
     page,
   }) => {
     test.setTimeout(150_000)
@@ -97,7 +97,7 @@ test.describe('cross-district traffic routing', () => {
     expect(after.overlaps).toEqual([])
   })
 
-  test('red signal stops a routed car at the line without replanning; green resumes it', async ({
+  test('red signal stops a routed car at the line without replanning; green resumes it', { tag: '@simulation-only' }, async ({
     page,
   }) => {
     test.setTimeout(90_000)
@@ -233,7 +233,7 @@ test.describe('cross-district traffic routing', () => {
     expect(result.state.segmentIds[result.state.segmentIds.length - 1]).toBe('ring_in_e_a')
   })
 
-  test('120-second mixed-fleet soak: motion, trips, zero overlaps, stable registries', async ({
+  test('120-second mixed-fleet soak: motion, trips, zero overlaps, stable registries', { tag: '@simulation-only' }, async ({
     page,
   }) => {
     test.setTimeout(300_000)

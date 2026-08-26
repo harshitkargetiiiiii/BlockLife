@@ -55,8 +55,10 @@ jobs:
       - name: Assert no test API in dist/
         run: |
           set -euo pipefail
-          if grep -rlE 'GAME_TEST_API|spawnPoliceResponse|givePlayerWeapon|firePlayerWeaponAt|forcePoliceDismount|isNpcPanicking' dist/; then
-            echo "::error::Test API strings leaked into the production bundle (dist/)."
+          # Legacy test-API surface + the DEV-only render-suppression / diagnostic controls added on
+          # the E2E-CI branch. All are import.meta.env.DEV-guarded and must tree-shake out of dist/.
+          if grep -rlE 'GAME_TEST_API|spawnPoliceResponse|givePlayerWeapon|firePlayerWeaponAt|forcePoliceDismount|isNpcPanicking|renderSuppressor|setRenderSuppressed|isRenderSuppressed|VITE_SUPPRESS_AFTER_SETTLE|enableAutoAfterSettle|diagnosticProbe|getDiagnostics|resetDiagnostics' dist/; then
+            echo "::error::Test/diagnostic API strings leaked into the production bundle (dist/)."
             exit 1
           fi
-          echo "dist/ is clean — no test API strings."
+          echo "dist/ is clean — no test or diagnostic API strings."

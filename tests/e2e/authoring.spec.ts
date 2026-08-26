@@ -70,7 +70,7 @@ test.describe('district authoring kit', () => {
     expect(state.citizens.length).toBeGreaterThanOrEqual(1)
   })
 
-  test('routed traffic drives the compiled road to the kit destination', async ({ page }) => {
+  test('routed traffic drives the compiled road to the kit destination', { tag: '@simulation-only' }, async ({ page }) => {
     test.setTimeout(180_000)
     await gotoGame(page)
     await page.evaluate(() => {
