@@ -168,6 +168,9 @@ test.describe('crossing-aware citizen destinations', () => {
     test.setTimeout(420_000)
     await gotoGame(page)
     await arriveAtHarborCross(page)
+    await page.evaluate(() =>
+      (window.GAME_TEST_API as never as Record<string, () => void>).resetIssue34Events(),
+    )
     await page.waitForFunction(
       () => window.GAME_TEST_API!.forceCitizenDestination('cit_dd_yard_worker', 'pdest_s-1_-2_w1'),
       undefined,
@@ -179,13 +182,38 @@ test.describe('crossing-aware citizen destinations', () => {
     // East gate → Harbor Cross (signalized) → yard painted crossing → dock.
     expect(trip.crossingIds.some((c) => c.includes('harbor_cross'))).toBe(true)
     expect(trip.crossingIds).toContain('s-1_-2_yard_rd_gate_walk')
-    await page.waitForFunction(
-      () =>
-        window.GAME_TEST_API!.getCitizenTripState('cit_dd_yard_worker')?.phase ===
-        'performing_activity',
-      undefined,
-      { timeout: 380_000 },
-    )
+    // ISSUE #34 PHASE B (temporary diagnostic logging; window/assertions unchanged).
+    let phaseBReached = false
+    try {
+      await page.waitForFunction(
+        () =>
+          window.GAME_TEST_API!.getCitizenTripState('cit_dd_yard_worker')?.phase ===
+          'performing_activity',
+        undefined,
+        { timeout: 380_000 },
+      )
+      phaseBReached = true
+    } finally {
+      const ev = await page.evaluate(() => {
+        const api = window.GAME_TEST_API as never as Record<string, (...a: unknown[]) => unknown>
+        return {
+          events: (api.getIssue34Events as () => unknown)(),
+          trip: (api.getCitizenTripState as (c: string) => unknown)('cit_dd_yard_worker'),
+          ped: (api.getPedestrianCrossingState as (c: string) => unknown)('cit_dd_yard_worker'),
+          destOccupancy: (api.getDestinationOccupancy as (d: string) => unknown)('pdest_s-1_-2_w1'),
+        }
+      })
+      console.log(
+        'ISSUE34_PHASEB_B ' +
+          JSON.stringify({
+            sha: process.env.DIAG_SHA ?? 'unknown',
+            mode: process.env.VITE_SUPPRESS_AFTER_SETTLE ? 'suppressed' : 'normal',
+            rep: process.env.DIAG_REP ?? '0',
+            reachedActivity: phaseBReached,
+            ...ev,
+          }),
+      )
+    }
     const state = await page.evaluate(
       () => window.GAME_TEST_API!.getCitizenTripState('cit_dd_yard_worker')!,
     )

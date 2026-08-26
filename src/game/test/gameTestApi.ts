@@ -1,5 +1,6 @@
 import { useGameStore, canEditFurnish as canEditFurnishRt } from '../store/useGameStore'
 import { registry } from '../world/runtimeRegistry'
+import { getIssue34Events, resetIssue34Events } from './issue34Events'
 import { perfRuntime } from '../world/perfRuntime'
 import { diagnosticProbe } from '../world/diagnosticTelemetry'
 import { renderSuppressor } from '../world/renderSuppressor'
@@ -792,6 +793,9 @@ export interface GameTestApi {
     position: [number, number]
     heading: number
   }[]
+  /** DEV/E2E ONLY (issue #34 Phase B): bounded diagnostic event buffer. */
+  getIssue34Events: () => Record<string, unknown>
+  resetIssue34Events: () => void
   // ---- Police dispatch & AI (M4) ------------------------------------------
   /** Force a police response at the suspect's location for a wanted level. */
   spawnPoliceResponse: (level: number) => number
@@ -1858,6 +1862,8 @@ export function installTestApi(): void {
         position: d.pos,
         heading: d.heading,
       })),
+    getIssue34Events: () => getIssue34Events() as unknown as Record<string, unknown>,
+    resetIssue34Events: () => resetIssue34Events(),
     // ---- Police dispatch & AI (M4) ----------------------------------------
     spawnPoliceResponse: (level) => {
       const p = registry.playerPosition

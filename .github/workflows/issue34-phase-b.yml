@@ -1,0 +1,121 @@
+name: Issue34 Phase B CI diagnosis (temporary)
+
+# TEMPORARY diagnostic workflow for issue #34 Phase B. Narrowly scoped: every job
+# is guarded to the disposable diagnostic branch, so it can never run for any
+# other PR. Runs the CANONICAL test scenarios (assertions/thresholds/timeouts
+# unchanged) with temporary DEV-only logging, in both render modes.
+# workers=1, retries=0. Playwright's real exit status is preserved: artifacts are
+# uploaded with if: always(), then the job exits with the original status.
+# Never merged; branch + PR are deleted after evidence is recorded.
+on:
+  pull_request:
+
+jobs:
+  track-a:
+    name: A driver ${{ matrix.mode }} r${{ matrix.rep }}
+    if: github.head_ref == 'diag/issue-34-ci-phase-b'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: [normal, suppressed]
+        rep: [1, 2, 3, 4, 5, 6, 7, 8]
+    env:
+      VITE_SUPPRESS_AFTER_SETTLE: ${{ matrix.mode == 'suppressed' && '1' || '' }}
+      DIAG_SHA: ${{ github.event.pull_request.head.sha }}
+      DIAG_REP: ${{ matrix.rep }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Record job identity
+        run: |
+          echo "{\"integrationSha\":\"${DIAG_SHA}\",\"mode\":\"${{ matrix.mode }}\",\"rep\":\"${{ matrix.rep }}\",\"track\":\"A\"}" > identity.json
+          cat identity.json
+      - name: Canonical crime.spec.ts:201 (assertions unchanged)
+        run: |
+          set +e
+          npx playwright test tests/e2e/crime.spec.ts:201 --workers=1 --retries=0 --forbid-only --reporter=line 2>&1 | tee run.log
+          status=${PIPESTATUS[0]}
+          grep -o 'ISSUE34_PHASEB_A .*' run.log | tail -1 > events.json || echo '{}' > events.json
+          grep -oE '[0-9]+ (passed|failed)' run.log | tail -1 > verdict.txt || true
+          echo "canonical verdict: $(cat verdict.txt)"
+          exit $status
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: A-${{ matrix.mode }}-${{ matrix.rep }}
+          path: |
+            identity.json
+            events.json
+            verdict.txt
+            run.log
+          retention-days: 14
+
+  track-b:
+    name: B yard ${{ matrix.mode }} r${{ matrix.rep }}
+    if: github.head_ref == 'diag/issue-34-ci-phase-b'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - mode: suppressed
+            rep: 1
+          - mode: suppressed
+            rep: 2
+          - mode: suppressed
+            rep: 3
+          - mode: suppressed
+            rep: 4
+          - mode: suppressed
+            rep: 5
+          - mode: suppressed
+            rep: 6
+          - mode: suppressed
+            rep: 7
+          - mode: suppressed
+            rep: 8
+          - mode: normal
+            rep: 1
+    env:
+      VITE_SUPPRESS_AFTER_SETTLE: ${{ matrix.mode == 'suppressed' && '1' || '' }}
+      DIAG_SHA: ${{ github.event.pull_request.head.sha }}
+      DIAG_REP: ${{ matrix.rep }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Record job identity
+        run: |
+          echo "{\"integrationSha\":\"${DIAG_SHA}\",\"mode\":\"${{ matrix.mode }}\",\"rep\":\"${{ matrix.rep }}\",\"track\":\"B\"}" > identity.json
+          cat identity.json
+      - name: Canonical citizen-destinations.spec.ts:165 (380 s window unchanged)
+        run: |
+          set +e
+          npx playwright test tests/e2e/citizen-destinations.spec.ts:165 --workers=1 --retries=0 --forbid-only --reporter=line 2>&1 | tee run.log
+          status=${PIPESTATUS[0]}
+          grep -o 'ISSUE34_PHASEB_B .*' run.log | tail -1 > events.json || echo '{}' > events.json
+          grep -oE '[0-9]+ (passed|failed)' run.log | tail -1 > verdict.txt || true
+          echo "canonical verdict: $(cat verdict.txt)"
+          exit $status
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: B-${{ matrix.mode }}-${{ matrix.rep }}
+          path: |
+            identity.json
+            events.json
+            verdict.txt
+            run.log
+          retention-days: 14

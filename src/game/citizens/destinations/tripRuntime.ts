@@ -1,3 +1,4 @@
+import { pushIssue34Event } from '../../test/issue34Events'
 import type { Vec2 } from '../../world/worldTypes'
 import { createRng, hashString } from '../../traffic/routing/routeRng'
 import {
@@ -54,6 +55,18 @@ export function occupancyCount(destinationId: string): number {
   return tripRuntime.occupancy.get(destinationId)?.size ?? 0
 }
 
+function diagClaimEvent(kind: string, destinationId: string | null, citizenId: string, ok: boolean): void {
+  // DEV-ONLY (issue #34 Phase B): observation only; influences no decision.
+  if (!import.meta.env.DEV || !destinationId) return
+  pushIssue34Event(kind, {
+    destinationId,
+    citizenId,
+    ok,
+    claimants: [...(tripRuntime.occupancy.get(destinationId) ?? [])],
+    capacity: DESTINATIONS_BY_ID.get(destinationId)?.capacity ?? null,
+  })
+}
+
 function claim(destinationId: string, citizenId: string): boolean {
   const dest = DESTINATIONS_BY_ID.get(destinationId)
   if (!dest) return false
@@ -62,15 +75,23 @@ function claim(destinationId: string, citizenId: string): boolean {
     set = new Set()
     tripRuntime.occupancy.set(destinationId, set)
   }
-  if (set.has(citizenId)) return true
-  if (set.size >= dest.capacity) return false
+  if (set.has(citizenId)) {
+    diagClaimEvent('claimAlreadyHeld', destinationId, citizenId, true)
+    return true
+  }
+  if (set.size >= dest.capacity) {
+    diagClaimEvent('claimDenied', destinationId, citizenId, false)
+    return false
+  }
   set.add(citizenId)
+  diagClaimEvent('claimGranted', destinationId, citizenId, true)
   return true
 }
 
 function release(destinationId: string | null, citizenId: string): void {
   if (!destinationId) return
   tripRuntime.occupancy.get(destinationId)?.delete(citizenId)
+  diagClaimEvent('release', destinationId, citizenId, true)
 }
 
 /** Register the citizen's home node + initial state. Idempotent. */
@@ -211,6 +232,21 @@ export function resumeTrip(citizenId: string, position: Vec2, ctx: TripPlanningC
  *   4 idle fallback
  */
 export function recoverTrip(state: CitizenTripState, position: Vec2, ctx: TripPlanningContext): void {
+  if (import.meta.env.DEV) {
+    pushIssue34Event('recoverTripEnter', {
+      citizenId: state.citizenId,
+      stageBefore: state.recoveryStage,
+      phaseBefore: state.phase,
+      destinationBefore: state.destinationId,
+      waypointIndexBefore: state.waypointIndex,
+      waypointCountBefore: state.plan?.waypoints.length ?? 0,
+      noProgressTimeBefore: state.noProgressTime,
+      position: [position[0], position[1]],
+      claimantsBefore: state.destinationId
+        ? [...(tripRuntime.occupancy.get(state.destinationId) ?? [])]
+        : [],
+    })
+  }
   state.recoveryStage += 1
   state.noProgressTime = 0
   const anchor = nearestGraphNode(position)

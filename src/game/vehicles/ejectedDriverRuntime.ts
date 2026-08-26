@@ -3,6 +3,7 @@ import type { Vec2 } from '../world/worldTypes'
 import { registry } from '../world/runtimeRegistry'
 import { avoidSolids } from '../police/policeAvoidance'
 import { resolvePersonOccupancy } from '../world/integrity/personOccupancy'
+import { pushIssue34Event } from '../test/issue34Events'
 
 /**
  * Drivers carjacked out of an occupied vehicle. Each is ejected EXACTLY ONCE
@@ -71,13 +72,37 @@ export function stepEjectedDrivers(dt: number, gameTime: number): void {
     const len = Math.hypot(dx, dz) || 1
     const step = DRIVER_FLEE_SPEED * Math.min(dt, 0.05)
     const next: Vec2 = [d.pos[0] + (dx / len) * step, d.pos[1] + (dz / len) * step]
+    // DEV-ONLY (issue #34 Phase B): observation of the three movement stages.
+    // Pure reads of values that already exist; alters no output.
+    const diagBefore: Vec2 = [d.pos[0], d.pos[1]]
     d.pos = avoidSolids(next) // best-effort: never flee through a wall
+    const diagAfterSolids: Vec2 = [d.pos[0], d.pos[1]]
     // Hard occupancy safety net (World Integrity §8): route the fleeing driver
     // through the SAME per-actor contract citizens use, so it never ends a frame
     // embedded in a building, standing on a car, or stacked on a pedestrian. It is
     // already registered in npcPositions, so the shared spacing separates it from
     // citizens and other drivers too. Off-path (a direct flee, no crossing logic).
     resolvePersonOccupancy(d.pos, id, Math.min(dt, 0.05), /* isMoving */ true, /* onPath */ false)
+    if (import.meta.env.DEV) {
+      const dd = (a: Vec2, b: Vec2) => Math.hypot(a[0] - b[0], a[1] - b[1])
+      pushIssue34Event('driverStep', {
+        id,
+        dt,
+        gameTime,
+        frameCount: registry.frameCount,
+        spawnedAt: d.spawnedAt,
+        despawnAt: d.despawnAt,
+        posBefore: diagBefore,
+        fleeStep: step,
+        proposed: [next[0], next[1]],
+        afterSolids: diagAfterSolids,
+        afterOccupancy: [d.pos[0], d.pos[1]],
+        dFlee: dd(diagBefore, next),
+        dSolids: dd(next, diagAfterSolids),
+        dOccupancy: dd(diagAfterSolids, [d.pos[0], d.pos[1]]),
+        displacementFromFleeFrom: Math.hypot(d.pos[0] - d.fleeFrom[0], d.pos[1] - d.fleeFrom[1]),
+      })
+    }
     d.heading = Math.atan2(d.pos[0] - d.fleeFrom[0], d.pos[1] - d.fleeFrom[1])
     registry.npcPositions.get(id)?.set(d.pos[0], 0, d.pos[1])
     registry.movingPersonIds.add(id)
@@ -85,6 +110,17 @@ export function stepEjectedDrivers(dt: number, gameTime: number): void {
 }
 
 export function despawnEjectedDriver(id: string): void {
+  if (import.meta.env.DEV) {
+    const d = ejectedDriverRuntime.drivers.get(id)
+    if (d) {
+      pushIssue34Event('driverDespawn', {
+        id,
+        spawnedAt: d.spawnedAt,
+        despawnAt: d.despawnAt,
+        finalDisplacement: Math.hypot(d.pos[0] - d.fleeFrom[0], d.pos[1] - d.fleeFrom[1]),
+      })
+    }
+  }
   ejectedDriverRuntime.drivers.delete(id)
   registry.npcPositions.delete(id)
   registry.movingPersonIds.delete(id)

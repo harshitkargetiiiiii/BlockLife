@@ -1,3 +1,4 @@
+import { pushIssue34Event } from '../test/issue34Events'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { useFrame } from '@react-three/fiber'
@@ -450,8 +451,59 @@ function Citizen({ def }: { def: AmbientCitizen }) {
               trip.noProgressTime = 0
             } else {
               trip.noProgressTime += dt
+              if (import.meta.env.DEV && def.id === 'cit_dd_yard_worker') {
+                // DEV-ONLY (issue #34 Phase B): threshold crossings only.
+                const t = trip.noProgressTime
+                if (t > 5 && Math.floor(t / 10) !== Math.floor((t - dt) / 10)) {
+                  pushIssue34Event('noProgressTick', {
+                    citizenId: def.id,
+                    noProgressTime: +t.toFixed(2),
+                    waypointIndex: trip.waypointIndex,
+                    waypointCount: trip.plan?.waypoints.length ?? 0,
+                    dist: +dist.toFixed(3),
+                    tripLastDist: s.tripLastDist === Infinity ? null : +s.tripLastDist.toFixed(3),
+                    pos: [+s.pos[0].toFixed(2), +s.pos[1].toFixed(2)],
+                    target: [+target[0].toFixed(2), +target[1].toFixed(2)],
+                    pedState: s.pedState,
+                    crosswalkId: s.crosswalkId,
+                    waitTime: +s.waitTime.toFixed(2),
+                    mayMove: decision.mayMove,
+                    destinationId: trip.destinationId,
+                    recoveryStage: trip.recoveryStage,
+                  })
+                }
+              }
               if (trip.noProgressTime > 45) {
+                if (import.meta.env.DEV && def.id === 'cit_dd_yard_worker') {
+                  pushIssue34Event('recoverTrigger', {
+                    citizenId: def.id,
+                    callSite: 'AmbientCitizens.tsx: trip.noProgressTime > 45',
+                    noProgressTime: +trip.noProgressTime.toFixed(2),
+                    waypointIndex: trip.waypointIndex,
+                    waypointCount: trip.plan?.waypoints.length ?? 0,
+                    dist: +dist.toFixed(3),
+                    tripLastDist: s.tripLastDist === Infinity ? null : +s.tripLastDist.toFixed(3),
+                    pos: [+s.pos[0].toFixed(2), +s.pos[1].toFixed(2)],
+                    target: [+target[0].toFixed(2), +target[1].toFixed(2)],
+                    pedState: s.pedState,
+                    crosswalkId: s.crosswalkId,
+                    waitTime: +s.waitTime.toFixed(2),
+                    mayMove: decision.mayMove,
+                    destinationId: trip.destinationId,
+                    recoveryStageBefore: trip.recoveryStage,
+                  })
+                }
                 recoverTrip(trip, s.pos, ctx)
+                if (import.meta.env.DEV && def.id === 'cit_dd_yard_worker') {
+                  pushIssue34Event('recoverResult', {
+                    citizenId: def.id,
+                    recoveryStageAfter: trip.recoveryStage,
+                    phaseAfter: trip.phase,
+                    destinationAfter: trip.destinationId,
+                    waypointIndexAfter: trip.waypointIndex,
+                    waypointCountAfter: trip.plan?.waypoints.length ?? 0,
+                  })
+                }
                 s.tripLastDist = Infinity
               }
             }

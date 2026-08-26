@@ -200,6 +200,10 @@ test.describe('crime & law enforcement', () => {
 
   test('8b — the carjacked driver flees the scene then despawns', { tag: '@simulation-only' }, async ({ page }) => {
     await freshGame(page)
+    // ISSUE #34 PHASE B (temporary diagnostic logging; assertions unchanged).
+    await page.evaluate(() =>
+      (window.GAME_TEST_API as never as Record<string, () => void>).resetIssue34Events(),
+    )
     const start = await page.evaluate(() => {
       const api = window.GAME_TEST_API!
       api.forceOccupiedVehicleTheft('theft_occupied_market')
@@ -213,6 +217,23 @@ test.describe('crime & law enforcement', () => {
       if (!d) return { gone: true, dist: 0 }
       return { gone: false, dist: Math.hypot(d.position[0] - (s as number[])[0], d.position[1] - (s as number[])[1]) }
     }, start)
+    // ISSUE #34 PHASE B: dump BEFORE the assertion so evidence survives a failure.
+    {
+      const ev = await page.evaluate(() =>
+        (window.GAME_TEST_API as never as Record<string, () => unknown>).getIssue34Events(),
+      )
+      console.log(
+        'ISSUE34_PHASEB_A ' +
+          JSON.stringify({
+            sha: process.env.DIAG_SHA ?? 'unknown',
+            mode: process.env.VITE_SUPPRESS_AFTER_SETTLE ? 'suppressed' : 'normal',
+            rep: process.env.DIAG_REP ?? '0',
+            checkpoint: moved,
+            existsAtCheckpoint: !moved.gone,
+            events: ev,
+          }),
+      )
+    }
     // The driver moved away from the car (fled on foot).
     if (!moved.gone) expect(moved.dist).toBeGreaterThan(1)
     // …and eventually despawns after the flee window.
