@@ -12,38 +12,127 @@ test.describe('traffic', () => {
   }) => {
     test.slow()
     await gotoGame(page)
-    await page.evaluate(() => {
-      window.GAME_TEST_API!.resetGame()
-      window.GAME_TEST_API!.setSignalPhase('vehicle_green')
-    })
-    await teleport(page, [0, 1.2, -24.6]) // in the eastbound lane, on the crossing
+
+    // Deterministic staging (issue #32). This scenario used to teleport the player
+    // beside wherever the routed ambient car happened to be after boot: resetGame()
+    // does NOT reset ambient route/position, so CI measured an already-adjacent car
+    // at sample 0 (0.300-1.799 units) instead of a braking approach. Stage the exact
+    // car upstream and place the player in ONE operation, then wait on STATE.
+    const CAR = 'vehicle_ambient_car_01' // a crossDistrict RoutedCar on the inner ring
+    const LANE_Z = -24.6
+    await page.evaluate(
+      ([car, z]) => {
+        const api = window.GAME_TEST_API!
+        api.resetGame()
+        api.setSignalPhase('vehicle_green')
+        // Routed car: position only - `targetIndex` is loop-car state, unused here.
+        api.setAmbientCarPosition(car as string, [-10, z as number])
+        api.teleportPlayer([0, 1.2, z as number])
+      },
+      [CAR, LANE_Z] as const,
+    )
+
+    // Preconditions before measuring: the player is on foot at the crossing, the car
+    // consumed its override onto the expected eastbound segment and is still safely
+    // upstream, and the crossing reads occupied.
+    await page.waitForFunction(
+      ([car, z]) => {
+        const api = window.GAME_TEST_API!
+        const stats = api.getStats()
+        const traffic = api.getTrafficState()
+        const c = traffic.cars.find((x) => x.id === car)
+        const route = api.getVehicleRouteState(car as string)
+        const cw = traffic.crosswalks.find((x) => x.id === 'crosswalk_north')
+        if (!c || !route || !cw) return false
+        return (
+          stats.mode === 'walking' &&
+          Math.hypot(stats.position[0], stats.position[2] - (z as number)) < 0.25 &&
+          Math.abs(c.position[1] - (z as number)) < 1.5 &&
+          c.position[0] <= -8 &&
+          Math.sin(c.heading) > 0.9 &&
+          route.currentSegmentId === 'ring_in_n_a' &&
+          cw.occupied
+        )
+      },
+      [CAR, LANE_Z] as const,
+      { timeout: 20_000 },
+    )
 
     let minDistance = Infinity
     let approached = false
+    let yieldedForPlayer = false
+    let closest: Record<string, unknown> | null = null
+    let yieldSample: Record<string, unknown> | null = null
     for (let i = 0; i < 50; i++) {
-      const d = await page.evaluate(() => {
+      const s = await page.evaluate((car) => {
         const api = window.GAME_TEST_API!
-        const me = api.getStats().position
-        const cars = Object.values(api.getAmbientCarPositions())
-        return Math.min(...cars.map((c) => Math.hypot(c[0] - me[0], c[2] - me[2])))
-      })
-      minDistance = Math.min(minDistance, d)
-      if (d < 6) approached = true
+        const stats = api.getStats()
+        const me = stats.position
+        const pos = api.getAmbientCarPositions()[car]
+        const traffic = api.getTrafficState()
+        const c = traffic.cars.find((x) => x.id === car)
+        return {
+          car,
+          d: pos ? Math.hypot(pos[0] - me[0], pos[2] - me[2]) : Infinity,
+          carPos: pos ? [pos[0], pos[2]] : null,
+          heading: c?.heading ?? null,
+          speed: c?.speed ?? null,
+          targetSpeed: c?.targetSpeed ?? null,
+          state: c?.state ?? null,
+          reason: c?.reason ?? null,
+          segment: api.getVehicleRouteState(car)?.currentSegmentId ?? null,
+          playerMode: stats.mode,
+          playerPos: [me[0], me[2]],
+          crosswalkOccupied:
+            traffic.crosswalks.find((x) => x.id === 'crosswalk_north')?.occupied ?? null,
+        }
+      }, CAR)
+      if (s.d < minDistance) {
+        minDistance = s.d
+        closest = s
+      }
+      if (s.d < 6) approached = true
+      // A stop only counts when it is CAUSED by the on-foot player or the occupied
+      // crossing. An unrelated `signal` / `follow` / `stop_sign` stop must never
+      // satisfy this scenario. Both causal reasons are legitimate here: depending on
+      // exactly where the staged player registers, the decision reports the crossing
+      // occupant (`crosswalk`) or the corridor point obstacle (`obstacle`).
+      if (
+        !yieldedForPlayer &&
+        s.speed !== null &&
+        s.speed < 0.2 &&
+        s.targetSpeed === 0 &&
+        (s.reason === 'crosswalk' || s.reason === 'obstacle')
+      ) {
+        yieldedForPlayer = true
+        yieldSample = s
+      }
       if (approached && i > 40) break
       await page.waitForTimeout(200)
     }
-    expect(approached, 'an ambient car should have approached the player').toBe(true)
+    // Bounded failure observability: identify the staged car and its decision.
+    if (!approached || minDistance <= 1.8 || !yieldedForPlayer) {
+      console.log(
+        'TRAFFIC_BRAKE_DIAG ' +
+          JSON.stringify({ minDistance, approached, yieldedForPlayer, closest, yieldSample }),
+      )
+    }
+    expect(approached, 'the staged car should have approached the player').toBe(true)
     expect(minDistance, 'car overlapped the player').toBeGreaterThan(1.8)
+    expect(
+      yieldedForPlayer,
+      'the staged car must stop/yield BECAUSE of the on-foot player or the occupied crossing ' +
+        '(reason crosswalk|obstacle) — an unrelated signal/follow/stop_sign stop does not count',
+    ).toBe(true)
 
-    // Step out of the road on a green: the blocked car gets moving again.
-    const stopped = await page.evaluate(() => {
-      return Object.entries(window.GAME_TEST_API!.getAmbientCarPositions()).sort(
-        (a, b) => Math.hypot(a[1][0], a[1][2] + 24.6) - Math.hypot(b[1][0], b[1][2] + 24.6),
-      )[0]
-    })
+    // Step out of the road on a green: the SAME staged car gets moving again.
+    const before = await page.evaluate(
+      (car) => window.GAME_TEST_API!.getAmbientCarPositions()[car],
+      CAR,
+    )
     await teleport(page, [0, 1.2, -10])
     // People are solid now, so pedestrians deflected around the player can
-    // take a moment to finish crossing — wait for the crosswalk to actually
+    // take a moment to finish crossing - wait for the crosswalk to actually
     // clear (the car correctly keeps yielding until then), then expect motion.
     await page.waitForFunction(
       () =>
@@ -56,10 +145,10 @@ test.describe('traffic', () => {
     await page.evaluate(() => window.GAME_TEST_API!.setSignalPhase('vehicle_green'))
     await page.waitForTimeout(3000)
     const after = await page.evaluate(
-      (id) => window.GAME_TEST_API!.getAmbientCarPositions()[id],
-      stopped[0],
+      (car) => window.GAME_TEST_API!.getAmbientCarPositions()[car],
+      CAR,
     )
-    const moved = Math.hypot(after[0] - stopped[1][0], after[2] - stopped[1][2])
+    const moved = Math.hypot(after[0] - before[0], after[2] - before[2])
     expect(moved, 'car should resume once the road clears').toBeGreaterThan(2)
   })
 

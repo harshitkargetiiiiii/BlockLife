@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import type { PlayerStats } from '../player/playerTypes'
+import type { CharacterAssetDefinition } from '../characters/characterTypes'
 import { INITIAL_STATS, PLAYER_MAX_HEALTH, PLAYER_SPAWN } from '../player/playerTypes'
 import type { QuestState } from '../quests/questTypes'
 import type { NPCMemory } from '../npc/npcTypes'
@@ -334,6 +335,22 @@ interface GameDataState {
   /** DEV/§21 §4: render the PLAYER through the production character path as this asset id
    *  (the representative-player avatar path). null = the default wardrobe rig. Not persisted. */
   debugPlayerCharacterId: string | null
+  /** DEV/test only (issue #27 H0 proof): render the player through a synthetic character def
+   *  (e.g. a diagnostic _proof GLB) not in the static manifest. null = normal. Not persisted. */
+  debugPlayerProofDef: CharacterAssetDefinition | null
+  /** DEV/test only (issue #27 H0 Calibration): render an UN-RIGGED GLB statically in the player
+   *  slot for candidate review (no clips needed), grounded then scaled/lifted + yaw-rotated so the
+   *  diorama camera can frame the whole body or a close face. null = normal. */
+  debugPlayerStaticGlb: { path: string; yawDeg: number; scale: number; lift: number } | null
+  /** DEV/test only (issue #27 H0 Calibration): multiply the follow-camera zoom (overrides the
+   *  normal cap) so a candidate can be inspected up close. 1 = normal. Not persisted. */
+  debugCameraZoomMul: number
+  /** DEV/test only (issue #27 H0): orbit the follow camera around the target by this azimuth
+   *  (radians) for drift-free front/side/rear/profile review shots. 0 = default. Not persisted. */
+  debugCameraAzimuth: number
+  /** DEV/test only (issue #27 H0): raise the camera's look-at target by this many metres so a
+   *  close review shot can frame the face rather than the waist. 0 = default. Not persisted. */
+  debugCameraLookY: number
   ui: UIState
   worldPaused: boolean
   timeScale: number
@@ -512,6 +529,11 @@ export interface GameStore extends GameDataState {
   setAppearance: (appearance: Partial<PlayerAppearance>) => void
   setCharacterRenderMode: (mode: 'auto' | 'model' | 'primitive') => void
   setDebugPlayerCharacter: (id: string | null) => void
+  setPlayerProofDef: (def: CharacterAssetDefinition | null) => void
+  setPlayerStaticGlb: (v: { path: string; yawDeg: number; scale: number; lift: number } | null) => void
+  setCameraZoomMul: (m: number) => void
+  setCameraAzimuth: (rad: number) => void
+  setCameraLookY: (m: number) => void
   requestTeleport: (position: [number, number, number]) => void
   setQuestState: (questId: string, state: QuestState) => void
   giveItem: (itemId: string, quantity: number) => void
@@ -587,6 +609,11 @@ export function createInitialGameState(): GameDataState {
     appearance: { ...DEFAULT_APPEARANCE },
     characterRenderMode: 'auto',
     debugPlayerCharacterId: null,
+    debugPlayerProofDef: null,
+    debugPlayerStaticGlb: null,
+    debugCameraZoomMul: 1,
+    debugCameraAzimuth: 0,
+    debugCameraLookY: 0,
     ui: { panel: 'none', dialogueNpcId: null, activityId: null, activePhoneApp: 'home' },
     worldPaused: false,
     timeScale: 1,
@@ -2064,6 +2091,11 @@ export const useGameStore = create<GameStore>()((set, get) => ({
   setCharacterRenderMode: (mode) => set({ characterRenderMode: mode }),
 
   setDebugPlayerCharacter: (id) => set({ debugPlayerCharacterId: id }),
+  setPlayerProofDef: (def) => set({ debugPlayerProofDef: def }),
+  setPlayerStaticGlb: (v) => set({ debugPlayerStaticGlb: v }),
+  setCameraZoomMul: (m) => set({ debugCameraZoomMul: m }),
+  setCameraAzimuth: (rad) => set({ debugCameraAzimuth: rad }),
+  setCameraLookY: (m) => set({ debugCameraLookY: m }),
 
   enterVehicle: () => {
     const body = registry.playerBody

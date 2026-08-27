@@ -404,6 +404,9 @@ export const ASSET_MANIFEST: AssetManifestEntry[] = [
     attribution: 'Meshy AI — generated original low-poly humanoid (text→image→3D→rig), remeshed + texture-optimized in-repo',
     license: 'Meshy AI generated asset (meshy.ai terms)',
   },
+  // NOTE (issue #27 H0): `human_gold_calibration_01` is intentionally NOT in this production manifest.
+  // It is a not-yet-approved REVIEW asset kept outside public/ (dev-review-assets/) and loaded only
+  // through the DEV review harness — see the note in characterManifest.ts. Not shipped in dist/.
 ]
 
 export const ASSET_MANIFEST_BY_ID: ReadonlyMap<string, AssetManifestEntry> = new Map(
