@@ -1,6 +1,12 @@
 /**
- * Machine-readable mirror of public/assets/ASSET_CREDITS.md.
- * The MVP ships zero external assets: everything on screen is procedural.
+ * Legacy machine-readable mirror of public/assets/ASSET_CREDITS.md.
+ *
+ * The authoritative, current per-asset attribution + license now lives on each
+ * `AssetManifestEntry` (`attribution` / `license`, asserted enabled-complete by
+ * assetManifest.test.ts), with the human registry + intake records in
+ * public/assets/ASSET_CREDITS.md. This module is kept for the `AssetCredit` shape;
+ * it is NOT the source of truth and no longer claims the project is asset-free
+ * (it ships Quaternius CC0 + Meshy AI generated GLBs — see the manifest).
  */
 export interface AssetCredit {
   name: string

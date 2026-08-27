@@ -3,7 +3,8 @@ import * as THREE from 'three'
 import { useGLTF } from '@react-three/drei'
 import type { AssetManifestEntry } from './assetManifest'
 import { getManifestEntry, reportAssetLoadFailure, resolveGlbUrl, shouldLoadGlb } from './modelRegistry'
-import { applyVariant, createVariantInstances, disposeVariantMaterials, type MaterialVariant } from './assetVariants'
+import { applyVariant, createVariantInstances, disposeVariantMaterials, type MaterialVariant, type ResolvedSlots } from './assetVariants'
+import { acquireTintedMaterials, assignTintedMaterials } from './variantMaterialCache'
 import { registry } from '../world/runtimeRegistry'
 
 export interface LandmarkAssetProps {
@@ -27,6 +28,16 @@ export interface LandmarkAssetProps {
    * from `entry.variants[id]` at the call site, or pass an ad-hoc override.
    */
   variant?: MaterialVariant
+  /**
+   * Reusable-archetype visual projection (issue #25): a complete position/rotation/scale
+   * applied as a NESTED GROUP around the GLB primitive ONLY (matrix composition with the
+   * manifest entry's own TRS — never Euler addition). The procedural fallback (`children`)
+   * renders OUTSIDE this group, so a disabled/missing/loading/failed GLB is never rotated
+   * or scaled by it.
+   */
+  projection?: { rotationY: number; scale: [number, number, number]; offset: [number, number, number] }
+  /** Issue #25: share one immutable tinted material-set per (source, slots, palette). */
+  variantCacheKey?: string
 }
 
 interface BoundaryProps {
@@ -58,12 +69,20 @@ function GlbModel({
   castShadow,
   receiveShadow,
   variant,
+  variantCacheKey,
 }: {
   entry: AssetManifestEntry
   castShadow: boolean
   receiveShadow: boolean
   /** Palette variant (issue #21 §6): recolors the entry's declared material slots. */
   variant?: MaterialVariant
+  /**
+   * Issue #25: when set, share ONE immutable tinted material-set per (source, slots,
+   * palette) across every instance with this key instead of cloning per instance — the
+   * material-budget fix for reused archetypes. Absent → the legacy per-instance path
+   * (existing GLB buildings/vehicles), byte-identical to before.
+   */
+  variantCacheKey?: string
 }) {
   const gltf = useGLTF(resolveGlbUrl(entry))
 
@@ -76,9 +95,9 @@ function GlbModel({
     }
   }, [])
 
-  // Clone so several landmarks can share one file; apply shadow flags; and — when the
-  // entry declares palette slots (§21 §6) — isolate those materials per instance so a
-  // variant can recolor walls/trim/glass without mutating the shared cache or siblings.
+  // Clone so several landmarks can share one file; apply shadow flags. Materials: with a
+  // variantCacheKey, assign the shared immutable tinted set (issue #25, no per-instance
+  // clone/dispose); otherwise isolate this instance's declared slots per §21 §6.
   const { scene, slots } = useMemo(() => {
     const cloned = gltf.scene.clone(true)
     cloned.traverse((obj) => {
@@ -88,14 +107,20 @@ function GlbModel({
       }
     })
     const slotMap = entry.materialSlots
+    if (slotMap && variantCacheKey) {
+      const tinted = acquireTintedMaterials(variantCacheKey, gltf.scene, slotMap, variant)
+      assignTintedMaterials(cloned, tinted)
+      return { scene: cloned, slots: null as ResolvedSlots | null }
+    }
     const isolated = slotMap ? createVariantInstances(cloned, slotMap, Object.keys(slotMap)) : null
     return { scene: cloned, slots: isolated }
-  }, [gltf.scene, castShadow, receiveShadow, entry])
+  }, [gltf.scene, castShadow, receiveShadow, entry, variant, variantCacheKey])
 
-  // Dispose the per-instance isolated materials symmetrically with the memo that made them.
+  // Dispose ONLY the per-instance isolated materials (legacy path). Cache-shared materials
+  // are process-lifetime and immutable — never disposed here.
   useEffect(() => () => { if (slots) disposeVariantMaterials(slots) }, [slots])
 
-  // Apply the palette variant — only the declared, isolated slots are recolored.
+  // Legacy path only: recolor the isolated slots. Cache path bakes the color at build time.
   useEffect(() => {
     if (slots && variant) applyVariant(slots, variant)
   }, [slots, variant])
@@ -126,6 +151,8 @@ export function LandmarkAsset({
   children,
   entry: entryOverride,
   variant,
+  projection,
+  variantCacheKey,
 }: LandmarkAssetProps) {
   const entry = entryOverride ?? getManifestEntry(assetId)
   const useGlb = shouldLoadGlb(entry)
@@ -140,12 +167,29 @@ export function LandmarkAsset({
     }
   }, [useGlb])
 
+  const model = (
+    <GlbModel
+      entry={entry as AssetManifestEntry}
+      castShadow={castShadow}
+      receiveShadow={receiveShadow}
+      variant={variant}
+      variantCacheKey={variantCacheKey}
+    />
+  )
+
   return (
     <group name={`asset:${assetId}`} position={position} rotation-y={rotationY}>
       {useGlb ? (
         <AssetErrorBoundary assetId={assetId} fallback={children}>
           <Suspense fallback={children}>
-            <GlbModel entry={entry} castShadow={castShadow} receiveShadow={receiveShadow} variant={variant} />
+            {projection ? (
+              // Nested group = matrix composition with the primitive's entry TRS.
+              <group position={projection.offset} rotation-y={projection.rotationY} scale={projection.scale}>
+                {model}
+              </group>
+            ) : (
+              model
+            )}
           </Suspense>
         </AssetErrorBoundary>
       ) : (

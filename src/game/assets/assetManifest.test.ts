@@ -31,7 +31,10 @@ describe('asset manifest', () => {
     const enabled = ASSET_MANIFEST.filter((e) => shouldLoadGlb(e))
     // Quaternius landmark integration: four building landmarks + five street props.
     const landmarkEnabled = enabled.filter((e) => e.category === 'city' || e.category === 'props')
+    // Quaternius landmarks + the Meshy townhome + issue #25 Stage A (the residential-house
+    // archetype + the now-enabled job kiosk).
     expect(landmarkEnabled.map((e) => e.id).sort()).toEqual([
+      'arch_residential_house_01',
       'building_apartment_01',
       'building_gym_01',
       'building_office_01',
@@ -40,6 +43,7 @@ describe('asset manifest', () => {
       'prop_ac_unit_01',
       'prop_bollard_01',
       'prop_drain_01',
+      'prop_job_kiosk_01',
       'prop_manhole_01',
       'prop_street_planter_01',
     ])
@@ -68,9 +72,10 @@ describe('asset manifest', () => {
     for (const entry of ASSET_MANIFEST) {
       expect(entry.fallbackKey, `${entry.id} fallbackKey`).toBeTruthy()
     }
-    // Landmarks that have no suitable pack model stay procedural-only.
+    // The food truck stays procedural-only (its GLB is a later harvest target); the job
+    // kiosk is enabled in issue #25 Stage A (its fallback JobKioskMesh is still registered).
     expect(shouldLoadGlb(getManifestEntry('food_truck_01'))).toBe(false)
-    expect(shouldLoadGlb(getManifestEntry('prop_job_kiosk_01'))).toBe(false)
+    expect(getManifestEntry('prop_job_kiosk_01')?.fallbackKey).toBe('JobKioskMesh')
   })
 
   it('every city/prop manifest id maps to layout data, so colliders never depend on GLBs', () => {
@@ -80,14 +85,24 @@ describe('asset manifest', () => {
       JOB_KIOSK.id,
       ...PROPS.map((p) => p.id),
     ])
-    // City + prop GLBs must map to authored layout colliders, so a missing/broken
-    // GLB can never remove a collider. Vehicles (issue #21 §5) get their collider
-    // from the ONE driving shell (getActiveVehicleProjection), and characters from
-    // the character controller capsule — never cityLayout — so they are correctly
-    // excluded here and covered by their own suites (vehicleProjection/characterBounds).
+    // Reusable visual archetypes (issue #25) are referenced via BuildingDef.visual.assetId,
+    // never placed directly; each PLACEMENT keeps its own def.id collider, so the archetype
+    // id itself needs no direct layout entry and a missing archetype GLB still cannot remove
+    // a collider — the invariant holds through the placement.
+    const archetypeIds = new Set(
+      BUILDINGS.map((b) => b.visual?.assetId).filter((id): id is string => Boolean(id)),
+    )
+    // City + prop GLBs must map to authored layout colliders (directly, or via a placement
+    // that references them as an archetype), so a missing/broken GLB can never remove a
+    // collider. Vehicles (issue #21 §5) get their collider from the ONE driving shell
+    // (getActiveVehicleProjection), and characters from the character controller capsule —
+    // never cityLayout — so they are correctly excluded here and covered by their own suites.
     for (const entry of ASSET_MANIFEST) {
       if (entry.category === 'vehicles' || entry.category === 'characters') continue
-      expect(layoutIds.has(entry.id), `${entry.id} missing from cityLayout`).toBe(true)
+      expect(
+        layoutIds.has(entry.id) || archetypeIds.has(entry.id),
+        `${entry.id} missing from cityLayout`,
+      ).toBe(true)
     }
     // The physics footprints exist without touching the manifest at all.
     expect(STATIC_FOOTPRINTS.length).toBeGreaterThan(0)

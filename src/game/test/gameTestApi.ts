@@ -1,6 +1,8 @@
 import { useGameStore, canEditFurnish as canEditFurnishRt } from '../store/useGameStore'
 import { registry } from '../world/runtimeRegistry'
 import { perfRuntime } from '../world/perfRuntime'
+import { countUniqueMaterials, materialProbe } from '../world/materialProbe'
+import { variantCacheStats } from '../assets/variantMaterialCache'
 import { socialSnapshot, getRelationship as getSocialRel, getDerivedRelationship as getSocialDerived, getMemories as getSocialMems, getContacts as getSocialContactsRt, ingestSocialEvent as ingestSocialEventRt, getInvitations as getSocialInvitationsRt, getMessages as getSocialMessagesRt, getTotalUnread as getSocialUnreadRt, reconcileOutreach as reconcileOutreachRt, getActiveActivity as getActiveActivityRt, getConfirmedPlans as getConfirmedPlansRt, reconcileMissedInvitations as reconcileMissedInvitationsRt } from '../social/socialRuntime'
 import type { SocialEvent } from '../social/socialEvents'
 import type { SocialActionId } from '../social/socialInteraction'
@@ -1039,6 +1041,12 @@ export interface GameTestApi {
     fps: number
     samples: number
     jsHeapMB: number | null
+  }
+  /** Issue #25: unique live THREE.Material count (not reported by gl.info) + variant-cache
+   *  occupancy, for the ≤80 material-budget gate. */
+  getMaterialStats: () => {
+    uniqueMaterials: number
+    variantCache: { keys: number; materials: number }
   }
   validateSectorOwnership: () => string[]
   getGlobalRoadGraphVersion: () => number
@@ -2411,6 +2419,13 @@ export function installTestApi(): void {
         jsHeapMB: mem ? Math.round(mem.usedJSHeapSize / 1048576) : null,
       }
     },
+    // Issue #25: unique live THREE.Material objects (gl.info/getRenderStats reports only
+    // geometry + texture OBJECT counts, not materials) so the ≤80 material-budget gate is
+    // verifiable, plus the shared variant-cache occupancy.
+    getMaterialStats: () => ({
+      uniqueMaterials: countUniqueMaterials(materialProbe.scene),
+      variantCache: variantCacheStats(),
+    }),
     validateSectorOwnership: () => validateSectorOwnership(),
     getGlobalRoadGraphVersion: () => getRoadGraph().version,
     // ---- District Authoring Kit v1 ---------------------------------------

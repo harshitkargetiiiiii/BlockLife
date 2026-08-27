@@ -95,16 +95,20 @@ function OverlayFacade({ def }: { def: WindowOverlayDef }) {
  * Brightness is driven globally through glbWindowGlowMaterial (lamp glow
  * curve), so overlays are invisible by day and fade in at dusk.
  */
-export function BuildingWindowOverlays({ assetId }: { assetId: string }) {
-  const defs = useMemo(
-    () => WINDOW_OVERLAYS.filter((d) => d.buildingAssetId === assetId),
-    [assetId],
-  )
+export function BuildingWindowOverlays({ assetId, seed }: { assetId: string; seed?: number }) {
+  const defs = useMemo(() => {
+    const base = WINDOW_OVERLAYS.filter((d) => d.buildingAssetId === assetId)
+    // Issue #25: a reused archetype passes a per-building seed so every instance shows a
+    // DISTINCT deterministic lit-window pattern (legacy single-placement buildings pass
+    // none → unchanged authored seed).
+    if (seed === undefined) return base
+    return base.map((d) => ({ ...d, seed: (d.seed ^ seed) >>> 0 || d.seed }))
+  }, [assetId, seed])
   if (defs.length === 0) return null
   return (
     <group name={`window-overlay:${assetId}`}>
-      {defs.map((def) => (
-        <OverlayFacade key={`${def.facade}-${def.seed}`} def={def} />
+      {defs.map((def, i) => (
+        <OverlayFacade key={`${def.facade}-${i}`} def={def} />
       ))}
     </group>
   )
