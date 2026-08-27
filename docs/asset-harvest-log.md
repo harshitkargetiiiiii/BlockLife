@@ -5,7 +5,14 @@ Asset Harvest sprint. Raw candidates, reference images, and dashboard/plan scree
 **private** (in Meshy + the gitignored `asset-archive/`), never committed. Only accepted,
 optimized production GLBs enter `public/assets/models/`.
 
-## Stage A (calibration) — COMPLETE ✅
+> **Scope note.** Stage A is a **calibration slice**, not a finished beautification sprint: it
+> contributes the reusable visual-projection foundation plus **exactly two** calibration assets (one
+> house archetype, one kiosk). The broader asset harvest / city beautification roadmap is **NOT
+> complete**. The original *autonomous* Meshy-harvest direction is **cancelled**: all future human,
+> building and vehicle assets will be **created or selected by the owner** and supplied for
+> integration under separate authorization. No further generation is planned or authorized here.
+
+## Stage A (calibration) — scope COMPLETE ✅ (calibration slice only)
 
 Account: Meshy Premium monthly (plan terms: https://www.meshy.ai/legal). Envelope ≤158 expiring
 credits, floor balance 2674, permanent credits not authorized. **Actual total spend: 78.**
