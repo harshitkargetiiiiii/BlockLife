@@ -91,7 +91,11 @@ test.describe('issue #27 H0 Calibration — runtime review', () => {
     const zoom = (m: number) => call(page, 'setCameraZoomMul', m)
     const lookY = (m: number) => call(page, 'setCameraLookY', m)
     const settle = () => page.waitForTimeout(350)
-    const shot = (n: string) => page.screenshot({ path: `${OUT}/${n}.png` })
+    // JPEG is the committed review-package format: docs/review/h0-calibration/README.md
+    // references img/*.jpg, so the capture MUST write the same extension or the package
+    // would reference files this spec never produces.
+    const shot = (n: string) =>
+      page.screenshot({ path: `${OUT}/${n}.jpg`, type: 'jpeg', quality: 90 })
     // Load the review model at rotationOffset `deg`, freeze it idle for a still.
     const stand = async (deg: number) => {
       await pause(false)

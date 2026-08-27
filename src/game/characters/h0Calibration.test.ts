@@ -8,12 +8,15 @@ import { inspect } from '../../../scripts/human-proof/inspectRig.mjs'
  * (dev-review-assets/, outside public/, absent from dist/). Proves the asset the review harness
  * loads is a well-formed 24-bone canonical human with the intended 5 embedded clips, smooth finite
  * skinning, and correct grounding — the offline half of the B4 review gate (the runtime half lives
- * in tests/human-proof/h0Review.spec.ts). Skips only if the committed GLB is somehow absent.
+ * in tests/human-proof/h0Review.spec.ts). This is a CORE contract: if the committed review GLB is
+ * absent the test FAILS — it must never silently skip (a vanished asset is a real regression).
  */
 const GLB = 'dev-review-assets/human_gold_calibration_01.glb'
 
 describe('H0 calibration review GLB contract (issue #27)', () => {
-  it.skipIf(!existsSync(GLB))('is a 24-bone canonical rig with the 5 embedded clips and clean skinning', async () => {
+  it('is a 24-bone canonical rig with the 5 embedded clips and clean skinning', async () => {
+    // Fail closed: the review GLB is committed, so a missing file is a regression, not a skip.
+    expect(existsSync(GLB), `committed review asset missing: ${GLB}`).toBe(true)
     const d = await inspect(GLB)
     // Canonical skeleton (matches the H0-proof signature).
     expect(d.bones).toBe(24)

@@ -1,10 +1,24 @@
 # Human Visual Gold Standard v1 — H0 Technical Proof (issue #27)
 
-Zero-credit, Blender-free, deterministic proof of the animation architecture, run on the two
-existing dormant 24-bone bodies (`blocklife_male_01`, `blocklife_female_01`) + three-in-node +
-the real game runtime. **No Meshy credits were spent. No diagnostic model ships or enters the
-production manifest** (proof GLBs are written to the gitignored
-`public/assets/models/characters/_proof/`).
+Blender-free, deterministic proof of the animation architecture, run on the two existing dormant
+24-bone bodies (`blocklife_male_01`, `blocklife_female_01`) + three-in-node + the real game runtime.
+**No diagnostic model ships or enters the production manifest** (proof GLBs are written to the
+gitignored `public/assets/models/characters/_proof/`).
+
+> ### Authoritative status
+> - **Technical calibration is complete.** This is reusable owner-asset intake infrastructure.
+> - **Owner visual approval was NOT granted.** The owner reviewed `human_gold_calibration_01` and did
+>   **not** select it as BlockLife's visual gold standard. It is a **review-only** calibration asset.
+> - **The calibration model is absent from production**: not in `CHARACTER_ASSETS`, not in
+>   `ASSET_MANIFEST`, not under `public/`, and absent from `dist/` (gated by
+>   `scripts/checkDistClean.mjs` + `src/game/assets/productionBundle.test.ts`).
+> - **Credits: 49 spent historically** for the calibration asset (breakdown under *Credits
+>   (provenance)*). The **H0 architecture proof itself cost 0**; **0 additional credits** were spent in
+>   this correction round.
+> - **Animation:** `Idle` / `Walk` / `Run` are **runtime-mapped** (controller-selected semantic roles).
+>   `Turn` / `Seated` are **diagnostic forced-clip evidence only** — they have no production
+>   controller role.
+> - Issue #27 remains **open** for the owner-created Meshy humans.
 
 ## Reproduce
 ```
@@ -127,9 +141,10 @@ demonstrated**: the skinned mesh renders (not the primitive fallback); the gait 
 idle/Walk/Run; Walk/Run are distinct and readable; the model walks forward (no moonwalk); it is
 grounded; it renders far more detail than the current primitive human; day/night(dark silhouette, no
 glow)/rain lighting is correct; Seated fits an authored bench; 0 pageerrors; missing-GLB → primitive
-fallback intact. **What is NOT yet established (awaits human judgement):** that the face/anatomy meet
-a gold standard — at midday the facial structure reads but the eyes sit in a brow shadow, and
-hands/feet are simplified. **No "H0 PASS" / "gold-standard" claim is made here.**
+fallback intact. **Owner verdict (received):** the owner reviewed this evidence and **did not select**
+`human_gold_calibration_01` as BlockLife's visual gold standard — at midday the facial structure reads
+but the eyes sit in a brow shadow, and hands/feet are simplified. **No "H0 PASS" / "gold-standard"
+claim is made here**, and the asset stays review-only. Owner-created humans are tracked in issue #27.
 
 ### Reproduce
 `node scripts/human-proof/assembleCalibration.mjs` (needs the gitignored `dev-review-assets/_proof/`
