@@ -1,0 +1,721 @@
+{
+  "issue": 38,
+  "wave": 0,
+  "note": "Rebuild with: node scripts/asset-intake/buildWave0.mjs   |   verify with --check",
+  "maxTexture": 1024,
+  "textureFormat": "jpeg",
+  "textureQuality": 85,
+  "assets": [
+    {
+      "id": "blocklife_kabir_01",
+      "label": "Kabir Sen (player)",
+      "kind": "character",
+      "output": "public/assets/models/characters/blocklife_kabir_01.glb",
+      "outputSha256": "f90bc6065985c5d04f19e87a30c4f38fc5f97c736c2fdb6126bcc4ed5e1dd516",
+      "outputBytes": 1177160,
+      "sources": [
+        {
+          "role": "Idle",
+          "path": "/Users/harshitkargeti/BlockLife-intake/asset-sprint-2026-08-31/humans-roster/humans/kabir-sen-v3-rigged.glb",
+          "sha256": "34ab5f28df615ad9c12bfdf6c7032c56c22f768fcb8f6c36e543f4c3398456cb",
+          "bytes": 6153456,
+          "structure": {
+            "bytes": 6153456,
+            "triangles": 10109,
+            "meshes": 1,
+            "materials": [
+              {
+                "name": "Material_1",
+                "metallic": 0,
+                "roughness": 0.8,
+                "emissive": [
+                  0,
+                  0,
+                  0
+                ],
+                "emissiveTexture": false,
+                "specularExtension": false
+              }
+            ],
+            "textures": [
+              {
+                "name": "texture_0",
+                "mime": "image/png",
+                "width": 2048,
+                "height": 2048,
+                "bytes": 5287543
+              }
+            ],
+            "clips": [
+              {
+                "name": "Armature|clip0|baselayer",
+                "channels": 72,
+                "duration": 0.3
+              }
+            ],
+            "skin": {
+              "count": 24,
+              "sig": "c432d433d51d"
+            },
+            "cameras": 0,
+            "scenes": 1,
+            "extensions": [
+              "KHR_materials_ior"
+            ]
+          }
+        },
+        {
+          "role": "Walk",
+          "path": "/Users/harshitkargeti/BlockLife-intake/asset-sprint-2026-08-31/humans-roster/humans/kabir-sen-v3-walking.glb",
+          "sha256": "c4d0bf8fa85b38f5a0e058865e38cfc6739590dc667d4391b9a52bf28e2aad81",
+          "bytes": 6166220,
+          "structure": {
+            "bytes": 6166220,
+            "triangles": 10109,
+            "meshes": 1,
+            "materials": [
+              {
+                "name": "Material_1",
+                "metallic": 0,
+                "roughness": 0.8,
+                "emissive": [
+                  0,
+                  0,
+                  0
+                ],
+                "emissiveTexture": false,
+                "specularExtension": false
+              }
+            ],
+            "textures": [
+              {
+                "name": "texture_0",
+                "mime": "image/png",
+                "width": 2048,
+                "height": 2048,
+                "bytes": 5287543
+              }
+            ],
+            "clips": [
+              {
+                "name": "Armature|walking_man|baselayer",
+                "channels": 72,
+                "duration": 1.067
+              }
+            ],
+            "skin": {
+              "count": 24,
+              "sig": "c432d433d51d"
+            },
+            "cameras": 0,
+            "scenes": 1,
+            "extensions": [
+              "KHR_materials_ior"
+            ]
+          }
+        },
+        {
+          "role": "Run",
+          "path": "/Users/harshitkargeti/BlockLife-intake/asset-sprint-2026-08-31/humans-roster/humans/kabir-sen-v3-running.glb",
+          "sha256": "42c79ad68861f6941c7a56bd7363eda3ae3d7b7cfdab42bba3079d4146aaec6a",
+          "bytes": 6161620,
+          "structure": {
+            "bytes": 6161620,
+            "triangles": 10109,
+            "meshes": 1,
+            "materials": [
+              {
+                "name": "Material_1",
+                "metallic": 0,
+                "roughness": 0.8,
+                "emissive": [
+                  0,
+                  0,
+                  0
+                ],
+                "emissiveTexture": false,
+                "specularExtension": false
+              }
+            ],
+            "textures": [
+              {
+                "name": "texture_0",
+                "mime": "image/png",
+                "width": 2048,
+                "height": 2048,
+                "bytes": 5287543
+              }
+            ],
+            "clips": [
+              {
+                "name": "Armature|running|baselayer",
+                "channels": 72,
+                "duration": 0.667
+              }
+            ],
+            "skin": {
+              "count": 24,
+              "sig": "c432d433d51d"
+            },
+            "cameras": 0,
+            "scenes": 1,
+            "extensions": [
+              "KHR_materials_ior"
+            ]
+          }
+        }
+      ],
+      "operations": [
+        "merge 3 per-clip GLBs -> 1 production GLB (clips grafted onto the base skeleton by bone name)",
+        "rename clips to canonical semantic roles Idle / Walk / Run",
+        "prune + dedup (drops the two duplicate meshes/skins/textures the merge introduced)",
+        "textureCompress resize <=1024 targetFormat=jpeg quality=85 filter=lanczos3"
+      ],
+      "attribution": "Meshy AI — generated original asset (owner-approved 2026-08-31 sprint), assembled + texture-optimized in-repo",
+      "license": "Meshy AI generated asset (meshy.ai terms)",
+      "structure": {
+        "bytes": 1177160,
+        "triangles": 10109,
+        "meshes": 1,
+        "materials": [
+          {
+            "name": "Material_1",
+            "metallic": 0,
+            "roughness": 0.8,
+            "emissive": [
+              0,
+              0,
+              0
+            ],
+            "emissiveTexture": false,
+            "specularExtension": false
+          }
+        ],
+        "textures": [
+          {
+            "name": "texture_0",
+            "mime": "image/jpeg",
+            "width": 1024,
+            "height": 1024,
+            "bytes": 255706
+          }
+        ],
+        "clips": [
+          {
+            "name": "Idle",
+            "channels": 72,
+            "duration": 0.3
+          },
+          {
+            "name": "Walk",
+            "channels": 72,
+            "duration": 1.067
+          },
+          {
+            "name": "Run",
+            "channels": 72,
+            "duration": 0.667
+          }
+        ],
+        "skin": {
+          "count": 24,
+          "sig": "c432d433d51d"
+        },
+        "cameras": 0,
+        "scenes": 1,
+        "extensions": [
+          "KHR_materials_ior"
+        ]
+      }
+    },
+    {
+      "id": "blocklife_ravi_01",
+      "label": "Ravi Sharma (named NPC)",
+      "kind": "character",
+      "output": "public/assets/models/characters/blocklife_ravi_01.glb",
+      "outputSha256": "f9ac3d5b8606c34007de89bfed05a764cfd2a4b843bb000e44fd0713488d6fe4",
+      "outputBytes": 1032400,
+      "sources": [
+        {
+          "role": "Idle",
+          "path": "/Users/harshitkargeti/BlockLife-intake/asset-sprint-2026-08-31/humans-roster/humans/ravi-sharma-rigged.glb",
+          "sha256": "48306125e15fd16a55ae44ac7f7ba1909123f2f4eed583d4df083eacba386e37",
+          "bytes": 8718476,
+          "structure": {
+            "bytes": 8718476,
+            "triangles": 10447,
+            "meshes": 1,
+            "materials": [
+              {
+                "name": "Material_1",
+                "metallic": 0,
+                "roughness": 0.8,
+                "emissive": [
+                  0,
+                  0,
+                  0
+                ],
+                "emissiveTexture": false,
+                "specularExtension": false
+              }
+            ],
+            "textures": [
+              {
+                "name": "texture_0",
+                "mime": "image/png",
+                "width": 2048,
+                "height": 2048,
+                "bytes": 8009566
+              }
+            ],
+            "clips": [
+              {
+                "name": "Armature|clip0|baselayer",
+                "channels": 72,
+                "duration": 0.3
+              }
+            ],
+            "skin": {
+              "count": 24,
+              "sig": "c432d433d51d"
+            },
+            "cameras": 0,
+            "scenes": 1,
+            "extensions": [
+              "KHR_materials_ior"
+            ]
+          }
+        },
+        {
+          "role": "Walk",
+          "path": "/Users/harshitkargeti/BlockLife-intake/asset-sprint-2026-08-31/humans-roster/humans/ravi-sharma-walking.glb",
+          "sha256": "9b8eca6912fc1ebbeb6bb8aee121b34fca38ee01b2e941385e525e0b52dc7a42",
+          "bytes": 8731252,
+          "structure": {
+            "bytes": 8731252,
+            "triangles": 10447,
+            "meshes": 1,
+            "materials": [
+              {
+                "name": "Material_1",
+                "metallic": 0,
+                "roughness": 0.8,
+                "emissive": [
+                  0,
+                  0,
+                  0
+                ],
+                "emissiveTexture": false,
+                "specularExtension": false
+              }
+            ],
+            "textures": [
+              {
+                "name": "texture_0",
+                "mime": "image/png",
+                "width": 2048,
+                "height": 2048,
+                "bytes": 8009566
+              }
+            ],
+            "clips": [
+              {
+                "name": "Armature|walking_man|baselayer",
+                "channels": 72,
+                "duration": 1.067
+              }
+            ],
+            "skin": {
+              "count": 24,
+              "sig": "c432d433d51d"
+            },
+            "cameras": 0,
+            "scenes": 1,
+            "extensions": [
+              "KHR_materials_ior"
+            ]
+          }
+        },
+        {
+          "role": "Run",
+          "path": "/Users/harshitkargeti/BlockLife-intake/asset-sprint-2026-08-31/humans-roster/humans/ravi-sharma-running.glb",
+          "sha256": "7ac7521cb711296bfbffb053ac49b856fc1baf7e498083cd23e4dc2dccc9a893",
+          "bytes": 8726644,
+          "structure": {
+            "bytes": 8726644,
+            "triangles": 10447,
+            "meshes": 1,
+            "materials": [
+              {
+                "name": "Material_1",
+                "metallic": 0,
+                "roughness": 0.8,
+                "emissive": [
+                  0,
+                  0,
+                  0
+                ],
+                "emissiveTexture": false,
+                "specularExtension": false
+              }
+            ],
+            "textures": [
+              {
+                "name": "texture_0",
+                "mime": "image/png",
+                "width": 2048,
+                "height": 2048,
+                "bytes": 8009566
+              }
+            ],
+            "clips": [
+              {
+                "name": "Armature|running|baselayer",
+                "channels": 72,
+                "duration": 0.667
+              }
+            ],
+            "skin": {
+              "count": 24,
+              "sig": "c432d433d51d"
+            },
+            "cameras": 0,
+            "scenes": 1,
+            "extensions": [
+              "KHR_materials_ior"
+            ]
+          }
+        }
+      ],
+      "operations": [
+        "merge 3 per-clip GLBs -> 1 production GLB (clips grafted onto the base skeleton by bone name)",
+        "rename clips to canonical semantic roles Idle / Walk / Run",
+        "prune + dedup (drops the two duplicate meshes/skins/textures the merge introduced)",
+        "textureCompress resize <=1024 targetFormat=jpeg quality=85 filter=lanczos3"
+      ],
+      "attribution": "Meshy AI — generated original asset (owner-approved 2026-08-31 sprint), assembled + texture-optimized in-repo",
+      "license": "Meshy AI generated asset (meshy.ai terms)",
+      "structure": {
+        "bytes": 1032400,
+        "triangles": 10447,
+        "meshes": 1,
+        "materials": [
+          {
+            "name": "Material_1",
+            "metallic": 0,
+            "roughness": 0.8,
+            "emissive": [
+              0,
+              0,
+              0
+            ],
+            "emissiveTexture": false,
+            "specularExtension": false
+          }
+        ],
+        "textures": [
+          {
+            "name": "texture_0",
+            "mime": "image/jpeg",
+            "width": 1024,
+            "height": 1024,
+            "bytes": 268335
+          }
+        ],
+        "clips": [
+          {
+            "name": "Idle",
+            "channels": 72,
+            "duration": 0.3
+          },
+          {
+            "name": "Walk",
+            "channels": 72,
+            "duration": 1.067
+          },
+          {
+            "name": "Run",
+            "channels": 72,
+            "duration": 0.667
+          }
+        ],
+        "skin": {
+          "count": 24,
+          "sig": "c432d433d51d"
+        },
+        "cameras": 0,
+        "scenes": 1,
+        "extensions": [
+          "KHR_materials_ior"
+        ]
+      }
+    },
+    {
+      "id": "vehicle_compact_sedan_01",
+      "label": "Compact sedan body (projected onto the one drivable shell)",
+      "kind": "static",
+      "output": "public/assets/models/vehicles/compact_sedan_01.glb",
+      "sources": [
+        {
+          "role": "source",
+          "path": "/Users/harshitkargeti/BlockLife-intake/asset-sprint-2026-08-31/vehicles-worker/final/blocklife_vehicle_compact_sedan.glb",
+          "sha256": "8ea4d12d0d381b28d57f307a5e627d0d62b82554f49b99a7f89b1e03e02df314",
+          "bytes": 6312800,
+          "structure": {
+            "bytes": 6312800,
+            "triangles": 14906,
+            "meshes": 1,
+            "materials": [
+              {
+                "name": "Material_0.001",
+                "metallic": 0,
+                "roughness": 0.5,
+                "emissive": [
+                  0,
+                  0,
+                  0
+                ],
+                "emissiveTexture": false,
+                "specularExtension": false
+              }
+            ],
+            "textures": [
+              {
+                "name": "Baked_BaseColor",
+                "mime": "image/png",
+                "width": 2048,
+                "height": 2048,
+                "bytes": 5469046
+              }
+            ],
+            "clips": [],
+            "skin": null,
+            "cameras": 0,
+            "scenes": 1,
+            "extensions": []
+          }
+        }
+      ],
+      "operations": [
+        "normalize single material name -> \"paint\" (existing variant-slot pipeline)",
+        "dedup + prune",
+        "textureCompress resize <=1024 targetFormat=jpeg quality=85 filter=lanczos3"
+      ],
+      "attribution": "Meshy AI — generated original asset (owner-approved 2026-08-31 sprint), assembled + texture-optimized in-repo",
+      "license": "Meshy AI generated asset (meshy.ai terms)",
+      "outputSha256": "75bc48b8c41473c23e98dd715c80ae4d85dc5057d95fd631ebbaabb89250008c",
+      "outputBytes": 1160396,
+      "structure": {
+        "bytes": 1160396,
+        "triangles": 14906,
+        "meshes": 1,
+        "materials": [
+          {
+            "name": "paint",
+            "metallic": 0,
+            "roughness": 0.5,
+            "emissive": [
+              0,
+              0,
+              0
+            ],
+            "emissiveTexture": false,
+            "specularExtension": false
+          }
+        ],
+        "textures": [
+          {
+            "name": "Baked_BaseColor",
+            "mime": "image/jpeg",
+            "width": 1024,
+            "height": 1024,
+            "bytes": 316678
+          }
+        ],
+        "clips": [],
+        "skin": null,
+        "cameras": 0,
+        "scenes": 1,
+        "extensions": []
+      }
+    },
+    {
+      "id": "arch_office_01",
+      "label": "Office landmark (projected onto building_office_01)",
+      "kind": "static",
+      "output": "public/assets/models/city/arch_office_01.glb",
+      "sources": [
+        {
+          "role": "source",
+          "path": "/Users/harshitkargeti/BlockLife-intake/asset-sprint-2026-08-31/buildings-worker/glb/office_01.glb",
+          "sha256": "3fb0acf05d61b712973adbe2cd9a397645c856b8ab58a6507fe8b6fa734a531a",
+          "bytes": 8365368,
+          "structure": {
+            "bytes": 8365368,
+            "triangles": 16590,
+            "meshes": 1,
+            "materials": [
+              {
+                "name": "Material_0.001",
+                "metallic": 0,
+                "roughness": 0.5,
+                "emissive": [
+                  0,
+                  0,
+                  0
+                ],
+                "emissiveTexture": false,
+                "specularExtension": false
+              }
+            ],
+            "textures": [
+              {
+                "name": "Baked_BaseColor",
+                "mime": "image/png",
+                "width": 2048,
+                "height": 2048,
+                "bytes": 7534137
+              }
+            ],
+            "clips": [],
+            "skin": null,
+            "cameras": 0,
+            "scenes": 1,
+            "extensions": []
+          }
+        }
+      ],
+      "operations": [
+        "normalize single material name -> \"wall\" (existing variant-slot pipeline)",
+        "dedup + prune",
+        "textureCompress resize <=1024 targetFormat=jpeg quality=85 filter=lanczos3"
+      ],
+      "attribution": "Meshy AI — generated original asset (owner-approved 2026-08-31 sprint), assembled + texture-optimized in-repo",
+      "license": "Meshy AI generated asset (meshy.ai terms)",
+      "outputSha256": "fb5b709ac0758d32f8a0e3af728c726424c3ae3fa666090a1faafc00e465f624",
+      "outputBytes": 1149192,
+      "structure": {
+        "bytes": 1149192,
+        "triangles": 16590,
+        "meshes": 1,
+        "materials": [
+          {
+            "name": "wall",
+            "metallic": 0,
+            "roughness": 0.5,
+            "emissive": [
+              0,
+              0,
+              0
+            ],
+            "emissiveTexture": false,
+            "specularExtension": false
+          }
+        ],
+        "textures": [
+          {
+            "name": "Baked_BaseColor",
+            "mime": "image/jpeg",
+            "width": 1024,
+            "height": 1024,
+            "bytes": 318002
+          }
+        ],
+        "clips": [],
+        "skin": null,
+        "cameras": 0,
+        "scenes": 1,
+        "extensions": []
+      }
+    },
+    {
+      "id": "prop_park_bench_01",
+      "label": "Park bench (projected onto the existing bench prop type)",
+      "kind": "static",
+      "output": "public/assets/models/props/prop_park_bench_01.glb",
+      "sources": [
+        {
+          "role": "source",
+          "path": "/Users/harshitkargeti/BlockLife-intake/asset-sprint-2026-08-31/props-worker/final/blocklife_prop_park_bench.glb",
+          "sha256": "01de0881823bb2899a14ab5aec30867883e54b53e4b81a363e92e19f073f9d51",
+          "bytes": 5268604,
+          "structure": {
+            "bytes": 5268604,
+            "triangles": 8473,
+            "meshes": 1,
+            "materials": [
+              {
+                "name": "Material_0.001",
+                "metallic": 0,
+                "roughness": 0.5,
+                "emissive": [
+                  0,
+                  0,
+                  0
+                ],
+                "emissiveTexture": false,
+                "specularExtension": false
+              }
+            ],
+            "textures": [
+              {
+                "name": "Baked_BaseColor",
+                "mime": "image/png",
+                "width": 2048,
+                "height": 2048,
+                "bytes": 4850743
+              }
+            ],
+            "clips": [],
+            "skin": null,
+            "cameras": 0,
+            "scenes": 1,
+            "extensions": []
+          }
+        }
+      ],
+      "operations": [
+        "normalize single material name -> \"bench\" (existing variant-slot pipeline)",
+        "dedup + prune",
+        "textureCompress resize <=1024 targetFormat=jpeg quality=85 filter=lanczos3"
+      ],
+      "attribution": "Meshy AI — generated original asset (owner-approved 2026-08-31 sprint), assembled + texture-optimized in-repo",
+      "license": "Meshy AI generated asset (meshy.ai terms)",
+      "outputSha256": "5d663890b1388041bd7ba47f3846ba9b2c12737e1ea81ed465b4752b84d3b9bb",
+      "outputBytes": 635204,
+      "structure": {
+        "bytes": 635204,
+        "triangles": 8473,
+        "meshes": 1,
+        "materials": [
+          {
+            "name": "bench",
+            "metallic": 0,
+            "roughness": 0.5,
+            "emissive": [
+              0,
+              0,
+              0
+            ],
+            "emissiveTexture": false,
+            "specularExtension": false
+          }
+        ],
+        "textures": [
+          {
+            "name": "Baked_BaseColor",
+            "mime": "image/jpeg",
+            "width": 1024,
+            "height": 1024,
+            "bytes": 217378
+          }
+        ],
+        "clips": [],
+        "skin": null,
+        "cameras": 0,
+        "scenes": 1,
+        "extensions": []
+      }
+    }
+  ]
+}

@@ -76,6 +76,40 @@ export const CHARACTER_ASSETS: Record<string, CharacterAssetDefinition> = {
     anchors: { headY: 2.05, chestY: 1.12 },
     fallback: { primitiveStyle: 'blocklife_primitive' },
   },
+  // ---- Issue #38 Integration Wave 0 ----
+  // ONE production GLB per character carrying all three semantic clips on the canonical
+  // 24-bone rig (hierarchy signature c432d433d51d). Clip names are the literal role names
+  // already listed in the alias tables below, so nothing new is needed in the controller —
+  // idle/walk/run resolve through the EXISTING resolveClips path. Baked appearance (one
+  // material), so no wardrobe recolor slots; the primitive fallback stays authoritative.
+  blocklife_kabir_01: {
+    id: 'blocklife_kabir_01',
+    modelPath: 'assets/models/characters/blocklife_kabir_01.glb',
+    scale: 1,
+    rotationOffset: 0,
+    verticalOffset: 0,
+    skeletonRootName: 'Hips',
+    materialSlots: {},
+    clips: { idle: ['Idle'], walk: ['Walk'], run: ['Run'] },
+    animationSpeedScale: { walk: 1, run: 1 },
+    bounds: { visualHeight: 1.75, radius: 0.4, centerY: 0.88, headY: 1.63 },
+    anchors: { headY: 1.95, chestY: 1.08 },
+    fallback: { primitiveStyle: 'blocklife_primitive' },
+  },
+  blocklife_ravi_01: {
+    id: 'blocklife_ravi_01',
+    modelPath: 'assets/models/characters/blocklife_ravi_01.glb',
+    scale: 1,
+    rotationOffset: 0,
+    verticalOffset: 0,
+    skeletonRootName: 'Hips',
+    materialSlots: {},
+    clips: { idle: ['Idle'], walk: ['Walk'], run: ['Run'] },
+    animationSpeedScale: { walk: 1, run: 1 },
+    bounds: { visualHeight: 1.76, radius: 0.4, centerY: 0.88, headY: 1.64 },
+    anchors: { headY: 1.96, chestY: 1.09 },
+    fallback: { primitiveStyle: 'blocklife_primitive' },
+  },
   // NOTE (issue #27 H0): the calibration human `human_gold_calibration_01` is deliberately NOT a
   // production CHARACTER_ASSETS entry — it is a not-yet-approved REVIEW asset. It lives outside
   // public/ (dev-review-assets/, absent from the production dist/ bundle) and is loaded only through
@@ -84,6 +118,15 @@ export const CHARACTER_ASSETS: Record<string, CharacterAssetDefinition> = {
 }
 
 export const DEFAULT_CHARACTER_ASSET_ID = 'blocklife_person'
+
+/**
+ * Issue #38 Wave 0: the representative PLAYER asset. Deliberately separate from
+ * DEFAULT_CHARACTER_ASSET_ID — that one still drives the ambient crowd and every NPC that
+ * doesn't name its own asset, and Wave 0 must NOT migrate the crowd. The render-mode escape
+ * hatch (`setCharacterRenderMode('primitive')`) and the per-asset primitive fallback both
+ * still apply to the player.
+ */
+export const PLAYER_CHARACTER_ASSET_ID = 'blocklife_kabir_01'
 
 export function getCharacterAsset(id: string): CharacterAssetDefinition | undefined {
   return CHARACTER_ASSETS[id]

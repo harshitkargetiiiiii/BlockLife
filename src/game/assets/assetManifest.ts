@@ -133,20 +133,26 @@ export const ASSET_MANIFEST: AssetManifestEntry[] = [
   },
   {
     ...defaults,
-    ...QUATERNIUS,
     id: 'building_office_01',
     label: 'Nook Offices',
     category: 'city',
-    // Pack model: Building_Large_2 (20.6 × 28 × 16.6) scaled to the 7×7
-    // office footprint (~9.5 tall) and rotated so the façade faces west,
-    // toward the job kiosk.
-    glbPath: 'assets/models/city/quaternius_building_large_2.glb',
+    // Issue #38 Wave 0: the owner-approved sprint office replaces the Quaternius pack model
+    // on this id (the pack GLB stays — building_tower_01 still uses it). Model is
+    // 5.244 × 9.999 × 5.338 with its origin at the base, so a UNIFORM 0.9501 matches the
+    // authored 9.5 height exactly and lands 4.98 × 9.50 × 5.07 — strictly INSIDE the
+    // authored 7×7 footprint. Colliders, entrance anchors, window overlays, labels and
+    // occlusion still come from cityLayout, never from the model.
+    glbPath: 'assets/models/city/arch_office_01.glb',
     fallbackKey: 'BuildingMesh',
-    scale: [0.34, 0.34, 0.34],
-    rotation: [0, -Math.PI / 2, 0],
-    positionOffset: [-2.72, 0, -0.34],
-    materialSlots: { wall: ['MI_InteriorWall'], trim: ['MI_Trim_Dark', 'MI_Trim_MetalConcrete'] },
+    scale: [0.9501, 0.9501, 0.9501],
+    rotation: [0, 0, 0],
+    positionOffset: [0, 0, 0],
+    labelHeight: 10.2,
+    materialSlots: { wall: ['wall'] },
     enabled: true,
+    budget: { maxTriangles: 60000 },
+    attribution: 'Meshy AI — generated original asset (owner-approved 2026-08-31 sprint), assembled + texture-optimized in-repo',
+    license: 'Meshy AI generated asset (meshy.ai terms)',
   },
   {
     ...defaults,
@@ -293,14 +299,16 @@ export const ASSET_MANIFEST: AssetManifestEntry[] = [
     id: 'vehicle_compact_car_01',
     label: 'Compact Car (drivable shell)',
     category: 'vehicles',
-    glbPath: 'assets/models/vehicles/compact_car_01.glb',
+    glbPath: 'assets/models/vehicles/compact_sedan_01.glb',
     fallbackKey: 'CarMesh',
-    // Low-poly GLB (~9.4k tris). Authored bbox 1.906×1.041×1.022 (length X, up Y);
-    // scaled ~2× and yawed 90° so length runs along +z (the shell's nose axis),
-    // wheels resting on the ground. Normalized to a single `paint` material.
-    scale: [2.0, 1.55, 1.96],
+    // Issue #38 Wave 0: the owner-approved sprint sedan body projects onto the SAME one
+    // physical shell. Authored bbox 1.896×0.843×0.932 (length X, up Y) with its origin at
+    // the wheels; yawed 90° so length runs along +z (the shell's nose axis) and scaled to
+    // the CarMesh reference footprint 2.00×1.61×3.81. Physics, tuning, occupants, lights,
+    // theft, ownership and save all still come from getActiveVehicleProjection().
+    scale: [2.146, 1.91, 2.009],
     rotation: [0, Math.PI / 2, 0],
-    positionOffset: [0, 0.42, 0],
+    positionOffset: [0, 0, 0],
     enabled: true,
     budget: { maxTriangles: 40000 },
     materialSlots: { paint: ['paint'] },
@@ -402,6 +410,57 @@ export const ASSET_MANIFEST: AssetManifestEntry[] = [
     enabled: true,
     budget: { maxTriangles: 25000 },
     attribution: 'Meshy AI — generated original low-poly humanoid (text→image→3D→rig), remeshed + texture-optimized in-repo',
+    license: 'Meshy AI generated asset (meshy.ai terms)',
+  },
+  // ---- Issue #38 Integration Wave 0: owner-approved sprint characters. Each ships as ONE
+  // production GLB carrying all three semantic clips (Idle / Walk / Run) on the canonical
+  // 24-bone c432d433d51d skeleton — assembled by scripts/asset-intake/buildWave0.mjs from the
+  // three per-clip sprint sources, which share a byte-identical mesh/texture/skeleton. No second
+  // character or animation system; the primitive fallback stays authoritative on load failure. ----
+  {
+    ...defaults,
+    id: 'blocklife_kabir_01',
+    label: 'Kabir Sen — player character (issue #38 Wave 0)',
+    category: 'characters',
+    glbPath: 'assets/models/characters/blocklife_kabir_01.glb',
+    fallbackKey: 'blocklife_primitive',
+    enabled: true,
+    budget: { maxTriangles: 45000 },
+    attribution: 'Meshy AI — generated original asset (owner-approved 2026-08-31 sprint), assembled + texture-optimized in-repo',
+    license: 'Meshy AI generated asset (meshy.ai terms)',
+  },
+  {
+    ...defaults,
+    id: 'blocklife_ravi_01',
+    label: 'Ravi Sharma — named NPC npc_ravi_01 (issue #38 Wave 0)',
+    category: 'characters',
+    glbPath: 'assets/models/characters/blocklife_ravi_01.glb',
+    fallbackKey: 'blocklife_primitive',
+    enabled: true,
+    budget: { maxTriangles: 25000 },
+    attribution: 'Meshy AI — generated original asset (owner-approved 2026-08-31 sprint), assembled + texture-optimized in-repo',
+    license: 'Meshy AI generated asset (meshy.ai terms)',
+  },
+  // ---- Issue #38 Wave 0 prop: the park bench projects onto the EXISTING `bench` prop type.
+  // Placements, solidity and collision stay in cityLayout/PROP_SOLIDITY; the procedural
+  // <Bench /> remains the LandmarkAsset fallback child. No duplicate prop, no new collider. ----
+  {
+    ...defaults,
+    id: 'prop_park_bench_01',
+    label: 'Park bench (issue #38 Wave 0)',
+    category: 'props',
+    glbPath: 'assets/models/props/prop_park_bench_01.glb',
+    fallbackKey: 'Bench',
+    // Model 1.899 × 0.991 × 0.828, origin at its base. Uniform 0.7729 is the largest scale that
+    // fits ENTIRELY inside the authored bench visual bounds (half [0.9, 0.32], vertical [0, 1.06])
+    // in propPlacement.ts, so the placement validators keep passing unchanged.
+    scale: [0.7729, 0.7729, 0.7729],
+    rotation: [0, 0, 0],
+    positionOffset: [0, 0, 0],
+    enabled: true,
+    budget: { maxTriangles: 10000 },
+    materialSlots: { paint: ['bench'] },
+    attribution: 'Meshy AI — generated original asset (owner-approved 2026-08-31 sprint), assembled + texture-optimized in-repo',
     license: 'Meshy AI generated asset (meshy.ai terms)',
   },
   // NOTE (issue #27 H0): `human_gold_calibration_01` is intentionally NOT in this production manifest.

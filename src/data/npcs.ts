@@ -14,7 +14,7 @@ export const NPC_DEFS: NPCDef[] = [
     walkSpeed: 1.6,
     // Issue #23: rides the rich blocklife_person rig (real idle/walk/run) with a curated
     // unique identity from the population appearance registry.
-    characterAssetId: 'blocklife_person',
+    characterAssetId: 'blocklife_ravi_01',
     routine: [
       { from: 6, to: 12, mode: 'idle', points: [[-8.5, -5]] },
       { from: 12, to: 18, mode: 'idle', points: [[13.5, -6.5]] },

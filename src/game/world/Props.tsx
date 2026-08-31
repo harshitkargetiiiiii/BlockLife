@@ -7,6 +7,7 @@ import { lampBulbMaterial, lampGlowMaterial } from './materials'
 import { CarMesh } from '../vehicles/CarMesh'
 import { useGameStore } from '../store/useGameStore'
 import { LandmarkAsset } from '../assets/LandmarkAsset'
+import { STREET_PROP_ASSET_IDS } from './propAssetIds'
 
 // Repeated props share geometry + materials: one allocation per shape for
 // the whole city (11 trees, 9 lamps, 3 benches, 3 cans, ...).
@@ -462,13 +463,6 @@ function TruckMesh({ color = '#c9803d' }: { color?: string }) {
 }
 
 /** GLB street props route through the same manifest pipeline as landmarks. */
-const STREET_PROP_ASSET_IDS: Partial<Record<PropDef['type'], string>> = {
-  ac_unit: 'prop_ac_unit_01',
-  bollard: 'prop_bollard_01',
-  street_planter: 'prop_street_planter_01',
-  manhole: 'prop_manhole_01',
-  drain: 'prop_drain_01',
-}
 
 function PropByType({ def, seed }: { def: PropDef; seed: number }) {
   switch (def.type) {
@@ -479,7 +473,11 @@ function PropByType({ def, seed }: { def: PropDef; seed: number }) {
     case 'park_tree':
       return <SwayingTree seed={seed} />
     case 'bench':
-      return <Bench />
+      return (
+        <LandmarkAsset assetId={STREET_PROP_ASSET_IDS.bench!}>
+          <Bench />
+        </LandmarkAsset>
+      )
     case 'trash_can':
       return <TrashCan />
     case 'hydrant':
