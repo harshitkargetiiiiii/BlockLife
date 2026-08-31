@@ -302,11 +302,20 @@ export const ASSET_MANIFEST: AssetManifestEntry[] = [
     glbPath: 'assets/models/vehicles/compact_sedan_01.glb',
     fallbackKey: 'CarMesh',
     // Issue #38 Wave 0: the owner-approved sprint sedan body projects onto the SAME one
-    // physical shell. Authored bbox 1.896×0.843×0.932 (length X, up Y) with its origin at
-    // the wheels; yawed 90° so length runs along +z (the shell's nose axis) and scaled to
-    // the CarMesh reference footprint 2.00×1.61×3.81. Physics, tuning, occupants, lights,
-    // theft, ownership and save all still come from getActiveVehicleProjection().
-    scale: [2.146, 1.91, 2.009],
+    // physical shell. Measured bbox 1.8963 × 0.8432 × 0.9320 (length X, up Y, width Z),
+    // origin at the wheels (min Y = 0, so no vertical offset is needed).
+    //
+    // SCALE IS APPLIED IN LOCAL SPACE, BEFORE the 90° yaw — so local X drives world LENGTH
+    // (+z, the shell's nose axis) and local Z drives world WIDTH. Getting that mapping
+    // backwards produced a 1.87 m × 4.07 m shell (issue #38 Codex review, finding 4).
+    //   scale.x = 3.81 / 1.8963 = 2.0092  -> world length 3.810
+    //   scale.y = 1.61 / 0.8432 = 1.9094  -> world height 1.610
+    //   scale.z = 2.00 / 0.9320 = 2.1459  -> world width  2.000
+    // matching the CarMesh reference footprint 2.00 × 1.61 × 3.81 that the previous GLB hit.
+    // `wave0Contract.test.ts` recomputes this projection so the axes cannot silently swap.
+    // Physics, tuning, occupants, lights, theft, ownership and save all still come from
+    // getActiveVehicleProjection().
+    scale: [2.0092, 1.9094, 2.1459],
     rotation: [0, Math.PI / 2, 0],
     positionOffset: [0, 0, 0],
     enabled: true,
@@ -412,15 +421,20 @@ export const ASSET_MANIFEST: AssetManifestEntry[] = [
     attribution: 'Meshy AI — generated original low-poly humanoid (text→image→3D→rig), remeshed + texture-optimized in-repo',
     license: 'Meshy AI generated asset (meshy.ai terms)',
   },
-  // ---- Issue #38 Integration Wave 0: owner-approved sprint characters. Each ships as ONE
+  // ---- Issue #38 Integration Wave 0 CANDIDATE characters. Each ships as ONE
   // production GLB carrying all three semantic clips (Idle / Walk / Run) on the canonical
   // 24-bone c432d433d51d skeleton — assembled by scripts/asset-intake/buildWave0.mjs from the
   // three per-clip sprint sources, which share a byte-identical mesh/texture/skeleton. No second
-  // character or animation system; the primitive fallback stays authoritative on load failure. ----
+  // character or animation system; the primitive fallback stays authoritative on load failure.
+  //
+  // OWNER DECISION 2026-08-31: these carry ONE baked material and so cannot expose the
+  // recolorable slots the save-backed player wardrobe and the issue #23 identity axes require.
+  // They are therefore CANDIDATE assets — present, valid and loadable, but deliberately NOT the
+  // player and NOT named by any NPC def. See CANDIDATE_CHARACTER_ASSET_IDS. ----
   {
     ...defaults,
     id: 'blocklife_kabir_01',
-    label: 'Kabir Sen — player character (issue #38 Wave 0)',
+    label: 'Kabir Sen — candidate character (issue #38 Wave 0, not in a runtime slot)',
     category: 'characters',
     glbPath: 'assets/models/characters/blocklife_kabir_01.glb',
     fallbackKey: 'blocklife_primitive',
@@ -432,7 +446,7 @@ export const ASSET_MANIFEST: AssetManifestEntry[] = [
   {
     ...defaults,
     id: 'blocklife_ravi_01',
-    label: 'Ravi Sharma — named NPC npc_ravi_01 (issue #38 Wave 0)',
+    label: 'Ravi Sharma — candidate character (issue #38 Wave 0, not in a runtime slot)',
     category: 'characters',
     glbPath: 'assets/models/characters/blocklife_ravi_01.glb',
     fallbackKey: 'blocklife_primitive',

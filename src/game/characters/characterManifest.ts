@@ -76,12 +76,16 @@ export const CHARACTER_ASSETS: Record<string, CharacterAssetDefinition> = {
     anchors: { headY: 2.05, chestY: 1.12 },
     fallback: { primitiveStyle: 'blocklife_primitive' },
   },
-  // ---- Issue #38 Integration Wave 0 ----
+  // ---- Issue #38 Integration Wave 0 — CANDIDATE characters (not in any runtime slot) ----
   // ONE production GLB per character carrying all three semantic clips on the canonical
   // 24-bone rig (hierarchy signature c432d433d51d). Clip names are the literal role names
   // already listed in the alias tables below, so nothing new is needed in the controller —
-  // idle/walk/run resolve through the EXISTING resolveClips path. Baked appearance (one
-  // material), so no wardrobe recolor slots; the primitive fallback stays authoritative.
+  // idle/walk/run resolve through the EXISTING resolveClips path.
+  //
+  // Baked appearance (ONE material) => `materialSlots: {}` => no wardrobe / identity axes. Per
+  // the 2026-08-31 owner decision these are therefore CANDIDATE assets only: present, valid and
+  // loadable, but NOT the player and NOT referenced by any NPC def. `wave0Contract.test.ts`
+  // gates that separation so a future edit cannot quietly regress the wardrobe.
   blocklife_kabir_01: {
     id: 'blocklife_kabir_01',
     modelPath: 'assets/models/characters/blocklife_kabir_01.glb',
@@ -120,13 +124,30 @@ export const CHARACTER_ASSETS: Record<string, CharacterAssetDefinition> = {
 export const DEFAULT_CHARACTER_ASSET_ID = 'blocklife_person'
 
 /**
- * Issue #38 Wave 0: the representative PLAYER asset. Deliberately separate from
- * DEFAULT_CHARACTER_ASSET_ID — that one still drives the ambient crowd and every NPC that
- * doesn't name its own asset, and Wave 0 must NOT migrate the crowd. The render-mode escape
- * hatch (`setCharacterRenderMode('primitive')`) and the per-asset primitive fallback both
- * still apply to the player.
+ * The asset the PLAYER renders as — the ONE source of truth for that question.
+ *
+ * Every consumer that describes the player (the renderer, the visibility/occlusion radius,
+ * the test/evidence API) must read THIS, never `DEFAULT_CHARACTER_ASSET_ID` directly, so a
+ * future change to the player asset cannot leave occlusion or the evidence API describing a
+ * character that is not on screen (issue #38 Codex review, finding 3).
+ *
+ * Issue #38 Wave 0 — OWNER DECISION (2026-08-31): this stays `blocklife_person`. BlockLife's
+ * save-backed player wardrobe and the issue #23 identity axes are driven by RECOLORABLE
+ * MATERIAL SLOTS; the Wave 0 sprint characters are single-baked-material models that cannot
+ * expose them (`materialSlots: {}`), so putting one in this slot would silently retire
+ * shipped, save-backed behaviour. They ship as CANDIDATE assets instead — see
+ * CANDIDATE_CHARACTER_ASSET_IDS.
  */
-export const PLAYER_CHARACTER_ASSET_ID = 'blocklife_kabir_01'
+export const PLAYER_CHARACTER_ASSET_ID = DEFAULT_CHARACTER_ASSET_ID
+
+/**
+ * Issue #38 Wave 0 candidate characters: owner-approved, provenance-tracked, byte-pinned and
+ * loadable through the ONE existing AnimatedCharacter pipeline — but deliberately NOT wired to
+ * the player slot or any NPC def, because they carry one baked material and therefore cannot
+ * expose the wardrobe / identity axes those runtime slots require. They become eligible for a
+ * runtime slot only if they are re-authored with real material segmentation.
+ */
+export const CANDIDATE_CHARACTER_ASSET_IDS = ['blocklife_kabir_01', 'blocklife_ravi_01'] as const
 
 export function getCharacterAsset(id: string): CharacterAssetDefinition | undefined {
   return CHARACTER_ASSETS[id]

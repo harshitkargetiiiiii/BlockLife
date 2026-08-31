@@ -7,7 +7,8 @@ import { getPlayerCharacterMotionState } from './characterAnimationState'
 import { useGameStore } from '../store/useGameStore'
 import { PlayerMesh } from '../player/Player'
 
-// Issue #38 Wave 0: the player renders Kabir; the crowd keeps the default asset.
+// The player's asset comes from the ONE source of truth so the renderer, the occlusion
+// radius and the evidence API can never describe different characters (issue #38 finding 3).
 const PLAYER_DEF = CHARACTER_ASSETS[PLAYER_CHARACTER_ASSET_ID] ?? CHARACTER_ASSETS[DEFAULT_CHARACTER_ASSET_ID]
 
 // Preload early — the model is cached before the world finishes booting, so

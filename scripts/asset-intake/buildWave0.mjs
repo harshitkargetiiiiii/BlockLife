@@ -21,7 +21,8 @@ import { NodeIO } from '@gltf-transform/core'
 import { ALL_EXTENSIONS } from '@gltf-transform/extensions'
 import { dedup, mergeDocuments, prune, textureCompress, unpartition } from '@gltf-transform/functions'
 import { createHash } from 'node:crypto'
-import { mkdirSync, readFileSync, statSync, writeFileSync, existsSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync, existsSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import sharp from 'sharp'
@@ -186,7 +187,24 @@ async function buildStatic(def, outDir) {
   return outPath
 }
 
-const outDir = CHECK ? join(ROOT, '.wave0-check') : ROOT
+// --check rebuilds into a REAL temporary directory outside the repository and removes it on
+// every exit path, so verifying never dirties the worktree (issue #38 Codex review, finding 7).
+// The byte comparison below is unchanged — it still diffs the rebuilt bytes against the
+// committed ones by sha256.
+let checkDir = null
+if (CHECK) {
+  checkDir = mkdtempSync(join(tmpdir(), 'blocklife-wave0-check-'))
+  const cleanup = () => {
+    if (!checkDir) return
+    const dir = checkDir
+    checkDir = null
+    try { rmSync(dir, { recursive: true, force: true }) } catch { /* best effort */ }
+  }
+  process.on('exit', cleanup)
+  for (const sig of ['SIGINT', 'SIGTERM']) process.on(sig, () => { cleanup(); process.exit(130) })
+  process.on('uncaughtException', (err) => { cleanup(); console.error(err); process.exit(1) })
+}
+const outDir = CHECK ? checkDir : ROOT
 const records = []
 
 for (const def of CHARACTERS) {

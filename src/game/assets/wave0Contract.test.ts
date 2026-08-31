@@ -5,7 +5,16 @@ import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { inspect } from '../../../scripts/human-proof/inspectRig.mjs'
 import { ASSET_MANIFEST_BY_ID } from './assetManifest'
-import { CHARACTER_ASSETS, PLAYER_CHARACTER_ASSET_ID, resolveClips } from '../characters/characterManifest'
+import {
+  CANDIDATE_CHARACTER_ASSET_IDS,
+  CHARACTER_ASSETS,
+  DEFAULT_CHARACTER_ASSET_ID,
+  PLAYER_CHARACTER_ASSET_ID,
+  resolveClips,
+} from '../characters/characterManifest'
+import { NPC_DEFS } from '../../data/npcs'
+import { WINDOW_OVERLAYS } from '../world/windowOverlayData'
+import { CAR_HALF_LENGTH, CAR_HALF_WIDTH } from '../traffic/vehicleObstacles'
 import provenance from '../../../docs/asset-provenance/wave0-provenance.json'
 
 /**
@@ -108,11 +117,91 @@ describe('issue #38 Wave 0 — production GLB contract (real bytes)', () => {
     }
   })
 
-  it('the player renders a Wave 0 asset while the crowd default is unchanged', () => {
-    expect(PLAYER_CHARACTER_ASSET_ID).toBe('blocklife_kabir_01')
-    expect(CHARACTER_ASSETS[PLAYER_CHARACTER_ASSET_ID]).toBeTruthy()
-    // Wave 0 must NOT migrate the ambient crowd.
-    expect(CHARACTER_ASSETS.blocklife_person).toBeTruthy()
+  // ---- OWNER DECISION 2026-08-31: preserve the wardrobe / identity axes ----
+  // The Wave 0 sprint characters carry ONE baked material, so they cannot expose the
+  // recolorable material slots that the save-backed player wardrobe and the issue #23
+  // identity axes are built on. They therefore ship as CANDIDATE assets and must stay out of
+  // the player slot and out of every NPC def until they are re-authored with real material
+  // segmentation. These tests are the regression guard for that decision.
+
+  it('the player keeps the wardrobe-capable rig, not a baked-material candidate', () => {
+    expect(PLAYER_CHARACTER_ASSET_ID).toBe(DEFAULT_CHARACTER_ASSET_ID)
+    expect(PLAYER_CHARACTER_ASSET_ID).toBe('blocklife_person')
+    const player = CHARACTER_ASSETS[PLAYER_CHARACTER_ASSET_ID]
+    expect(player).toBeTruthy()
+    // The player must expose the wardrobe axes the save format and issue #23 depend on.
+    for (const slot of ['shirt', 'pants', 'hair']) {
+      expect(Object.keys(player.materialSlots), `player exposes ${slot}`).toContain(slot)
+    }
+    expect(CANDIDATE_CHARACTER_ASSET_IDS).not.toContain(PLAYER_CHARACTER_ASSET_ID as never)
+  })
+
+  it('candidate characters are loadable but wired to no runtime slot', () => {
+    for (const id of CANDIDATE_CHARACTER_ASSET_IDS) {
+      const def = CHARACTER_ASSETS[id]
+      expect(def, `${id} is a valid, loadable definition`).toBeTruthy()
+      // They are candidates precisely BECAUSE they have no recolor slots — assert the reason
+      // holds, so re-authoring one with real slots forces this decision to be revisited.
+      expect(Object.keys(def.materialSlots), `${id} has no recolor slots`).toEqual([])
+      expect(id, `${id} must not be the player`).not.toBe(PLAYER_CHARACTER_ASSET_ID)
+      // ...and no NPC may name one, or that NPC silently loses its identity/accessory axes.
+      const users = NPC_DEFS.filter((n) => n.characterAssetId === id).map((n) => n.id)
+      expect(users, `${id} must not be referenced by any NPC def`).toEqual([])
+    }
+  })
+
+  it('every NPC def names an asset that can carry its identity axes', () => {
+    for (const npc of NPC_DEFS) {
+      const def = CHARACTER_ASSETS[npc.characterAssetId ?? DEFAULT_CHARACTER_ASSET_ID]
+      expect(def, `${npc.id} resolves an asset`).toBeTruthy()
+      expect(
+        Object.keys(def.materialSlots).length,
+        `${npc.id} keeps recolorable identity axes`,
+      ).toBeGreaterThan(0)
+    }
+  })
+
+  // ---- Codex review finding 4: the sedan's scale axes ----
+  it('the sedan GLB projects onto the CarMesh reference shell, not a swapped one', () => {
+    const entry = ASSET_MANIFEST_BY_ID.get('vehicle_compact_car_01')!
+    expect(entry.glbPath).toBe('assets/models/vehicles/compact_sedan_01.glb')
+    // Measured local bbox of the committed GLB (pinned byte-identical by buildWave0 --check).
+    const LOCAL = { x: 1.8963, y: 0.8432, z: 0.9320 }
+    const [sx, sy, sz] = entry.scale!
+    // The entry yaws 90° about Y, so local X -> world LENGTH and local Z -> world WIDTH.
+    expect(entry.rotation?.[1]).toBeCloseTo(Math.PI / 2, 6)
+    const world = { width: LOCAL.z * sz, height: LOCAL.y * sy, length: LOCAL.x * sx }
+    expect(world.width, 'world width').toBeCloseTo(2.0, 2)
+    expect(world.height, 'world height').toBeCloseTo(1.61, 2)
+    expect(world.length, 'world length').toBeCloseTo(3.81, 2)
+    // The shell must not overhang the collider box it is projected onto.
+    expect(world.width / 2).toBeLessThanOrEqual(CAR_HALF_WIDTH + 1e-6)
+    expect(world.length / 2).toBeLessThanOrEqual(CAR_HALF_LENGTH + 1e-6)
+  })
+
+  // ---- Codex review finding 5: office night overlays vs the replacement facades ----
+  it('every office window overlay plane sits on the replacement facade, inside it', () => {
+    const entry = ASSET_MANIFEST_BY_ID.get('building_office_01')!
+    const s = entry.scale![0]
+    // Measured local bbox of the committed office GLB, centred in plan.
+    const half = { x: 2.6171 * s, z: 2.6643 * s }
+    const height = 9.9992 * s
+    const defs = WINDOW_OVERLAYS.filter((d) => d.buildingAssetId === 'building_office_01')
+    expect(defs.length, 'office overlays are authored').toBeGreaterThan(0)
+    for (const d of defs) {
+      const normalHalf = d.facade === 'east' || d.facade === 'west' ? half.x : half.z
+      const lateralHalf = d.facade === 'east' || d.facade === 'west' ? half.z : half.x
+      // The plane must hug its wall — proud of it, but not floating off the building.
+      expect(d.facadeDistance, `${d.facade} plane is outside the wall`).toBeGreaterThanOrEqual(normalHalf)
+      expect(d.facadeDistance, `${d.facade} plane hugs the wall`).toBeLessThanOrEqual(normalHalf + 0.1)
+      // Every window, including its half-width, stays within the facade.
+      const outer = d.start[0] + (d.columns - 1) * d.spacing[0] + d.windowSize[0] / 2
+      expect(Math.abs(d.start[0]) + d.windowSize[0] / 2, `${d.facade} first column`).toBeLessThanOrEqual(lateralHalf)
+      expect(outer, `${d.facade} last column`).toBeLessThanOrEqual(lateralHalf)
+      // ...and the top row stays under the roof.
+      const top = d.start[1] + (d.rows - 1) * d.spacing[1] + d.windowSize[1] / 2
+      expect(top, `${d.facade} top row under the roof`).toBeLessThanOrEqual(height)
+    }
   })
 
   it('every Wave 0 texture is at most 1024 and is a format the asset gate can measure', () => {
