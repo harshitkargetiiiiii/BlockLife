@@ -62,8 +62,10 @@ its manifest entry to `enabled: true`:
 > **all six named NPCs — Maya and Ravi included — ride the slot-rich `blocklife_person`**, because
 > visual identity is derived from recolorable material slots that these baked-material rigs cannot
 > expose. Both files remain valid, credited, loadable assets with **no named-NPC runtime mapping**,
-> reachable through the DEV override `GAME_TEST_API.setPlayerCharacterAsset(id)`. The issue #38
-> Wave 0 characters (`blocklife_kabir_01`, `blocklife_ravi_01`) ship on the same candidate footing —
+> reachable through the non-persistent DEV character override (named only outside `public/`, since
+> this credits file ships in the production bundle and must stay free of test-API identifiers).
+> The issue #38 Wave 0 characters (`blocklife_kabir_01`, `blocklife_ravi_01`) ship on the same
+> candidate footing —
 > despite its name, `blocklife_ravi_01` is **not** mapped to `npc_ravi_01`. See
 > [`docs/CHARACTER_IDENTITY_AND_POPULATION.md`](../../docs/CHARACTER_IDENTITY_AND_POPULATION.md).
 
