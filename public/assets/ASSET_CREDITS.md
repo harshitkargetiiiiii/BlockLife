@@ -41,7 +41,7 @@ its manifest entry to `enabled: true`:
 | All other visuals & audio | BlockLife (procedural, in code) | this repository | original work | — | — | Everything not listed below |
 | quaternius_building_medium_2.glb | Quaternius | Downtown City MegaKit [Standard], quaternius.com | CC0-1.0 | 2026-07-03 | yes (optimized) | building_apartment_01 |
 | quaternius_building_small_1.glb | Quaternius | Downtown City MegaKit [Standard], quaternius.com | CC0-1.0 | 2026-07-03 | yes (optimized) | building_gym_01 |
-| quaternius_building_large_2.glb | Quaternius | Downtown City MegaKit [Standard], quaternius.com | CC0-1.0 | 2026-07-03 | yes (optimized) | building_office_01, building_tower_01 |
+| quaternius_building_large_2.glb | Quaternius | Downtown City MegaKit [Standard], quaternius.com | CC0-1.0 | 2026-07-03 | yes (optimized) | building_tower_01 (also backed building_office_01 until issue #38 Wave 0 replaced that model) |
 | quaternius_prop_acunit.glb | Quaternius | Downtown City MegaKit [Standard], quaternius.com | CC0-1.0 | 2026-07-03 | yes (optimized) | prop_ac_unit_01 |
 | quaternius_prop_bollard.glb | Quaternius | Downtown City MegaKit [Standard], quaternius.com | CC0-1.0 | 2026-07-03 | yes (optimized) | prop_bollard_01 |
 | quaternius_prop_plantersingle.glb | Quaternius | Downtown City MegaKit [Standard], quaternius.com | CC0-1.0 | 2026-07-03 | yes (optimized) | prop_street_planter_01 |
@@ -54,8 +54,18 @@ its manifest entry to `enabled: true`:
 | blocklife_apartment_hq_01.glb | Meshy AI (generated, original) | meshy.ai (text→image→3D) | Meshy AI generated asset | 2026-08-03 | yes (lowpoly, texture→1K) | building_townhomes_01 |
 | arch_residential_house_01.glb | Meshy AI (generated, original) | meshy.ai (text→image→3D) | Meshy AI generated asset | 2026-08-20 | yes (lowpoly 7936 tris, texture→1K) | arch_residential_house_01 (issue #25) |
 | prop_job_kiosk_01.glb | Meshy AI (generated, original) | meshy.ai (text→image→3D) | Meshy AI generated asset | 2026-08-20 | yes (lowpoly 4703 tris, texture→1K) | prop_job_kiosk_01 (issue #25) |
-| blocklife_female_01.glb | Meshy AI (generated, original) | meshy.ai (text→image→3D→rig) | Meshy AI generated asset | 2026-08-03 | yes (remesh 15k, texture→1K) | blocklife_female_01 (Maya) |
-| blocklife_male_01.glb | Meshy AI (generated, original) | meshy.ai (text→image→3D→rig) | Meshy AI generated asset | 2026-08-03 | yes (remesh 15k, texture→1K) | blocklife_male_01 (Ravi) |
+| blocklife_female_01.glb | Meshy AI (generated, original) | meshy.ai (text→image→3D→rig) | Meshy AI generated asset | 2026-08-03 | yes (remesh 15k, texture→1K) | blocklife_female_01 — legacy/candidate, **no named-NPC runtime mapping** |
+| blocklife_male_01.glb | Meshy AI (generated, original) | meshy.ai (text→image→3D→rig) | Meshy AI generated asset | 2026-08-03 | yes (remesh 15k, texture→1K) | blocklife_male_01 — legacy/candidate, **no named-NPC runtime mapping** |
+
+> **Named-character mapping note (current as of issue #38).** `blocklife_female_01` and
+> `blocklife_male_01` were originally wired to Maya and Ravi. They no longer are: since issue #23,
+> **all six named NPCs — Maya and Ravi included — ride the slot-rich `blocklife_person`**, because
+> visual identity is derived from recolorable material slots that these baked-material rigs cannot
+> expose. Both files remain valid, credited, loadable assets with **no named-NPC runtime mapping**,
+> reachable through the DEV override `GAME_TEST_API.setPlayerCharacterAsset(id)`. The issue #38
+> Wave 0 characters (`blocklife_kabir_01`, `blocklife_ravi_01`) ship on the same candidate footing —
+> despite its name, `blocklife_ravi_01` is **not** mapped to `npc_ravi_01`. See
+> [`docs/CHARACTER_IDENTITY_AND_POPULATION.md`](../../docs/CHARACTER_IDENTITY_AND_POPULATION.md).
 
 ### Intake record — Meshy AI generated assets (issue #21 vertical slice)
 

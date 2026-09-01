@@ -81,8 +81,15 @@ NOT an asset-pipeline task.
 Two production humanoids (`blocklife_female_01`, `blocklife_male_01`) are Meshy
 `image_to_3d` → `remesh` (≤15.4k tris) → `rig` outputs, texture-optimized to 1K.
 They render through the existing `AnimatedCharacter` pipeline. Wiring (Hybrid model):
-- **Named NPCs** ride the Meshy rigs via `NPCDef.characterAssetId` (Maya → female,
-  Ravi → male); Officer Kim rides the slot-rich `blocklife_person`.
+- **Named NPCs** — *superseded; see
+  [`CHARACTER_IDENTITY_AND_POPULATION.md`](CHARACTER_IDENTITY_AND_POPULATION.md) for the current
+  contract.* When this sprint shipped, Maya and Ravi rode the Meshy rigs via
+  `NPCDef.characterAssetId`. **Today all six named NPCs — including Maya and Ravi — ride the
+  slot-rich `blocklife_person`**, because issue #23 made visual identity a matter of recolorable
+  material slots (skin/hair/shirt/pants/shoes/accessory) that the baked-material Meshy rigs cannot
+  expose. `blocklife_female_01` / `blocklife_male_01` remain valid, loadable assets with **no
+  named-NPC runtime mapping**; they are reachable through the DEV override below. Issue #38 Wave 0
+  added `blocklife_kabir_01` / `blocklife_ravi_01` on the same candidate footing.
 - **The representative-player avatar path**: the player draws through the SAME
   `AnimatedCharacter` path as any asset. A DEV override (`debugPlayerCharacterId` store
   field + `GAME_TEST_API.setPlayerCharacterAsset(id)`) makes `CharacterControllerView`
@@ -143,12 +150,14 @@ perf harness), prints tris / KB / textures / clips / material-slot names per ass
 and **exits 1 if any asset is over budget** so the gate can enforce §12.
 
 ## §6 Building palette variants
-The 3 Quaternius archetypes (`medium_2` → apartment, `small_1` → gym, `large_2` → office AND
-the west backdrop tower) are **reused** — `large_2` backs two placements. Each building entry
+The 3 Quaternius archetypes (`medium_2` → apartment, `small_1` → gym, `large_2` → the west
+backdrop tower) each back a placement. *(When this sprint shipped, `large_2` backed the office
+**and** the tower; issue #38 Wave 0 moved Nook Offices onto its own sprint GLB, so `large_2` now
+backs the backdrop tower alone. The palette-variant mechanism below is unchanged.)* Each building entry
 declares `materialSlots` (`wall`/`trim`) naming the façade + trim materials; a
 `BuildingDef.paletteVariant` recolors THIS instance's declared slots via `LandmarkAsset`'s
-`variant`. The backdrop tower reuses the office GLB with a warm-brick façade + brass trim, so
-the shared archetype reads as a distinct building. These are **textured** kit materials, so a
+`variant`. The backdrop tower carries the `large_2` archetype with a warm-brick façade + brass
+trim, so the archetype reads as a distinct building. These are **textured** kit materials, so a
 variant TINTS (three.js `map × color`); glass/interior materials are not in a slot, so windows
 never tint. Declaring slots only isolates materials per instance (identity clone) — verified
 **zero** baseline churn (the apartment baseline + the whole city sweep pass byte-identical after
@@ -184,12 +193,14 @@ the old all-primitive world but keep draw calls low (shared cached scenes; one f
   variety, backdrop tower palette variant, and the four driven vehicle classes.
 
 ## First-wave asset set (round 2)
-- **Characters**: 2 Meshy humanoids (female / male) + 6 in-game `blocklife_person` colour
-  variants across the player + named cast.
+- **Characters**: 2 Meshy humanoids (female / male) — today **candidate assets with no
+  named-NPC mapping** — plus the `blocklife_person` rig, which since issue #23 carries the player
+  and all six named cast members as per-instance identity variants.
 - **Vehicles**: all 4 ownable classes (Compact / Scooter / Van / Sports) as distinct GLBs on
   the one shell.
-- **Buildings**: 3 reusable Quaternius archetypes (apartment / gym / office) — `large_2` reused
-  for the office + a palette-varied backdrop tower — plus the `blocklife_apartment_hq` townhome.
+- **Buildings**: 3 reusable Quaternius archetypes (apartment / gym / backdrop tower) — `large_2`
+  carries the palette-varied backdrop tower (it also backed the office until issue #38 Wave 0
+  replaced that model) — plus the `blocklife_apartment_hq` townhome.
 
 ## Known limitations (bounded follow-ups)
 - **Ambient crowd stays primitive by design.** The 6+ variant system rides the named cast +
