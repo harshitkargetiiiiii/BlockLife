@@ -20,7 +20,8 @@ export interface VehicleVisualProps extends CarMeshProps {
  * the declared radius instead of being squashed by a non-uniform group scale.
  *
  * Returns undefined when the asset declares no seats, which keeps CarMesh's own constants — so
- * the Wave 0 sedan and every procedural body render exactly as before.
+ * the Wave 0 sedan, the CarMesh fallback and the generic procedural city cars render exactly as
+ * before.
  */
 function resolveSeats(assetId: string | null, groupScale: [number, number, number]): OccupantSeats | undefined {
   const occupants = assetId ? getManifestEntry(assetId)?.occupants : undefined
@@ -37,20 +38,26 @@ function resolveSeats(assetId: string | null, groupScale: [number, number, numbe
 }
 
 /**
- * The ONE composition of a vehicle's visual (issue #21 §5): an external GLB body
- * (when the class has one enabled + loaded) OR the procedural `CarShell` fallback,
- * PLUS the always-present `CarFittings` — recolorable/scalable wheels (the existing
- * wheel-style adapter), the named `taillight` meshes the brake-light swap targets,
- * and driver/passenger indicators.
+ * The ONE composition of a vehicle's visual (issue #21 §5). It renders exactly one of two
+ * branches, and the fittings differ BY BRANCH (issue #40):
  *
- * Issue #40: the fittings are no longer an unconditional sibling. The GLB branch gets a BOUNDED
- * profile (occupants only) because the approved bodies already contain their own wheels and
- * lights; the fallback branch keeps the complete set. Physics, occupants and ownership are
- * unchanged either way, and the brake-light machinery still drives every procedural body.
+ *  - **GLB branch** — an external body, when the class has one enabled and it loads. Fittings are
+ *    the bounded `bodyIncluded` profile: **occupants only**, seated per asset. No procedural
+ *    wheels, headlights or taillights, because the approved bodies already contain their own and
+ *    layering a second set on top rendered a multi-wheel hybrid with lamps floating off the tail.
+ *  - **Procedural fallback branch** — `CarShell` plus the **full** `CarFittings`: four
+ *    recolorable/scalable wheels (the wheel-style adapter), headlights, the named `taillight`
+ *    meshes the brake-light swap targets, and the occupant indicators. Unchanged from before, so
+ *    a missing, disabled or failed model still renders a complete car.
+ *
+ * Physics, occupants, ownership and save are unaffected by which branch renders.
  *
  * Both the ACTIVE driving shell (`Vehicle.tsx`) and OWNED PARKED vehicles
- * (`OwnedParkedVehicles.tsx`) render through this, so a class looks identical
- * parked and driven BY CONSTRUCTION (§5 active/parked parity).
+ * (`OwnedParkedVehicles.tsx`) render through this, so a class uses the SAME body and the same
+ * fittings profile parked and driven, by construction (§5 active/parked parity). They are not
+ * pixel-identical: the two callers apply different group scales — `shellMeshScale(collider)` for
+ * the shell versus a uniform class scale when parked — a pre-existing divergence measured in
+ * docs/ASSET_INTEGRATION_WAVE_1.md that this wave does not change.
  *
  * What the GLB path keeps, and what it honestly does NOT (issue #40):
  *  - KEPT: occupants (driver + ride passenger), seated per asset via `occupants`.
@@ -61,8 +68,11 @@ function resolveSeats(assetId: string | null, groupScale: [number, number, numbe
  *    baked atlas — panels, windows, lamps and tyres share one texture — so their lamps cannot be
  *    lit and their wheels cannot be tinted without recoloring the entire vehicle, which issue #40
  *    rules out. Layering procedural lamps/wheels on top instead produced duplicate fittings. The
- *    brake-light machinery in `Vehicle.tsx` is untouched and still drives every procedural body
- *    (the fallback, ambient, parked and stealable cars).
+ *    brake-light machinery in `Vehicle.tsx` is untouched and still drives every body that has
+ *    `taillight` meshes: the CarMesh fallback, and the generic procedural ambient / static parked
+ *    / stealable city cars. An OWNED parked vehicle renders through this same adapter, so when
+ *    its class has a GLB it uses the bounded occupants-only profile too — it is not a
+ *    full-fittings path.
  *
  * (This supersedes the round-2 review #2/#3 note that the GLB "never drops brake lights / wheel
  * customization": that held while vehicle GLBs were untextured bodies with no lamps of their own.)

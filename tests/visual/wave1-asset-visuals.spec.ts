@@ -39,10 +39,22 @@ const CLOSE = 2.0
 
 type ClassId = 'veh_scooter' | 'veh_van' | 'veh_sports' | 'veh_compact'
 
-const CLASSES: { id: ClassId; slug: string; label: string }[] = [
-  { id: 'veh_scooter', slug: 'scooter', label: 'City Scooter' },
-  { id: 'veh_van', slug: 'van', label: 'Utility Van' },
-  { id: 'veh_sports', slug: 'sports', label: 'Premium Sports Car' },
+/**
+ * `parkedView` is deliberately PER CLASS, not shared. The camera centres on the player, so one
+ * viewer position cannot frame three vehicles of very different size at the dealership bay: the
+ * framing that keeps the 4.74 m van and the 3.88 m coupe clear of the player's body pushes the
+ * 2.13 m scooter too far away to judge, and the framing that reads the scooter puts the player's
+ * body over the van's front corner and near wheel — the ground contact these shots must prove.
+ */
+const CLASSES: {
+  id: ClassId
+  slug: string
+  label: string
+  parkedView: { at: [number, number]; zoom: number }
+}[] = [
+  { id: 'veh_scooter', slug: 'scooter', label: 'City Scooter', parkedView: { at: [24, 12.6], zoom: CLOSE } },
+  { id: 'veh_van', slug: 'van', label: 'Utility Van', parkedView: { at: [27.4, 14.6], zoom: 1.75 } },
+  { id: 'veh_sports', slug: 'sports', label: 'Premium Sports Car', parkedView: { at: [27.4, 14.6], zoom: 1.75 } },
 ]
 
 async function boot(page: Page) {
@@ -112,7 +124,7 @@ async function stageActive(page: Page, defId: ClassId, yaw: number, hour = 13, z
 }
 
 // ------------------------------------------------------- per-class evidence ----
-for (const { id, slug, label } of CLASSES) {
+for (const { id, slug, label, parkedView } of CLASSES) {
   test.describe(`Wave 1 — ${label}`, () => {
     // Broadside reads world LENGTH; head-on reads world WIDTH. If the manifest's local X/Z were
     // swapped — or the shell's per-class mesh scale were ignored — exactly these two disagree.
@@ -132,7 +144,9 @@ for (const { id, slug, label } of CLASSES) {
     // player first sees a class they do not own yet.
     test(`${slug}: parked at the dealership bay`, async ({ page }) => {
       await boot(page)
-      await arrange(page, [24, 12.6], 13, CLOSE)
+      // Per-class viewer (see CLASSES): the camera centres on the PLAYER, so the vehicle must be
+      // framed by where the player stands relative to the bay at [24, 10].
+      await arrange(page, parkedView.at, 13, parkedView.zoom)
       await page.evaluate(
         (defId) => window.GAME_TEST_API!.vehicleGrant(defId, { location: 'parked', anchorId: 'park_dealer_a' }),
         id,

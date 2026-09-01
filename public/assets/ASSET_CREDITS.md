@@ -248,8 +248,10 @@ characters' wardrobe axes.
 renders only the occupant indicators — the one fitting these models genuinely lack — seated per
 asset so the driver and any ride passenger are visible on each body. Procedural wheels,
 headlights and brake-light taillights are NOT layered on top; the procedural fallback keeps the
-complete historical set, and the brake-light swap still drives every procedural body (fallback,
-ambient, parked, stealable). A baked-atlas body's own lamps cannot be lit separately, and its
+complete historical set, and the brake-light swap still drives every body that has `taillight`
+meshes: the fallback and the generic procedural ambient / static parked / stealable city cars.
+An OWNED parked vehicle is not one of those — it renders through the same adapter as the active
+shell, so its GLB uses the bounded occupants-only profile too. A baked-atlas body's own lamps cannot be lit separately, and its
 wheels cannot be tinted, without recoloring the whole vehicle — recorded, not worked around.
 
 **Projection.** Each body is scaled UNIFORMLY — the approved model is never distorted — from its own

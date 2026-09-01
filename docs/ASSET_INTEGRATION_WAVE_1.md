@@ -163,15 +163,18 @@ hybrid) and headlight/taillight boxes over baked ones.
 `CarFittings` now takes a **`profile`**:
 
 - **`full`** — the complete historical set (four wheels, headlights, taillights, occupants). Used
-  by `CarMesh` and therefore by every ambient/parked/stealable car **and by the CarMesh fallback**,
-  so those renders are byte-identical to before.
+  by `CarMesh`, which backs the **generic procedural city cars** — ambient traffic, the static
+  parked cars and the stealable ones — **and the CarMesh fallback**, so those renders are
+  byte-identical to before. An **owned** parked vehicle is *not* one of these: it renders through
+  `VehicleVisual` like the active shell, so when its class has a GLB it uses the bounded
+  occupants-only profile too.
 - **`bodyIncluded`** — occupant indicators only. Wheels, headlights and taillights are all
   dropped; the rendered captures confirmed the taillight boxes read as a second pair of lamps
   floating off the tail rather than as part of the vehicle.
 
   The brake-light state machine in `Vehicle.tsx` is **unchanged** and still drives every
-  `taillight` mesh it finds — which is every procedural body: the CarMesh fallback, and ambient,
-  parked and stealable cars. A baked-atlas body has no separable lamp to animate: its lights live
+  `taillight` mesh it finds — which is every body that has one: the CarMesh fallback and the
+  generic procedural ambient / static parked / stealable city cars. A baked-atlas body has no separable lamp to animate: its lights live
   in the same single texture as its panels, so lighting them would recolor the whole vehicle —
   the same dishonest recolor issue #40 rules out. Recorded here rather than faked.
 

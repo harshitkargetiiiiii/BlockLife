@@ -16,7 +16,8 @@ const cabinMaterial = new THREE.MeshStandardMaterial({
 const driverMaterial = new THREE.MeshStandardMaterial({ color: '#ffd7b0' })
 
 // Wheel hub materials cached per style colour (a handful total). '#26262c' is the classic default,
-// so ambient/parked/stealable cars (which pass no wheel style) render byte-identically.
+// so the generic procedural ambient / static parked / stealable city cars (which pass no wheel
+// style) render byte-identically.
 const wheelMaterials = new Map<string, THREE.MeshStandardMaterial>()
 function wheelMaterialFor(hub: string): THREE.MeshStandardMaterial {
   let mat = wheelMaterials.get(hub)
@@ -73,8 +74,11 @@ export function CarShell({ color }: { color: string }) {
  * How much of the fittings set to render alongside a body (issue #40).
  *
  * - `full` — the complete historical set: four wheels, headlights, taillights and occupants.
- *   Every procedural path uses this (CarMesh, ambient/parked/stealable cars, and the CarMesh
- *   FALLBACK a GLB drops back to), so those renders are byte-identical to before.
+ *   Used by `CarMesh`, which backs the generic procedural city cars — ambient traffic, the
+ *   static parked cars and the stealable ones — and by the CarMesh FALLBACK a GLB drops back to.
+ *   Those renders are byte-identical to before. NOTE: an OWNED parked vehicle is not one of
+ *   these; it renders through `VehicleVisual`, so when its class has a GLB it gets the bounded
+ *   profile below, exactly like the active shell.
  * - `bodyIncluded` — for a body that already contains its own wheels AND lights in its mesh.
  *   Renders ONLY the occupant indicators, which are the one fitting such a model genuinely
  *   lacks. Wheels, headlights and taillights are all dropped: layering them over a model that
@@ -83,10 +87,11 @@ export function CarShell({ color }: { color: string }) {
  *   floating off the tail rather than as part of the vehicle.
  *
  *   The brake-light state machine in Vehicle.tsx is UNCHANGED and still drives every `taillight`
- *   mesh it finds — which is every procedural body: the CarMesh fallback, ambient, parked and
- *   stealable cars. A baked-atlas body simply has no separable lamp to animate: its lights live
- *   in the same single texture as its panels, so lighting them would recolor the whole vehicle,
- *   which is exactly the dishonest recolor issue #40 rules out. Recorded, not faked.
+ *   mesh it finds — which is every body that HAS one: the CarMesh fallback and the generic
+ *   procedural ambient / static parked / stealable city cars. A baked-atlas body simply has no
+ *   separable lamp to animate: its lights live in the same single texture as its panels, so
+ *   lighting them would recolor the whole vehicle, which is exactly the dishonest recolor
+ *   issue #40 rules out. Recorded, not faked.
  */
 export type CarFittingsProfile = 'full' | 'bodyIncluded'
 
@@ -179,11 +184,12 @@ export function CarFittings({
 }
 
 /**
- * Shared low-poly car used by the drivable car, ambient cars and parked cars.
+ * Shared low-poly car used as the drivable shell's procedural fallback and by the generic
+ * procedural city cars (ambient traffic, static parked, stealable).
  * Nose faces +z. Roughly 2 wide × 1.6 tall × 3.9 long. Composed of the body
  * SHELL + FITTINGS so callers that project a GLB can reuse the fittings while
  * swapping only the shell. Byte-identical to the pre-split mesh for the
- * procedural path (ambient/parked/stealable cars).
+ * generic procedural city cars (ambient / static parked / stealable).
  */
 export function CarMesh(props: CarMeshProps) {
   return (
