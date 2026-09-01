@@ -49,10 +49,10 @@ describe('production bundle boundary (issue #27 H0)', () => {
       .sort()
     expect(rigs).toEqual([
       'blocklife_female_01.glb',
-      'blocklife_kabir_01.glb', // issue #38 Wave 0 — owner-approved player
+      'blocklife_kabir_01.glb', // issue #38 Wave 0 — owner-approved CANDIDATE (DEV review only)
       'blocklife_male_01.glb',
       'blocklife_person.glb',
-      'blocklife_ravi_01.glb', // issue #38 Wave 0 — owner-approved named NPC
+      'blocklife_ravi_01.glb', // issue #38 Wave 0 — owner-approved CANDIDATE (DEV review only)
     ])
   })
 })

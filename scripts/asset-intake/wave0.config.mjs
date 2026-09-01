@@ -36,7 +36,7 @@ const ATTRIB = 'Meshy AI — generated original asset (owner-approved 2026-08-31
 export const CHARACTERS = [
   {
     id: 'blocklife_kabir_01',
-    label: 'Kabir Sen (player)',
+    label: 'Kabir Sen (candidate / DEV review only)',
     out: 'public/assets/models/characters/blocklife_kabir_01.glb',
     heightMeters: 1.75,
     sources: {
@@ -50,7 +50,7 @@ export const CHARACTERS = [
   },
   {
     id: 'blocklife_ravi_01',
-    label: 'Ravi Sharma (named NPC)',
+    label: 'Ravi Sharma (candidate / DEV review only)',
     out: 'public/assets/models/characters/blocklife_ravi_01.glb',
     heightMeters: 1.76,
     sources: {

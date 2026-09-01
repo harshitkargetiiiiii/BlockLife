@@ -10,14 +10,39 @@ no second character or animation system. Builds on [#21](../docs/3D_ASSET_PIPELI
 
 | Wave 0 asset | Projected onto | Gameplay authority stays with |
 |---|---|---|
-| `blocklife_kabir_01` | the **player** (`PLAYER_CHARACTER_ASSET_ID`) | character controller capsule; primitive fallback + render-mode escape hatch |
-| `blocklife_ravi_01` | `npc_ravi_01` **only** | NPC identity, dialogue, quest, social, schedule, save, streaming |
 | `compact_sedan_01` | `vehicle_compact_car_01` | `getActiveVehicleProjection()` — ONE physical shell |
 | `arch_office_01` | `building_office_01` | `cityLayout` colliders, anchors, overlays, labels, occlusion |
 | `prop_park_bench_01` | the existing **`bench` prop type** | `cityLayout` placements + type-based `PROP_SOLIDITY` |
+| `blocklife_kabir_01` | **no runtime slot** — DEV review only | — see the owner decision below |
+| `blocklife_ravi_01` | **no runtime slot** — DEV review only | — see the owner decision below |
 
-The ambient crowd is deliberately **not** migrated: `DEFAULT_CHARACTER_ASSET_ID` is unchanged, and
-`PLAYER_CHARACTER_ASSET_ID` is a separate constant so the player can move without the crowd.
+## Owner decision (2026-08-31) — the characters stay candidates
+
+Wave 0 originally seated Kabir in the player slot and Ravi on `npc_ravi_01`. That **silently
+retired shipped behaviour**, and the owner ruled against it.
+
+BlockLife's save-backed **player wardrobe** and the issue #23 **identity axes**
+(`skin`/`hair`/`shirt`/`pants`/`shoes`/`accessory`) are driven by *recolorable material slots*. The
+sprint characters are single-baked-material models — their appearance is painted into one texture —
+so they declare `materialSlots: {}` and can expose none of those axes. Seating one in a runtime
+slot therefore turns the wardrobe into a no-op while the save format still stores selections.
+
+So they ship as **candidates**: present, provenance-tracked, byte-pinned, and loadable through the
+ONE existing `AnimatedCharacter` path — but not the player and not named by any NPC def.
+
+- The player and `npc_ravi_01` both stay on `blocklife_person` (the wardrobe-capable rig).
+- `PLAYER_CHARACTER_ASSET_ID` is now the **single source of truth** for the player's asset, read by
+  the renderer, the occlusion radius (`visibilityRuntime`) and the evidence API
+  (`getCharacterAssetInfo`) alike — they can no longer describe different characters.
+- `CANDIDATE_CHARACTER_ASSET_IDS` names them, and `wave0Contract.test.ts` gates that they stay out
+  of the player slot and every NPC def, that the player keeps `shirt`/`pants`/`hair`, and that every
+  NPC resolves an asset with recolorable axes.
+- They stay reviewable through the existing DEV override —
+  `GAME_TEST_API.setPlayerCharacterAsset('blocklife_kabir_01')` renders one down the production
+  path. `tests/visual/wave0-asset-visuals.spec.ts` captures that as the candidate evidence.
+
+They become eligible for a runtime slot only if they are re-authored with real material
+segmentation. The ambient crowd was never migrated: `DEFAULT_CHARACTER_ASSET_ID` is unchanged.
 
 ## Deterministic intake pipeline
 
@@ -75,3 +100,38 @@ bytes** — it never trusts the sprint report or the provenance file's own numbe
   It is retained because `VehicleAsset.test.tsx` uses its path as a fixture string; removing it is
   a safe follow-up.
 - Idle is the rig's own base clip (0.30 s). It is a real distinct clip, so `staticIdle` is not set.
+
+## Visual acceptance evidence
+
+`tests/visual/wave0-asset-visuals.spec.ts` — 23 baselines, captured on this host, each inspected
+by eye before being committed, then re-run twice with **no** snapshot updates (23/23, 23/23) and
+once as part of the whole visual suite (151/151, zero pre-existing baselines modified).
+
+| Shot | Proves |
+|---|---|
+| `wave0-sedan-cardinal-{front,rear,side-left,side-right}` | forward axis + shell fit: head-on reads the 2.00 m width, broadside the 3.81 m length — a swapped scale axis shows here first |
+| `wave0-sedan-night` | paint + emissive under the night rig |
+| `wave0-sedan-driving-seat` | player seated via the SHIPPED path (walk to `CAR_SPAWN`, press E), body/seat/camera alignment |
+| `wave0-office-cardinal-{north,east,south,west}` | replacement massing from all four sides, opaque (occlusion temporarily off), inside the authored 7×7 footprint |
+| `wave0-office-entrance-west` | the entrance reads on the authored `door: 'west'` side — **opaque control** |
+| `wave0-office-occlusion` | the **opposite** state: player behind the massing, `building_office_01` faded below 0.5 opacity through the existing `<Occludable>` path |
+| `wave0-office-night-windows` | the re-authored emissive planes sit ON the replacement facades (the old distances floated them ~0.40 m / ~1.03 m off) |
+| `wave0-bench-empty` | bench GLB alone: ground contact, seat height, slat texture, proportions |
+| `wave0-bench-occupied` | `cit_c_bench_napper`'s sit pose lands on the GLB's seat |
+| `wave0-bench-district-context` | scale + palette among the other central-district props |
+| `wave0-candidate-kabir-{idle,walk,run}` | the three EMBEDDED clips, visibly distinct |
+| `wave0-candidate-kabir-night` | candidate under night lighting |
+| `wave0-candidate-kabir-driving-transition` | the override does not leak a second body while driving |
+| `wave0-candidate-ravi-{close,wide}` | candidate GLB read close and in-world — a **visual proxy only** |
+
+Two staging notes worth keeping:
+
+- **The bench shots orbit the DEV camera 180°.** `prop_park_tree_01 [-9.0, 8.0]` sits between the
+  default camera and `prop_bench_02`, covering the seat and the sitter's legs — exactly what the
+  shots exist to prove. The orbit puts it behind.
+- **Gait shots use `setPlayerProofDef`, not `forceCharacterAnimation`.**
+  `CharacterAnimationController.freezeAt(t)` calls `resetToIdle()` and then pins only the `idle`
+  action, so a forced walk/run collapses back to Idle before capture — all three frames come out
+  identical. The proof def aliases every semantic role to ONE embedded clip, so the action
+  `freezeAt` pins really is `Walk` or `Run`. This is a visual-only review path; it renders through
+  the real controller and changes no runtime slot.

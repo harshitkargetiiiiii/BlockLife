@@ -50,7 +50,8 @@ describe('asset manifest', () => {
       'prop_street_planter_01',
     ])
     // Issue #21 §4 three enabled character rigs (default + female + male humanoids), plus the
-    // two owner-approved issue #38 Wave 0 rigs (Kabir player, Ravi named NPC).
+    // two owner-approved issue #38 Wave 0 CANDIDATE rigs (Kabir, Ravi) — DEV review only, in
+    // no runtime slot: they are single-baked-material and cannot carry the wardrobe/identity axes.
     expect(
       enabled
         .filter((e) => e.category === 'characters')

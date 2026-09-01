@@ -8,7 +8,7 @@
   "assets": [
     {
       "id": "blocklife_kabir_01",
-      "label": "Kabir Sen (player)",
+      "label": "Kabir Sen (candidate / DEV review only)",
       "kind": "character",
       "output": "public/assets/models/characters/blocklife_kabir_01.glb",
       "outputSha256": "f90bc6065985c5d04f19e87a30c4f38fc5f97c736c2fdb6126bcc4ed5e1dd516",
@@ -230,7 +230,7 @@
     },
     {
       "id": "blocklife_ravi_01",
-      "label": "Ravi Sharma (named NPC)",
+      "label": "Ravi Sharma (candidate / DEV review only)",
       "kind": "character",
       "output": "public/assets/models/characters/blocklife_ravi_01.glb",
       "outputSha256": "f9ac3d5b8606c34007de89bfed05a764cfd2a4b843bb000e44fd0713488d6fe4",
