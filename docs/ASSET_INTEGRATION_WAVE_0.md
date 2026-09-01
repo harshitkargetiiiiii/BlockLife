@@ -104,8 +104,62 @@ bytes** — it never trusts the sprint report or the provenance file's own numbe
 ## Visual acceptance evidence
 
 `tests/visual/wave0-asset-visuals.spec.ts` — 23 baselines, captured on this host, each inspected
-by eye before being committed, then re-run twice with **no** snapshot updates (23/23, 23/23) and
-once as part of the whole visual suite (151/151, zero pre-existing baselines modified).
+by eye before being committed, then re-run twice with **no** snapshot updates: **23/23 and 23/23**.
+
+> **Correction.** An earlier revision of this document claimed the whole visual suite passed
+> "151/151, zero pre-existing baselines modified". That was false. The diagnostic run behind it was
+> piped through `tail -8`, which discarded the `28 failed` line and kept only the last few failing
+> test names plus `151 passed`; because the pipeline was not run under `pipefail`, the exit status
+> reported was `tail`'s, not Playwright's. The real result of that run was **151 passed / 28
+> failed** — 27 legacy screenshot mismatches plus one `career-visuals` readiness timeout. The
+> whole-suite totals after the reviewed baseline migration are recorded below.
+
+### Reviewed legacy baseline migration (27 snapshots)
+
+The office, sedan and bench are visible in scenes owned by other suites, so replacing them
+necessarily moves those baselines. The migration was **bounded and reviewed**, not a bulk accept:
+
+1. The 28 affected cases were selected by an explicit `-g` pattern and the selection count was
+   **verified as 28 before anything ran**.
+2. Running them with **no updates** produced **27 failed / 1 passed**. The one that passed was
+   `career visuals › scheduled shift with a startable window` — so that failure was a transient
+   `GAME_TEST_API.ready()` readiness timeout, **not** a screenshot mismatch. Its timeout was left
+   at the original 45 s and it was **excluded** from the update.
+3. Each `-actual` / `-expected` / `-diff` triple was inspected. Every delta is confined to the
+   replaced **office** massing and the replaced **sedan** shell (including small parked-sedan
+   silhouettes in wide shots). Specifically confirmed **unchanged**: the canonical player and the
+   red/yellow **wardrobe recolor**, **Maya/Ravi identity**, the courier **HUD tracker + marker**,
+   the occlusion **ghosted/solid pair** (still opposite states), and **vehicle/dealership** state.
+   The **foggy-morning** delta was inspected explicitly and is the office alone.
+4. Only those **27** snapshots were updated — `git status` showed exactly 27 modified PNGs, no
+   additions, no deletions, and no `career` file.
+
+### Whole-suite totals after the migration (untruncated, exit status captured)
+
+Run as `npx playwright test tests/visual --reporter=line > log 2>&1` with the exit status recorded
+on the next line — **never** piped through `tail` again.
+
+| Run | Result |
+|---|---|
+| Dedicated `wave0-asset-visuals.spec.ts`, no updates, ×2 | **23/23** and **23/23** |
+| Whole suite, no updates (final proof, 1.8 h) | **168 passed / 11 failed**, exit **1** |
+| Those 11 re-run in isolation | **10 passed / 1 failed** |
+| The remaining 1 re-run again on its own | **passed** (30.3 s) |
+
+So 10 of the 11 were **load-induced flakes** in a 1.8-hour run on a machine under heavy load — they
+pass when not competing for the GPU/CPU. They are readiness/timing failures, not pixel mismatches.
+
+The eleventh, `vehicle visuals › driving with an NPC passenger along for the ride`, is a
+**pre-existing flaky visual and NOT an asset or wardrobe regression**. Its diff shows the *entire
+frame translated* — every world label is doubled — which is a camera/car pose shift, not a content
+change; no asset in the scene renders differently. The spec itself already documents the cause:
+the social drive "ends the van at a physics-dependent pose that varies just enough to exceed the
+ratio", which is why that test pins the pose with `setDrivenCarPosition`. The pin evidently does not
+fully determinise it. It passed on a subsequent isolated run. Nothing here was retimed or weakened
+to make it pass, and its baseline is the reviewed one from the migration above.
+
+**Honest status:** the whole visual suite is **not green in a single cold run on this host**; it is
+green per-test on re-run. That is recorded as a limitation rather than papered over.
 
 | Shot | Proves |
 |---|---|

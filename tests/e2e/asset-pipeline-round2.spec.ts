@@ -111,8 +111,9 @@ test.describe('§13 asset pipeline — production render/lifecycle', () => {
   })
 
   // #16: drei's useGLTF shares ONE cached scene per URL — a GLB is fetched at most once no
-  // matter how many instances render. The office and the backdrop tower reuse Building_Large_2,
-  // so a single fetch backs both placements (the reuse the whole §6 story depends on).
+  // matter how many instances render. (Issue #38 Wave 0 moved Nook Offices onto its own sprint
+  // GLB, so Building_Large_2 now backs the backdrop tower alone; the once-per-URL guarantee
+  // below is unchanged and still applies to EVERY GLB, including the new Wave 0 assets.)
   test('each GLB is fetched at most once and shared across instances', async ({ page }) => {
     const hits = new Map<string, number>()
     page.on('request', (req) => {
@@ -122,7 +123,7 @@ test.describe('§13 asset pipeline — production render/lifecycle', () => {
     await boot(page)
     const large2 = [...hits.entries()].find(([u]) => u.includes('quaternius_building_large_2'))
     expect(large2, 'Building_Large_2 fetched at boot').toBeDefined()
-    expect(large2![1], 'shared archetype fetched ONCE for both office + tower').toBe(1)
+    expect(large2![1], 'Building_Large_2 archetype fetched ONCE').toBe(1)
     for (const [u, n] of hits) expect(n, `${u} fetched at most once`).toBeLessThanOrEqual(1)
   })
 

@@ -25,8 +25,8 @@ export interface BuildingDef {
   windows?: boolean
   /**
    * Optional GLB palette variant (issue #21 §6): recolors this instance's declared
-   * wall/trim material slots so a REUSED archetype (e.g. office ↔ backdrop tower, both
-   * Building_Large_2) reads as a different building. Purely cosmetic — the collider,
+   * wall/trim material slots so a REUSED archetype (e.g. the Building_Large_2 backdrop
+   * tower) reads as a different building. Purely cosmetic — the collider,
    * occluder and entrance derive from layout data, never from this.
    */
   paletteVariant?: MaterialVariant

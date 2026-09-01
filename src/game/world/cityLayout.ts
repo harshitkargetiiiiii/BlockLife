@@ -324,9 +324,11 @@ export const BUILDINGS: BuildingDef[] = [
     size: [10, 15, 9],
     color: '#8fa8c8',
     roofColor: '#5c7294',
-    // §6 palette variant: this backdrop tower REUSES Building_Large_2 (same GLB as
-    // Nook Offices). A warm brick façade (wall pillars) + brass floor bands (trim) recolor
-    // makes the shared archetype read as a distinct building against its dark glass.
+    // §6 palette variant: this backdrop tower holds the reusable Building_Large_2 archetype.
+    // (Issue #38 Wave 0 moved Nook Offices onto its own sprint GLB, so the tower is now the
+    // ONLY placement of Building_Large_2 — the palette-variant mechanism is unchanged and
+    // still the thing under test.) A warm brick façade (wall pillars) + brass floor bands
+    // (trim) recolor make the archetype read as a distinct building against its dark glass.
     // Cosmetic only — geometry stays shared, windows/interior untouched.
     paletteVariant: { wall: { color: '#a85236' }, trim: { color: '#c9922f' } },
   },

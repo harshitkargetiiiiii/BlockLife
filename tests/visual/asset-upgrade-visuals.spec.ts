@@ -44,8 +44,9 @@ test.describe('asset upgrade visuals (§21 §14)', () => {
     await expect(page).toHaveScreenshot('asset-building-apartment.png', { maxDiffPixelRatio: 0.02 })
   })
 
-  // §6/§14: the backdrop tower REUSES Building_Large_2 (same GLB as Nook Offices) but with a
-  // warm sandstone palette variant, so the shared archetype reads as a distinct building.
+  // §6/§14: the backdrop tower carries the Building_Large_2 archetype with a warm sandstone
+  // palette variant, so the archetype reads as a distinct building. (Issue #38 Wave 0 moved
+  // Nook Offices onto its own sprint GLB; the palette-variant mechanism is what this proves.)
   test('backdrop tower palette variant (reused Large_2 archetype)', async ({ page }) => {
     await boot(page)
     await page.evaluate(() => {

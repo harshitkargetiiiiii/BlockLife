@@ -160,8 +160,9 @@ export const ASSET_MANIFEST: AssetManifestEntry[] = [
     id: 'building_tower_01',
     label: 'Backdrop tower (west)',
     category: 'city',
-    // Reuses Building_Large_2 at backdrop scale (one download, cloned scene);
-    // façade faces east, toward the city.
+    // Holds the Building_Large_2 archetype at backdrop scale (one download, cloned scene);
+    // façade faces east, toward the city. Since issue #38 Wave 0 moved Nook Offices onto its
+    // own sprint GLB, this is the only placement of this pack model.
     glbPath: 'assets/models/city/quaternius_building_large_2.glb',
     fallbackKey: 'BuildingMesh',
     scale: [0.48, 0.48, 0.48],
