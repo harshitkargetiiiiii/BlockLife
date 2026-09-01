@@ -17,98 +17,21 @@
  * texture payload change. This reuses the H0 assembly idea (one GLB, embedded semantic
  * clips, no retarget) rather than introducing a second character/animation system.
  */
-import { NodeIO } from '@gltf-transform/core'
-import { ALL_EXTENSIONS } from '@gltf-transform/extensions'
-import { dedup, mergeDocuments, prune, textureCompress, unpartition } from '@gltf-transform/functions'
-import { createHash } from 'node:crypto'
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync, existsSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { mergeDocuments, prune, dedup, unpartition } from '@gltf-transform/functions'
+import { mkdirSync, statSync, writeFileSync, existsSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import sharp from 'sharp'
+import {
+  buildStatic, describe, fileSha, io, KB, makeCheckDir, meshDigest, reduceTextures,
+  skeletonSignature,
+} from './lib.mjs'
 import {
   CHARACTERS, STATICS, MAX_TEXTURE, TEXTURE_FORMAT, TEXTURE_QUALITY, PROVENANCE_OUT,
 } from './wave0.config.mjs'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const CHECK = process.argv.includes('--check')
-const io = new NodeIO().registerExtensions(ALL_EXTENSIONS)
-
-const sha256 = (buf) => createHash('sha256').update(buf).digest('hex')
-const fileSha = (p) => sha256(readFileSync(p))
-const KB = (n) => +(n / 1024).toFixed(1)
-
-/** Bone-name + parent topology signature — the same rule as humanRigContract.test.ts. */
-function skeletonSignature(skin) {
-  const joints = skin.listJoints()
-  const set = new Set(joints)
-  const rows = joints.map((j) => {
-    const p = j.getParentNode?.()
-    return `${j.getName()}<${p && set.has(p) ? p.getName() : 'ROOT'}`
-  })
-  return { count: joints.length, sig: createHash('sha1').update(rows.join('|')).digest('hex').slice(0, 12) }
-}
-
-function meshDigest(root) {
-  const h = createHash('sha256')
-  for (const m of root.listMeshes()) {
-    for (const prim of m.listPrimitives()) {
-      for (const name of ['POSITION', 'NORMAL', 'JOINTS_0', 'WEIGHTS_0']) {
-        const a = prim.getAttribute(name)
-        if (a) h.update(Buffer.from(a.getArray().buffer, a.getArray().byteOffset, a.getArray().byteLength))
-      }
-      const idx = prim.getIndices()
-      if (idx) h.update(Buffer.from(idx.getArray().buffer, idx.getArray().byteOffset, idx.getArray().byteLength))
-    }
-  }
-  return h.digest('hex')
-}
-
-/** Structural facts read back from real bytes — never from a report. */
-async function describe(path) {
-  const doc = await io.read(path)
-  const root = doc.getRoot()
-  let tris = 0
-  for (const m of root.listMeshes()) {
-    for (const p of m.listPrimitives()) {
-      const i = p.getIndices(), pos = p.getAttribute('POSITION')
-      tris += ((i ? i.getCount() : pos.getCount()) / 3)
-    }
-  }
-  const skin = root.listSkins()[0]
-  const textures = root.listTextures().map((t) => {
-    const size = t.getSize()
-    return { name: t.getName() || null, mime: t.getMimeType(), width: size?.[0] ?? null, height: size?.[1] ?? null, bytes: t.getImage()?.byteLength ?? 0 }
-  })
-  const materials = root.listMaterials().map((m) => ({
-    name: m.getName() || null,
-    metallic: m.getMetallicFactor(),
-    roughness: +m.getRoughnessFactor().toFixed(3),
-    emissive: m.getEmissiveFactor().map((v) => +v.toFixed(3)),
-    emissiveTexture: !!m.getEmissiveTexture(),
-    specularExtension: !!m.getExtension('KHR_materials_specular'),
-  }))
-  const clips = root.listAnimations().map((a) => {
-    let dur = 0
-    for (const s of a.listSamplers()) { const inp = s.getInput(); if (inp) dur = Math.max(dur, inp.getMax([])[0]) }
-    return { name: a.getName(), channels: a.listChannels().length, duration: +dur.toFixed(3) }
-  })
-  return {
-    bytes: statSync(path).size, triangles: Math.round(tris),
-    meshes: root.listMeshes().length, materials, textures, clips,
-    skin: skin ? skeletonSignature(skin) : null,
-    cameras: root.listCameras().length, scenes: root.listScenes().length,
-    extensions: root.listExtensionsUsed().map((e) => e.extensionName),
-  }
-}
-
-/** Downscale + re-encode every texture to <= MAX_TEXTURE, deterministically. */
-async function reduceTextures(doc) {
-  await doc.transform(
-    textureCompress({ encoder: sharp, targetFormat: TEXTURE_FORMAT, resize: [MAX_TEXTURE, MAX_TEXTURE], resizeFilter: 'lanczos3', quality: TEXTURE_QUALITY }),
-    dedup(), prune({ keepAttributes: false, keepLeaves: false }),
-  )
-}
+const TEXTURE_OPTS = { maxTexture: MAX_TEXTURE, format: TEXTURE_FORMAT, quality: TEXTURE_QUALITY }
 
 async function buildCharacter(def, outDir) {
   // --- Prove the merge precondition on real bytes before touching anything.
@@ -162,25 +85,10 @@ async function buildCharacter(def, outDir) {
   // Keep only the base scene; prune drops the donor scenes/meshes/skins/textures.
   for (const scene of root.listScenes()) if (scene !== root.getDefaultScene()) scene.dispose()
   await doc.transform(prune({ keepAttributes: false, keepLeaves: false }), dedup())
-  await reduceTextures(doc)
+  await reduceTextures(doc, TEXTURE_OPTS)
   // mergeDocuments brings each donor's own Buffer along; GLB allows at most one.
   await doc.transform(unpartition())
 
-  const outPath = join(outDir, def.out)
-  mkdirSync(dirname(outPath), { recursive: true })
-  await io.write(outPath, doc)
-  return outPath
-}
-
-async function buildStatic(def, outDir) {
-  const doc = await io.read(def.src)
-  const root = doc.getRoot()
-  if (root.listMaterials().length !== 1)
-    throw new Error(`${def.id}: expected exactly 1 material, got ${root.listMaterials().length}`)
-  // Normalize the single material name so the existing variant/slot pipeline can bind it.
-  root.listMaterials()[0].setName(def.materialName)
-  await doc.transform(dedup(), prune({ keepAttributes: false, keepLeaves: false }))
-  await reduceTextures(doc)
   const outPath = join(outDir, def.out)
   mkdirSync(dirname(outPath), { recursive: true })
   await io.write(outPath, doc)
@@ -191,20 +99,7 @@ async function buildStatic(def, outDir) {
 // every exit path, so verifying never dirties the worktree (issue #38 Codex review, finding 7).
 // The byte comparison below is unchanged — it still diffs the rebuilt bytes against the
 // committed ones by sha256.
-let checkDir = null
-if (CHECK) {
-  checkDir = mkdtempSync(join(tmpdir(), 'blocklife-wave0-check-'))
-  const cleanup = () => {
-    if (!checkDir) return
-    const dir = checkDir
-    checkDir = null
-    try { rmSync(dir, { recursive: true, force: true }) } catch { /* best effort */ }
-  }
-  process.on('exit', cleanup)
-  for (const sig of ['SIGINT', 'SIGTERM']) process.on(sig, () => { cleanup(); process.exit(130) })
-  process.on('uncaughtException', (err) => { cleanup(); console.error(err); process.exit(1) })
-}
-const outDir = CHECK ? checkDir : ROOT
+const outDir = CHECK ? makeCheckDir('wave0') : ROOT
 const records = []
 
 for (const def of CHARACTERS) {
@@ -239,7 +134,7 @@ for (const def of STATICS) {
     ],
     attribution: def.attribution, license: def.license,
   }
-  const outPath = await buildStatic(def, outDir)
+  const outPath = await buildStatic(def, outDir, TEXTURE_OPTS)
   record.outputSha256 = fileSha(outPath)
   record.outputBytes = statSync(outPath).size
   record.structure = await describe(outPath)

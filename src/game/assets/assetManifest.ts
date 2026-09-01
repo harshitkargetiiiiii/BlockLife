@@ -338,15 +338,34 @@ export const ASSET_MANIFEST: AssetManifestEntry[] = [
     category: 'vehicles',
     glbPath: 'assets/models/vehicles/scooter_01.glb',
     fallbackKey: 'CarMesh',
-    scale: [2.05, 1.22, 2.25],
+    // Issue #40 Wave 1: the owner-approved sprint scooter projects onto the SAME one physical
+    // shell. Measured local bbox 1.8977 × 1.4394 × 0.9071 (length X, up Y, width Z), origin at
+    // the wheels (min Y = 0), so no vertical offset is needed.
+    //
+    // TWO factors decide the rendered size, and both must be in the derivation:
+    //   1. this scale, applied in LOCAL space BEFORE the 90° yaw — so local X drives world
+    //      LENGTH and local Z drives world WIDTH (the axis swap issue #38's review caught on
+    //      the sedan). The model's nose is at local −X, which the +π/2 yaw maps onto the
+    //      shell's +z nose (CarMesh puts its headlights at z = +1.96).
+    //   2. `shellMeshScale(veh_scooter.collider)` = [0.55, 0.909091, 0.55], which the one shell
+    //      applies to its whole mesh group in WORLD axes. Ignoring it renders the body at 0.55×.
+    //
+    // So this scale is chosen to CANCEL that non-uniform factor — scale.i = k / meshScale — which
+    // makes the RENDERED body exactly uniform (its authored proportions ship undistorted) at
+    //   k = min(2·1.1·0.97 / 1.8977, 2·0.55·0.97 / 0.9071) = min(1.124519, 1.176276) = 1.1245192
+    // → 2.1339 long × 1.6185 tall × 1.0200 wide, strictly inside the 2.2 × 1.1 class footprint.
+    // `wave1Contract.test.ts` recomputes all of this from vehicleRegistry + shellMeshScale.
+    scale: [2.0445, 1.2369, 2.0445],
     rotation: [0, Math.PI / 2, 0],
     positionOffset: [0, 0, 0],
     enabled: true,
     budget: { maxTriangles: 40000 },
     materialSlots: { paint: ['paint'] },
-    attribution: 'Meshy AI — generated original low-poly asset (text→image→3D), remeshed + normalized in-repo',
+    attribution: 'Meshy AI — generated original asset (owner-approved 2026-08-31 sprint), texture-optimized in-repo',
     license: 'Meshy AI generated asset (meshy.ai terms)',
-    bounds: { width: 1.8, height: 1.6, depth: 3.9 },
+    // The ACTIVE (driven) projection — see docs/ASSET_INTEGRATION_WAVE_1.md for the parked-mesh
+    // divergence, which is a pre-existing renderer behaviour this wave does not change.
+    bounds: { width: 1.02, height: 1.6185, depth: 2.1339 },
   },
   {
     ...defaults,
@@ -355,15 +374,25 @@ export const ASSET_MANIFEST: AssetManifestEntry[] = [
     category: 'vehicles',
     glbPath: 'assets/models/vehicles/utility_van_01.glb',
     fallbackKey: 'CarMesh',
-    scale: [2.05, 1.52, 2.48],
+    // Issue #40 Wave 1. Measured local bbox 1.8979 × 1.2643 × 0.9323 (length X, up Y, width Z),
+    // origin at the wheels. Same two-factor rule as the scooter above, with
+    // `shellMeshScale(veh_van.collider)` = [1.2, 1.272727, 1.25].
+    //
+    // k = min(2·2.5·0.97 / 1.8979, 2·1.2·0.97 / 0.9323) = min(2.555456, 2.497050) = 2.4970503
+    // WIDTH binds here, not length — this high-roof van is proportionally wider than the class
+    // footprint's length:width ratio, so filling the length would have overhung the width.
+    // → 4.7391 long × 3.1569 tall × 2.3279 wide, inside the 5.0 × 2.4 class footprint.
+    // The 3.16 m height is the approved model's own high-roof-plus-roof-rack proportion carried
+    // through undistorted (2.0× the compact's 1.61 m, close to a real Sprinter vs hatchback).
+    scale: [1.9976, 1.9619, 2.0808],
     rotation: [0, Math.PI / 2, 0],
     positionOffset: [0, 0, 0],
     enabled: true,
     budget: { maxTriangles: 40000 },
     materialSlots: { paint: ['paint'] },
-    attribution: 'Meshy AI — generated original low-poly asset (text→image→3D), remeshed + normalized in-repo',
+    attribution: 'Meshy AI — generated original asset (owner-approved 2026-08-31 sprint), texture-optimized in-repo',
     license: 'Meshy AI generated asset (meshy.ai terms)',
-    bounds: { width: 2.0, height: 1.6, depth: 3.9 },
+    bounds: { width: 2.3279, height: 3.1569, depth: 4.7391 },
   },
   {
     ...defaults,
@@ -372,15 +401,22 @@ export const ASSET_MANIFEST: AssetManifestEntry[] = [
     category: 'vehicles',
     glbPath: 'assets/models/vehicles/sports_car_01.glb',
     fallbackKey: 'CarMesh',
-    scale: [2.05, 2.4, 2.32],
+    // Issue #40 Wave 1. Measured local bbox 1.8948 × 0.5636 × 0.8620 (length X, up Y, width Z),
+    // origin at the wheels. Same two-factor rule as the scooter above, with
+    // `shellMeshScale(veh_sports.collider)` = [1.05, 0.909091, 1.0].
+    //
+    // k = min(2·2.0·0.97 / 1.8948, 2·1.05·0.97 / 0.8620) = min(2.047710, 2.363109) = 2.0477095
+    // → 3.8800 long × 1.1540 tall × 1.7650 wide, inside the 4.0 × 2.1 class footprint: longer
+    // than the compact and markedly lower (1.15 m vs 1.61 m), which is the coupe silhouette.
+    scale: [2.0477, 2.2524, 1.9501],
     rotation: [0, Math.PI / 2, 0],
     positionOffset: [0, 0, 0],
     enabled: true,
     budget: { maxTriangles: 40000 },
     materialSlots: { paint: ['paint'] },
-    attribution: 'Meshy AI — generated original low-poly asset (text→image→3D), remeshed + normalized in-repo',
+    attribution: 'Meshy AI — generated original asset (owner-approved 2026-08-31 sprint), texture-optimized in-repo',
     license: 'Meshy AI generated asset (meshy.ai terms)',
-    bounds: { width: 2.0, height: 1.3, depth: 3.9 },
+    bounds: { width: 1.765, height: 1.154, depth: 3.88 },
   },
   // ---- Characters (issue #21 §4): CANONICAL catalog row. The rig-specific detail
   // (skeleton/clips/slots/bounds) lives in characterManifest.ts CHARACTER_ASSETS; a

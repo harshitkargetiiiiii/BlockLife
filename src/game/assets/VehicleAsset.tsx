@@ -12,9 +12,11 @@
  * tint) recolor declared material slots per-instance via the §3 variant system,
  * so one file backs every paint without duplicating geometry.
  *
- * v1 slice scope: only vehicle_compact_car_01 ships a GLB. Occupant indicator
- * spheres + the brake-light material swap remain CarMesh-only (the GLB body is
- * the real car); documented as a bounded v1 limitation.
+ * Since issue #40 Wave 1 all four owned classes ship a GLB body (compact sedan,
+ * scooter, utility van, sports coupe); every one of them still renders through
+ * this single adapter onto the single shell. Occupant indicator spheres + the
+ * brake-light material swap remain CarMesh-only (the GLB body is the real car);
+ * documented as a bounded limitation.
  */
 import { Component, Suspense, useEffect, useMemo, type ReactNode } from 'react'
 import * as THREE from 'three'

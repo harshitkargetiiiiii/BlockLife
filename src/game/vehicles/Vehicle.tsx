@@ -4,7 +4,7 @@ import { useFrame } from '@react-three/fiber'
 import { CuboidCollider, RigidBody, type RapierRigidBody } from '@react-three/rapier'
 import { VehicleVisual } from './VehicleVisual'
 import { useVehicleController } from './VehicleController'
-import { getActiveVehicleProjection, isDrivingShellActive } from './vehicleProjection'
+import { getActiveVehicleProjection, isDrivingShellActive, shellMeshScale } from './vehicleProjection'
 import { getRidePassenger } from './vehicleSocial'
 import { CAR_SPAWN, CAR_SPAWN_ROTATION_Y } from '../world/cityLayout'
 import { registry } from '../world/runtimeRegistry'
@@ -33,7 +33,7 @@ export function Vehicle() {
   // equals the class's bodyMass — the Compact yields exactly the legacy [1,0.55,2]/mass 60/scale 1.
   const [cw, ch, cl] = proj.collider
   const density = proj.bodyMass / (8 * cw * ch * cl)
-  const meshScale: [number, number, number] = [cw / 1, ch / 0.55, cl / 2]
+  const meshScale = shellMeshScale(proj.collider)
   useVehicleController(bodyRef)
 
   useEffect(() => {

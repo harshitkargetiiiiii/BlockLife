@@ -2,7 +2,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import ReactThreeTestRenderer from '@react-three/test-renderer'
 import * as THREE from 'three'
 import { VehicleAsset } from './VehicleAsset'
-import type { AssetManifestEntry } from './assetManifest'
+import { ASSET_MANIFEST_BY_ID, type AssetManifestEntry } from './assetManifest'
+import { VEHICLE_DEFS } from '../vehicles/vehicleRegistry'
 import { registry } from '../world/runtimeRegistry'
 
 const useGLTFMock = vi.hoisted(() => vi.fn())
@@ -16,7 +17,7 @@ function vehicleEntry(overrides: Partial<AssetManifestEntry>): AssetManifestEntr
     id: 'vehicle_compact_car_01',
     label: 'Test car',
     category: 'vehicles',
-    glbPath: 'assets/models/vehicles/compact_car_01.glb',
+    glbPath: 'assets/models/vehicles/compact_sedan_01.glb',
     fallbackKey: 'CarMesh',
     scale: [1, 1, 1],
     rotation: [0, 0, 0],
@@ -78,7 +79,7 @@ describe('VehicleAsset (R3F, §5 one-shell GLB adapter)', () => {
         <Fallback />
       </VehicleAsset>,
     )
-    expect(useGLTFMock).toHaveBeenCalledWith(expect.stringContaining('compact_car_01.glb'))
+    expect(useGLTFMock).toHaveBeenCalledWith(expect.stringContaining('compact_sedan_01.glb'))
     expect(renderer.scene.findAll((n) => n.props.name === 'carmesh-fallback')).toHaveLength(0)
     // The cloned body material carries the requested paint (isolated, not the source).
     const root = renderer.scene
@@ -127,4 +128,40 @@ describe('VehicleAsset (R3F, §5 one-shell GLB adapter)', () => {
     expect(registry.glbLandmarksExpected).toBe(expected0)
     expect(registry.glbLandmarksActive).toBe(active0)
   })
+})
+
+/**
+ * Issue #40 Wave 1 §"Missing-file tests prove each class falls back to CarMesh".
+ *
+ * Every owned vehicle class now ships a real GLB body, so the fallback contract has to hold
+ * PER CLASS, not just for the one class that happened to have a model first. These drive the
+ * REAL manifest entries — not a synthetic fixture — so enabling a class without a working
+ * file, or renaming a path, is caught here rather than as a hole in the world.
+ */
+describe('every owned vehicle class falls back to CarMesh when its GLB is missing (issue #40)', () => {
+  const classes = VEHICLE_DEFS.map((d) => ({ defId: d.id, assetId: d.assetId! }))
+
+  it('covers all four dealership classes', () => {
+    expect(classes.map((c) => c.defId).sort()).toEqual(['veh_compact', 'veh_scooter', 'veh_sports', 'veh_van'])
+    for (const c of classes) expect(ASSET_MANIFEST_BY_ID.get(c.assetId), `${c.defId} manifest entry`).toBeTruthy()
+  })
+
+  for (const { defId, assetId } of VEHICLE_DEFS.map((d) => ({ defId: d.id, assetId: d.assetId! }))) {
+    it(`${defId}: a missing/failed ${assetId} model still renders the shell`, async () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+      vi.spyOn(console, 'error').mockImplementation(() => {})
+      // Exactly what a deleted or 404ing file does inside useGLTF's suspense path.
+      useGLTFMock.mockImplementation(() => {
+        throw new Error(`404 ${assetId} not found`)
+      })
+      const renderer = await ReactThreeTestRenderer.create(
+        <VehicleAsset assetId={assetId} paint="#3aa6a0" entry={ASSET_MANIFEST_BY_ID.get(assetId)}>
+          <Fallback />
+        </VehicleAsset>,
+      )
+      expect(renderer.scene.findAll((n) => n.props.name === 'carmesh-fallback')).toHaveLength(1)
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining(assetId), expect.any(Error))
+      await renderer.unmount()
+    })
+  }
 })

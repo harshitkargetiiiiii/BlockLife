@@ -1,0 +1,402 @@
+{
+  "issue": 40,
+  "wave": 1,
+  "note": "Rebuild with: node scripts/asset-intake/buildWave1.mjs   |   verify with --check",
+  "maxTexture": 1024,
+  "textureFormat": "jpeg",
+  "textureQuality": 85,
+  "footprintFill": 0.97,
+  "projection": "Uniform scale s = min(2*halfLength*fill/localX, 2*halfWidth*fill/localZ) from vehicleRegistry; rotation [0, PI/2, 0] maps the model nose (local -X) onto the shell nose (world +Z). Recomputed in src/game/assets/wave1Contract.test.ts.",
+  "assets": [
+    {
+      "id": "vehicle_scooter_01",
+      "label": "City Scooter body (projected onto the one drivable shell)",
+      "kind": "vehicle",
+      "vehicleDefId": "veh_scooter",
+      "output": "public/assets/models/vehicles/scooter_01.glb",
+      "sources": [
+        {
+          "role": "source",
+          "path": "/Users/harshitkargeti/BlockLife-intake/asset-sprint-2026-08-31/vehicles-worker/final/blocklife_vehicle_scooter.glb",
+          "sha256": "a187ed98675008c1e5dc422a274a5bd5942f75b4d67a567bec4dc8fa8314f6bf",
+          "bytes": 7799608,
+          "structure": {
+            "bytes": 7799608,
+            "triangles": 20401,
+            "meshes": 1,
+            "materials": [
+              {
+                "name": "Material_0.002",
+                "metallic": 0,
+                "roughness": 0.5,
+                "emissive": [
+                  0,
+                  0,
+                  0
+                ],
+                "emissiveTexture": false,
+                "specularExtension": false
+              }
+            ],
+            "textures": [
+              {
+                "name": "Baked_BaseColor",
+                "mime": "image/png",
+                "width": 2048,
+                "height": 2048,
+                "bytes": 6636955
+              }
+            ],
+            "clips": [],
+            "skin": null,
+            "cameras": 0,
+            "scenes": 1,
+            "lights": 0,
+            "bounds": {
+              "min": [
+                -0.9491,
+                0,
+                -0.4547
+              ],
+              "max": [
+                0.9485,
+                1.4394,
+                0.4524
+              ],
+              "size": [
+                1.8977,
+                1.4394,
+                0.9071
+              ]
+            },
+            "extensions": []
+          }
+        }
+      ],
+      "byteNote": null,
+      "operations": [
+        "assert approved source SHA-256 a187ed98675008c1e5dc422a274a5bd5942f75b4d67a567bec4dc8fa8314f6bf before reading (read-only)",
+        "normalize single material name -> \"paint\" (existing variant/paint slot pipeline)",
+        "dedup + prune",
+        "textureCompress resize <=1024 targetFormat=jpeg quality=85 filter=lanczos3",
+        "assert mesh digest + bounds unchanged (geometry, indices, origin, wheel count preserved)",
+        "assert runtime-safe: metallic 0, emissive [0,0,0], no unlit/lights/cameras, embedded textures only"
+      ],
+      "attribution": "Meshy AI — generated original asset (owner-approved 2026-08-31 sprint), texture-optimized in-repo",
+      "license": "Meshy AI generated asset (meshy.ai terms)",
+      "outputSha256": "da91e00844d0c6d61296aaa3bdcb73cefeb96fde70361730d3e962158c158c2f",
+      "outputBytes": 1527052,
+      "structure": {
+        "bytes": 1527052,
+        "triangles": 20401,
+        "meshes": 1,
+        "materials": [
+          {
+            "name": "paint",
+            "metallic": 0,
+            "roughness": 0.5,
+            "emissive": [
+              0,
+              0,
+              0
+            ],
+            "emissiveTexture": false,
+            "specularExtension": false
+          }
+        ],
+        "textures": [
+          {
+            "name": "Baked_BaseColor",
+            "mime": "image/jpeg",
+            "width": 1024,
+            "height": 1024,
+            "bytes": 364436
+          }
+        ],
+        "clips": [],
+        "skin": null,
+        "cameras": 0,
+        "scenes": 1,
+        "lights": 0,
+        "bounds": {
+          "min": [
+            -0.9491,
+            0,
+            -0.4547
+          ],
+          "max": [
+            0.9485,
+            1.4394,
+            0.4524
+          ],
+          "size": [
+            1.8977,
+            1.4394,
+            0.9071
+          ]
+        },
+        "extensions": []
+      }
+    },
+    {
+      "id": "vehicle_utility_van_01",
+      "label": "Utility Van body (projected onto the one drivable shell)",
+      "kind": "vehicle",
+      "vehicleDefId": "veh_van",
+      "output": "public/assets/models/vehicles/utility_van_01.glb",
+      "sources": [
+        {
+          "role": "source",
+          "path": "/Users/harshitkargeti/BlockLife-intake/asset-sprint-2026-08-31/vehicles-worker/final/blocklife_vehicle_utility_van.glb",
+          "sha256": "8aa7ef191f958c6fe83bfecdcad9d7b5da8a84f81042cdb2b30981c9dabbd440",
+          "bytes": 6645388,
+          "structure": {
+            "bytes": 6645388,
+            "triangles": 14413,
+            "meshes": 1,
+            "materials": [
+              {
+                "name": "Material_0.001",
+                "metallic": 0,
+                "roughness": 0.5,
+                "emissive": [
+                  0,
+                  0,
+                  0
+                ],
+                "emissiveTexture": false,
+                "specularExtension": false
+              }
+            ],
+            "textures": [
+              {
+                "name": "Baked_BaseColor",
+                "mime": "image/png",
+                "width": 2048,
+                "height": 2048,
+                "bytes": 5802446
+              }
+            ],
+            "clips": [],
+            "skin": null,
+            "cameras": 0,
+            "scenes": 1,
+            "lights": 0,
+            "bounds": {
+              "min": [
+                -0.9499,
+                0,
+                -0.4671
+              ],
+              "max": [
+                0.948,
+                1.2643,
+                0.4652
+              ],
+              "size": [
+                1.8979,
+                1.2643,
+                0.9323
+              ]
+            },
+            "extensions": []
+          }
+        }
+      ],
+      "byteNote": null,
+      "operations": [
+        "assert approved source SHA-256 8aa7ef191f958c6fe83bfecdcad9d7b5da8a84f81042cdb2b30981c9dabbd440 before reading (read-only)",
+        "normalize single material name -> \"paint\" (existing variant/paint slot pipeline)",
+        "dedup + prune",
+        "textureCompress resize <=1024 targetFormat=jpeg quality=85 filter=lanczos3",
+        "assert mesh digest + bounds unchanged (geometry, indices, origin, wheel count preserved)",
+        "assert runtime-safe: metallic 0, emissive [0,0,0], no unlit/lights/cameras, embedded textures only"
+      ],
+      "attribution": "Meshy AI — generated original asset (owner-approved 2026-08-31 sprint), texture-optimized in-repo",
+      "license": "Meshy AI generated asset (meshy.ai terms)",
+      "outputSha256": "a8168fb9ca28709253bf446bf404b2f00a84f36c6358c5dec691384048116ba5",
+      "outputBytes": 1142060,
+      "structure": {
+        "bytes": 1142060,
+        "triangles": 14413,
+        "meshes": 1,
+        "materials": [
+          {
+            "name": "paint",
+            "metallic": 0,
+            "roughness": 0.5,
+            "emissive": [
+              0,
+              0,
+              0
+            ],
+            "emissiveTexture": false,
+            "specularExtension": false
+          }
+        ],
+        "textures": [
+          {
+            "name": "Baked_BaseColor",
+            "mime": "image/jpeg",
+            "width": 1024,
+            "height": 1024,
+            "bytes": 299159
+          }
+        ],
+        "clips": [],
+        "skin": null,
+        "cameras": 0,
+        "scenes": 1,
+        "lights": 0,
+        "bounds": {
+          "min": [
+            -0.9499,
+            0,
+            -0.4671
+          ],
+          "max": [
+            0.948,
+            1.2643,
+            0.4652
+          ],
+          "size": [
+            1.8979,
+            1.2643,
+            0.9323
+          ]
+        },
+        "extensions": []
+      }
+    },
+    {
+      "id": "vehicle_sports_car_01",
+      "label": "Premium Sports Coupe body (projected onto the one drivable shell)",
+      "kind": "vehicle",
+      "vehicleDefId": "veh_sports",
+      "output": "public/assets/models/vehicles/sports_car_01.glb",
+      "sources": [
+        {
+          "role": "source",
+          "path": "/Users/harshitkargeti/BlockLife-intake/asset-sprint-2026-08-31/vehicles-worker/final/blocklife_vehicle_sports_coupe.glb",
+          "sha256": "948d5878c788ff9bd86d4a4ab24c5bd6230951864e35116fd43de606f522f189",
+          "bytes": 5592552,
+          "structure": {
+            "bytes": 5592552,
+            "triangles": 14829,
+            "meshes": 1,
+            "materials": [
+              {
+                "name": "Material_0.001",
+                "metallic": 0,
+                "roughness": 0.5,
+                "emissive": [
+                  0,
+                  0,
+                  0
+                ],
+                "emissiveTexture": false,
+                "specularExtension": false
+              }
+            ],
+            "textures": [
+              {
+                "name": "Baked_BaseColor",
+                "mime": "image/png",
+                "width": 2048,
+                "height": 2048,
+                "bytes": 4927083
+              }
+            ],
+            "clips": [],
+            "skin": null,
+            "cameras": 0,
+            "scenes": 1,
+            "lights": 0,
+            "bounds": {
+              "min": [
+                -0.9469,
+                0,
+                -0.4321
+              ],
+              "max": [
+                0.9479,
+                0.5636,
+                0.4299
+              ],
+              "size": [
+                1.8948,
+                0.5636,
+                0.862
+              ]
+            },
+            "extensions": []
+          }
+        }
+      ],
+      "byteNote": null,
+      "operations": [
+        "assert approved source SHA-256 948d5878c788ff9bd86d4a4ab24c5bd6230951864e35116fd43de606f522f189 before reading (read-only)",
+        "normalize single material name -> \"paint\" (existing variant/paint slot pipeline)",
+        "dedup + prune",
+        "textureCompress resize <=1024 targetFormat=jpeg quality=85 filter=lanczos3",
+        "assert mesh digest + bounds unchanged (geometry, indices, origin, wheel count preserved)",
+        "assert runtime-safe: metallic 0, emissive [0,0,0], no unlit/lights/cameras, embedded textures only"
+      ],
+      "attribution": "Meshy AI — generated original asset (owner-approved 2026-08-31 sprint), texture-optimized in-repo",
+      "license": "Meshy AI generated asset (meshy.ai terms)",
+      "outputSha256": "6f854b8f0689a9ff53769134a8b820fc857c2ccebd0288f345a0e5ec5374af6f",
+      "outputBytes": 918084,
+      "structure": {
+        "bytes": 918084,
+        "triangles": 14829,
+        "meshes": 1,
+        "materials": [
+          {
+            "name": "paint",
+            "metallic": 0,
+            "roughness": 0.5,
+            "emissive": [
+              0,
+              0,
+              0
+            ],
+            "emissiveTexture": false,
+            "specularExtension": false
+          }
+        ],
+        "textures": [
+          {
+            "name": "Baked_BaseColor",
+            "mime": "image/jpeg",
+            "width": 1024,
+            "height": 1024,
+            "bytes": 252650
+          }
+        ],
+        "clips": [],
+        "skin": null,
+        "cameras": 0,
+        "scenes": 1,
+        "lights": 0,
+        "bounds": {
+          "min": [
+            -0.9469,
+            0,
+            -0.4321
+          ],
+          "max": [
+            0.9479,
+            0.5636,
+            0.4299
+          ],
+          "size": [
+            1.8948,
+            0.5636,
+            0.862
+          ]
+        },
+        "extensions": []
+      }
+    }
+  ]
+}
