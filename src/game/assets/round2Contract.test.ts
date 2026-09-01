@@ -130,10 +130,12 @@ describe('§13 #4 — shipped-asset motion contract (distinct gaits vs an honest
 })
 
 describe('§13 #6 — building palette variants recolor a REUSED archetype (no geometry duplication)', () => {
-  // Nook Offices and the west backdrop tower share Building_Large_2. A per-instance palette
-  // variant recolors ONLY the declared wall/trim slots — geometry stays shared, windows/interior
-  // are untouched, and two instances of the archetype never cross-mutate.
-  const slotMap = ASSET_MANIFEST_BY_ID.get('building_office_01')!.materialSlots!
+  // The west backdrop tower holds the reusable Building_Large_2 archetype (issue #38 moved
+  // Nook Offices onto its own Wave-0 model, so the tower is now the archetype holder). A
+  // per-instance palette variant recolors ONLY the declared wall/trim slots — geometry stays
+  // shared, windows/interior are untouched, and two instances never cross-mutate. The test
+  // synthesises its own two instances, so it exercises the variant system at full strength.
+  const slotMap = ASSET_MANIFEST_BY_ID.get('building_tower_01')!.materialSlots!
   const MAT_NAMES = ['MI_InteriorWall', 'MI_Trim_Dark', 'MI_Trim_MetalConcrete', 'MI_Glass']
 
   function makeBase() {
@@ -158,7 +160,7 @@ describe('§13 #6 — building palette variants recolor a REUSED archetype (no g
     const tower = base.group.clone(true)
     const officeSlots = createVariantInstances(office, slotMap, Object.keys(slotMap))
     const towerSlots = createVariantInstances(tower, slotMap, Object.keys(slotMap))
-    // Office keeps the base palette; the tower gets the warm sandstone variant (as authored).
+    // Instance A keeps the base palette; instance B gets the warm sandstone variant (as authored).
     applyVariant(towerSlots, { wall: { color: '#c8895a' }, trim: { color: '#6b4a30' } })
 
     const wallHex = (s: ResolvedSlots) => (s.wall![0] as THREE.MeshStandardMaterial).color.getHexString()

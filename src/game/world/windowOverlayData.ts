@@ -92,15 +92,24 @@ export const WINDOW_OVERLAYS: WindowOverlayDef[] = [
     seed: 22,
     litRatio: 0.55,
   },
-  // Nook Offices — Building_Large_2 @ 0.34 (rotated; small dense windows)
+  // Nook Offices — issue #38 Wave 0 office @ uniform 0.9501.
+  // Re-authored for the replacement model's measured footprint; the old Building_Large_2
+  // @ 0.34 distances (2.89 east / 3.56 south) left these planes floating ~0.40 m and
+  // ~1.03 m OUTSIDE the new facades (issue #38 Codex review, finding 5).
+  //
+  // Measured model 5.2440 × 9.9992 × 5.3379, centred in plan, so at 0.9501 the walls sit
+  // at x = ±2.487..2.496 and z = ±2.532..2.540 under a 9.500 roof. Each plane sits a
+  // ~0.02 m epsilon proud of its wall to avoid z-fighting, and every window — including
+  // its half-width and the top row — stays inside the facade. wave0Contract.test.ts
+  // asserts that containment against the same measured numbers.
   {
     buildingAssetId: 'building_office_01',
     facade: 'east',
-    facadeDistance: 2.89,
+    facadeDistance: 2.51,
     rows: 4,
     columns: 4,
-    spacing: [1.6, 1.7],
-    start: [-2.4, 3.0],
+    spacing: [1.3, 1.7],
+    start: [-1.95, 3.0],
     windowSize: [0.72, 0.95],
     emissiveIntensity: 1,
     seed: 31,
@@ -109,11 +118,11 @@ export const WINDOW_OVERLAYS: WindowOverlayDef[] = [
   {
     buildingAssetId: 'building_office_01',
     facade: 'south',
-    facadeDistance: 3.56,
+    facadeDistance: 2.55,
     rows: 4,
     columns: 3,
-    spacing: [1.8, 1.7],
-    start: [-1.8, 3.0],
+    spacing: [1.6, 1.7],
+    start: [-1.6, 3.0],
     windowSize: [0.72, 0.95],
     emissiveIntensity: 0.85,
     seed: 32,

@@ -41,7 +41,7 @@ its manifest entry to `enabled: true`:
 | All other visuals & audio | BlockLife (procedural, in code) | this repository | original work | — | — | Everything not listed below |
 | quaternius_building_medium_2.glb | Quaternius | Downtown City MegaKit [Standard], quaternius.com | CC0-1.0 | 2026-07-03 | yes (optimized) | building_apartment_01 |
 | quaternius_building_small_1.glb | Quaternius | Downtown City MegaKit [Standard], quaternius.com | CC0-1.0 | 2026-07-03 | yes (optimized) | building_gym_01 |
-| quaternius_building_large_2.glb | Quaternius | Downtown City MegaKit [Standard], quaternius.com | CC0-1.0 | 2026-07-03 | yes (optimized) | building_office_01, building_tower_01 |
+| quaternius_building_large_2.glb | Quaternius | Downtown City MegaKit [Standard], quaternius.com | CC0-1.0 | 2026-07-03 | yes (optimized) | building_tower_01 (also backed building_office_01 until issue #38 Wave 0 replaced that model) |
 | quaternius_prop_acunit.glb | Quaternius | Downtown City MegaKit [Standard], quaternius.com | CC0-1.0 | 2026-07-03 | yes (optimized) | prop_ac_unit_01 |
 | quaternius_prop_bollard.glb | Quaternius | Downtown City MegaKit [Standard], quaternius.com | CC0-1.0 | 2026-07-03 | yes (optimized) | prop_bollard_01 |
 | quaternius_prop_plantersingle.glb | Quaternius | Downtown City MegaKit [Standard], quaternius.com | CC0-1.0 | 2026-07-03 | yes (optimized) | prop_street_planter_01 |
@@ -54,8 +54,20 @@ its manifest entry to `enabled: true`:
 | blocklife_apartment_hq_01.glb | Meshy AI (generated, original) | meshy.ai (text→image→3D) | Meshy AI generated asset | 2026-08-03 | yes (lowpoly, texture→1K) | building_townhomes_01 |
 | arch_residential_house_01.glb | Meshy AI (generated, original) | meshy.ai (text→image→3D) | Meshy AI generated asset | 2026-08-20 | yes (lowpoly 7936 tris, texture→1K) | arch_residential_house_01 (issue #25) |
 | prop_job_kiosk_01.glb | Meshy AI (generated, original) | meshy.ai (text→image→3D) | Meshy AI generated asset | 2026-08-20 | yes (lowpoly 4703 tris, texture→1K) | prop_job_kiosk_01 (issue #25) |
-| blocklife_female_01.glb | Meshy AI (generated, original) | meshy.ai (text→image→3D→rig) | Meshy AI generated asset | 2026-08-03 | yes (remesh 15k, texture→1K) | blocklife_female_01 (Maya) |
-| blocklife_male_01.glb | Meshy AI (generated, original) | meshy.ai (text→image→3D→rig) | Meshy AI generated asset | 2026-08-03 | yes (remesh 15k, texture→1K) | blocklife_male_01 (Ravi) |
+| blocklife_female_01.glb | Meshy AI (generated, original) | meshy.ai (text→image→3D→rig) | Meshy AI generated asset | 2026-08-03 | yes (remesh 15k, texture→1K) | blocklife_female_01 — legacy/candidate, **no named-NPC runtime mapping** |
+| blocklife_male_01.glb | Meshy AI (generated, original) | meshy.ai (text→image→3D→rig) | Meshy AI generated asset | 2026-08-03 | yes (remesh 15k, texture→1K) | blocklife_male_01 — legacy/candidate, **no named-NPC runtime mapping** |
+
+> **Named-character mapping note (current as of issue #38).** `blocklife_female_01` and
+> `blocklife_male_01` were originally wired to Maya and Ravi. They no longer are: since issue #23,
+> **all six named NPCs — Maya and Ravi included — ride the slot-rich `blocklife_person`**, because
+> visual identity is derived from recolorable material slots that these baked-material rigs cannot
+> expose. Both files remain valid, credited, loadable assets with **no named-NPC runtime mapping**,
+> reachable through the non-persistent DEV character override (named only outside `public/`, since
+> this credits file ships in the production bundle and must stay free of test-API identifiers).
+> The issue #38 Wave 0 characters (`blocklife_kabir_01`, `blocklife_ravi_01`) ship on the same
+> candidate footing —
+> despite its name, `blocklife_ravi_01` is **not** mapped to `npc_ravi_01`. See
+> [`docs/CHARACTER_IDENTITY_AND_POPULATION.md`](../../docs/CHARACTER_IDENTITY_AND_POPULATION.md).
 
 ### Intake record — Meshy AI generated assets (issue #21 vertical slice)
 
@@ -159,3 +171,30 @@ manifest also stores per-asset attribution and license metadata.
   `Idle` / `Walk` / `Run`, material slots `shirt` / `pants` / `hair` /
   `skin` / `shoes` / `accessory` (a scarf, issue #23) / `eyes`. License: same
   as the project (original work, no third-party IP).
+
+## Issue #38 — Integration Wave 0 (owner-approved 2026-08-31 Meshy sprint)
+
+Five assets from the owner-approved sprint, rebuilt deterministically from pristine sources that
+live **outside** this repository and were opened read-only. Reproduce with
+`node scripts/asset-intake/buildWave0.mjs`; verify the committed bytes with
+`node scripts/asset-intake/buildWave0.mjs --check`. Full per-asset provenance — source paths,
+source SHA-256, output SHA-256, exact operations and structure — is in
+[`docs/asset-provenance/wave0-provenance.json`](../../docs/asset-provenance/wave0-provenance.json).
+
+- **Creator / attribution:** Meshy AI — generated original assets (owner-approved 2026-08-31 sprint),
+  assembled and texture-optimized in-repo.
+- **License:** Meshy AI generated asset (meshy.ai terms). Generation rights held by the repository owner.
+- **Modified:** yes — per-clip GLBs merged into one production GLB per character; all textures reduced
+  2048² → 1024² JPEG; material names normalized; unused payload pruned. Geometry, skin weights, bind
+  matrices and the 24-bone `c432d433d51d` hierarchy are unchanged.
+
+| Shipped file | Triangles | Texture | Size | Output SHA-256 | Pristine source(s) |
+|---|---|---|---|---|---|
+| `assets/models/characters/blocklife_kabir_01.glb` | 10109 | 1024×1024 jpeg | 1149 KB | `f90bc6065985c5d0…` | `kabir-sen-v3-rigged.glb` `34ab5f28df615ad9…`, `kabir-sen-v3-walking.glb` `c4d0bf8fa85b38f5…`, `kabir-sen-v3-running.glb` `42c79ad68861f694…` |
+| `assets/models/characters/blocklife_ravi_01.glb` | 10447 | 1024×1024 jpeg | 1008 KB | `f9ac3d5b8606c340…` | `ravi-sharma-rigged.glb` `48306125e15fd16a…`, `ravi-sharma-walking.glb` `9b8eca6912fc1ebb…`, `ravi-sharma-running.glb` `7ac7521cb711296b…` |
+| `assets/models/vehicles/compact_sedan_01.glb` | 14906 | 1024×1024 jpeg | 1133 KB | `75bc48b8c41473c2…` | `blocklife_vehicle_compact_sedan.glb` `8ea4d12d0d381b28…` |
+| `assets/models/city/arch_office_01.glb` | 16590 | 1024×1024 jpeg | 1122 KB | `fb5b709ac0758d32…` | `office_01.glb` `3fb0acf05d61b712…` |
+| `assets/models/props/prop_park_bench_01.glb` | 8473 | 1024×1024 jpeg | 620 KB | `5d663890b1388041…` | `blocklife_prop_park_bench.glb` `01de0881823bb289…` |
+
+Characters carry all three semantic clips (`Idle` / `Walk` / `Run`) in ONE GLB — no duplicate-texture
+per-clip files ship.

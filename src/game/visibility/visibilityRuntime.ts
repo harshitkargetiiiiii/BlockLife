@@ -8,7 +8,7 @@ import { createOcclusionState, resetOcclusionState } from './occlusionDetection'
 import { restoreOriginalMaterials } from './materialFade'
 import { registry } from '../world/runtimeRegistry'
 import { useGameStore } from '../store/useGameStore'
-import { CHARACTER_ASSETS, DEFAULT_CHARACTER_ASSET_ID } from '../characters/characterManifest'
+import { CHARACTER_ASSETS, PLAYER_CHARACTER_ASSET_ID } from '../characters/characterManifest'
 import { getVisibilitySampleHeights } from '../characters/characterBounds'
 
 /**
@@ -94,7 +94,8 @@ export function clearAllFades(): void {
 /** Subject-position jumps beyond this are treated as teleports. */
 export const TELEPORT_DISTANCE = 12
 
-const playerCharacterDef = CHARACTER_ASSETS[DEFAULT_CHARACTER_ASSET_ID]
+// Must track the asset the player actually renders as, not the crowd default.
+const playerCharacterDef = CHARACTER_ASSETS[PLAYER_CHARACTER_ASSET_ID]
 
 const playerSubject: VisibilitySubject = {
   id: 'player',

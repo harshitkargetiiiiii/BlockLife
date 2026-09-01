@@ -1,6 +1,7 @@
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { STREET_PROP_ASSET_IDS } from '../world/propAssetIds'
 import { ASSET_MANIFEST, validateManifest, type AssetManifestEntry } from './assetManifest'
 import { getManifestEntry, shouldLoadGlb } from './modelRegistry'
 import { BUILDINGS, FOOD_TRUCK, JOB_KIOSK, PROPS } from '../world/cityLayout'
@@ -45,15 +46,24 @@ describe('asset manifest', () => {
       'prop_drain_01',
       'prop_job_kiosk_01',
       'prop_manhole_01',
+      'prop_park_bench_01',
       'prop_street_planter_01',
     ])
-    // Issue #21 §4: three enabled character rigs (default + female + male humanoids).
+    // Issue #21 §4 three enabled character rigs (default + female + male humanoids), plus the
+    // two owner-approved issue #38 Wave 0 CANDIDATE rigs (Kabir, Ravi) — DEV review only, in
+    // no runtime slot: they are single-baked-material and cannot carry the wardrobe/identity axes.
     expect(
       enabled
         .filter((e) => e.category === 'characters')
         .map((e) => e.id)
         .sort(),
-    ).toEqual(['blocklife_female_01', 'blocklife_male_01', 'blocklife_person'])
+    ).toEqual([
+      'blocklife_female_01',
+      'blocklife_kabir_01',
+      'blocklife_male_01',
+      'blocklife_person',
+      'blocklife_ravi_01',
+    ])
     // Every enabled GLB (landmarks + the character rig) points at a real file.
     for (const entry of enabled) {
       const file = join(process.cwd(), 'public', entry.glbPath!)
@@ -89,9 +99,13 @@ describe('asset manifest', () => {
     // never placed directly; each PLACEMENT keeps its own def.id collider, so the archetype
     // id itself needs no direct layout entry and a missing archetype GLB still cannot remove
     // a collider — the invariant holds through the placement.
-    const archetypeIds = new Set(
-      BUILDINGS.map((b) => b.visual?.assetId).filter((id): id is string => Boolean(id)),
-    )
+    const archetypeIds = new Set([
+      ...BUILDINGS.map((b) => b.visual?.assetId).filter((id): id is string => Boolean(id)),
+      // Prop TYPE archetypes (issue #38): one GLB backs every placement of a type. The
+      // placements keep their own def.id colliders and type-based PROP_SOLIDITY, so the
+      // "a GLB can never remove a collider" invariant holds through the placement.
+      ...Object.values(STREET_PROP_ASSET_IDS).filter((id): id is string => Boolean(id)),
+    ])
     // City + prop GLBs must map to authored layout colliders (directly, or via a placement
     // that references them as an archetype), so a missing/broken GLB can never remove a
     // collider. Vehicles (issue #21 §5) get their collider from the ONE driving shell

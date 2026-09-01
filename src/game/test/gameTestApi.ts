@@ -78,7 +78,7 @@ import { APARTMENT_SPAWN } from '../interiors/apartmentLayout'
 import { clearAllFades, visibilityRuntime } from '../visibility/visibilityRuntime'
 import { characterRuntime, characterPopulationStats } from '../characters/characterRuntime'
 import type { CharacterAppearance } from '../characters/characterTypes'
-import { CHARACTER_ASSETS, DEFAULT_CHARACTER_ASSET_ID } from '../characters/characterManifest'
+import { CHARACTER_ASSETS, PLAYER_CHARACTER_ASSET_ID } from '../characters/characterManifest'
 import { getRoadGraph, pointAtProgress } from '../traffic/routing/roadGraphBuilder'
 import { routeRuntime } from '../traffic/routing/routeRuntime'
 import { SECTOR_DEFINITIONS, getSectorDefinition } from '../world/sectors/sectorRegistry'
@@ -2638,7 +2638,7 @@ export function installTestApi(): void {
       useGameStore.getState().setCameraLookY(m)
     },
     getCharacterAssetInfo: () => {
-      const def = CHARACTER_ASSETS[DEFAULT_CHARACTER_ASSET_ID]
+      const def = CHARACTER_ASSETS[PLAYER_CHARACTER_ASSET_ID]
       return {
         id: def.id,
         modelPath: def.modelPath,

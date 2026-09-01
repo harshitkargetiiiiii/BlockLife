@@ -2,12 +2,14 @@ import { Suspense, useCallback, type MutableRefObject } from 'react'
 import { useGLTF } from '@react-three/drei'
 import { AnimatedCharacter } from './AnimatedCharacter'
 import { ProofStaticModel } from './ProofStaticModel'
-import { CHARACTER_ASSETS, DEFAULT_CHARACTER_ASSET_ID } from './characterManifest'
+import { CHARACTER_ASSETS, DEFAULT_CHARACTER_ASSET_ID, PLAYER_CHARACTER_ASSET_ID } from './characterManifest'
 import { getPlayerCharacterMotionState } from './characterAnimationState'
 import { useGameStore } from '../store/useGameStore'
 import { PlayerMesh } from '../player/Player'
 
-const PLAYER_DEF = CHARACTER_ASSETS[DEFAULT_CHARACTER_ASSET_ID]
+// The player's asset comes from the ONE source of truth so the renderer, the occlusion
+// radius and the evidence API can never describe different characters (issue #38 finding 3).
+const PLAYER_DEF = CHARACTER_ASSETS[PLAYER_CHARACTER_ASSET_ID] ?? CHARACTER_ASSETS[DEFAULT_CHARACTER_ASSET_ID]
 
 // Preload early — the model is cached before the world finishes booting, so
 // the primitive→model swap happens before the loading overlay lifts.

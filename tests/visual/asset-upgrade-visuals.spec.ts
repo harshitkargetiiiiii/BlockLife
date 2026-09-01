@@ -44,8 +44,9 @@ test.describe('asset upgrade visuals (§21 §14)', () => {
     await expect(page).toHaveScreenshot('asset-building-apartment.png', { maxDiffPixelRatio: 0.02 })
   })
 
-  // §6/§14: the backdrop tower REUSES Building_Large_2 (same GLB as Nook Offices) but with a
-  // warm sandstone palette variant, so the shared archetype reads as a distinct building.
+  // §6/§14: the backdrop tower carries the Building_Large_2 archetype with a warm sandstone
+  // palette variant, so the archetype reads as a distinct building. (Issue #38 Wave 0 moved
+  // Nook Offices onto its own sprint GLB; the palette-variant mechanism is what this proves.)
   test('backdrop tower palette variant (reused Large_2 archetype)', async ({ page }) => {
     await boot(page)
     await page.evaluate(() => {
@@ -111,12 +112,13 @@ test.describe('asset upgrade visuals (§21 §14)', () => {
 
   // §10/§14: character variant variety through the ONE character pipeline. Paused frames
   // snap each NPC to its canonical routine anchor (NPC.tsx) for determinism, so we pick the
-  // hour (08:00) whose anchors cluster four DISTINCT variants near the plaza — Ravi (Meshy
-  // male) + Maya (Meshy female) + Coach Bruno (blocklife_person orange) + Nisha
-  // (blocklife_person purple). Officer Kim (blue) + Leo (green) are the same rig with their
+  // hour (08:00) whose anchors cluster four DISTINCT residents near the plaza — Ravi + Maya +
+  // Coach Bruno (orange) + Nisha (purple). Since issue #23 ALL named NPCs ride the slot-rich
+  // `blocklife_person`, so this proves per-instance identity on ONE shared rig rather than
+  // distinct meshes. Officer Kim (blue) + Leo (green) are the same rig with their
   // own palettes (proven exhaustively in round2Contract.test.ts §13 #8 — six variants share
   // one geometry with instance-local materials) and appear in the wider city baselines.
-  test('named-resident character variety (2 Meshy + blocklife colour variants)', async ({ page }) => {
+  test('named-resident character variety (blocklife_person identity variants)', async ({ page }) => {
     await boot(page)
     await page.evaluate(() => {
       const a = window.GAME_TEST_API!
