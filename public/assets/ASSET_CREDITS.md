@@ -218,27 +218,39 @@ paths, source SHA-256, output SHA-256, exact operations, measured bounds and str
 - **Creator / attribution:** Meshy AI — generated original assets (owner-approved 2026-08-31 sprint),
   texture-optimized in-repo.
 - **License:** Meshy AI generated asset (meshy.ai terms). Generation rights held by the repository owner.
-- **Modified:** textures reduced 2048² PNG → 1024² JPEG and the single material renamed to `paint`
-  for the §3 variant system. **Geometry, indices, origin and wheel count are unchanged** — the intake
+- **Modified:** textures reduced 2048² PNG → 1024² JPEG and the single material renamed to
+  `baked_atlas` — deliberately NOT a paint-slot name (see the paint note below).
+  **Geometry, indices, origin and wheel count are unchanged** — the intake
   asserts the mesh digest and bounding box are byte-for-byte identical across the transform and
   refuses to write if either moved.
 - **Generation cost this wave: 0 credits.**
 
 | Shipped file | Class | Triangles | Texture | Size | Output SHA-256 | Pristine source |
 |---|---|---|---|---|---|---|
-| `assets/models/vehicles/scooter_01.glb` | `veh_scooter` | 20401 | 1024×1024 jpeg | 1491 KB | `da91e00844d0c6d6…` | `blocklife_vehicle_scooter.glb` `a187ed98675008c1…` |
-| `assets/models/vehicles/utility_van_01.glb` | `veh_van` | 14413 | 1024×1024 jpeg | 1115 KB | `a8168fb9ca287092…` | `blocklife_vehicle_utility_van.glb` `8aa7ef191f958c6f…` |
-| `assets/models/vehicles/sports_car_01.glb` | `veh_sports` | 14829 | 1024×1024 jpeg | 897 KB | `6f854b8f0689a9ff…` | `blocklife_vehicle_sports_coupe.glb` `948d5878c788ff9b…` |
+| `assets/models/vehicles/scooter_01.glb` | `veh_scooter` | 20401 | 1024×1024 jpeg | 1491 KB | `9f84a52d775b5e98…` | `blocklife_vehicle_scooter.glb` `a187ed98675008c1…` |
+| `assets/models/vehicles/utility_van_01.glb` | `veh_van` | 14413 | 1024×1024 jpeg | 1115 KB | `7bc9ae9d54733c7b…` | `blocklife_vehicle_utility_van.glb` `8aa7ef191f958c6f…` |
+| `assets/models/vehicles/sports_car_01.glb` | `veh_sports` | 14829 | 1024×1024 jpeg | 897 KB | `e01f1e8191b34df7…` | `blocklife_vehicle_sports_coupe.glb` `948d5878c788ff9b…` |
 
 The scooter is 401 triangles over the sprint's nominal 20k guide — intentional, to preserve its
 wheel/spoke geometry — and remains well under the enforced 40k vehicle gate.
 
-**Paint behaviour is recorded honestly.** Each body is ONE baked mesh with ONE material carrying a
-baked base-colour texture, so the `paint` slot tints that whole texture rather than exposing a
-per-panel body slot. Windows, lights and tyres are painted into the same map and therefore tint
-with the body. The variant system, customization state and save behaviour are unchanged and
-un-weakened; what is NOT claimed is per-panel paint. Re-authoring these bodies with real material
-segmentation is the prerequisite for that, exactly as with the Wave 0 characters' wardrobe axes.
+**Source paint is retained — these bodies are not recolored.** Each is ONE baked mesh with ONE
+material carrying a baked base-colour atlas: windows, lights, tyres and trim live in the same
+texture as the panels. Tinting it recolors the whole vehicle, so per issue #40 these bodies
+declare **no** recolorable slot and their material is named `baked_atlas`, which is not a
+candidate in any default or declared paint slot. The approved source paint therefore ships as
+authored. Customization and save state are untouched: a chosen paint is still stored, still shown
+in the Garage, and still tints the procedural fallback shell. Re-authoring a body with real
+material segmentation is what unlocks a genuine `paint` slot — exactly as with the Wave 0
+characters' wardrobe axes.
+
+**Fittings.** Each approved body already contains its own wheels and lamps, so the GLB path
+renders only the occupant indicators — the one fitting these models genuinely lack — seated per
+asset so the driver and any ride passenger are visible on each body. Procedural wheels,
+headlights and brake-light taillights are NOT layered on top; the procedural fallback keeps the
+complete historical set, and the brake-light swap still drives every procedural body (fallback,
+ambient, parked, stealable). A baked-atlas body's own lamps cannot be lit separately, and its
+wheels cannot be tinted, without recoloring the whole vehicle — recorded, not worked around.
 
 **Projection.** Each body is scaled UNIFORMLY — the approved model is never distorted — from its own
 measured bounding box against its class footprint in `vehicleRegistry`, filling 97% of whichever of

@@ -28,6 +28,20 @@ export const MAX_TEXTURE = 1024
 export const TEXTURE_FORMAT = 'jpeg'
 export const TEXTURE_QUALITY = 85
 
+/**
+ * The single material every Wave 1 body carries is ONE BAKED ATLAS: windows, lights, tyres and
+ * trim are painted into the same texture as the body panels. Naming it `paint` (as Wave 0 did)
+ * makes the §3 variant system bind it as a recolorable body slot, and the selected paint then
+ * tints the whole atlas — windows and all. Issue #40 is explicit: "If the baked material cannot
+ * expose a clean recolorable body slot without recoloring windows/lights/tires, document that
+ * and retain source paint rather than falsely claiming per-panel paint support."
+ *
+ * So the material is deliberately named something that is NOT a slot candidate in
+ * DEFAULT_VEHICLE_SLOTS or any manifest entry. The approved source paint ships as authored, and
+ * re-authoring a body with real material segmentation has to opt in consciously.
+ */
+const BAKED_MATERIAL = 'baked_atlas'
+
 const LICENSE = 'Meshy AI generated asset (meshy.ai terms)'
 const ATTRIB = 'Meshy AI — generated original asset (owner-approved 2026-08-31 sprint), texture-optimized in-repo'
 
@@ -53,8 +67,7 @@ export const VEHICLES = [
     src: `${INTAKE_ROOT}/vehicles-worker/final/blocklife_vehicle_scooter.glb`,
     out: 'public/assets/models/vehicles/scooter_01.glb',
     expect: { sha256: 'a187ed98675008c1e5dc422a274a5bd5942f75b4d67a567bec4dc8fa8314f6bf', bytes: 7799608, triangles: 20401 },
-    /** Normalized so the existing variant pipeline's `paint` slot keeps working. */
-    materialName: 'paint',
+    materialName: BAKED_MATERIAL,
     attribution: ATTRIB,
     license: LICENSE,
   },
@@ -65,7 +78,7 @@ export const VEHICLES = [
     src: `${INTAKE_ROOT}/vehicles-worker/final/blocklife_vehicle_utility_van.glb`,
     out: 'public/assets/models/vehicles/utility_van_01.glb',
     expect: { sha256: '8aa7ef191f958c6fe83bfecdcad9d7b5da8a84f81042cdb2b30981c9dabbd440', bytes: 6645388, triangles: 14413 },
-    materialName: 'paint',
+    materialName: BAKED_MATERIAL,
     attribution: ATTRIB,
     license: LICENSE,
   },
@@ -76,7 +89,7 @@ export const VEHICLES = [
     src: `${INTAKE_ROOT}/vehicles-worker/final/blocklife_vehicle_sports_coupe.glb`,
     out: 'public/assets/models/vehicles/sports_car_01.glb',
     expect: { sha256: '948d5878c788ff9bd86d4a4ab24c5bd6230951864e35116fd43de606f522f189', bytes: 5592552, triangles: 14829 },
-    materialName: 'paint',
+    materialName: BAKED_MATERIAL,
     attribution: ATTRIB,
     license: LICENSE,
   },

@@ -26,6 +26,14 @@ export function Vehicle() {
   // vehicle active (legacy / stolen / pre-ownership) it keeps the classic drivable-car colour, so
   // existing visual baselines are unchanged.
   useGameStore((s) => s.vehicleVersion)
+  // ...and on `socialVersion`, because the Give-a-Ride PASSENGER (§11) lives in the social
+  // activity runtime, not the vehicle one. A ride starts AFTER the player is already driving, so
+  // neither `mode` nor `vehicleVersion` changes and this component never re-rendered — leaving
+  // `showPassenger` stuck at its pre-ride `false`. The passenger indicator therefore never
+  // appeared on the shell at all, which is why issue #40's van driver+passenger evidence could
+  // not be captured. Subscribing to the counter that DOES change is the whole fix: no new state,
+  // no second passenger system, and `getRidePassenger()` is still the one source of truth.
+  useGameStore((s) => s.socialVersion)
   const proj = getActiveVehicleProjection()
   const paint = proj.ownedId ? proj.paint : DRIVABLE_CAR_COLOR
   // Class-matching shell (§6): the ONE body reconfigures its collider + mesh scale for the active
@@ -85,10 +93,12 @@ export function Vehicle() {
     >
       <CuboidCollider args={[cw, ch, cl]} position={[0, ch, 0]} density={density} />
       <group name="vehicle_compact_car_01" ref={meshGroup} scale={meshScale}>
-        {/* §21 §5: a GLB body (when enabled for the active class) projects onto the ONE
-            shell; the CarShell body is the always-present fallback, and CarFittings
-            (wheels/brake-lights/occupants) always render so the GLB keeps those behaviours.
-            Physics/footprint above are unaffected — they read the projection, never the model. */}
+        {/* §21 §5: a GLB body (when enabled for the active class) projects onto the ONE shell;
+            the CarShell body is the always-present fallback. Fittings are no longer
+            unconditional (issue #40): the FALLBACK keeps the complete set (wheels, headlights,
+            brake-light taillights, occupants), while a mounted GLB — which already contains its
+            own wheels and lamps — gets occupants only, seated per asset. Physics/footprint above
+            are unaffected: they read the projection, never the model. */}
         <VehicleVisual
           assetId={proj.assetId}
           color={paint}
@@ -96,6 +106,7 @@ export function Vehicle() {
           showPassenger={driving && getRidePassenger() != null}
           wheelHub={proj.wheelHub}
           wheelScale={proj.wheelScale}
+          groupScale={meshScale}
         />
       </group>
     </RigidBody>

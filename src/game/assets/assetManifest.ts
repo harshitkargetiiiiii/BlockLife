@@ -75,6 +75,25 @@ export interface AssetManifestEntry {
   budget?: AssetBudget
   /** Optional visual bounds (world units) for tooling/labels; render reads the GLB. */
   bounds?: { width: number; height: number; depth: number }
+  /**
+   * Where the occupant indicators sit on THIS body (issue #40), in WORLD metres relative to the
+   * vehicle's ground origin: x = lateral (+ right), y = up from the ground, z = longitudinal
+   * (+z is the nose). Only consulted when the GLB body is the thing rendering — the procedural
+   * fallback keeps CarMesh's own seat, so nothing changes when a model is missing.
+   *
+   * A GLB body is scaled to its own class footprint, so the single CarMesh seat position (tuned
+   * for a 2.0 x 1.36 x 3.9 sedan) lands in a different place on every one of them — on the
+   * scooter it landed INSIDE the bodywork and the rider was invisible, which is exactly what the
+   * "occupied seat alignment" evidence exists to catch. Declaring the seat per asset is the
+   * bounded fix: it is presentation data on the visual, and it changes no seat COUNT, occupancy
+   * rule, ride eligibility or save field — `VehicleDef.seats` remains the gameplay authority.
+   */
+  occupants?: {
+    driver: [number, number, number]
+    passenger?: [number, number, number]
+    /** Indicator sphere radius in world metres (CarMesh's is 0.24). */
+    radius?: number
+  }
 }
 
 const defaults = {
@@ -360,12 +379,23 @@ export const ASSET_MANIFEST: AssetManifestEntry[] = [
     positionOffset: [0, 0, 0],
     enabled: true,
     budget: { maxTriangles: 40000 },
-    materialSlots: { paint: ['paint'] },
+    // Issue #40: this body is ONE BAKED ATLAS — windows, lights, tyres and trim live in the same
+    // texture as the panels — so it exposes NO clean recolorable body slot. An explicitly EMPTY
+    // map means "retain the source paint": the variant system isolates nothing and tints nothing,
+    // instead of recoloring the whole atlas and falsely claiming per-panel paint. Customization
+    // and save state are untouched — the selected paint is still stored, still shown in the
+    // Garage, and still tints the procedural fallback shell. Re-authoring the body with real
+    // material segmentation is what unlocks a real `paint` slot here.
+    materialSlots: {},
     attribution: 'Meshy AI — generated original asset (owner-approved 2026-08-31 sprint), texture-optimized in-repo',
     license: 'Meshy AI generated asset (meshy.ai terms)',
     // The ACTIVE (driven) projection — see docs/ASSET_INTEGRATION_WAVE_1.md for the parked-mesh
     // divergence, which is a pre-existing renderer behaviour this wave does not change.
     bounds: { width: 1.02, height: 1.6185, depth: 2.1339 },
+    // Rider seated on the scooter's saddle: centred laterally (single-track), just behind the
+    // body's midpoint, head clear of the 1.62 m silhouette so it reads as a rider rather than
+    // disappearing into the bodywork.
+    occupants: { driver: [0, 1.28, -0.16], radius: 0.2 },
   },
   {
     ...defaults,
@@ -389,10 +419,26 @@ export const ASSET_MANIFEST: AssetManifestEntry[] = [
     positionOffset: [0, 0, 0],
     enabled: true,
     budget: { maxTriangles: 40000 },
-    materialSlots: { paint: ['paint'] },
+    // Issue #40: this body is ONE BAKED ATLAS — windows, lights, tyres and trim live in the same
+    // texture as the panels — so it exposes NO clean recolorable body slot. An explicitly EMPTY
+    // map means "retain the source paint": the variant system isolates nothing and tints nothing,
+    // instead of recoloring the whole atlas and falsely claiming per-panel paint. Customization
+    // and save state are untouched — the selected paint is still stored, still shown in the
+    // Garage, and still tints the procedural fallback shell. Re-authoring the body with real
+    // material segmentation is what unlocks a real `paint` slot here.
+    materialSlots: {},
     attribution: 'Meshy AI — generated original asset (owner-approved 2026-08-31 sprint), texture-optimized in-repo',
     license: 'Meshy AI generated asset (meshy.ai terms)',
     bounds: { width: 2.3279, height: 3.1569, depth: 4.7391 },
+    // Two seats read at the WINDSCREEN APERTURE, which is where this body can actually show them.
+    // Measured height profile along the van's length: the nose is 1.32 m, the raked windscreen
+    // climbs from 2.13 m at z≈1.2 to the roof, and from z≈1.0 rearward the body is a closed
+    // 3.15 m box. Occupants seated inside that cab (tried at z 0.72) are under an opaque roof and
+    // behind baked-dark glass — invisible from the shipped isometric camera, which is exactly
+    // what issue #40's "driver/passenger alignment" evidence has to show. So the indicators sit
+    // at the glass line rather than behind it, spread wide enough that the near one does not
+    // eclipse the far one. The sedan's 1.25 m seat would have put both down in the engine bay.
+    occupants: { driver: [-0.62, 2.02, 1.38], passenger: [0.62, 2.02, 1.38], radius: 0.24 },
   },
   {
     ...defaults,
@@ -413,10 +459,20 @@ export const ASSET_MANIFEST: AssetManifestEntry[] = [
     positionOffset: [0, 0, 0],
     enabled: true,
     budget: { maxTriangles: 40000 },
-    materialSlots: { paint: ['paint'] },
+    // Issue #40: this body is ONE BAKED ATLAS — windows, lights, tyres and trim live in the same
+    // texture as the panels — so it exposes NO clean recolorable body slot. An explicitly EMPTY
+    // map means "retain the source paint": the variant system isolates nothing and tints nothing,
+    // instead of recoloring the whole atlas and falsely claiming per-panel paint. Customization
+    // and save state are untouched — the selected paint is still stored, still shown in the
+    // Garage, and still tints the procedural fallback shell. Re-authoring the body with real
+    // material segmentation is what unlocks a real `paint` slot here.
+    materialSlots: {},
     attribution: 'Meshy AI — generated original asset (owner-approved 2026-08-31 sprint), texture-optimized in-repo',
     license: 'Meshy AI generated asset (meshy.ai terms)',
     bounds: { width: 1.765, height: 1.154, depth: 3.88 },
+    // Low cabin set back from the long nose: this coupe is only 1.15 m tall, so the sedan's
+    // 1.25 m seat floated the occupants above the roof.
+    occupants: { driver: [-0.34, 1.02, -0.22], passenger: [0.34, 1.02, -0.22], radius: 0.22 },
   },
   // ---- Characters (issue #21 §4): CANONICAL catalog row. The rig-specific detail
   // (skeleton/clips/slots/bounds) lives in characterManifest.ts CHARACTER_ASSETS; a

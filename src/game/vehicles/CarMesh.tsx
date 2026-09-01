@@ -70,50 +70,109 @@ export function CarShell({ color }: { color: string }) {
 }
 
 /**
+ * How much of the fittings set to render alongside a body (issue #40).
+ *
+ * - `full` — the complete historical set: four wheels, headlights, taillights and occupants.
+ *   Every procedural path uses this (CarMesh, ambient/parked/stealable cars, and the CarMesh
+ *   FALLBACK a GLB drops back to), so those renders are byte-identical to before.
+ * - `bodyIncluded` — for a body that already contains its own wheels AND lights in its mesh.
+ *   Renders ONLY the occupant indicators, which are the one fitting such a model genuinely
+ *   lacks. Wheels, headlights and taillights are all dropped: layering them over a model that
+ *   has its own is the duplicate-wheels/duplicate-body-lights defect issue #40 fails a build on,
+ *   and the rendered captures confirmed the taillight boxes read as a second set of lamps
+ *   floating off the tail rather than as part of the vehicle.
+ *
+ *   The brake-light state machine in Vehicle.tsx is UNCHANGED and still drives every `taillight`
+ *   mesh it finds — which is every procedural body: the CarMesh fallback, ambient, parked and
+ *   stealable cars. A baked-atlas body simply has no separable lamp to animate: its lights live
+ *   in the same single texture as its panels, so lighting them would recolor the whole vehicle,
+ *   which is exactly the dishonest recolor issue #40 rules out. Recorded, not faked.
+ */
+export type CarFittingsProfile = 'full' | 'bodyIncluded'
+
+/**
+ * Explicit occupant seats, in the fittings' own LOCAL space (the space CarMesh is authored in).
+ * Supplied only for a GLB body, whose proportions differ from the sedan CarMesh was tuned for.
+ * Omitted -> the historical constants, so every procedural render is unchanged.
+ */
+export interface OccupantSeats {
+  driver: [number, number, number]
+  passenger: [number, number, number]
+  /** Per-axis scale for the indicator sphere, counteracting the enclosing group's scale. */
+  scale: [number, number, number]
+}
+
+const DEFAULT_SEATS: OccupantSeats = {
+  driver: [0, 1.25, -0.2],
+  passenger: [0.5, 1.25, -0.2],
+  scale: [1, 1, 1],
+}
+
+/**
  * The functional fittings that must survive a GLB body swap (§5): recolorable/
  * scalable wheels (the existing wheel-style adapter), headlights, the named
  * `taillight` meshes the brake-light swap targets, and driver/passenger
- * indicators. Rendered as an always-present sibling of the body — GLB or not —
- * so wheel-style, brake lights and passenger visibility keep working on the GLB.
+ * indicators. Rendered as a sibling of the body so wheel-style, brake lights and
+ * passenger visibility keep working; `profile` bounds the set to what the body
+ * itself does not already provide.
+ *
  */
 export function CarFittings({
   showDriver = false,
   showPassenger = false,
   wheelHub = '#26262c',
   wheelScale = 1,
-}: Omit<CarMeshProps, 'color'>) {
+  profile = 'full',
+  seats = DEFAULT_SEATS,
+}: Omit<CarMeshProps, 'color'> & { profile?: CarFittingsProfile; seats?: OccupantSeats }) {
+  const bodyProvidesItsOwn = profile === 'bodyIncluded'
   return (
     <group name="car-fittings">
-      {WHEEL_POSITIONS.map(([x, z], i) => (
-        <mesh
-          key={i}
-          geometry={wheelGeometry}
-          material={wheelMaterialFor(wheelHub)}
-          position={[x, 0.34 * wheelScale, z]}
-          rotation-z={Math.PI / 2}
-          scale={wheelScale}
-        />
-      ))}
-      {/* Headlights (front, +z) and taillights */}
-      <mesh geometry={lightGeometry} material={headlightMaterial} position={[-0.6, 0.58, 1.96]} />
-      <mesh geometry={lightGeometry} material={headlightMaterial} position={[0.6, 0.58, 1.96]} />
-      <mesh
-        name="taillight"
-        geometry={lightGeometry}
-        material={taillightMaterial}
-        position={[-0.6, 0.58, -1.96]}
-      />
-      <mesh
-        name="taillight"
-        geometry={lightGeometry}
-        material={taillightMaterial}
-        position={[0.6, 0.58, -1.96]}
-      />
+      {!bodyProvidesItsOwn &&
+        WHEEL_POSITIONS.map(([x, z], i) => (
+          <mesh
+            key={i}
+            geometry={wheelGeometry}
+            material={wheelMaterialFor(wheelHub)}
+            position={[x, 0.34 * wheelScale, z]}
+            rotation-z={Math.PI / 2}
+            scale={wheelScale}
+          />
+        ))}
+      {/* Headlights (front, +z) and the brake-light taillights — only for a body without its own. */}
+      {!bodyProvidesItsOwn && (
+        <>
+          <mesh geometry={lightGeometry} material={headlightMaterial} position={[-0.6, 0.58, 1.96]} />
+          <mesh geometry={lightGeometry} material={headlightMaterial} position={[0.6, 0.58, 1.96]} />
+          <mesh
+            name="taillight"
+            geometry={lightGeometry}
+            material={taillightMaterial}
+            position={[-0.6, 0.58, -1.96]}
+          />
+          <mesh
+            name="taillight"
+            geometry={lightGeometry}
+            material={taillightMaterial}
+            position={[0.6, 0.58, -1.96]}
+          />
+        </>
+      )}
       {showDriver && (
-        <mesh geometry={driverGeometry} material={driverMaterial} position={[0, 1.25, -0.2]} />
+        <mesh
+          geometry={driverGeometry}
+          material={driverMaterial}
+          position={seats.driver}
+          scale={seats.scale}
+        />
       )}
       {showPassenger && (
-        <mesh geometry={driverGeometry} material={driverMaterial} position={[0.5, 1.25, -0.2]} />
+        <mesh
+          geometry={driverGeometry}
+          material={driverMaterial}
+          position={seats.passenger}
+          scale={seats.scale}
+        />
       )}
     </group>
   )

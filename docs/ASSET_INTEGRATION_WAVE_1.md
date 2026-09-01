@@ -17,9 +17,9 @@ physical shell, and every class still falls back to `CarMesh`.
 
 | Runtime slot | Class | Shipped file | Tris | Texture | Size |
 |---|---|---|---:|---|---:|
-| `vehicle_scooter_01` | `veh_scooter` | `public/assets/models/vehicles/scooter_01.glb` | 20,401 | 1024² jpeg | 1,527,052 B |
-| `vehicle_utility_van_01` | `veh_van` | `public/assets/models/vehicles/utility_van_01.glb` | 14,413 | 1024² jpeg | 1,142,060 B |
-| `vehicle_sports_car_01` | `veh_sports` | `public/assets/models/vehicles/sports_car_01.glb` | 14,829 | 1024² jpeg | 918,084 B |
+| `vehicle_scooter_01` | `veh_scooter` | `public/assets/models/vehicles/scooter_01.glb` | 20,401 | 1024² jpeg | 1,527,060 B |
+| `vehicle_utility_van_01` | `veh_van` | `public/assets/models/vehicles/utility_van_01.glb` | 14,413 | 1024² jpeg | 1,142,064 B |
+| `vehicle_sports_car_01` | `veh_sports` | `public/assets/models/vehicles/sports_car_01.glb` | 14,829 | 1024² jpeg | 918,088 B |
 
 The stable paths and asset ids are unchanged — only the bytes behind them. Full provenance
 (source paths, source and output SHA-256, exact operations, measured bounds, structure) lives in
@@ -47,7 +47,8 @@ Per source, in order:
 
 1. **Assert the approved SHA-256 before reading.** A mismatch is a hard failure, not a warning.
 2. Open the pristine source **read-only**; the pipeline never writes to an input path.
-3. Normalize the single material's name to `paint` for the existing §3 variant/paint slot.
+3. Normalize the single material's name to `baked_atlas` — deliberately NOT a paint-slot
+   candidate, so the baked source paint can never be tinted (see "Paint behaviour" below).
 4. `dedup` + `prune`.
 5. `textureCompress` → ≤1024², JPEG q85, lanczos3.
 6. **Assert the mesh digest and bounding box are unchanged** across the transform, so geometry,
@@ -119,16 +120,70 @@ bigger than a hatchback. The new fleet differentiates: the van is 2.2× the scoo
 every number above from `vehicleRegistry` + `shellMeshScale` + the committed bytes, so a swapped
 local X/Z, a wrong yaw, a forgotten shell factor or a hand-edited constant fails the gate.
 
-## Paint behaviour — stated honestly
+## Paint behaviour — source paint retained
 
-Each body is **one baked mesh with one material** carrying a baked base-colour texture. The
-`paint` slot therefore tints that whole texture rather than exposing a per-panel body slot:
-**windows, lights and tyres are painted into the same map and tint with the body.**
+Each body is **one baked mesh with one material** carrying a baked base-colour atlas: windows,
+lights, tyres and trim live in the same texture as the panels. There is no clean recolorable body
+slot to expose, and tinting the atlas recolors the entire vehicle.
 
-The variant system, customization state and save behaviour are unchanged and un-weakened. What
-is **not** claimed is per-panel paint. Re-authoring these bodies with real material segmentation
-is the prerequisite for that — the same limitation, for the same reason, as the Wave 0
-characters' wardrobe axes.
+Issue #40 is explicit about this case — *"retain source paint rather than falsely claiming
+per-panel paint support"* — so:
+
+- the intake names the single material **`baked_atlas`**, which is not a candidate in
+  `DEFAULT_VEHICLE_SLOTS` (`paint`/`Paint`/`body`/`Body`/`carpaint`/`CarPaint`) nor in any
+  manifest declaration, so it cannot be re-bound by accident;
+- the three manifest entries declare **`materialSlots: {}`** — an *explicitly empty* map, which
+  `VehicleAsset` now distinguishes from an absent one and reads as "expose no recolorable slots,
+  retain the source paint". An absent map still means "use the default candidates", so no other
+  asset changes behaviour.
+
+**Customization and save state are untouched.** A chosen paint is still purchased, stored on the
+owned asset, persisted, shown in the Garage, returned by `getActiveVehicleProjection()`, and still
+tints the procedural fallback shell. What no longer happens is the body texture being recolored.
+
+Wheel-style customization is likewise stored and applied to state and still visible on the
+fallback, but a Wave 1 body's baked wheels do not recolor — they are part of the atlas.
+
+`round2Contract.test.ts` no longer asserts that *every* class has a paint slot (the claim that
+forced the dishonest declaration). It now asserts something **stricter**: a declared paint slot
+must name a material the GLB actually contains, and a slot may only be declined by a genuine
+single-material body whose material cannot rebind a default slot.
+
+The Wave 0 `compact_sedan_01.glb` is the same kind of single-material baked body and still
+declares `paint: ['paint']`. It is **deliberately unchanged** here — this wave is scoped to the
+Wave 1 bodies — and is flagged for the owner as the identical pre-existing case.
+
+## Fittings — no duplicate wheels or lights on a GLB body
+
+Every approved body contains its own wheels and lights inside its single baked mesh, but
+`VehicleVisual` used to render the full procedural `CarFittings` set as an unconditional sibling.
+That drew four oversized car wheels on top of the two-wheeled scooter (a visible multi-wheel
+hybrid) and headlight/taillight boxes over baked ones.
+
+`CarFittings` now takes a **`profile`**:
+
+- **`full`** — the complete historical set (four wheels, headlights, taillights, occupants). Used
+  by `CarMesh` and therefore by every ambient/parked/stealable car **and by the CarMesh fallback**,
+  so those renders are byte-identical to before.
+- **`bodyIncluded`** — occupant indicators only. Wheels, headlights and taillights are all
+  dropped; the rendered captures confirmed the taillight boxes read as a second pair of lamps
+  floating off the tail rather than as part of the vehicle.
+
+  The brake-light state machine in `Vehicle.tsx` is **unchanged** and still drives every
+  `taillight` mesh it finds — which is every procedural body: the CarMesh fallback, and ambient,
+  parked and stealable cars. A baked-atlas body has no separable lamp to animate: its lights live
+  in the same single texture as its panels, so lighting them would recolor the whole vehicle —
+  the same dishonest recolor issue #40 rules out. Recorded here rather than faked.
+
+The profile follows the branch that actually renders: `VehicleAsset` gained a `glbSiblings` slot
+rendered **inside** the Suspense/ErrorBoundary, so the bounded set appears exactly when the model
+does, and a failed or missing model falls back to the complete set — a broken GLB never yields a
+wheelless car. Physics, occupants, ownership and save are untouched.
+
+Gated by four render-tree tests in `VehicleAsset.test.tsx`: the fallback has 4 wheels and 2
+taillights; a mounted GLB has **0** procedural wheels and **0** procedural tail lamps but keeps
+its occupants; a failed GLB restores the complete set; and a mounted baked-atlas body is not
+tinted.
 
 ## Known limitation — parked vs active mesh scale (pre-existing)
 
@@ -158,6 +213,11 @@ clean one-line follow-up for the owner to authorize separately.
 baselines, each inspected by eye: per class an active side view, an active front view, a parked
 dealership-bay view, an occupied (driver seated) view and a night view; plus one four-class
 lineup showing compact, scooter, van and sports side by side.
+
+Staging is the open central plaza `[0, 0]`, chosen by probing four candidate locations: it is the
+only one that frames the whole vehicle on flat, uncluttered pavement with every wheel and its
+ground contact readable. The first capture pass staged at `[0, -2]`, beside Maya's Snack Truck,
+which obstructed the subject — and it was those captures that exposed both defects above.
 
 The missing-file fallback contract is gated **per class** at the unit level in
 `VehicleAsset.test.tsx` — there is no runtime hook to disable a vehicle GLB in a browser session,

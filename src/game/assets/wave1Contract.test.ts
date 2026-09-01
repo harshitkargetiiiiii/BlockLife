@@ -96,7 +96,9 @@ describe('issue #40 Wave 1 — production vehicle GLB contract (real bytes)', ()
       expect(entry!.fallbackKey, `${assetId} fallbackKey`).toBe('CarMesh')
       expect(entry!.attribution, `${assetId} attribution`).toBeTruthy()
       expect(entry!.license, `${assetId} license`).toBeTruthy()
-      expect(entry!.materialSlots?.paint, `${assetId} paint slot`).toEqual(['paint'])
+      // Issue #40: a one-material baked atlas must NOT claim a per-panel paint slot.
+      expect(entry!.materialSlots, `${assetId} declares a slot map`).toBeDefined()
+      expect(Object.keys(entry!.materialSlots!), `${assetId} exposes no recolorable slots`).toEqual([])
     }
   })
 
@@ -247,8 +249,9 @@ describe('issue #40 Wave 1 — production vehicle GLB contract (real bytes)', ()
         expect(m.emissiveFactor ?? [0, 0, 0], `${file} material ${m.name} emissive`).toEqual([0, 0, 0])
         expect(m.emissiveTexture, `${file} material ${m.name} emissive texture`).toBeUndefined()
         expect(m.extensions?.KHR_materials_specular, `${file} material ${m.name} specular boost`).toBeUndefined()
-        // The paint slot the §3 variant system binds by name.
-        expect(m.name, `${file} material name`).toBe('paint')
+        // The material must NOT be named anything the §3 variant system would bind as a body
+        // slot — that is what made the selected paint tint the whole atlas, windows included.
+        expect(m.name, `${file} material name`).toBe('baked_atlas')
       }
       for (const img of json.images ?? []) {
         expect(img.uri, `${file} external texture URL`).toBeUndefined() // embedded only, no network fetch
@@ -276,5 +279,83 @@ describe('issue #40 Wave 1 — production vehicle GLB contract (real bytes)', ()
       expect(record.attribution, `${file} attribution`).toBeTruthy()
       expect(record.license, `${file} license`).toBeTruthy()
     }
+  })
+
+  // ---- Codex review, finding 2: retain the source paint on a one-material baked body ----
+  it('a baked-atlas body retains its source paint — no slot, and no default slot can rebind it', () => {
+    // DEFAULT_VEHICLE_SLOTS in VehicleAsset matches material names EXACTLY. If a Wave 1 body's
+    // material were called `paint` / `body` / `carpaint` (etc.) it would be picked up as a
+    // recolorable body slot even with an empty manifest declaration, and the selected paint would
+    // tint windows, lights and tyres along with the panels. Assert both halves of that guard.
+    const REBINDABLE = ['paint', 'Paint', 'body', 'Body', 'carpaint', 'CarPaint',
+      'wheel', 'Wheel', 'tire', 'Tire', 'rim', 'Rim']
+    for (const { assetId, file } of WAVE1) {
+      const entry = ASSET_MANIFEST_BY_ID.get(assetId)!
+      expect(Object.keys(entry.materialSlots ?? { paint: [] }), `${assetId} declares no slots`).toEqual([])
+      const { json } = readGlb(file)
+      expect(json.materials, `${assetId} is a single-material body`).toHaveLength(1)
+      expect(REBINDABLE, `${assetId} material name cannot rebind a default slot`)
+        .not.toContain(json.materials[0].name)
+    }
+  })
+
+  it('the Wave 0 sedan keeps the paint slot it shipped with — this wave changes only Wave 1', () => {
+    // Guards the blast radius: the owner-approved Wave 0 asset is untouched by this correction.
+    const sedan = ASSET_MANIFEST_BY_ID.get('vehicle_compact_car_01')!
+    expect(sedan.materialSlots?.paint).toEqual(['paint'])
+    expect(sedan.glbPath).toBe('assets/models/vehicles/compact_sedan_01.glb')
+  })
+
+  // ---- Codex visual review: the driver must be VISIBLY seated on every class ----
+  it('every Wave 1 body declares occupant seats that sit on the vehicle, not inside it', () => {
+    for (const { assetId, defId } of WAVE1) {
+      const entry = ASSET_MANIFEST_BY_ID.get(assetId)!
+      const def = getVehicleDef(defId as never)!
+      const seats = entry.occupants
+      expect(seats, `${assetId} declares occupant seats`).toBeDefined()
+
+      // The seats are WORLD metres from the vehicle's ground origin, so they are checked against
+      // the body's real projected bounds — the numbers the projection test already pins.
+      const b = entry.bounds!
+      const radius = seats!.radius ?? 0.24
+      const places: [string, [number, number, number]][] = [['driver', seats!.driver]]
+      if (seats!.passenger) places.push(['passenger', seats!.passenger])
+
+      // Bounded sanity, scaled to EACH body. Whether the rider is actually visible is a pixel
+      // question the inspected `wave1-*-occupied` captures answer; what is checkable here is that
+      // the seat is on this vehicle and in its cabin band rather than inherited from the sedan.
+      expect(radius, `${assetId} indicator radius is bounded`).toBeGreaterThan(0.1)
+      expect(radius, `${assetId} indicator radius is bounded`).toBeLessThanOrEqual(0.3)
+      for (const [who, [x, y, z]] of places) {
+        // Laterally and longitudinally ON the vehicle, never hanging off the side or the tail.
+        expect(Math.abs(x), `${assetId} ${who} within the body width`).toBeLessThanOrEqual(b.width / 2)
+        expect(Math.abs(z), `${assetId} ${who} within the body length`).toBeLessThanOrEqual(b.depth / 2)
+        // In the cabin band of ITS OWN body. The sedan's fixed 1.25 m seat is 79% of the
+        // scooter's height but only 40% of the van's and 108% of the coupe's — which is exactly
+        // how one constant buried one rider and floated another above the roof.
+        expect(y, `${assetId} ${who} rides in the upper part of the body`).toBeGreaterThan(b.height * 0.45)
+        // The indicator is a head that reads ABOVE the cabin — CarMesh's own sits at 1.10x its
+        // body height — so a little proud of the roofline is correct; far above it is not.
+        expect(y + radius, `${assetId} ${who} does not float above the roof`).toBeLessThanOrEqual(b.height * 1.2)
+        expect(y - radius, `${assetId} ${who} is not down in the floor pan`).toBeGreaterThan(b.height * 0.25)
+      }
+
+      // Presentation only: declaring seats must never restate or contradict the gameplay
+      // seat COUNT, which stays the vehicle registry's business.
+      const declared = 1 + (seats!.passenger ? 1 : 0)
+      expect(declared, `${assetId} declares no more seats than ${defId} has`).toBeLessThanOrEqual(def.seats)
+    }
+  })
+
+  it('the scooter stays one-seat, the van two-seat, the sports two-seat (gameplay unchanged)', () => {
+    expect(getVehicleDef('veh_scooter' as never)!.seats).toBe(1)
+    expect(getVehicleDef('veh_van' as never)!.seats).toBe(2)
+    expect(getVehicleDef('veh_sports' as never)!.seats).toBe(2)
+    // A one-seat class must not declare a passenger indicator.
+    expect(ASSET_MANIFEST_BY_ID.get('vehicle_scooter_01')!.occupants!.passenger).toBeUndefined()
+  })
+
+  it('the Wave 0 sedan declares no seats and therefore keeps the CarMesh occupant position', () => {
+    expect(ASSET_MANIFEST_BY_ID.get('vehicle_compact_car_01')!.occupants).toBeUndefined()
   })
 })

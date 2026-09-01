@@ -4,6 +4,7 @@ import * as THREE from 'three'
 import { VehicleAsset } from './VehicleAsset'
 import { ASSET_MANIFEST_BY_ID, type AssetManifestEntry } from './assetManifest'
 import { VEHICLE_DEFS } from '../vehicles/vehicleRegistry'
+import { VehicleVisual } from '../vehicles/VehicleVisual'
 import { registry } from '../world/runtimeRegistry'
 
 const useGLTFMock = vi.hoisted(() => vi.fn())
@@ -164,4 +165,96 @@ describe('every owned vehicle class falls back to CarMesh when its GLB is missin
       await renderer.unmount()
     })
   }
+})
+
+/**
+ * Issue #40 Codex review, finding 1 — no duplicate fittings on the GLB path.
+ *
+ * Every approved Wave 1 body contains its own wheels and lights in its single baked mesh, so the
+ * unconditional procedural `CarFittings` sibling drew a second full set on top: four oversized
+ * car wheels on a two-wheeled scooter, and headlight/taillight boxes over baked ones. These
+ * assert the render tree itself, per branch, so the defect cannot come back silently.
+ *
+ * Counting rule: the procedural wheel is the only mesh built from a CylinderGeometry, and the
+ * headlight/taillight boxes are the only ones using the shared light materials — so the branch
+ * can be identified structurally rather than by name.
+ */
+describe('GLB bodies do not get duplicate procedural wheels or lights (issue #40)', () => {
+  const wheels = (r: Awaited<ReturnType<typeof ReactThreeTestRenderer.create>>) =>
+    r.scene.findAll((n) => {
+      const g = (n.instance as THREE.Mesh)?.geometry as THREE.BufferGeometry | undefined
+      return g?.type === 'CylinderGeometry'
+    }).length
+  const taillights = (r: Awaited<ReturnType<typeof ReactThreeTestRenderer.create>>) =>
+    r.scene.findAll((n) => (n.instance as THREE.Object3D)?.name === 'taillight').length
+  const occupants = (r: Awaited<ReturnType<typeof ReactThreeTestRenderer.create>>) =>
+    r.scene.findAll((n) => {
+      const g = (n.instance as THREE.Mesh)?.geometry as THREE.BufferGeometry | undefined
+      return g?.type === 'SphereGeometry'
+    }).length
+
+  function glbScene() {
+    const g = new THREE.Group()
+    g.name = 'glb-body'
+    g.add(new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshStandardMaterial({ name: 'baked_atlas' })))
+    return g
+  }
+
+  it('the procedural fallback keeps the COMPLETE fittings — four wheels and both taillights', async () => {
+    const renderer = await ReactThreeTestRenderer.create(
+      <VehicleVisual assetId={null} color="#3aa6a0" showDriver showPassenger />,
+    )
+    expect(wheels(renderer), 'fallback wheels').toBe(4)
+    expect(taillights(renderer), 'fallback taillights').toBe(2)
+    expect(occupants(renderer), 'fallback occupants').toBe(2)
+    await renderer.unmount()
+  })
+
+  it('a mounted GLB body adds NO procedural wheels or lights, but keeps its occupants', async () => {
+    useGLTFMock.mockReturnValue({ scene: glbScene() })
+    const renderer = await ReactThreeTestRenderer.create(
+      <VehicleVisual assetId="vehicle_utility_van_01" color="#3aa6a0" showDriver showPassenger />,
+    )
+    // The model's own wheels and lamps are inside its mesh — nothing procedural may be layered
+    // on top, or the render is a multi-wheel hybrid with a second pair of tail lamps.
+    expect(wheels(renderer), 'no duplicate wheels over a GLB body').toBe(0)
+    expect(taillights(renderer), 'no duplicate tail lamps over a GLB body').toBe(0)
+    // ...but the one fitting the model genuinely lacks survives.
+    expect(occupants(renderer), 'occupants kept').toBe(2)
+    expect(renderer.scene.findAll((n) => (n.instance as THREE.Object3D)?.name === 'glb-body')).toHaveLength(1)
+    await renderer.unmount()
+  })
+
+  it('a FAILED GLB falls back to the complete set — a broken model never yields a wheelless car', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    useGLTFMock.mockImplementation(() => {
+      throw new Error('404 model not found')
+    })
+    const renderer = await ReactThreeTestRenderer.create(
+      <VehicleVisual assetId="vehicle_utility_van_01" color="#3aa6a0" showDriver />,
+    )
+    expect(wheels(renderer), 'fallback restores the wheels').toBe(4)
+    expect(taillights(renderer), 'fallback taillights').toBe(2)
+    await renderer.unmount()
+  })
+
+  it('a baked-atlas body is not tinted, while the fallback shell still paints', async () => {
+    const scene = glbScene()
+    useGLTFMock.mockReturnValue({ scene })
+    const renderer = await ReactThreeTestRenderer.create(
+      <VehicleVisual assetId="vehicle_utility_van_01" color="#ff0000" showDriver={false} />,
+    )
+    const root = renderer.scene
+      .findAll((n) => (n.instance as THREE.Object3D)?.name === 'glb-body')[0]
+      .instance as THREE.Group
+    let tinted: string | null = null
+    root.traverse((o) => {
+      const m = (o as THREE.Mesh).material as THREE.MeshStandardMaterial | undefined
+      if (m?.name === 'baked_atlas') tinted = m.color.getHexString()
+    })
+    // White = untouched. Applying the paint here would recolor windows, lights and tyres too.
+    expect(tinted, 'the baked atlas keeps its source paint').toBe('ffffff')
+    await renderer.unmount()
+  })
 })
