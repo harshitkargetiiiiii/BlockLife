@@ -94,6 +94,26 @@ export interface AssetManifestEntry {
     /** Indicator sphere radius in world metres (CarMesh's is 0.24). */
     radius?: number
   }
+  /**
+   * Where this body's FUNCTIONAL night light sits (issue #42), in WORLD metres relative to the
+   * prop's ground origin, plus the emissive bulb radius that stays inside its lamp head.
+   *
+   * The approved street-prop GLBs are geometry only: they carry no light, no emissive material
+   * and no `KHR_lights_punctual` (the intake refuses all three). The repo's own night
+   * illumination — the shared `lampBulbMaterial` bulb and the `lampGlowMaterial` ground pool
+   * that `updateGlowMaterials` drives once per frame for the whole city — therefore has to be
+   * told where THIS body's lamp head is, because it is not where the procedural one's is. The
+   * vintage lantern hangs forward off a shepherd's crook and is not even the topmost geometry,
+   * so a guessed anchor would bury the bulb in the pole or float it above the finial.
+   *
+   * Measured from the shipped vertices by the Wave-2 intake and recorded in the provenance;
+   * `wave2Contract.test.ts` recomputes it. Presentation only — it adds no light source, changes
+   * no lighting budget, and is ignored entirely whenever the procedural fallback renders.
+   */
+  nightLight?: {
+    position: [number, number, number]
+    bulbRadius: number
+  }
 }
 
 const defaults = {
@@ -570,6 +590,86 @@ export const ASSET_MANIFEST: AssetManifestEntry[] = [
     attribution: 'Meshy AI — generated original asset (owner-approved 2026-08-31 sprint), assembled + texture-optimized in-repo',
     license: 'Meshy AI generated asset (meshy.ai terms)',
   },
+  // ---- Issue #42 Wave 2: three approved sprint props project onto the EXISTING `street_lamp`,
+  // `hydrant` and `trash_can` prop types. Every authored placement id, collider, PROP_SOLIDITY
+  // entry and PROP_PLACEMENT envelope stays exactly where it is — only the pixels change, and
+  // each type's procedural component remains the LandmarkAsset fallback.
+  //
+  // Each `scale` is the largest UNIFORM factor that keeps the MEASURED source bbox entirely
+  // inside that type's authored visual envelope in `propPlacement.ts`, at 4 dp rounded DOWN:
+  //   s = floor(min(visualHalf.x / extX, visualHalf.z / extZ, verticalSpan / sizeY) * 1e4) / 1e4
+  // Nothing here is guessed or inherited from the Wave 0 bench; `wave2Contract.test.ts`
+  // recomputes every number from PROP_PLACEMENT and the committed bytes. ----
+  {
+    ...defaults,
+    id: 'prop_streetlight_01',
+    label: 'Vintage lantern streetlight (issue #42 Wave 2)',
+    category: 'props',
+    glbPath: 'assets/models/props/prop_streetlight_01.glb',
+    fallbackKey: 'StreetLamp',
+    // Model 0.2919 x 1.8993 x 0.4166, origin at its base. The Z envelope binds first (the
+    // lantern reaches z +0.2074 and the base plinth z -0.2092, against the authored 0.26
+    // half-extent), so the lamp lands 0.3627 x 2.3599 x 0.5176 — well inside the authored
+    // 4.11 vertical span rather than filling it. Preserving PROP_PLACEMENT is the constraint
+    // (issue #42), so the envelope decides the height, not the other way round.
+    scale: [1.2425, 1.2425, 1.2425],
+    rotation: [0, 0, 0],
+    positionOffset: [0, 0, 0],
+    enabled: true,
+    budget: { maxTriangles: 10000, maxTexture: 512 },
+    // One baked atlas: pole, lantern glass and finial share a single texture. Explicitly EMPTY
+    // means "expose no recolorable slot — retain the source colours" (issue #42), the same
+    // honest declaration Wave 1 made for the baked vehicle bodies.
+    materialSlots: {},
+    bounds: { width: 0.3627, height: 2.3599, depth: 0.5176 },
+    // The lantern head measured from the shipped vertices, scaled by the projection above. The
+    // bulb radius is the head's SMALLEST half-extent, so the emissive sphere stays inside the
+    // lantern body instead of poking through its glass.
+    nightLight: { position: [-0.0011, 1.8882, 0.1055], bulbRadius: 0.1522 },
+    attribution: 'Meshy AI — generated original asset (owner-approved 2026-08-31 sprint), texture-optimized in-repo',
+    license: 'Meshy AI generated asset (meshy.ai terms)',
+  },
+  {
+    ...defaults,
+    id: 'prop_fire_hydrant_01',
+    label: 'Fire hydrant, blank barrel (issue #42 Wave 2)',
+    category: 'props',
+    glbPath: 'assets/models/props/prop_fire_hydrant_01.glb',
+    fallbackKey: 'Hydrant',
+    // Model 1.3191 x 2.0000 x 0.9286. The approved source's origin is CENTRED (minY -1), so the
+    // intake grounded it with a root-node translation of +1 — mesh accessors untouched — and the
+    // shipped file measures minY 0. No manifest offset is therefore needed, and none is used.
+    // The X envelope binds (the side caps reach x +/-0.6596 against the authored 0.2 half-extent).
+    scale: [0.3031, 0.3031, 0.3031],
+    rotation: [0, 0, 0],
+    positionOffset: [0, 0, 0],
+    enabled: true,
+    budget: { maxTriangles: 10000, maxTexture: 512 },
+    materialSlots: {},
+    bounds: { width: 0.3998, height: 0.6062, depth: 0.2815 },
+    attribution: 'Meshy AI — generated original asset (owner-approved 2026-08-31 sprint), texture-optimized in-repo',
+    license: 'Meshy AI generated asset (meshy.ai terms)',
+  },
+  {
+    ...defaults,
+    id: 'prop_trash_bin_01',
+    label: 'Street trash bin (issue #42 Wave 2)',
+    category: 'props',
+    glbPath: 'assets/models/props/prop_trash_bin_01.glb',
+    fallbackKey: 'TrashCan',
+    // Model 0.8586 x 1.8976 x 0.9026, origin at its base. Height binds here (the authored 0.92
+    // vertical span against a 1.8976-tall source), landing 0.4162 x 0.9200 x 0.4376 — the bin
+    // fills its authored envelope's height exactly and stays inside its 0.32 half-extents.
+    scale: [0.4848, 0.4848, 0.4848],
+    rotation: [0, 0, 0],
+    positionOffset: [0, 0, 0],
+    enabled: true,
+    budget: { maxTriangles: 10000, maxTexture: 512 },
+    materialSlots: {},
+    bounds: { width: 0.4162, height: 0.92, depth: 0.4376 },
+    attribution: 'Meshy AI — generated original asset (owner-approved 2026-08-31 sprint), texture-optimized in-repo',
+    license: 'Meshy AI generated asset (meshy.ai terms)',
+  },
   // NOTE (issue #27 H0): `human_gold_calibration_01` is intentionally NOT in this production manifest.
   // It is a not-yet-approved REVIEW asset kept outside public/ (dev-review-assets/) and loaded only
   // through the DEV review harness — see the note in characterManifest.ts. Not shipped in dist/.
@@ -643,6 +743,10 @@ export function validateManifest(entries: AssetManifestEntry[]): string[] {
     }
     if (e.bounds && !(e.bounds.width > 0 && e.bounds.height > 0 && e.bounds.depth > 0)) {
       errors.push(`${where}: bounds must have positive width/height/depth`)
+    }
+    if (e.nightLight) {
+      if (!isVec3(e.nightLight.position)) errors.push(`${where}: nightLight.position must be [x, y, z]`)
+      if (!(e.nightLight.bulbRadius > 0)) errors.push(`${where}: nightLight.bulbRadius must be positive`)
     }
   }
   return errors

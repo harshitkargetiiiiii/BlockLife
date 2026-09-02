@@ -38,6 +38,19 @@ export interface LandmarkAssetProps {
   projection?: { rotationY: number; scale: [number, number, number]; offset: [number, number, number] }
   /** Issue #25: share one immutable tinted material-set per (source, slots, palette). */
   variantCacheKey?: string
+  /**
+   * Rendered ONLY alongside a GLB body that actually mounted (issue #42, mirroring the
+   * `glbSiblings` slot VehicleAsset gained in issue #40). It lives inside the
+   * Suspense/ErrorBoundary, so it appears exactly when the model does and disappears the moment
+   * the fallback takes over.
+   *
+   * This is what lets a GLB that is GEOMETRY ONLY keep a repo-owned functional fitting without
+   * duplicating the body: the approved streetlight carries no light, so the shared emissive bulb
+   * and ground glow render here, positioned on the model's own lantern, while the complete
+   * procedural lamp (pole AND light) stays the fallback. Nothing here is loaded, gated or
+   * counted differently — it is a plain child of the same branch the primitive renders on.
+   */
+  glbSiblings?: ReactNode
 }
 
 interface BoundaryProps {
@@ -153,6 +166,7 @@ export function LandmarkAsset({
   variant,
   projection,
   variantCacheKey,
+  glbSiblings,
 }: LandmarkAssetProps) {
   const entry = entryOverride ?? getManifestEntry(assetId)
   const useGlb = shouldLoadGlb(entry)
@@ -190,6 +204,7 @@ export function LandmarkAsset({
             ) : (
               model
             )}
+            {glbSiblings}
           </Suspense>
         </AssetErrorBoundary>
       ) : (

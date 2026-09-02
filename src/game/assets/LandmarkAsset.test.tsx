@@ -112,6 +112,64 @@ describe('LandmarkAsset (R3F)', () => {
     await renderer.unmount()
   })
 
+  // Issue #42: a GLB that is geometry only can keep a repo-owned functional fitting without
+  // duplicating the body. The fitting must follow the branch that actually renders.
+  it('glbSiblings render alongside a mounted GLB', async () => {
+    const glbScene = new THREE.Group()
+    glbScene.name = 'glb-root'
+    glbScene.add(new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1)))
+    useGLTFMock.mockReturnValue({ scene: glbScene })
+
+    const renderer = await ReactThreeTestRenderer.create(
+      <LandmarkAsset
+        assetId="building_gym_01"
+        entry={entryWith({})}
+        glbSiblings={<mesh name="glb-sibling" />}
+      >
+        <Fallback />
+      </LandmarkAsset>,
+    )
+    expect(renderer.scene.findAll((n) => n.props.name === 'glb-sibling')).toHaveLength(1)
+    expect(renderer.scene.findAll((n) => n.props.name === 'procedural-fallback')).toHaveLength(0)
+    await renderer.unmount()
+  })
+
+  it('glbSiblings disappear when the GLB fails and the fallback takes over', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    useGLTFMock.mockImplementation(() => {
+      throw new Error('404 model not found')
+    })
+
+    const renderer = await ReactThreeTestRenderer.create(
+      <LandmarkAsset
+        assetId="building_gym_01"
+        entry={entryWith({})}
+        glbSiblings={<mesh name="glb-sibling" />}
+      >
+        <Fallback />
+      </LandmarkAsset>,
+    )
+    expect(renderer.scene.findAll((n) => n.props.name === 'glb-sibling')).toHaveLength(0)
+    expect(renderer.scene.findAll((n) => n.props.name === 'procedural-fallback')).toHaveLength(1)
+    await renderer.unmount()
+  })
+
+  it('glbSiblings are never rendered when no GLB is used at all', async () => {
+    const renderer = await ReactThreeTestRenderer.create(
+      <LandmarkAsset
+        assetId="building_gym_01"
+        entry={entryWith({ enabled: false })}
+        glbSiblings={<mesh name="glb-sibling" />}
+      >
+        <Fallback />
+      </LandmarkAsset>,
+    )
+    expect(renderer.scene.findAll((n) => n.props.name === 'glb-sibling')).toHaveLength(0)
+    expect(renderer.scene.findAll((n) => n.props.name === 'procedural-fallback')).toHaveLength(1)
+    await renderer.unmount()
+  })
+
   it('falls back and warns (dev-only) when the GLB fails to load — never crashes', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     // React also logs boundary-caught errors via console.error; keep output quiet.

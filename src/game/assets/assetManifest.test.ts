@@ -33,7 +33,7 @@ describe('asset manifest', () => {
     // Quaternius landmark integration: four building landmarks + five street props.
     const landmarkEnabled = enabled.filter((e) => e.category === 'city' || e.category === 'props')
     // Quaternius landmarks + the Meshy townhome + issue #25 Stage A (the residential-house
-    // archetype + the now-enabled job kiosk).
+    // archetype + the now-enabled job kiosk) + issue #42 Wave 2 (streetlight / hydrant / bin).
     expect(landmarkEnabled.map((e) => e.id).sort()).toEqual([
       'arch_residential_house_01',
       'building_apartment_01',
@@ -44,10 +44,13 @@ describe('asset manifest', () => {
       'prop_ac_unit_01',
       'prop_bollard_01',
       'prop_drain_01',
+      'prop_fire_hydrant_01',
       'prop_job_kiosk_01',
       'prop_manhole_01',
       'prop_park_bench_01',
       'prop_street_planter_01',
+      'prop_streetlight_01',
+      'prop_trash_bin_01',
     ])
     // Issue #21 §4 three enabled character rigs (default + female + male humanoids), plus the
     // two owner-approved issue #38 Wave 0 CANDIDATE rigs (Kabir, Ravi) — DEV review only, in
