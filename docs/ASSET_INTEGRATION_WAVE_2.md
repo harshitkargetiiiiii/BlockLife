@@ -321,3 +321,27 @@ Re-running the whole weather spec after the fix, **only this one baseline change
 four still match their committed bytes.
 
 The 24 Wave 2 baselines are all new files. No baseline was deleted.
+
+## CI status — exact-base comparison
+
+| Workflow | Base `27aa628` | Wave 2 |
+|---|---|---|
+| CI (typecheck · lint · unit · build · dist-leak) | pass | **pass** |
+| E2E (full Playwright) | **fail** — 32 failed / 323 passed | **fail** — 38 failed / 331 passed |
+
+The E2E workflow is red at the exact base and on every recent master commit, and on both prior
+wave branches — a pre-existing repository-wide condition. Failures are `page.waitForFunction`
+timeouts on CI's software-WebGL runners, in the specs CONVENTIONS already flags as
+timing-sensitive.
+
+The CI failure mode is `assetsSettled()` timing out at boot after 45 s, so boot→settled was
+measured three times per worktree on one machine:
+
+| | run 1 | run 2 | run 3 | mean |
+|---|---:|---:|---:|---:|
+| Base `27aa628` | 16,228 ms | 21,163 ms | 12,677 ms | **16.7 s** |
+| Wave 2 | 14,003 ms | 14,585 ms | 15,383 ms | **14.7 s** |
+
+Wave 2 does not slow asset settling — 88 extra prop instances share three files and three
+geometries, and the head/base gap is inside base's own spread. The 45 s wait is a pre-existing
+margin, not something this wave consumed.
