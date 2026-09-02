@@ -18,4 +18,10 @@ export const STREET_PROP_ASSET_IDS: Partial<Record<PropDef['type'], string>> = {
   street_planter: 'prop_street_planter_01',
   manhole: 'prop_manhole_01',
   drain: 'prop_drain_01',
+  // Issue #42 Wave 2: three more approved sprint props project onto EXISTING types on exactly
+  // the same terms. The asset id is deliberately NOT the shape of a PropDef id (`prop_street_lamp_01`
+  // is an authored PLACEMENT in cityLayout) so an archetype can never be confused with a placement.
+  street_lamp: 'prop_streetlight_01',
+  hydrant: 'prop_fire_hydrant_01',
+  trash_can: 'prop_trash_bin_01',
 }

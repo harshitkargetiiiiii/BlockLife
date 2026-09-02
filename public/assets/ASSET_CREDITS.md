@@ -10,9 +10,10 @@ Real GLB assets are integrated across several sprints: **Downtown City MegaKit
 [Standard] by Quaternius (CC0-1.0)** (four building landmarks + five street
 props), and **Meshy AI generated original** assets (four ownable vehicle
 shells — all four from the owner-approved 2026-08-31 sprint since issue #40 —
-three character rigs, an apartment/townhome, and — issue #25 — a
-reusable residential-house archetype and the job-board kiosk). Audio and the
-remaining props/buildings stay procedural. **Every GLB keeps its procedural
+three character rigs, an apartment/townhome, — issue #25 — a
+reusable residential-house archetype and the job-board kiosk, and — issue #42
+Wave 2 — three street props: a vintage lantern streetlight, a fire hydrant and a
+trash bin). Audio and the remaining props/buildings stay procedural. **Every GLB keeps its procedural
 fallback** — set an entry to `enabled: false` in
 `src/game/assets/assetManifest.ts` to restore the primitive. Colliders,
 footprints and anchors are layout-driven, never mesh-driven, so a
@@ -52,6 +53,9 @@ its manifest entry to `enabled: true`:
 | scooter_01.glb | Meshy AI (generated, original) | meshy.ai (owner-approved 2026-08-31 sprint) | Meshy AI generated asset | 2026-09-01 | yes (texture 2K→1K, normalized material) | vehicle_scooter_01 (issue #40 Wave 1) |
 | utility_van_01.glb | Meshy AI (generated, original) | meshy.ai (owner-approved 2026-08-31 sprint) | Meshy AI generated asset | 2026-09-01 | yes (texture 2K→1K, normalized material) | vehicle_utility_van_01 (issue #40 Wave 1) |
 | sports_car_01.glb | Meshy AI (generated, original) | meshy.ai (owner-approved 2026-08-31 sprint) | Meshy AI generated asset | 2026-09-01 | yes (texture 2K→1K, normalized material) | vehicle_sports_car_01 (issue #40 Wave 1) |
+| prop_streetlight_01.glb | Meshy AI (generated, original) | meshy.ai (owner-approved 2026-08-31 sprint) | Meshy AI generated asset | 2026-09-01 | yes (texture 2K→512, normalized material) | prop_streetlight_01 (issue #42 Wave 2) |
+| prop_fire_hydrant_01.glb | Meshy AI (generated, original) | meshy.ai (owner-approved 2026-08-31 sprint) | Meshy AI generated asset | 2026-09-01 | yes (texture 2K→512, normalized material, grounded by root-node translation) | prop_fire_hydrant_01 (issue #42 Wave 2) |
+| prop_trash_bin_01.glb | Meshy AI (generated, original) | meshy.ai (owner-approved 2026-08-31 sprint) | Meshy AI generated asset | 2026-09-01 | yes (texture 2K→512, normalized material) | prop_trash_bin_01 (issue #42 Wave 2) |
 | blocklife_apartment_hq_01.glb | Meshy AI (generated, original) | meshy.ai (text→image→3D) | Meshy AI generated asset | 2026-08-03 | yes (lowpoly, texture→1K) | building_townhomes_01 |
 | arch_residential_house_01.glb | Meshy AI (generated, original) | meshy.ai (text→image→3D) | Meshy AI generated asset | 2026-08-20 | yes (lowpoly 7936 tris, texture→1K) | arch_residential_house_01 (issue #25) |
 | prop_job_kiosk_01.glb | Meshy AI (generated, original) | meshy.ai (text→image→3D) | Meshy AI generated asset | 2026-08-20 | yes (lowpoly 4703 tris, texture→1K) | prop_job_kiosk_01 (issue #25) |
@@ -258,3 +262,53 @@ wheels cannot be tinted, without recoloring the whole vehicle — recorded, not 
 measured bounding box against its class footprint in `vehicleRegistry`, filling 97% of whichever of
 length or width binds first. `src/game/assets/wave1Contract.test.ts` recomputes every number from
 the registry and the committed bytes, so a swapped local X/Z or a wrong yaw cannot pass silently.
+
+### Intake record — issue #42 Integration Wave 2 (2026-09-01)
+
+Three approved 2026-08-31 sprint **street props** now back the existing `street_lamp`,
+`hydrant` and `trash_can` prop types. **No Meshy call, paid generation, enhancement, remesh,
+retexture, rig, animation or purchase** — these are the same sprint outputs, rebuilt
+deterministically from pristine sources that live **outside** this repository and were opened
+read-only. Reproduce with `node scripts/asset-intake/buildWave2.mjs`; verify the committed bytes
+with `node scripts/asset-intake/buildWave2.mjs --check`. Full per-asset provenance — source
+paths, source SHA-256, output SHA-256, exact operations, measured bounds and structure — is in
+[`docs/asset-provenance/wave2-provenance.json`](../../docs/asset-provenance/wave2-provenance.json).
+
+- **Creator / attribution:** Meshy AI — generated original assets (owner-approved 2026-08-31
+  sprint), texture-optimized in-repo.
+- **License:** Meshy AI generated asset (meshy.ai terms). Generation rights held by the repository owner.
+- **Modified:** textures reduced 2048² → **512²** JPEG (half the 1024 policy ceiling — these are
+  instanced dozens of times across the city and are a few dozen pixels tall at play distance) and
+  the single material renamed to `baked_atlas`, deliberately NOT a paint-slot name. The hydrant,
+  whose approved source has a **centred** origin (minY −1, because it skipped the remesh stage
+  that applies `origin_at: bottom`), was grounded by a **root-node translation of +1 on Y** —
+  mesh accessor bytes untouched. **Geometry, indices, topology, triangle count and proportions
+  are unchanged**: the intake asserts the mesh digest is identical across the transform and that
+  the bounding box moved by exactly the declared grounding offset and by nothing else.
+- **Generation cost this wave: 0 credits.**
+
+| Shipped file | Prop type | Triangles | Texture | Size | Output SHA-256 | Pristine source |
+|---|---|---|---|---|---|---|
+| `assets/models/props/prop_streetlight_01.glb` | `street_lamp` | 6975 | 512×512 jpeg | 375 KB | `de41b5e887a352b2…` | `blocklife_prop_streetlight.glb` `b5cbb22e194d8191…` |
+| `assets/models/props/prop_fire_hydrant_01.glb` | `hydrant` | 8133 | 512×512 jpeg | 312 KB | `07036f58f67a09a6…` | `blocklife_prop_fire_hydrant.glb` `1129433f98381b4f…` |
+| `assets/models/props/prop_trash_bin_01.glb` | `trash_can` | 7703 | 512×512 jpeg | 426 KB | `aedb4d59f17c7cee…` | `blocklife_prop_trash_bin.glb` `829161b2b1c7898e…` |
+
+**Source colours are retained — these props are not recolored.** Each is ONE baked mesh with ONE
+material carrying a baked base-colour atlas. There is no clean recolorable slot to expose, so all
+three declare an explicitly **empty** `materialSlots` map and their material is named
+`baked_atlas`. A hydrant's authored `PropDef.color` still tints its *procedural* fallback.
+
+**The streetlight GLB is geometry only.** It carries no light, no emissive material and no
+`KHR_lights_punctual` — the intake refuses all three, which is what keeps a lamp from self-glowing
+in daylight. The repo's own functional night illumination (the shared `lampBulbMaterial` bulb and
+`lampGlowMaterial` ground pool that `updateGlowMaterials` drives once per frame for the whole
+city) rides along as a bounded sibling of the mounted model, positioned on the model's **measured**
+lantern rather than the procedural pole's bulb height. No duplicate pole or lantern geometry is
+retained, and a missing or broken model restores the complete procedural lamp — pole and light.
+
+**Projection.** Each body is scaled UNIFORMLY — the approved model is never distorted — as the
+largest factor that keeps its measured bounding box entirely inside that prop type's authored
+visual envelope in `src/game/world/propPlacement.ts`. That table, every authored placement id,
+every `PROP_SOLIDITY` collider and all world-integrity behaviour are unchanged.
+`src/game/assets/wave2Contract.test.ts` recomputes every number from the envelope and the
+committed bytes, so a hand-edited constant cannot pass silently.

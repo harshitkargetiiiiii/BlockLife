@@ -1,0 +1,437 @@
+{
+  "issue": 42,
+  "wave": 2,
+  "note": "Rebuild with: node scripts/asset-intake/buildWave2.mjs   |   verify with --check",
+  "maxTexture": 512,
+  "textureFormat": "jpeg",
+  "textureQuality": 85,
+  "boundsEpsilon": 0.00005,
+  "scaleDecimals": 4,
+  "projection": "Uniform scale s = floor(min(visualHalf.x / extX, visualHalf.z / extZ, (vertical[1]-vertical[0]) / sizeY) * 1e4) / 1e4, against the AUTHORED envelope in src/game/world/propPlacement.ts and the measured local bbox (each measured dimension inflated by boundsEpsilon first). Recomputed in src/game/assets/wave2Contract.test.ts.",
+  "assets": [
+    {
+      "id": "prop_streetlight_01",
+      "label": "Vintage lantern streetlight (projected onto the existing street_lamp prop type)",
+      "kind": "prop",
+      "propType": "street_lamp",
+      "output": "public/assets/models/props/prop_streetlight_01.glb",
+      "sources": [
+        {
+          "role": "source",
+          "path": "/Users/harshitkargeti/BlockLife-intake/asset-sprint-2026-08-31/props-worker/final/blocklife_prop_streetlight.glb",
+          "sha256": "b5cbb22e194d819118318f6f936a7c5bc21c47cdfb2d4defbf6f5ccbb845bbe4",
+          "bytes": 5939352,
+          "structure": {
+            "bytes": 5939352,
+            "triangles": 6975,
+            "meshes": 1,
+            "materials": [
+              {
+                "name": "Material_0.001",
+                "metallic": 0,
+                "roughness": 0.5,
+                "emissive": [
+                  0,
+                  0,
+                  0
+                ],
+                "emissiveTexture": false,
+                "specularExtension": false
+              }
+            ],
+            "textures": [
+              {
+                "name": "Baked_BaseColor",
+                "mime": "image/png",
+                "width": 2048,
+                "height": 2048,
+                "bytes": 5626540
+              }
+            ],
+            "clips": [],
+            "skin": null,
+            "cameras": 0,
+            "scenes": 1,
+            "lights": 0,
+            "bounds": {
+              "min": [
+                -0.1469,
+                0,
+                -0.2092
+              ],
+              "max": [
+                0.145,
+                1.8993,
+                0.2074
+              ],
+              "size": [
+                0.2919,
+                1.8993,
+                0.4166
+              ]
+            },
+            "extensions": []
+          }
+        }
+      ],
+      "groundOffsetY": 0,
+      "operations": [
+        "assert approved source SHA-256 b5cbb22e194d819118318f6f936a7c5bc21c47cdfb2d4defbf6f5ccbb845bbe4 + 5939352 bytes + 6975 triangles before reading (read-only)",
+        "normalize single material name -> \"baked_atlas\" (baked atlas — exposes NO recolorable slot)",
+        "origin already at the base — no vertical transform applied",
+        "dedup + prune",
+        "textureCompress resize <=512 targetFormat=jpeg quality=85 filter=lanczos3",
+        "assert mesh digest unchanged (geometry, indices, topology, triangle count, proportions preserved)",
+        "assert bounds unchanged except the declared grounding offset on Y",
+        "assert runtime-safe: metallic 0, emissive [0,0,0], no unlit/lights/cameras, no draco/meshopt/KTX2, embedded textures only"
+      ],
+      "attribution": "Meshy AI — generated original asset (owner-approved 2026-08-31 sprint), texture-optimized in-repo",
+      "license": "Meshy AI generated asset (meshy.ai terms)",
+      "outputSha256": "de41b5e887a352b226a0e3129ae316aac5fa1bf23fd89138883c7e03f6730170",
+      "outputBytes": 383580,
+      "structure": {
+        "bytes": 383580,
+        "triangles": 6975,
+        "meshes": 1,
+        "materials": [
+          {
+            "name": "baked_atlas",
+            "metallic": 0,
+            "roughness": 0.5,
+            "emissive": [
+              0,
+              0,
+              0
+            ],
+            "emissiveTexture": false,
+            "specularExtension": false
+          }
+        ],
+        "textures": [
+          {
+            "name": "Baked_BaseColor",
+            "mime": "image/jpeg",
+            "width": 512,
+            "height": 512,
+            "bytes": 70799
+          }
+        ],
+        "clips": [],
+        "skin": null,
+        "cameras": 0,
+        "scenes": 1,
+        "lights": 0,
+        "bounds": {
+          "min": [
+            -0.1469,
+            0,
+            -0.2092
+          ],
+          "max": [
+            0.145,
+            1.8993,
+            0.2074
+          ],
+          "size": [
+            0.2919,
+            1.8993,
+            0.4166
+          ]
+        },
+        "extensions": []
+      },
+      "emitter": {
+        "rule": "busiest 1/20-height slab above mid-height, grown while neighbours hold >=25% of the peak vertex count",
+        "band": [
+          1.3295,
+          1.7094
+        ],
+        "vertices": 5672,
+        "min": [
+          -0.1468,
+          1.3325,
+          -0.0376
+        ],
+        "max": [
+          0.1449,
+          1.7069,
+          0.2074
+        ],
+        "center": [
+          -0.0009,
+          1.5197,
+          0.0849
+        ],
+        "halfExtents": [
+          0.1459,
+          0.1872,
+          0.1225
+        ]
+      }
+    },
+    {
+      "id": "prop_fire_hydrant_01",
+      "label": "Fire hydrant, blank-barrel retry (projected onto the existing hydrant prop type)",
+      "kind": "prop",
+      "propType": "hydrant",
+      "output": "public/assets/models/props/prop_fire_hydrant_01.glb",
+      "sources": [
+        {
+          "role": "source",
+          "path": "/Users/harshitkargeti/BlockLife-intake/asset-sprint-2026-08-31/props-worker/final/blocklife_prop_fire_hydrant.glb",
+          "sha256": "1129433f98381b4fd10725ee3f412e131f1108a63f016a376233bb5e1d2c6c24",
+          "bytes": 3084436,
+          "structure": {
+            "bytes": 3084436,
+            "triangles": 8133,
+            "meshes": 1,
+            "materials": [
+              {
+                "name": null,
+                "metallic": 0,
+                "roughness": 0.8,
+                "emissive": [
+                  0,
+                  0,
+                  0
+                ],
+                "emissiveTexture": false,
+                "specularExtension": false
+              }
+            ],
+            "textures": [
+              {
+                "name": null,
+                "mime": "image/jpeg",
+                "width": 2048,
+                "height": 2048,
+                "bytes": 2811223
+              }
+            ],
+            "clips": [],
+            "skin": null,
+            "cameras": 0,
+            "scenes": 1,
+            "lights": 0,
+            "bounds": {
+              "min": [
+                -0.6596,
+                -1,
+                -0.4643
+              ],
+              "max": [
+                0.6596,
+                1,
+                0.4643
+              ],
+              "size": [
+                1.3191,
+                2,
+                0.9286
+              ]
+            },
+            "extensions": []
+          }
+        }
+      ],
+      "groundOffsetY": 1,
+      "operations": [
+        "assert approved source SHA-256 1129433f98381b4fd10725ee3f412e131f1108a63f016a376233bb5e1d2c6c24 + 3084436 bytes + 8133 triangles before reading (read-only)",
+        "normalize single material name -> \"baked_atlas\" (baked atlas — exposes NO recolorable slot)",
+        "ground by root-node translation +1 on Y (mesh accessors untouched); assert rendered minimum y=0",
+        "dedup + prune",
+        "textureCompress resize <=512 targetFormat=jpeg quality=85 filter=lanczos3",
+        "assert mesh digest unchanged (geometry, indices, topology, triangle count, proportions preserved)",
+        "assert bounds unchanged except the declared grounding offset on Y",
+        "assert runtime-safe: metallic 0, emissive [0,0,0], no unlit/lights/cameras, no draco/meshopt/KTX2, embedded textures only"
+      ],
+      "attribution": "Meshy AI — generated original asset (owner-approved 2026-08-31 sprint), texture-optimized in-repo",
+      "license": "Meshy AI generated asset (meshy.ai terms)",
+      "outputSha256": "07036f58f67a09a658cb80194d7c6e8be0e06914b3809e0c484551a3a4c48c69",
+      "outputBytes": 319392,
+      "structure": {
+        "bytes": 319392,
+        "triangles": 8133,
+        "meshes": 1,
+        "materials": [
+          {
+            "name": "baked_atlas",
+            "metallic": 0,
+            "roughness": 0.8,
+            "emissive": [
+              0,
+              0,
+              0
+            ],
+            "emissiveTexture": false,
+            "specularExtension": false
+          }
+        ],
+        "textures": [
+          {
+            "name": null,
+            "mime": "image/jpeg",
+            "width": 512,
+            "height": 512,
+            "bytes": 46705
+          }
+        ],
+        "clips": [],
+        "skin": null,
+        "cameras": 0,
+        "scenes": 1,
+        "lights": 0,
+        "bounds": {
+          "min": [
+            -0.6596,
+            0,
+            -0.4643
+          ],
+          "max": [
+            0.6596,
+            2,
+            0.4643
+          ],
+          "size": [
+            1.3191,
+            2,
+            0.9286
+          ]
+        },
+        "extensions": []
+      }
+    },
+    {
+      "id": "prop_trash_bin_01",
+      "label": "Street trash bin (projected onto the existing trash_can prop type)",
+      "kind": "prop",
+      "propType": "trash_can",
+      "output": "public/assets/models/props/prop_trash_bin_01.glb",
+      "sources": [
+        {
+          "role": "source",
+          "path": "/Users/harshitkargeti/BlockLife-intake/asset-sprint-2026-08-31/props-worker/final/blocklife_prop_trash_bin.glb",
+          "sha256": "829161b2b1c7898e2e94bd2360bf4c48dac834c130c5c582cf1bb65b45fd6009",
+          "bytes": 4977900,
+          "structure": {
+            "bytes": 4977900,
+            "triangles": 7703,
+            "meshes": 1,
+            "materials": [
+              {
+                "name": "Material_0.003",
+                "metallic": 0,
+                "roughness": 0.5,
+                "emissive": [
+                  0,
+                  0,
+                  0
+                ],
+                "emissiveTexture": false,
+                "specularExtension": false
+              }
+            ],
+            "textures": [
+              {
+                "name": "Baked_BaseColor",
+                "mime": "image/png",
+                "width": 2048,
+                "height": 2048,
+                "bytes": 4600144
+              }
+            ],
+            "clips": [],
+            "skin": null,
+            "cameras": 0,
+            "scenes": 1,
+            "lights": 0,
+            "bounds": {
+              "min": [
+                -0.4303,
+                0,
+                -0.452
+              ],
+              "max": [
+                0.4283,
+                1.8976,
+                0.4506
+              ],
+              "size": [
+                0.8586,
+                1.8976,
+                0.9026
+              ]
+            },
+            "extensions": []
+          }
+        }
+      ],
+      "groundOffsetY": 0,
+      "operations": [
+        "assert approved source SHA-256 829161b2b1c7898e2e94bd2360bf4c48dac834c130c5c582cf1bb65b45fd6009 + 4977900 bytes + 7703 triangles before reading (read-only)",
+        "normalize single material name -> \"baked_atlas\" (baked atlas — exposes NO recolorable slot)",
+        "origin already at the base — no vertical transform applied",
+        "dedup + prune",
+        "textureCompress resize <=512 targetFormat=jpeg quality=85 filter=lanczos3",
+        "assert mesh digest unchanged (geometry, indices, topology, triangle count, proportions preserved)",
+        "assert bounds unchanged except the declared grounding offset on Y",
+        "assert runtime-safe: metallic 0, emissive [0,0,0], no unlit/lights/cameras, no draco/meshopt/KTX2, embedded textures only"
+      ],
+      "attribution": "Meshy AI — generated original asset (owner-approved 2026-08-31 sprint), texture-optimized in-repo",
+      "license": "Meshy AI generated asset (meshy.ai terms)",
+      "outputSha256": "aedb4d59f17c7cee0fe6a4375252177127c20c1e7b8ae5437dce1741db9f6fd5",
+      "outputBytes": 435972,
+      "structure": {
+        "bytes": 435972,
+        "triangles": 7703,
+        "meshes": 1,
+        "materials": [
+          {
+            "name": "baked_atlas",
+            "metallic": 0,
+            "roughness": 0.5,
+            "emissive": [
+              0,
+              0,
+              0
+            ],
+            "emissiveTexture": false,
+            "specularExtension": false
+          }
+        ],
+        "textures": [
+          {
+            "name": "Baked_BaseColor",
+            "mime": "image/jpeg",
+            "width": 512,
+            "height": 512,
+            "bytes": 58245
+          }
+        ],
+        "clips": [],
+        "skin": null,
+        "cameras": 0,
+        "scenes": 1,
+        "lights": 0,
+        "bounds": {
+          "min": [
+            -0.4303,
+            0,
+            -0.452
+          ],
+          "max": [
+            0.4283,
+            1.8976,
+            0.4506
+          ],
+          "size": [
+            0.8586,
+            1.8976,
+            0.9026
+          ]
+        },
+        "extensions": []
+      }
+    }
+  ]
+}

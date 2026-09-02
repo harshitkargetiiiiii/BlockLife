@@ -7,12 +7,17 @@ import { lampBulbMaterial, lampGlowMaterial } from './materials'
 import { CarMesh } from '../vehicles/CarMesh'
 import { useGameStore } from '../store/useGameStore'
 import { LandmarkAsset } from '../assets/LandmarkAsset'
+import { getManifestEntry } from '../assets/modelRegistry'
 import { STREET_PROP_ASSET_IDS } from './propAssetIds'
 
 // Repeated props share geometry + materials: one allocation per shape for
 // the whole city (11 trees, 9 lamps, 3 benches, 3 cans, ...).
 const lampPoleGeometry = new THREE.CylinderGeometry(0.07, 0.1, 3.8, 8)
-const lampBulbGeometry = new THREE.SphereGeometry(0.26, 12, 12)
+/** The one shared bulb sphere; a lamp head of another size scales it rather than allocating. */
+const LAMP_BULB_RADIUS = 0.26
+/** Where the bulb sits on the PROCEDURAL pole (unchanged since the lamp was authored). */
+const PROCEDURAL_LAMP_BULB: [number, number, number] = [0, 3.85, 0]
+const lampBulbGeometry = new THREE.SphereGeometry(LAMP_BULB_RADIUS, 12, 12)
 const lampGlowGeometry = new THREE.CircleGeometry(1.7, 20)
 const lampPoleMaterial = new THREE.MeshStandardMaterial({ color: '#3c4048' })
 
@@ -26,19 +31,75 @@ const foliageTopMaterial = new THREE.MeshStandardMaterial({ color: '#6fae57', ro
 const woodMaterial = new THREE.MeshStandardMaterial({ color: '#a8703f' })
 const ironMaterial = new THREE.MeshStandardMaterial({ color: '#44484f' })
 
-function StreetLamp() {
+/**
+ * The FUNCTIONAL night illumination of a street lamp: the emissive bulb in the lamp head plus
+ * the warm pool it casts on the ground. Both use the shared city materials that
+ * `updateGlowMaterials` drives once per frame, so this adds no light source and no per-lamp
+ * cost — it is the same two meshes the lamp has always rendered.
+ *
+ * It is a separate component because the lamp BODY can now come from a GLB (issue #42) that is
+ * geometry only. The head is not in the same place on both bodies, so the caller supplies where
+ * this one's bulb sits; the ground pool is cast from the prop's own origin either way.
+ */
+function StreetLampLight({
+  bulbPosition,
+  bulbRadius,
+}: {
+  bulbPosition: [number, number, number]
+  bulbRadius: number
+}) {
   return (
-    <group>
-      <mesh geometry={lampPoleGeometry} material={lampPoleMaterial} position={[0, 1.9, 0]} castShadow />
-      <mesh geometry={lampBulbGeometry} material={lampBulbMaterial} position={[0, 3.85, 0]} />
+    <>
+      <mesh
+        name="street_lamp-bulb"
+        geometry={lampBulbGeometry}
+        material={lampBulbMaterial}
+        position={bulbPosition}
+        scale={bulbRadius / LAMP_BULB_RADIUS}
+      />
       {/* Warm pool of light on the ground at night */}
       <mesh
+        name="street_lamp-glow"
         geometry={lampGlowGeometry}
         material={lampGlowMaterial}
         rotation-x={-Math.PI / 2}
         position={[0, 0.09, 0]}
       />
+    </>
+  )
+}
+
+/**
+ * The complete procedural street lamp — pole + light. Still the authoritative visual: it is the
+ * LandmarkAsset fallback for a missing, disabled, still-loading or broken streetlight GLB, and
+ * it renders exactly as it always has (bulb at 3.85, unit-scaled shared sphere).
+ */
+function StreetLamp() {
+  return (
+    <group>
+      <mesh
+        name="street_lamp-pole"
+        geometry={lampPoleGeometry}
+        material={lampPoleMaterial}
+        position={[0, 1.9, 0]}
+        castShadow
+      />
+      <StreetLampLight bulbPosition={PROCEDURAL_LAMP_BULB} bulbRadius={LAMP_BULB_RADIUS} />
     </group>
+  )
+}
+
+/**
+ * The GLB streetlight's light, read from the manifest entry's measured lantern anchor. Falls
+ * back to the procedural placement if the entry is ever missing one, so a lamp is never dark.
+ */
+function GlbStreetLampLight() {
+  const light = getManifestEntry(STREET_PROP_ASSET_IDS.street_lamp!)?.nightLight
+  return (
+    <StreetLampLight
+      bulbPosition={light?.position ?? PROCEDURAL_LAMP_BULB}
+      bulbRadius={light?.bulbRadius ?? LAMP_BULB_RADIUS}
+    />
   )
 }
 
@@ -106,7 +167,7 @@ function Bench() {
 
 function TrashCan() {
   return (
-    <group>
+    <group name="trash_can-fallback">
       <mesh position={[0, 0.42, 0]} castShadow>
         <cylinderGeometry args={[0.3, 0.26, 0.84, 10]} />
         <meshStandardMaterial color="#4f6a5a" />
@@ -121,7 +182,7 @@ function TrashCan() {
 
 function Hydrant({ color = '#d1495b' }: { color?: string }) {
   return (
-    <group>
+    <group name="hydrant-fallback">
       <mesh position={[0, 0.3, 0]} castShadow>
         <cylinderGeometry args={[0.16, 0.2, 0.6, 8]} />
         <meshStandardMaterial color={color} />
@@ -467,7 +528,17 @@ function TruckMesh({ color = '#c9803d' }: { color?: string }) {
 function PropByType({ def, seed }: { def: PropDef; seed: number }) {
   switch (def.type) {
     case 'street_lamp':
-      return <StreetLamp />
+      // Issue #42 Wave 2. The approved lantern is GEOMETRY ONLY, so the functional night light
+      // rides along as a `glbSiblings` child — present exactly when the model is, absent the
+      // moment the complete procedural lamp takes over. No duplicate pole or lantern is kept.
+      return (
+        <LandmarkAsset
+          assetId={STREET_PROP_ASSET_IDS.street_lamp!}
+          glbSiblings={<GlbStreetLampLight />}
+        >
+          <StreetLamp />
+        </LandmarkAsset>
+      )
     case 'tree':
       return <TreeMesh />
     case 'park_tree':
@@ -479,9 +550,19 @@ function PropByType({ def, seed }: { def: PropDef; seed: number }) {
         </LandmarkAsset>
       )
     case 'trash_can':
-      return <TrashCan />
+      return (
+        <LandmarkAsset assetId={STREET_PROP_ASSET_IDS.trash_can!}>
+          <TrashCan />
+        </LandmarkAsset>
+      )
     case 'hydrant':
-      return <Hydrant color={def.color} />
+      // `def.color` still drives the procedural fallback. The GLB is one baked atlas with no
+      // recolorable slot (issue #42), so it honestly retains its source colours.
+      return (
+        <LandmarkAsset assetId={STREET_PROP_ASSET_IDS.hydrant!}>
+          <Hydrant color={def.color} />
+        </LandmarkAsset>
+      )
     case 'planter':
       return <Planter />
     case 'parked_car':

@@ -182,10 +182,35 @@ export function assertRuntimeSafe(id, doc) {
 }
 
 /**
+ * Deterministic grounding for a source whose origin is CENTRED rather than at its base
+ * (issue #42: the approved fire hydrant reports minY = -1, because it skipped the remesh
+ * stage where `origin_at: bottom` is applied).
+ *
+ * The shift is applied as a ROOT-NODE TRANSLATION, never by rewriting vertices: every mesh
+ * accessor byte — positions, indices, UVs, topology, triangle count — is left exactly as the
+ * owner approved it, which is why `buildStatic` can still assert a byte-identical mesh digest
+ * across the transform. `measureBounds` walks node matrices, so the shift is visible in the
+ * measured bounds exactly as three.js will render it.
+ */
+function translateSceneRoots(root, offsetY) {
+  const scene = root.getDefaultScene() ?? root.listScenes()[0]
+  if (!scene) throw new Error('grounding: document has no scene')
+  for (const node of scene.listChildren()) {
+    const [x, y, z] = node.getTranslation()
+    node.setTranslation([x, y + offsetY, z])
+  }
+}
+
+/**
  * Static (non-skinned) intake: material-name normalization for the existing variant/paint slot
- * contract, prune/dedupe, texture reduction. GEOMETRY, INDICES AND ORIGIN ARE NEVER TOUCHED —
- * the mesh digest is asserted identical across the transform, so a regression in a future
- * gltf-transform release cannot silently reshape an approved asset.
+ * contract, prune/dedupe, texture reduction. GEOMETRY AND INDICES ARE NEVER TOUCHED — the mesh
+ * digest is asserted identical across the transform, so a regression in a future gltf-transform
+ * release cannot silently reshape an approved asset.
+ *
+ * The ORIGIN is untouched too unless the def opts into `ground: true`, in which case the whole
+ * scene is translated (node transform only — see `translateSceneRoots`) so the rendered minimum
+ * is exactly y = 0. The bounds check below is what proves it: the box must move by EXACTLY the
+ * declared offset on Y and by nothing at all on X/Z, and its size must be unchanged.
  */
 export async function buildStatic(def, outDir, opts) {
   const doc = await io.read(def.src)
@@ -197,14 +222,29 @@ export async function buildStatic(def, outDir, opts) {
   const before = { mesh: meshDigest(root), bounds: measureBounds(root) }
 
   root.listMaterials()[0].setName(def.materialName)
+  const groundOffsetY = def.ground ? -before.bounds.min[1] : 0
+  if (groundOffsetY !== 0) translateSceneRoots(root, groundOffsetY)
   await doc.transform(dedup(), prune({ keepAttributes: false, keepLeaves: false }))
   await reduceTextures(doc, opts)
 
   const after = { mesh: meshDigest(root), bounds: measureBounds(root) }
   if (after.mesh !== before.mesh)
     throw new Error(`${def.id}: geometry changed during intake (${before.mesh.slice(0, 12)} -> ${after.mesh.slice(0, 12)})`)
-  if (JSON.stringify(after.bounds) !== JSON.stringify(before.bounds))
-    throw new Error(`${def.id}: bounds/origin changed during intake`)
+  const expected = {
+    min: before.bounds.min.map((v, i) => (i === 1 ? v + groundOffsetY : v)),
+    max: before.bounds.max.map((v, i) => (i === 1 ? v + groundOffsetY : v)),
+    size: before.bounds.size,
+  }
+  for (const key of ['min', 'max', 'size']) {
+    for (let i = 0; i < 3; i++) {
+      if (Math.abs(after.bounds[key][i] - expected[key][i]) > 1e-4)
+        throw new Error(
+          `${def.id}: bounds.${key}[${i}] changed during intake — ${after.bounds[key][i]} != ${expected[key][i]}`,
+        )
+    }
+  }
+  if (def.ground && after.bounds.min[1] !== 0)
+    throw new Error(`${def.id}: grounding failed — rendered minimum is y=${after.bounds.min[1]}, not 0`)
   assertRuntimeSafe(def.id, doc)
 
   const outPath = join(outDir, def.out)
