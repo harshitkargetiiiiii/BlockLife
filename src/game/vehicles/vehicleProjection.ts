@@ -61,6 +61,26 @@ export interface VehicleProjection {
 }
 
 /**
+ * The visual scale the ONE shell's mesh group wears for the active class (issue #19 §6): the
+ * class collider half-extents expressed relative to the legacy Compact's `[1, 0.55, 2]`, so the
+ * Compact is exactly `[1, 1, 1]` and the legacy baseline is untouched.
+ *
+ * This is applied to the mesh group in WORLD axes — x = width, y = height, z = length — and so
+ * MULTIPLIES any GLB body's own manifest scale. Exported (rather than inlined in Vehicle.tsx as
+ * it once was) because the issue #40 asset contract has to derive a body's projected world
+ * bounds from the real value: deriving a GLB's scale against the class footprint while ignoring
+ * this factor silently shrinks the scooter to 0.55x and the sports car's height to 0.91x.
+ *
+ * Physics is unaffected — the collider itself is `proj.collider`, never this.
+ */
+export function shellMeshScale(
+  collider: readonly [number, number, number],
+): [number, number, number] {
+  const [cw, ch, cl] = collider
+  return [cw / 1, ch / 0.55, cl / 2]
+}
+
+/**
  * Persistent condition scales performance (§7): identity at 100, floored so even a barely-alive
  * car still crawls (condition 0 is separately `disabled`, so the floor only shapes the ramp).
  */

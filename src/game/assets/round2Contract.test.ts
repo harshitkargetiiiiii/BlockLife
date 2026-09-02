@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { readFileSync } from 'node:fs'
 import * as THREE from 'three'
 import { VEHICLE_DEFS } from '../vehicles/vehicleRegistry'
 import { ASSET_MANIFEST_BY_ID } from './assetManifest'
@@ -21,6 +22,22 @@ import type { CharacterAppearance } from '../characters/characterTypes'
  * behaviours; these lock the static wiring so it can't silently regress.
  */
 
+/** Material names read from a committed GLB's JSON chunk — the real file, not the manifest. */
+function glbMaterialNames(path: string): string[] {
+  const buf = readFileSync(path)
+  const length = buf.readUInt32LE(8)
+  let offset = 12
+  while (offset + 8 <= length) {
+    const chunkLen = buf.readUInt32LE(offset)
+    if (buf.readUInt32LE(offset + 4) === 0x4e4f534a) {
+      const json = JSON.parse(buf.subarray(offset + 8, offset + 8 + chunkLen).toString('utf8'))
+      return (json.materials ?? []).map((m: { name?: string }) => m.name ?? '')
+    }
+    offset += 8 + chunkLen
+  }
+  throw new Error(`${path}: no JSON chunk`)
+}
+
 describe('§13 #14 — every ownable vehicle class resolves a valid, enabled GLB visual', () => {
   it('all four VehicleDefs declare a GLB assetId', () => {
     // Guards against a class silently falling back to CarMesh forever.
@@ -29,14 +46,42 @@ describe('§13 #14 — every ownable vehicle class resolves a valid, enabled GLB
   })
 
   for (const def of VEHICLE_DEFS) {
-    it(`${def.id} (${def.vehicleClass}) → enabled vehicle GLB with a recolorable paint slot`, () => {
+    it(`${def.id} (${def.vehicleClass}) → enabled vehicle GLB whose paint claim matches the file`, () => {
       const entry = ASSET_MANIFEST_BY_ID.get(def.assetId!)
       expect(entry, `${def.assetId} must exist in the manifest`).toBeDefined()
       expect(entry!.category).toBe('vehicles')
       expect(entry!.enabled).toBe(true)
       expect(entry!.glbPath).toMatch(/\.glb$/)
       expect(shouldLoadGlb(entry)).toBe(true)
-      expect(entry!.materialSlots?.paint?.length ?? 0).toBeGreaterThan(0)
+
+      // Issue #40: this originally required a `paint` slot on EVERY class. That claim is not
+      // always true and asserting it forced a dishonest one — a body baked as a single atlas
+      // (windows, lights and tyres in the same texture as the panels) cannot expose a per-panel
+      // body slot, and declaring one made the selected paint recolor the whole vehicle.
+      //
+      // The replacement is STRICTER, not looser: the declaration must now match the real file.
+      // A declared paint slot must name a material the GLB actually contains (the old assertion
+      // never checked that, so a slot naming a material that did not exist passed); and an
+      // empty declaration is only allowed for a genuine single-material body, which is the one
+      // case where retaining the source paint is the honest answer.
+      const materials = glbMaterialNames(`public/${entry!.glbPath}`)
+      const declared = entry!.materialSlots?.paint ?? []
+      if (declared.length > 0) {
+        for (const name of declared) {
+          expect(materials, `${def.assetId} paint slot "${name}" must exist in the GLB`).toContain(name)
+        }
+      } else {
+        expect(
+          materials.length,
+          `${def.assetId} may only decline a paint slot because it is ONE baked material`,
+        ).toBe(1)
+        // ...and that lone material must not be re-bindable by VehicleAsset's default candidates,
+        // or the paint would be applied anyway and the declaration would be meaningless.
+        expect(
+          ['paint', 'Paint', 'body', 'Body', 'carpaint', 'CarPaint'],
+          `${def.assetId} single material must not rebind a default paint slot`,
+        ).not.toContain(materials[0])
+      }
     })
   }
 })

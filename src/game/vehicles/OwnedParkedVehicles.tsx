@@ -31,7 +31,7 @@ export function OwnedParkedVehicles() {
           <group key={v.id} position={[a.position[0], 0, a.position[1]]} rotation={[0, a.headingY, 0]} scale={scale}>
             {/* §5 parked/active parity: parked owned vehicles project the SAME class GLB body
                 + fittings the active shell uses, so a Compact doesn't change model when parked. */}
-            <VehicleVisual assetId={def?.assetId ?? null} color={paint} showDriver={false} wheelHub={wheel?.hubColor} wheelScale={wheel?.radiusScale} />
+            <VehicleVisual assetId={def?.assetId ?? null} color={paint} showDriver={false} wheelHub={wheel?.hubColor} wheelScale={wheel?.radiusScale} groupScale={[scale, scale, scale]} />
           </group>
         )
       })}

@@ -9,7 +9,8 @@
 Real GLB assets are integrated across several sprints: **Downtown City MegaKit
 [Standard] by Quaternius (CC0-1.0)** (four building landmarks + five street
 props), and **Meshy AI generated original** assets (four ownable vehicle
-shells, three character rigs, an apartment/townhome, and — issue #25 — a
+shells — all four from the owner-approved 2026-08-31 sprint since issue #40 —
+three character rigs, an apartment/townhome, and — issue #25 — a
 reusable residential-house archetype and the job-board kiosk). Audio and the
 remaining props/buildings stay procedural. **Every GLB keeps its procedural
 fallback** — set an entry to `enabled: false` in
@@ -47,10 +48,10 @@ its manifest entry to `enabled: true`:
 | quaternius_prop_plantersingle.glb | Quaternius | Downtown City MegaKit [Standard], quaternius.com | CC0-1.0 | 2026-07-03 | yes (optimized) | prop_street_planter_01 |
 | quaternius_prop_manholecover.glb | Quaternius | Downtown City MegaKit [Standard], quaternius.com | CC0-1.0 | 2026-07-03 | yes (optimized) | prop_manhole_01 |
 | quaternius_prop_drain.glb | Quaternius | Downtown City MegaKit [Standard], quaternius.com | CC0-1.0 | 2026-07-03 | yes (optimized) | prop_drain_01 |
-| compact_car_01.glb | Meshy AI (generated, original) | meshy.ai (text→image→3D) | Meshy AI generated asset | 2026-08-03 | yes (lowpoly, normalized material) | vehicle_compact_car_01 |
-| scooter_01.glb | Meshy AI (generated, original) | meshy.ai (text→image→3D) | Meshy AI generated asset | 2026-08-04 | yes (remesh ~12k, normalized material) | vehicle_scooter_01 |
-| utility_van_01.glb | Meshy AI (generated, original) | meshy.ai (text→image→3D) | Meshy AI generated asset | 2026-08-04 | yes (remesh ~12k, normalized material) | vehicle_utility_van_01 |
-| sports_car_01.glb | Meshy AI (generated, original) | meshy.ai (text→image→3D) | Meshy AI generated asset | 2026-08-04 | yes (remesh ~12k, normalized material) | vehicle_sports_car_01 |
+| compact_sedan_01.glb | Meshy AI (generated, original) | meshy.ai (owner-approved 2026-08-31 sprint) | Meshy AI generated asset | 2026-08-31 | yes (texture 2K→1K, normalized material) | vehicle_compact_car_01 (issue #38 Wave 0) |
+| scooter_01.glb | Meshy AI (generated, original) | meshy.ai (owner-approved 2026-08-31 sprint) | Meshy AI generated asset | 2026-09-01 | yes (texture 2K→1K, normalized material) | vehicle_scooter_01 (issue #40 Wave 1) |
+| utility_van_01.glb | Meshy AI (generated, original) | meshy.ai (owner-approved 2026-08-31 sprint) | Meshy AI generated asset | 2026-09-01 | yes (texture 2K→1K, normalized material) | vehicle_utility_van_01 (issue #40 Wave 1) |
+| sports_car_01.glb | Meshy AI (generated, original) | meshy.ai (owner-approved 2026-08-31 sprint) | Meshy AI generated asset | 2026-09-01 | yes (texture 2K→1K, normalized material) | vehicle_sports_car_01 (issue #40 Wave 1) |
 | blocklife_apartment_hq_01.glb | Meshy AI (generated, original) | meshy.ai (text→image→3D) | Meshy AI generated asset | 2026-08-03 | yes (lowpoly, texture→1K) | building_townhomes_01 |
 | arch_residential_house_01.glb | Meshy AI (generated, original) | meshy.ai (text→image→3D) | Meshy AI generated asset | 2026-08-20 | yes (lowpoly 7936 tris, texture→1K) | arch_residential_house_01 (issue #25) |
 | prop_job_kiosk_01.glb | Meshy AI (generated, original) | meshy.ai (text→image→3D) | Meshy AI generated asset | 2026-08-20 | yes (lowpoly 4703 tris, texture→1K) | prop_job_kiosk_01 (issue #25) |
@@ -97,11 +98,15 @@ its manifest entry to `enabled: true`:
   naming; the generated design is unchanged).
 - **Total generation cost**: 171 Meshy credits (vertical slice).
 
-**Round-2 addendum (2026-08-04)** — the remaining three ownable vehicle classes were
-generated the same way (`image_to_3d` → Meshy `remesh` to ~12k tris → `scripts/normalizeMeshyGlb.mjs`
-names a single `paint` material for the §3 variant system): `scooter_01.glb`,
-`utility_van_01.glb`, `sports_car_01.glb`. Same Meshy license terms + maintainer action as
-above. Round-2 generation cost: ~27 credits (running total ~198 of the approved ~230 envelope).
+**Round-2 addendum (2026-08-04, superseded).** The remaining three ownable vehicle classes were
+originally generated the same way (`image_to_3d` → Meshy `remesh` to ~12k tris →
+`scripts/normalizeMeshyGlb.mjs` names a single `paint` material for the §3 variant system):
+`scooter_01.glb`, `utility_van_01.glb`, `sports_car_01.glb`. Round-2 generation cost: ~27 credits
+(running total ~198 of the approved ~230 envelope). **Those bytes were replaced at the same paths
+by issue #40 Wave 1** (see below); the round-2 record is retained for cost/provenance history only.
+`compact_car_01.glb` — round 1's untextured compact body, already superseded at the manifest level
+by `compact_sedan_01.glb` in issue #38 Wave 0 — was likewise deleted in Wave 1 as a dead duplicate
+that was still shipping into `dist/`. Same Meshy license terms + maintainer action as above.
 Buildings in round 2 reused the already-credited CC0 Quaternius kit (no new generation): the
 backdrop tower reuses `quaternius_building_large_2.glb` with a per-instance palette recolor.
 
@@ -198,3 +203,58 @@ source SHA-256, output SHA-256, exact operations and structure — is in
 
 Characters carry all three semantic clips (`Idle` / `Walk` / `Run`) in ONE GLB — no duplicate-texture
 per-clip files ship.
+
+## Issue #40 — Integration Wave 1 (owner-approved 2026-08-31 Meshy sprint)
+
+The three remaining owner-approved sprint vehicle bodies, completing the four-class owned-vehicle
+garage Wave 0 started. **No new generation of any kind** — no Meshy call, paid generation,
+enhancement, remesh, retexture, rig or purchase — these are the same 2026-08-31 sprint outputs,
+rebuilt deterministically from pristine sources that live **outside** this repository and were
+opened read-only. Reproduce with `node scripts/asset-intake/buildWave1.mjs`; verify the committed
+bytes with `node scripts/asset-intake/buildWave1.mjs --check`. Full per-asset provenance — source
+paths, source SHA-256, output SHA-256, exact operations, measured bounds and structure — is in
+[`docs/asset-provenance/wave1-provenance.json`](../../docs/asset-provenance/wave1-provenance.json).
+
+- **Creator / attribution:** Meshy AI — generated original assets (owner-approved 2026-08-31 sprint),
+  texture-optimized in-repo.
+- **License:** Meshy AI generated asset (meshy.ai terms). Generation rights held by the repository owner.
+- **Modified:** textures reduced 2048² PNG → 1024² JPEG and the single material renamed to
+  `baked_atlas` — deliberately NOT a paint-slot name (see the paint note below).
+  **Geometry, indices, origin and wheel count are unchanged** — the intake
+  asserts the mesh digest and bounding box are byte-for-byte identical across the transform and
+  refuses to write if either moved.
+- **Generation cost this wave: 0 credits.**
+
+| Shipped file | Class | Triangles | Texture | Size | Output SHA-256 | Pristine source |
+|---|---|---|---|---|---|---|
+| `assets/models/vehicles/scooter_01.glb` | `veh_scooter` | 20401 | 1024×1024 jpeg | 1491 KB | `9f84a52d775b5e98…` | `blocklife_vehicle_scooter.glb` `a187ed98675008c1…` |
+| `assets/models/vehicles/utility_van_01.glb` | `veh_van` | 14413 | 1024×1024 jpeg | 1115 KB | `7bc9ae9d54733c7b…` | `blocklife_vehicle_utility_van.glb` `8aa7ef191f958c6f…` |
+| `assets/models/vehicles/sports_car_01.glb` | `veh_sports` | 14829 | 1024×1024 jpeg | 897 KB | `e01f1e8191b34df7…` | `blocklife_vehicle_sports_coupe.glb` `948d5878c788ff9b…` |
+
+The scooter is 401 triangles over the sprint's nominal 20k guide — intentional, to preserve its
+wheel/spoke geometry — and remains well under the enforced 40k vehicle gate.
+
+**Source paint is retained — these bodies are not recolored.** Each is ONE baked mesh with ONE
+material carrying a baked base-colour atlas: windows, lights, tyres and trim live in the same
+texture as the panels. Tinting it recolors the whole vehicle, so per issue #40 these bodies
+declare **no** recolorable slot and their material is named `baked_atlas`, which is not a
+candidate in any default or declared paint slot. The approved source paint therefore ships as
+authored. Customization and save state are untouched: a chosen paint is still stored, still shown
+in the Garage, and still tints the procedural fallback shell. Re-authoring a body with real
+material segmentation is what unlocks a genuine `paint` slot — exactly as with the Wave 0
+characters' wardrobe axes.
+
+**Fittings.** Each approved body already contains its own wheels and lamps, so the GLB path
+renders only the occupant indicators — the one fitting these models genuinely lack — seated per
+asset so the driver and any ride passenger are visible on each body. Procedural wheels,
+headlights and brake-light taillights are NOT layered on top; the procedural fallback keeps the
+complete historical set, and the brake-light swap still drives every body that has `taillight`
+meshes: the fallback and the generic procedural ambient / static parked / stealable city cars.
+An OWNED parked vehicle is not one of those — it renders through the same adapter as the active
+shell, so its GLB uses the bounded occupants-only profile too. A baked-atlas body's own lamps cannot be lit separately, and its
+wheels cannot be tinted, without recoloring the whole vehicle — recorded, not worked around.
+
+**Projection.** Each body is scaled UNIFORMLY — the approved model is never distorted — from its own
+measured bounding box against its class footprint in `vehicleRegistry`, filling 97% of whichever of
+length or width binds first. `src/game/assets/wave1Contract.test.ts` recomputes every number from
+the registry and the committed bytes, so a swapped local X/Z or a wrong yaw cannot pass silently.
