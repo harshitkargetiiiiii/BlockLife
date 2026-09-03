@@ -138,22 +138,59 @@ const QUATERNIUS = {
 export const ASSET_MANIFEST: AssetManifestEntry[] = [
   {
     ...defaults,
-    ...QUATERNIUS,
     id: 'building_apartment_01',
     label: 'Sunrise Apartments (player home)',
     category: 'city',
-    // Pack model: Building_Medium_2_001 (15.1 × 25 × 13.1). Scaled so the
-    // footprint fills the 9×9 layout collider; façade faces +z (the door side).
-    glbPath: 'assets/models/city/quaternius_building_medium_2.glb',
+    // Issue #44 Wave 3: the owner-approved sprint apartment REPLACES the Quaternius
+    // Building_Medium_2 on this id (that pack file had no other placement and is retired with
+    // this wave; Building_Small_1 and Building_Large_2 stay — the gym and the backdrop tower
+    // still use them). Nothing about the placement moves: position, the 9 × 7.5 × 9 authored
+    // box, the collider, the south door anchor, the `apartment` interactable at [-12.5, 0, -9],
+    // the label, the district and the occluder descriptor are all untouched.
+    //
+    // Measured local bbox 9.2293 × 24.9993 × 8.5305, origin at the base (min y = 0), bbox
+    // centre off-origin by 0.013 on X. The body has no distinguishable entrance elevation —
+    // the ground floor is windowed on all four sides and the balcony stack is centred on both
+    // the +z and −z faces — so no yaw is applied and the model's own +z stays the front,
+    // exactly as the outgoing pack model did.
+    //
+    // HEIGHT BINDS HERE, NOT THE FOOTPRINT, and that is a camera constraint rather than an
+    // aesthetic one. `FollowCamera` sits at `player + (12, 18, 12)` with `near: −200`, and every
+    // authored building in the city is shorter than that 18 m (tallest: building_tower_04 at
+    // 17 m, a backdrop). A footprint fit would render this body at 24.31 m — roof 6.31 m ABOVE
+    // the camera — and the camera then sits INSIDE the tower for any player within ~17 m on the
+    // right bearing, filling the screen with the inside of the roof. Seven Wave 0
+    // candidate-character baselines caught exactly that. So the fit takes MAX_RENDERED_HEIGHT
+    // (15 m, 3 m of camera clearance) as a third bound:
+    //   s = floor(min(4.5 / 4.62735, 4.5 / 4.27965, 15 / 24.9993) * 1e4) / 1e4 = 0.6   (HEIGHT binds)
+    // → 5.5376 × 14.9996 × 5.1183.
+    //
+    // 15 m is not arbitrary: it is EXACTLY what the Quaternius Building_Medium_2 this replaces
+    // already rendered at (25 × 0.60), down to the same 16.2 label height. The presentation
+    // envelope of this placement is therefore preserved rather than grown, and its occlusion
+    // behaviour — a 15 m body over an 8 m occluder box — is byte-for-byte the pre-existing
+    // condition, which is what issue #44's "occlusion identity unchanged" requires.
+    //
+    // The cost is honest and documented: the body under-fills its 9 × 9 lot (half-extents 2.78
+    // and 2.57 against 4.5). Filling the lot is worth less than a camera that never ends up
+    // inside a building. `def.size` remains the sole authority for the collider, the occluder
+    // box, routing and anchors.
+    glbPath: 'assets/models/city/arch_apartment_01.glb',
     fallbackKey: 'BuildingMesh',
     scale: [0.6, 0.6, 0.6],
-    positionOffset: [0, 0.01, 3.58],
+    rotation: [0, 0, 0],
+    positionOffset: [0, 0, 0],
     labelHeight: 16.2,
-    // §6 palette slots: the recolorable façade + trim (windows/interior untouched).
-    // Declaring slots only isolates the materials per instance (identity clone) — the
-    // render is unchanged until a BuildingDef.paletteVariant is applied.
-    materialSlots: { wall: ['MI_InteriorWall'], trim: ['MI_Trim_Green'] },
+    // One baked atlas: brick, windows, balconies and the mansard roof share a single texture.
+    // Explicitly EMPTY means "expose no recolorable slot — retain the source colours"
+    // (issue #44), replacing the pack model's wall/trim slots, which named Quaternius
+    // materials that do not exist in this body.
+    materialSlots: {},
+    bounds: { width: 5.5376, height: 14.9996, depth: 5.1183 },
     enabled: true,
+    budget: { maxTriangles: 60000 },
+    attribution: 'Meshy AI — generated original asset (owner-approved 2026-08-31 sprint), texture-optimized in-repo',
+    license: 'Meshy AI generated asset (meshy.ai terms)',
   },
   {
     ...defaults,
@@ -260,18 +297,176 @@ export const ASSET_MANIFEST: AssetManifestEntry[] = [
     id: 'building_townhomes_01',
     label: 'Residential apartment (Residential Street)',
     category: 'city',
-    // Issue #21 §6: a production low-poly apartment GLB (~6.6k tris, 1K texture)
-    // projected via LandmarkAsset. Colliders/anchors come from cityLayout (7×6×7
-    // lot), never the model. Authored bbox 1.26×1.91×1.27, centered origin →
-    // uniform ~5.5× fills the footprint; offset raises the base to the ground.
-    glbPath: 'assets/models/city/blocklife_apartment_hq_01.glb',
+    // Issue #44 Wave 3: the owner-approved sprint row house REPLACES the issue #21 §6 low-poly
+    // apartment on this id (`blocklife_apartment_hq_01.glb` had no other placement and is
+    // retired with this wave). The 7 × 6 × 7 authored lot, the collider, the south door anchor,
+    // the "Townhomes — coming soon" label, the district and the occluder are all unchanged.
+    //
+    // Measured local bbox 7.8791 × 9 × 5.9839, origin at the base. The rendered cardinals show
+    // the two front doors on the model's +z elevation and blank party walls on ±x, so the
+    // model's own +z IS the front and the authored south door needs no yaw. Uniform fit to the
+    // 7 × 7 lot from the measured half-extents:
+    //   s = floor(min(3.5 / 3.96135, 3.5 / 2.99245) * 1e4) / 1e4 = 0.8835   (X binds)
+    // → 6.9612 × 7.9515 × 5.2868, half-X 3.4998 of the lot's 3.5. At 7.95 m the body is
+    // 2.55 m SHORTER than the 10.5 m model it replaces, so this placement's long-standing
+    // presentation overhang above its 6 m box gets smaller, not larger.
+    glbPath: 'assets/models/city/arch_row_house_01.glb',
     fallbackKey: 'BuildingMesh',
-    scale: [5.5, 5.5, 5.5],
-    positionOffset: [0, 5.2, 0],
-    labelHeight: 11.5,
+    scale: [0.8835, 0.8835, 0.8835],
+    rotation: [0, 0, 0],
+    positionOffset: [0, 0, 0],
+    labelHeight: 9.2,
+    // One baked atlas (brick, render, doors, slate roof in a single texture) — no recolorable
+    // slot is claimed, and the source colours ship as approved.
+    materialSlots: {},
+    bounds: { width: 6.9612, height: 7.9515, depth: 5.2868 },
     enabled: true,
     budget: { maxTriangles: 60000 },
-    attribution: 'Meshy AI — generated original low-poly asset (text→image→3D), texture-optimized in-repo',
+    attribution: 'Meshy AI — generated original asset (owner-approved 2026-08-31 sprint), texture-optimized in-repo',
+    license: 'Meshy AI generated asset (meshy.ai terms)',
+  },
+  // ---- Issue #44 Integration Wave 3: four more approved sprint BUILDING bodies. Together with
+  // the `building_apartment_01` and `building_townhomes_01` entries reconciled in place above,
+  // six approved bodies project onto exactly NINE authored placements. Every authored building
+  // id, position, `def.size` footprint, collider, door anchor, interaction, label, district,
+  // streaming identity and occluder descriptor is untouched — only the pixels change, and each
+  // placement keeps `BuildingMesh` as its LandmarkAsset fallback child.
+  //
+  // Every `scale` is the largest UNIFORM factor that keeps the MEASURED half-extents inside the
+  // placement's authored `def.size` footprint AFTER the canonical-facing yaw, at 4 dp rounded
+  // DOWN:  s = floor(min((w/2) / hx, (d/2) / hz) * 1e4) / 1e4.  Nothing here is guessed;
+  // `wave3Contract.test.ts` recomputes every number from cityLayout's BUILDINGS and the
+  // committed bytes, and the canonical facings come from rendered cardinal evidence, not from
+  // filenames (see tests/visual/wave3-asset-visuals.spec.ts). ----
+  {
+    ...defaults,
+    id: 'building_shop_01',
+    label: 'Mini Mart (Main Street)',
+    category: 'city',
+    // Measured local bbox 4.9689 × 4 × 4.0494, origin at the base. Cardinals: the glazed
+    // shopfront, its awning and the entrance are all on the model's +z elevation; ±x and −z are
+    // blank render. The authored door is 'south' (+z), so canonical facing matches and no yaw
+    // is applied. Uniform fit to the 6 × 6 lot:
+    //   s = floor(min(3 / 2.48745, 3 / 2.02555) * 1e4) / 1e4 = 1.206   (X binds)
+    // → 5.9925 × 4.824 × 4.8836 under a 6 × 5 × 6 authored box: the ONLY Wave-3 body that fits
+    // inside its placement's procedural height as well as its footprint.
+    glbPath: 'assets/models/city/arch_shop_01.glb',
+    fallbackKey: 'BuildingMesh',
+    scale: [1.206, 1.206, 1.206],
+    rotation: [0, 0, 0],
+    positionOffset: [0, 0, 0],
+    labelHeight: 6,
+    materialSlots: {},
+    bounds: { width: 5.9925, height: 4.824, depth: 4.8836 },
+    enabled: true,
+    budget: { maxTriangles: 60000 },
+    attribution: 'Meshy AI — generated original asset (owner-approved 2026-08-31 sprint), texture-optimized in-repo',
+    license: 'Meshy AI generated asset (meshy.ai terms)',
+  },
+  {
+    ...defaults,
+    id: 'arch_house_01',
+    label: 'Detached-house archetype (issue #44 Wave 3, four placements)',
+    category: 'city',
+    // The ONE reusable archetype of this wave: a single downloaded, cloned scene backs four
+    // authored house placements — `building_house_01` (central), `building_house_r2` (north
+    // residential), `building_house_w2` (west residential) and `building_house_s2` (south
+    // residential) — through `BuildingDef.visual`, one per district exactly as issue #44 pins.
+    // It is deliberately NOT applied to the other authored houses: `building_house_r1` keeps
+    // the issue #25 `arch_residential_house_01` archetype and the remaining house shapes stay
+    // procedural, so the streets keep their variety.
+    //
+    // Measured local bbox 5.7735 × 4.9995 × 5.3216, origin at the base (the model's own ground
+    // pad is inside that box). Cardinals: the front door, porch posts and steps are on the +z
+    // elevation, the −z elevation is windows-only and ±x are gable ends — so the model's own
+    // +z is the front and `canonicalFacing: 'south'` is measured, not assumed. Each placement's
+    // own authored door then yaws the body (north → π, east → π/2, south → 0).
+    //
+    // All four placements share the same 5.5 × 5.5 authored footprint, so ONE uniform fit
+    // serves all four and the per-placement projection is facing-only:
+    //   s = floor(min(2.75 / 2.88995, 2.75 / 2.66315) * 1e4) / 1e4 = 0.9515   (X binds)
+    // → 5.4935 × 4.757 × 5.0635, half-X 2.7497 of the lot's 2.75. The projections declare
+    // `maxScaleDeviation: 0`, which pins the per-placement scale to exactly [1, 1, 1]: the one
+    // placement with a different authored HEIGHT (`building_house_s2`, 4.2 vs 4.5) would
+    // otherwise have squashed this approved body by 6.7% on Y alone, and issue #44 requires a
+    // uniform scale with the source proportions preserved.
+    glbPath: 'assets/models/city/arch_house_01.glb',
+    fallbackKey: 'BuildingMesh',
+    scale: [0.9515, 0.9515, 0.9515],
+    rotation: [0, 0, 0],
+    positionOffset: [0, 0, 0],
+    materialSlots: {},
+    bounds: { width: 5.4935, height: 4.757, depth: 5.0635 },
+    enabled: true,
+    budget: { maxTriangles: 60000 },
+    attribution: 'Meshy AI — generated original asset (owner-approved 2026-08-31 sprint), texture-optimized in-repo',
+    license: 'Meshy AI generated asset (meshy.ai terms)',
+  },
+  {
+    ...defaults,
+    id: 'building_garage_01',
+    label: 'Garage (Industrial / Market Strip)',
+    category: 'city',
+    // Measured local bbox 11.0906 × 6 × 7.6682, origin at the base. Cardinals: the pair of
+    // orange roller shutters — this body's signature entrance — is on the model's +z (long)
+    // elevation, with a third single shutter on +x and blank cladding on −z / −x. Canonical
+    // facing is therefore 'south', and the authored 'west' door yaws the body by −π/2 so those
+    // two shutters point at the industrial road, which is what "entrance access preserved"
+    // means for this placement.
+    //
+    // That yaw swaps the axes against the lot, and the fit is computed AFTER it: the model's
+    // 11.09 m shutter elevation lands on the lot's 7 m depth, not its 8 m width.
+    //   s = floor(min(4 / 3.83935, 3.5 / 5.55125) * 1e4) / 1e4 = 0.6304   (world Z binds)
+    // → 4.834 (x) × 3.7824 × 6.9915 (z), half-Z 3.4995 of the lot's 3.5. The body deliberately
+    // under-fills the lot's WIDTH by 1.58 m per side: preserving the authored west door is
+    // worth more than filling the lot, and the same trade already shipped on
+    // `building_office_01` in Wave 0 (4.98 in a 7-wide lot).
+    glbPath: 'assets/models/city/arch_repair_garage_01.glb',
+    fallbackKey: 'BuildingMesh',
+    scale: [0.6304, 0.6304, 0.6304],
+    rotation: [0, -Math.PI / 2, 0],
+    positionOffset: [0, 0, 0],
+    labelHeight: 5,
+    materialSlots: {},
+    // MODEL-LOCAL extents at this scale, the same convention every other entry uses; the −π/2
+    // yaw swaps them in world space, so this body renders 4.834 wide × 6.9915 deep on the lot.
+    bounds: { width: 6.9915, height: 3.7824, depth: 4.834 },
+    enabled: true,
+    budget: { maxTriangles: 60000 },
+    attribution: 'Meshy AI — generated original asset (owner-approved 2026-08-31 sprint), texture-optimized in-repo',
+    license: 'Meshy AI generated asset (meshy.ai terms)',
+  },
+  {
+    ...defaults,
+    id: 'building_gate_hotel_01',
+    label: 'Hotel (Downtown Gateway)',
+    category: 'city',
+    // Measured local bbox 9.1418 × 18 × 10.1352, origin at the base. Cardinals: this is a
+    // symmetric corner-block hotel with a canopied double-door entrance on EVERY elevation, so
+    // there is no single "wrong" front — which makes the fit, not the entrance, the tie-breaker.
+    // Declaring 'south' canonical and yawing −π/2 for the authored west door puts the centred
+    // canopy of the model's +z elevation on the road side and fits the lot markedly better than
+    // the un-yawed alternative. But HEIGHT binds before either footprint axis does: at 18 m tall
+    // this is the second body after the apartment that MAX_RENDERED_HEIGHT catches, and the rule
+    // is applied uniformly rather than special-cased.
+    //   s = floor(min(4.5 / 5.07685, 4 / 4.57985, 15 / 18) * 1e4) / 1e4 = 0.8333   (HEIGHT binds)
+    // → 8.4457 (x) × 14.9994 × 7.6179 (z). Unlike the apartment this body never actually
+    // contained the camera (its 15.72 m roof was already below the 18 m rig), so the 0.72 m it
+    // gives up is margin, not a defect fix — but one ceiling for every body is worth more than
+    // 0.72 m on one facade, and it keeps the derivation a single line.
+    glbPath: 'assets/models/city/arch_hotel_01.glb',
+    fallbackKey: 'BuildingMesh',
+    scale: [0.8333, 0.8333, 0.8333],
+    rotation: [0, -Math.PI / 2, 0],
+    positionOffset: [0, 0, 0],
+    labelHeight: 16.2,
+    materialSlots: {},
+    // MODEL-LOCAL extents at this scale, the same convention every other entry uses; the −π/2
+    // yaw swaps them in world space, so this body renders 8.4457 wide × 7.6179 deep on the lot.
+    bounds: { width: 7.6179, height: 14.9994, depth: 8.4457 },
+    enabled: true,
+    budget: { maxTriangles: 60000 },
+    attribution: 'Meshy AI — generated original asset (owner-approved 2026-08-31 sprint), texture-optimized in-repo',
     license: 'Meshy AI generated asset (meshy.ai terms)',
   },
   // ---- Street props (Quaternius pack, decorative — no colliders) ----

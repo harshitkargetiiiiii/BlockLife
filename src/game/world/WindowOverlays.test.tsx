@@ -6,11 +6,25 @@ import { validateWindowOverlays, WINDOW_OVERLAYS } from './windowOverlayData'
 import { glbWindowGlowMaterial, updateGlowMaterials } from './materials'
 import { getLampGlow } from '../simulation/worldMoodSystem'
 
-const GLB_BUILDING_IDS = [
-  'building_apartment_01',
-  'building_gym_01',
-  'building_office_01',
-  'building_tower_01',
+/**
+ * GLB-skinned buildings that carry an authored emissive night grid.
+ *
+ * `building_apartment_01` deliberately LEFT this list in issue #44 Wave 3: its approved
+ * replacement body bakes its own windows into a single atlas, so the Quaternius-era grid was
+ * suppressed rather than realigned (see windowOverlayData.ts). `SUPPRESSED_OVERLAY_IDS` guards
+ * that removal so it cannot be undone by accident, and so a future body that needs a grid has to
+ * add one deliberately.
+ */
+const GLB_BUILDING_IDS = ['building_gym_01', 'building_office_01', 'building_tower_01']
+
+/** GLB-skinned buildings that intentionally carry NO overlay grid (baked windows). */
+const SUPPRESSED_OVERLAY_IDS = [
+  'building_apartment_01', // issue #44 Wave 3
+  'building_townhomes_01', // issue #21 §6, kept baked in Wave 3
+  'building_shop_01',
+  'arch_house_01',
+  'building_garage_01',
+  'building_gate_hotel_01',
 ]
 
 describe('window overlay data', () => {
@@ -24,6 +38,15 @@ describe('window overlay data', () => {
         WINDOW_OVERLAYS.some((d) => d.buildingAssetId === id),
         `overlay defs for ${id}`,
       ).toBe(true)
+    }
+  })
+
+  it('leaves the baked-window buildings without a grid, so no glow floats on their facades', () => {
+    for (const id of SUPPRESSED_OVERLAY_IDS) {
+      expect(
+        WINDOW_OVERLAYS.filter((d) => d.buildingAssetId === id),
+        `${id} must carry no overlay grid`,
+      ).toEqual([])
     }
   })
 
@@ -45,10 +68,10 @@ describe('window overlay data', () => {
 describe('BuildingWindowOverlays (R3F)', () => {
   it('renders instanced glow planes for a GLB building', async () => {
     const renderer = await ReactThreeTestRenderer.create(
-      <BuildingWindowOverlays assetId="building_apartment_01" />,
+      <BuildingWindowOverlays assetId="building_gym_01" />,
     )
     const group = renderer.scene.findAll(
-      (n) => n.props.name === 'window-overlay:building_apartment_01',
+      (n) => n.props.name === 'window-overlay:building_gym_01',
     )
     expect(group).toHaveLength(1)
     // One InstancedMesh per façade, each with a lit subset of the grid.
@@ -58,7 +81,7 @@ describe('BuildingWindowOverlays (R3F)', () => {
       if ((o as THREE.InstancedMesh).isInstancedMesh) instanced.push(o as THREE.InstancedMesh)
     })
     expect(instanced.length).toBe(
-      WINDOW_OVERLAYS.filter((d) => d.buildingAssetId === 'building_apartment_01').length,
+      WINDOW_OVERLAYS.filter((d) => d.buildingAssetId === 'building_gym_01').length,
     )
     for (const mesh of instanced) {
       expect(mesh.count).toBeGreaterThan(0)

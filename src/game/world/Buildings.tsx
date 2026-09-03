@@ -197,8 +197,12 @@ function Building({ def, index }: { def: BuildingDef; index: number }) {
   const paletteVariant = visual?.paletteVariant ?? def.paletteVariant
   const entry = getManifestEntry(visualId)
   // Reused archetypes share one immutable tinted material-set per (source, slots, palette).
+  // An explicitly EMPTY slot map (issue #44's baked-atlas bodies) declares "no recolorable
+  // slot", so there is nothing to isolate OR to share: interning it would add a cache entry
+  // holding zero materials and change nothing on screen. Skip the cache in that case and let
+  // the clone keep the source materials.
   const cacheKey =
-    visual && entry?.materialSlots
+    visual && entry?.materialSlots && Object.keys(entry.materialSlots).length > 0
       ? variantCacheKey(visualId, entry.materialSlots, paletteVariant)
       : undefined
   const projection = visual

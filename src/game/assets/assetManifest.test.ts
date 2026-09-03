@@ -32,13 +32,19 @@ describe('asset manifest', () => {
     const enabled = ASSET_MANIFEST.filter((e) => shouldLoadGlb(e))
     // Quaternius landmark integration: four building landmarks + five street props.
     const landmarkEnabled = enabled.filter((e) => e.category === 'city' || e.category === 'props')
-    // Quaternius landmarks + the Meshy townhome + issue #25 Stage A (the residential-house
-    // archetype + the now-enabled job kiosk) + issue #42 Wave 2 (streetlight / hydrant / bin).
+    // Quaternius landmarks + issue #25 Stage A (the residential-house archetype + the
+    // now-enabled job kiosk) + issue #42 Wave 2 (streetlight / hydrant / bin) + issue #44
+    // Wave 3 (six building bodies over nine placements: the reconciled apartment and townhome
+    // entries plus the shop, the reusable house archetype, the garage and the gateway hotel).
     expect(landmarkEnabled.map((e) => e.id).sort()).toEqual([
+      'arch_house_01',
       'arch_residential_house_01',
       'building_apartment_01',
+      'building_garage_01',
+      'building_gate_hotel_01',
       'building_gym_01',
       'building_office_01',
+      'building_shop_01',
       'building_tower_01',
       'building_townhomes_01',
       'prop_ac_unit_01',

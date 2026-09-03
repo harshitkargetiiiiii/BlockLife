@@ -7,13 +7,15 @@
 ## Status
 
 Real GLB assets are integrated across several sprints: **Downtown City MegaKit
-[Standard] by Quaternius (CC0-1.0)** (four building landmarks + five street
+[Standard] by Quaternius (CC0-1.0)** (two building landmarks + five street
 props), and **Meshy AI generated original** assets (four ownable vehicle
 shells — all four from the owner-approved 2026-08-31 sprint since issue #40 —
-three character rigs, an apartment/townhome, — issue #25 — a
-reusable residential-house archetype and the job-board kiosk, and — issue #42
+three character rigs, — issue #25 — a
+reusable residential-house archetype and the job-board kiosk, — issue #42
 Wave 2 — three street props: a vintage lantern streetlight, a fire hydrant and a
-trash bin). Audio and the remaining props/buildings stay procedural. **Every GLB keeps its procedural
+trash bin, and — issue #44 Wave 3 — six building bodies covering nine authored
+placements: an apartment, a shop, a reusable detached house, a row house, a
+repair garage and a hotel). Audio and the remaining props/buildings stay procedural. **Every GLB keeps its procedural
 fallback** — set an entry to `enabled: false` in
 `src/game/assets/assetManifest.ts` to restore the primitive. Colliders,
 footprints and anchors are layout-driven, never mesh-driven, so a
@@ -41,7 +43,7 @@ its manifest entry to `enabled: true`:
 | Asset name | Creator | Source | License | Downloaded | Modified | Asset id / usage |
 | ---------- | ------- | ------ | ------- | ---------- | -------- | ---------------- |
 | All other visuals & audio | BlockLife (procedural, in code) | this repository | original work | — | — | Everything not listed below |
-| quaternius_building_medium_2.glb | Quaternius | Downtown City MegaKit [Standard], quaternius.com | CC0-1.0 | 2026-07-03 | yes (optimized) | building_apartment_01 |
+| ~~quaternius_building_medium_2.glb~~ | Quaternius | Downtown City MegaKit [Standard], quaternius.com | CC0-1.0 | 2026-07-03 | yes (optimized) | **RETIRED 2026-09-02 (issue #44 Wave 3)** — backed `building_apartment_01` until `arch_apartment_01.glb` replaced it; it had no other placement, so the file was deleted rather than left shipping into `dist/`. The rest of the CC0 kit is untouched. |
 | quaternius_building_small_1.glb | Quaternius | Downtown City MegaKit [Standard], quaternius.com | CC0-1.0 | 2026-07-03 | yes (optimized) | building_gym_01 |
 | quaternius_building_large_2.glb | Quaternius | Downtown City MegaKit [Standard], quaternius.com | CC0-1.0 | 2026-07-03 | yes (optimized) | building_tower_01 (also backed building_office_01 until issue #38 Wave 0 replaced that model) |
 | quaternius_prop_acunit.glb | Quaternius | Downtown City MegaKit [Standard], quaternius.com | CC0-1.0 | 2026-07-03 | yes (optimized) | prop_ac_unit_01 |
@@ -56,9 +58,15 @@ its manifest entry to `enabled: true`:
 | prop_streetlight_01.glb | Meshy AI (generated, original) | meshy.ai (owner-approved 2026-08-31 sprint) | Meshy AI generated asset | 2026-09-01 | yes (texture 2K→512, normalized material) | prop_streetlight_01 (issue #42 Wave 2) |
 | prop_fire_hydrant_01.glb | Meshy AI (generated, original) | meshy.ai (owner-approved 2026-08-31 sprint) | Meshy AI generated asset | 2026-09-01 | yes (texture 2K→512, normalized material, grounded by root-node translation) | prop_fire_hydrant_01 (issue #42 Wave 2) |
 | prop_trash_bin_01.glb | Meshy AI (generated, original) | meshy.ai (owner-approved 2026-08-31 sprint) | Meshy AI generated asset | 2026-09-01 | yes (texture 2K→512, normalized material) | prop_trash_bin_01 (issue #42 Wave 2) |
-| blocklife_apartment_hq_01.glb | Meshy AI (generated, original) | meshy.ai (text→image→3D) | Meshy AI generated asset | 2026-08-03 | yes (lowpoly, texture→1K) | building_townhomes_01 |
+| ~~blocklife_apartment_hq_01.glb~~ | Meshy AI (generated, original) | meshy.ai (text→image→3D) | Meshy AI generated asset | 2026-08-03 | yes (lowpoly, texture→1K) | **RETIRED 2026-09-02 (issue #44 Wave 3)** — backed `building_townhomes_01` until `arch_row_house_01.glb` replaced it; no other placement referenced it. |
 | arch_residential_house_01.glb | Meshy AI (generated, original) | meshy.ai (text→image→3D) | Meshy AI generated asset | 2026-08-20 | yes (lowpoly 7936 tris, texture→1K) | arch_residential_house_01 (issue #25) |
 | prop_job_kiosk_01.glb | Meshy AI (generated, original) | meshy.ai (text→image→3D) | Meshy AI generated asset | 2026-08-20 | yes (lowpoly 4703 tris, texture→1K) | prop_job_kiosk_01 (issue #25) |
+| arch_apartment_01.glb | Meshy AI (generated, original) | meshy.ai (owner-approved 2026-08-31 sprint) | Meshy AI generated asset | 2026-09-02 | yes (texture 2K→1K, normalized material) | building_apartment_01 (issue #44 Wave 3) |
+| arch_shop_01.glb | Meshy AI (generated, original) | meshy.ai (owner-approved 2026-08-31 sprint) | Meshy AI generated asset | 2026-09-02 | yes (texture 2K→1K, normalized material) | building_shop_01 (issue #44 Wave 3) |
+| arch_house_01.glb | Meshy AI (generated, original) | meshy.ai (owner-approved 2026-08-31 sprint) | Meshy AI generated asset | 2026-09-02 | yes (texture 2K→1K, normalized material) | arch_house_01 — reusable archetype for building_house_01 / _r2 / _w2 / _s2 (issue #44 Wave 3) |
+| arch_row_house_01.glb | Meshy AI (generated, original) | meshy.ai (owner-approved 2026-08-31 sprint) | Meshy AI generated asset | 2026-09-02 | yes (texture 2K→1K, normalized material) | building_townhomes_01 (issue #44 Wave 3) |
+| arch_repair_garage_01.glb | Meshy AI (generated, original) | meshy.ai (owner-approved 2026-08-31 sprint) | Meshy AI generated asset | 2026-09-02 | yes (texture 2K→1K, normalized material) | building_garage_01 (issue #44 Wave 3) |
+| arch_hotel_01.glb | Meshy AI (generated, original) | meshy.ai (owner-approved 2026-08-31 sprint) | Meshy AI generated asset | 2026-09-02 | yes (texture 2K→1K, normalized material) | building_gate_hotel_01 (issue #44 Wave 3) |
 | blocklife_female_01.glb | Meshy AI (generated, original) | meshy.ai (text→image→3D→rig) | Meshy AI generated asset | 2026-08-03 | yes (remesh 15k, texture→1K) | blocklife_female_01 — legacy/candidate, **no named-NPC runtime mapping** |
 | blocklife_male_01.glb | Meshy AI (generated, original) | meshy.ai (text→image→3D→rig) | Meshy AI generated asset | 2026-08-03 | yes (remesh 15k, texture→1K) | blocklife_male_01 — legacy/candidate, **no named-NPC runtime mapping** |
 
@@ -312,3 +320,63 @@ visual envelope in `src/game/world/propPlacement.ts`. That table, every authored
 every `PROP_SOLIDITY` collider and all world-integrity behaviour are unchanged.
 `src/game/assets/wave2Contract.test.ts` recomputes every number from the envelope and the
 committed bytes, so a hand-edited constant cannot pass silently.
+
+
+### Intake record — issue #44 Integration Wave 3 (2026-09-02)
+
+Six approved 2026-08-31 sprint **building bodies** now back **nine** existing authored building
+placements through the existing `LandmarkAsset` + `BuildingDef.visual` + procedural
+`BuildingMesh` fallback architecture. **No Meshy call, paid generation, enhancement, remesh,
+retexture, rig, animation or purchase** — these are the same sprint outputs, rebuilt
+deterministically from pristine sources that live **outside** this repository and were opened
+read-only. Reproduce with `node scripts/asset-intake/buildWave3.mjs`; verify the committed bytes
+with `node scripts/asset-intake/buildWave3.mjs --check`. Full per-asset provenance — source
+paths, source SHA-256, output SHA-256, exact operations, measured bounds, per-side facade
+measurements and structure — is in
+[`docs/asset-provenance/wave3-provenance.json`](../../docs/asset-provenance/wave3-provenance.json).
+
+- **Creator / attribution:** Meshy AI — generated original assets (owner-approved 2026-08-31
+  sprint), texture-optimized in-repo.
+- **License:** Meshy AI generated asset (meshy.ai terms). Generation rights held by the repository owner.
+- **Modified:** textures reduced 2048² → **1024²** JPEG (the standing policy ceiling
+  `scripts/assetReport.mjs` enforces — unlike the Wave-2 street props these bodies fill a large
+  part of the frame and are placed once, or four times for the house archetype) and the single
+  material renamed to `baked_atlas`, deliberately NOT a paint-slot name. All six sources are
+  already bottom-origin, so **no vertical transform was applied**; the intake asserts the shipped
+  minimum really is `y = 0`. **Geometry, indices, topology, triangle count and proportions are
+  unchanged**: the intake asserts the mesh digest is identical across the transform and that the
+  bounding box did not move at all.
+- **Generation cost this wave: 0 credits.**
+
+| Shipped file | Placement(s) | Triangles | Texture | Size | Output SHA-256 | Pristine source |
+|---|---|---|---|---|---|---|
+| `assets/models/city/arch_apartment_01.glb` | `building_apartment_01` | 20817 | 1024×1024 jpeg | 1348 KB | `32b65625a86332a2…` | `apartment_01.glb` `772035e2a20306b4…` |
+| `assets/models/city/arch_shop_01.glb` | `building_shop_01` | 16089 | 1024×1024 jpeg | 996 KB | `fc758a288365afa4…` | `shop_01.glb` `46fb0e5e133ae852…` |
+| `assets/models/city/arch_house_01.glb` | `building_house_01`, `building_house_r2`, `building_house_w2`, `building_house_s2` | 17208 | 1024×1024 jpeg | 1171 KB | `cf388916e095c4a3…` | `house_01.glb` `8f05a4d8c06c98c2…` |
+| `assets/models/city/arch_row_house_01.glb` | `building_townhomes_01` | 18374 | 1024×1024 jpeg | 1482 KB | `53eb375b50eddb7e…` | `row_house_01.glb` `a7d1fd629f4e985e…` |
+| `assets/models/city/arch_repair_garage_01.glb` | `building_garage_01` | 11214 | 1024×1024 jpeg | 925 KB | `fe870f4c3704dc91…` | `repair_garage_01.glb` `c67736036e12025d…` |
+| `assets/models/city/arch_hotel_01.glb` | `building_gate_hotel_01` | 20520 | 1024×1024 jpeg | 1571 KB | `8a4fcacc19c574a3…` | `hotel_01.glb` `ddc81fd303ad8dcf…` |
+
+**Source colours are retained — these buildings are not recolored.** Each is ONE mesh with ONE
+material carrying a baked base-colour atlas (walls, windows, doors, roof and trim in the same
+texture). There is no clean recolorable slot to expose, so all six declare an explicitly **empty**
+`materialSlots` map and their material is named `baked_atlas`. The `building_apartment_01` entry's
+previous `wall`/`trim` slots named **Quaternius** materials that do not exist in the replacement
+body and were removed with it; the backdrop tower's palette variant is untouched.
+
+**Two files were retired, not orphaned.** `quaternius_building_medium_2.glb` and
+`blocklife_apartment_hq_01.glb` each backed exactly one placement (`building_apartment_01` and
+`building_townhomes_01`); both were deleted rather than left shipping into `dist/` as dead
+payload. The still-referenced CC0 kit files — `quaternius_building_small_1.glb` (the gym) and
+`quaternius_building_large_2.glb` (the backdrop tower) — are untouched.
+
+**Projection.** Each body is scaled UNIFORMLY — the approved model is never distorted — as the
+largest factor that keeps its measured half-extents inside the placement's **authored**
+`def.size` footprint in `src/game/world/cityLayout.ts`, after the canonical-facing yaw that
+points the body's measured front at the authored door. Canonical facings come from **rendered
+cardinal evidence** (`tests/visual/wave3-asset-visuals.spec.ts`) plus the per-side facade
+measurements in the provenance, never from filenames. Every authored building id, position,
+footprint, collider, entrance anchor, interaction, label, district, streaming identity and
+occluder descriptor is unchanged; rendered HEIGHT is the consequence of the uniform footprint
+fit and is presentation only. `src/game/assets/wave3Contract.test.ts` recomputes every number
+from `BUILDINGS` and the committed bytes, so a hand-edited constant cannot pass silently.

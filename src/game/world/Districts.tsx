@@ -9,6 +9,7 @@ import {
 import { roadMaterial, sidewalkMaterial } from './materials'
 import { Occludable } from '../visibility/Occludable'
 import { getLinkedOccluderDescriptor } from '../visibility/occluderData'
+import { hasRealModel } from '../assets/modelRegistry'
 
 const MARKING_COLOR = '#e8e4da'
 const DASH_COLOR = '#d8c46a'
@@ -446,20 +447,27 @@ function CityDressing() {
             </mesh>
           ))}
         </Occludable>
-        <Occludable
-          descriptor={getLinkedOccluderDescriptor('decals_garage_01', 'building_garage_01')}
-        >
-          <mesh position={[59.5, 1.7, 11.56]}>
-            <planeGeometry args={[4.2, 3]} />
-            <meshStandardMaterial color="#57616e" />
-          </mesh>
-          {[0.7, 1.4, 2.1, 2.8].map((y) => (
-            <mesh key={y} position={[59.5, y, 11.58]}>
-              <planeGeometry args={[3.8, 0.09]} />
-              <meshStandardMaterial color="#46505c" />
+        {/* Issue #44 Wave 3: the approved repair-garage body carries its OWN pair of roller
+            shutters, yawed onto the authored west door — so this painted stand-in would be a
+            second, contradictory door on the blank south wall. It renders only while the GLB
+            does not (missing, corrupt or disabled), which is exactly when the procedural
+            garage box needs it. Exactly one door representation, either way. */}
+        {!hasRealModel('building_garage_01') && (
+          <Occludable
+            descriptor={getLinkedOccluderDescriptor('decals_garage_01', 'building_garage_01')}
+          >
+            <mesh position={[59.5, 1.7, 11.56]}>
+              <planeGeometry args={[4.2, 3]} />
+              <meshStandardMaterial color="#57616e" />
             </mesh>
-          ))}
-        </Occludable>
+            {[0.7, 1.4, 2.1, 2.8].map((y) => (
+              <mesh key={y} position={[59.5, y, 11.58]}>
+                <planeGeometry args={[3.8, 0.09]} />
+                <meshStandardMaterial color="#46505c" />
+              </mesh>
+            ))}
+          </Occludable>
+        )}
         {/* Gym poster next to its door — sits on the GLB's recessed wall
             plane, same depth convention as the window overlays. */}
         <Occludable
