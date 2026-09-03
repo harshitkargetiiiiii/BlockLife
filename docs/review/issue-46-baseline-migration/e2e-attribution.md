@@ -16,7 +16,7 @@ snapshot updated to make any of these pass. Every log below is preserved; nothin
 | 6 | `asset-pipeline-round2` › representative-player path drives a Meshy humanoid (#4) | FAIL warm (in a 26-case group) / **PASS cool 20.5 s** | PASS cool 15.8 s | **environmental** — see below |
 | 7 | `getaway-pursuit` › 2 — a fair breach warning fires, then forces the player out | FAIL alone — 20000 ms timeout on `phase === 'warning'` (27.4 s) | FAIL alone — same timeout (27.1 s) | **pre-existing** |
 | 8 | `integrity-soak` › 300-second integrity soak, zero sustained corruption | FAIL alone — `bench_reader+waterfront_gazer`, `bench_reader+east_shuttle` @ s1_-2 cycle 258 | FAIL alone — **the same two offender pairs** @ s0_-2 cycle 255 | **pre-existing** |
-| 9 | `citizen-destinations` › 150s mixed soak: trips keep completing, nobody strands | FAIL — completed 0 (needs >= 2) | FAIL alone — completed 0 | **pre-existing** |
+| 9 | `citizen-destinations` › 150s mixed soak: trips keep completing, nobody strands | FAIL alone — completed 0 (needs >= 2) | FAIL alone — completed 0 | **pre-existing** |
 
 ## 1–3 — movement distance under a slow renderer
 All three assert a distance travelled after a fixed key-press window. Under headless software
@@ -73,8 +73,36 @@ this branch does touch is the GLB mount census (`glbLandmarksExpected/Active/Fai
 per-asset branch map), which no person, route or occupancy path reads.
 
 ## 9 — the 150 s mixed citizen soak
-Completed 0 trips where it wants ≥ 2, identically on both trees. Same family as #5 (the yard
-worker): a long commute that does not finish in the budget on this host.
+Completed 0 trips where it wants ≥ 2. Run ALONE on both trees under the same idle conditions —
+the first candidate observation was inside a 5-test group, which is not like-for-like against a
+solo base run (the same asymmetry that briefly made #6 look branch-specific):
+
+| run | result |
+| --- | --- |
+| candidate, in the `gap1` group | `Received: 0` |
+| candidate, ALONE | `Received: 0` (2.7 m) |
+| base `04ae46e`, ALONE | `Received: 0` (2.6 m) |
+
+Same family as #5 (the yard worker): a long commute that does not finish in the budget on this
+host. The completion requirement and the soak duration were left exactly as they are.
+
+## Why #5, #8 and #9 are not this branch's doing
+All three are citizen routing / runtime-state contracts, so the question deserves a direct answer
+rather than a shrug at the base result.
+
+`git diff 04ae46e HEAD` touches exactly ONE file under `src/game/citizens`, `src/game/traffic`,
+`src/game/npc`, the occupancy resolvers, `cityLayout.ts` or `world/authoring` — and that whole
+diff is one word:
+
+```
+-const AMBIENT_RIG_SCALE = 0.82
++export const AMBIENT_RIG_SCALE = 0.82
+```
+
+added so the camera-clearance contract can assert the ambient crowd only ever SHRINKS the rig. No
+value, no behaviour and no registration order changed. The runtime registration this branch does
+touch is the GLB mount census (`glbLandmarksExpected/Active/Failed` and the per-asset branch map),
+which no citizen, route, occupancy or crossing path reads.
 
 ## Logs
 `g01/g02/g05/g06/g09.log` (+ `.json`) — the original group runs, untouched.
