@@ -6,9 +6,12 @@ import { getFollowTargetPosition } from '../world/runtimeRegistry'
 import { useGameStore } from '../store/useGameStore'
 import { PLAYER_SPAWN } from '../player/playerTypes'
 import { dampFactor } from '../utils/math'
+import { CAMERA_OFFSET } from './cameraGeometry'
 
-// Classic diorama angle: up-right-back from the target, never rotating.
-const CAMERA_OFFSET = new THREE.Vector3(12, 18, 12)
+// Classic diorama angle: up-right-back from the target, never rotating. The numbers live in
+// `cameraGeometry` because the world-height invariants every asset gate enforces are DERIVED
+// from them (issue #46 §2) — a body taller than this offset contains the camera.
+const OFFSET_VEC = new THREE.Vector3(...CAMERA_OFFSET)
 const UP = new THREE.Vector3(0, 1, 0) // Y axis for the DEV review-orbit
 const MIN_ZOOM = 20
 const MAX_ZOOM = 60
@@ -93,11 +96,11 @@ export function FollowCamera() {
     smoothed.current.lerp(focus, k)
     // DEV/test only (issue #27 H0): orbit the fixed offset around the target for drift-free
     // front/side/rear/profile review shots. No effect at the default azimuth 0.
-    let offset = CAMERA_OFFSET
+    let offset = OFFSET_VEC
     let lookY = 0
     if (import.meta.env.DEV) {
       const az = useGameStore.getState().debugCameraAzimuth
-      if (az !== 0) offset = CAMERA_OFFSET.clone().applyAxisAngle(UP, az)
+      if (az !== 0) offset = OFFSET_VEC.clone().applyAxisAngle(UP, az)
       lookY = useGameStore.getState().debugCameraLookY
     }
     cam.position.copy(smoothed.current).add(offset)
@@ -128,7 +131,11 @@ export function FollowCamera() {
     <OrthographicCamera
       ref={cameraRef}
       makeDefault
-      position={[PLAYER_SPAWN[0] + 12, PLAYER_SPAWN[1] + 18, PLAYER_SPAWN[2] + 12]}
+      position={[
+        PLAYER_SPAWN[0] + CAMERA_OFFSET[0],
+        PLAYER_SPAWN[1] + CAMERA_OFFSET[1],
+        PLAYER_SPAWN[2] + CAMERA_OFFSET[2],
+      ]}
       zoom={34}
       // Negative near: with an orthographic diorama the camera plane can sit
       // INSIDE a tall building that stands between it and the player; a

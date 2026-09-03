@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
+import { settleAndPause, waitForSceneSettled } from './visualHelpers'
 
 /**
  * Character pipeline v1 visual snapshots. Pausing the world triggers the
@@ -11,20 +12,12 @@ async function boot(page: Page) {
   await page.waitForFunction(() => window.GAME_TEST_API?.ready() === true, undefined, {
     timeout: 45_000,
   })
-  await page.waitForFunction(() => window.GAME_TEST_API?.assetsSettled() === true, undefined, {
-    timeout: 45_000,
-  })
+  await waitForSceneSettled(page)
   await page.waitForFunction(
     () => window.GAME_TEST_API!.getCharacterState('player')?.modelLoaded === true,
     undefined,
     { timeout: 15_000 },
   )
-}
-
-async function settleAndPause(page: Page) {
-  await page.waitForTimeout(2600)
-  await page.evaluate(() => window.GAME_TEST_API!.pauseWorld(true))
-  await page.waitForTimeout(700)
 }
 
 test.describe('character visuals', () => {

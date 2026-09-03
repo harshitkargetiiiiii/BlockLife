@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
+import { waitForSceneSettled } from './visualHelpers'
 
 /**
  * Vehicle Ownership, Parking & Customization v1 (issue #19) visual baselines. Deterministic:
@@ -14,7 +15,7 @@ function api(page: Page, method: string, ...args: unknown[]) {
 async function ready(page: Page): Promise<void> {
   await page.goto('/')
   await page.waitForFunction(() => window.GAME_TEST_API?.ready() === true, undefined, { timeout: 45_000 })
-  await page.waitForFunction(() => window.GAME_TEST_API?.assetsSettled() === true, undefined, { timeout: 45_000 })
+  await waitForSceneSettled(page)
   await page.evaluate(() => {
     const a = window.GAME_TEST_API!
     a.resetGame()
@@ -29,16 +30,21 @@ async function freeze(page: Page): Promise<void> {
   await page.evaluate(() => window.GAME_TEST_API!.pauseWorld(true))
   await page.waitForTimeout(200)
 }
-// A freshly granted/retrieved vehicle's GLB mounts a frame AFTER the action, so
-// assetsSettled() still reads true from boot for a moment (the new glbLandmarksExpected
-// hasn't incremented yet). Wait past the mount, THEN for the GLB to actually commit — so
-// the shot never races the GLB↔CarShell-fallback swap (that race made driving-with-passenger
-// flaky once the vehicle classes shipped real GLBs).
-async function settleVehicle(page: Page): Promise<void> {
-  await page.waitForTimeout(1500) // VehicleAsset mounts + glbLandmarksExpected increments
-  await page.waitForFunction(() => window.GAME_TEST_API!.assetsSettled() === true, undefined, {
-    timeout: 20_000,
-  })
+// A freshly granted/retrieved vehicle's GLB mounts a frame AFTER the action, so a settle check
+// taken immediately still describes the boot scene. The fixed 1.5 s that used to bridge that
+// gap was a race with a longer fuse; `waitForSceneSettled` closes it properly by requiring the
+// mount graph to hold still, and `requireGlb` proves the shot has the vehicle BODY rather than
+// the CarShell fallback (that swap made driving-with-passenger flaky once the classes shipped
+// real GLBs). The caller passes the asset id of the class it just granted.
+/** Owned-vehicle class -> the manifest body it projects, so a shot can name what it needs. */
+const VEHICLE_ASSET: Record<string, string> = {
+  veh_compact: 'vehicle_compact_car_01',
+  veh_van: 'vehicle_utility_van_01',
+  veh_scooter: 'vehicle_scooter_01',
+  veh_sports: 'vehicle_sports_car_01',
+}
+async function settleVehicle(page: Page, ...requireGlb: string[]): Promise<void> {
+  await waitForSceneSettled(page, { requireGlb, timeout: 25_000 })
 }
 async function openGarage(page: Page): Promise<void> {
   await api(page, 'openPhoneApp', 'garage')
@@ -119,7 +125,7 @@ test.describe('Vehicle Ownership v1 — visuals', () => {
       await ready(page)
       const id = await grant(page, defId, { location: 'parked', anchorId: 'park_public_central' })
       await api(page, 'vehicleRetrieve', id)
-      await settleVehicle(page)
+      await settleVehicle(page, VEHICLE_ASSET[defId])
       await freeze(page)
       await expect(page).toHaveScreenshot(`${name}.png`, { maxDiffPixelRatio: 0.02 })
     })
@@ -130,7 +136,7 @@ test.describe('Vehicle Ownership v1 — visuals', () => {
     await grant(page, 'veh_compact', { location: 'parked', anchorId: 'park_dealer_a' })
     await grant(page, 'veh_van', { location: 'parked', anchorId: 'park_public_central' })
     await api(page, 'teleportPlayer', [24, 1.2, 16])
-    await settleVehicle(page)
+    await settleVehicle(page, 'vehicle_compact_car_01', 'vehicle_utility_van_01')
     await freeze(page)
     await expect(page).toHaveScreenshot('parked-lot.png', { maxDiffPixelRatio: 0.02 })
   })
@@ -141,7 +147,7 @@ test.describe('Vehicle Ownership v1 — visuals', () => {
     await api(page, 'vehicleStandAtAnchor', 'park_service') // paint requires the authored service bay (§7/§9)
     await api(page, 'vehiclePaint', id, '#2c2c33')
     await api(page, 'teleportPlayer', [22, 1.2, 20])
-    await settleVehicle(page)
+    await settleVehicle(page, 'vehicle_sports_car_01')
     await freeze(page)
     await expect(page).toHaveScreenshot('painted-sports.png', { maxDiffPixelRatio: 0.02 })
   })
@@ -152,7 +158,7 @@ test.describe('Vehicle Ownership v1 — visuals', () => {
     await api(page, 'vehicleStandAtAnchor', 'park_service') // wheels are a service-bay customization (§9)
     await api(page, 'vehicleSetWheels', id, 'wheels_offroad')
     await api(page, 'teleportPlayer', [22, 1.2, 20])
-    await settleVehicle(page)
+    await settleVehicle(page, 'vehicle_sports_car_01')
     await freeze(page)
     await expect(page).toHaveScreenshot('wheels-offroad.png', { maxDiffPixelRatio: 0.02 })
   })
@@ -174,7 +180,7 @@ test.describe('Vehicle Ownership v1 — visuals', () => {
     await api(page, 'openPhoneApp', 'messages')
     await page.getByTestId(`plan-start-${plan.id}`).click()
     await page.keyboard.press('Tab') // close the phone for a clean driving shot
-    await settleVehicle(page)
+    await settleVehicle(page, 'vehicle_utility_van_01')
     // Pin the driven van to a fixed spot + heading so the shot is deterministic. The social
     // drive ends the van at a physics-dependent pose that varies just enough to exceed the
     // tolerance under heavy machine load; the §14 asset-vehicle shots pin position for the same

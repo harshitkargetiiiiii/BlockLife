@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
+import { boot, settleAndPause } from './visualHelpers'
 import { acquireDrivableCar, pressE, waitForActiveInteractable } from '../e2e/helpers'
 
 /**
@@ -29,21 +30,6 @@ const OFFICE: [number, number] = [16.5, -1] // cityLayout building_office_01, 7 
 const BENCH: [number, number] = [-11.8, 5.6] // prop_bench_02, where cit_c_bench_napper sits
 const PLAZA: [number, number] = [0, 0] // central_plaza — open ground, clear of trucks and labels
 const SHOT = { maxDiffPixelRatio: 0.02 }
-
-async function boot(page: Page) {
-  await page.goto('/')
-  await page.waitForFunction(() => window.GAME_TEST_API?.ready() === true, undefined, { timeout: 45_000 })
-  // Wait for the GLBs to actually mount, or a shot races the fallback->model swap.
-  await page.waitForFunction(() => window.GAME_TEST_API?.assetsSettled() === true, undefined, {
-    timeout: 45_000,
-  })
-}
-
-async function settleAndPause(page: Page) {
-  await page.waitForTimeout(2600)
-  await page.evaluate(() => window.GAME_TEST_API!.pauseWorld(true))
-  await page.waitForTimeout(700)
-}
 
 async function arrange(page: Page, at: [number, number], hour = 13, zoom = 1, azimuth = 0) {
   await page.evaluate(

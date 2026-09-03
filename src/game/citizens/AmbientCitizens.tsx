@@ -136,7 +136,8 @@ const PLAYER_CLEARANCE = 0.85
 // (blocklife_person — real idle/walk/run), scaled down to blend with the shorter
 // primitive crowd (the rig stands ~1.9 tall; the primitive citizen ~1.5). Scaling the
 // DEF scales only the model; the primitive fallback stays at its native size.
-const AMBIENT_RIG_SCALE = 0.82
+/** Exported so the camera-clearance contract can prove this only ever SHRINKS the rig. */
+export const AMBIENT_RIG_SCALE = 0.82
 const AMBIENT_RIG_DEF: CharacterAssetDefinition = {
   ...CHARACTER_ASSETS[DEFAULT_CHARACTER_ASSET_ID],
   scale: AMBIENT_RIG_SCALE,

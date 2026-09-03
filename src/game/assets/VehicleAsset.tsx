@@ -29,9 +29,9 @@ import { Component, Suspense, useEffect, useMemo, type ReactNode } from 'react'
 import * as THREE from 'three'
 import { useGLTF } from '@react-three/drei'
 import type { AssetManifestEntry } from './assetManifest'
-import { getManifestEntry, reportAssetLoadFailure, resolveGlbUrl, shouldLoadGlb } from './modelRegistry'
+import { getManifestEntry, markGlbBranch, noteGlbExpected, releaseGlbBranch, reportAssetLoadFailure, resolveGlbUrl, shouldLoadGlb } from './modelRegistry'
 import { applyVariant, createVariantInstances, disposeVariantMaterials, type MaterialSlotMap, type MaterialVariant } from './assetVariants'
-import { registry } from '../world/runtimeRegistry'
+import { noteGlbLandmarkChange, registry } from '../world/runtimeRegistry'
 
 const PAINT_SLOT = 'paint'
 const WHEEL_SLOT = 'wheel'
@@ -66,11 +66,36 @@ class VehicleErrorBoundary extends Component<
   { failed: boolean }
 > {
   state = { failed: false }
+  /**
+   * See AssetErrorBoundary: the counter is a live census, so the failure is released on unmount —
+   * and released against the id it was COUNTED for. The one shell projects whichever class is
+   * active, so this boundary's `assetId` really does change from under it when the player
+   * retrieves a different vehicle; releasing `this.props.assetId` would decrement the new class's
+   * branch and strand the old one's.
+   */
+  private countedAssetId: string | null = null
   static getDerivedStateFromError(): { failed: boolean } {
     return { failed: true }
   }
+  componentWillUnmount(): void {
+    const id = this.countedAssetId
+    if (id === null) return
+    this.countedAssetId = null
+    registry.glbLandmarksFailed--
+    noteGlbLandmarkChange()
+    releaseGlbBranch(id, 'failed')
+  }
   componentDidCatch(error: Error): void {
-    registry.glbLandmarksFailed++
+    if (this.countedAssetId === null) {
+      this.countedAssetId = this.props.assetId
+      registry.glbLandmarksFailed++
+      noteGlbLandmarkChange()
+      // Record the REAL branch, exactly as LandmarkAsset does. Without this a vehicle body is
+      // invisible to `isGlbBodyRendering` and to the readiness API a visual spec uses to prove
+      // WHICH body it is photographing (issue #46 §4) — the shot could only ever wait for
+      // "loading finished", never for "the van is on screen".
+      markGlbBranch(this.props.assetId, 'failed')
+    }
     reportAssetLoadFailure(this.props.assetId, error)
   }
   render(): ReactNode {
@@ -91,10 +116,14 @@ function VehicleGlb({
 
   useEffect(() => {
     registry.glbLandmarksActive++
+    noteGlbLandmarkChange()
+    markGlbBranch(entry.id, 'active')
     return () => {
       registry.glbLandmarksActive--
+      noteGlbLandmarkChange()
+      releaseGlbBranch(entry.id, 'active')
     }
-  }, [])
+  }, [entry.id])
 
   // One-time per instance: clone (so many painted shells share one file),
   // shadow flags, isolate the recolorable slots. Never re-traversed per frame.
@@ -157,14 +186,23 @@ export function VehicleAsset({ assetId, paint, wheelHub, children, glbSiblings, 
   useEffect(() => {
     if (!useGlb) return
     registry.glbLandmarksExpected++
+    if (entry) noteGlbExpected(entry.id, 1)
+    noteGlbLandmarkChange()
     return () => {
       registry.glbLandmarksExpected--
+      if (entry) noteGlbExpected(entry.id, -1)
+      noteGlbLandmarkChange()
+      // Branch claims are released by whoever took them (the model effect / the boundary), so a
+      // parked vehicle unmounting cannot clear the branch of an identical one still on screen.
     }
-  }, [useGlb])
+  }, [useGlb, entry])
 
   if (!useGlb || !entry) return <>{children}</>
+  // The boundary is keyed by the body id: the ONE shell swaps class, so a failure counted
+  // against the old body must be released and the new one must not inherit `state.failed`
+  // (issue #46 §4).
   return (
-    <VehicleErrorBoundary assetId={entry.id} fallback={children}>
+    <VehicleErrorBoundary key={entry.id} assetId={entry.id} fallback={children}>
       <Suspense fallback={children}>
         <VehicleGlb entry={entry} paint={paint} wheelHub={wheelHub} />
         {glbSiblings}

@@ -1,26 +1,11 @@
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test } from '@playwright/test'
+import { boot, settleAndPause } from './visualHelpers'
 
 /**
  * Large City Foundation v1 visual snapshots: the gateway sector, the sector
  * boundary with both sides ready, and the expanded phone map. Deterministic
  * via pause-snap; teleports wait on sector readiness by design.
  */
-
-async function boot(page: Page) {
-  await page.goto('/')
-  await page.waitForFunction(() => window.GAME_TEST_API?.ready() === true, undefined, {
-    timeout: 45_000,
-  })
-  await page.waitForFunction(() => window.GAME_TEST_API?.assetsSettled() === true, undefined, {
-    timeout: 45_000,
-  })
-}
-
-async function settleAndPause(page: Page) {
-  await page.waitForTimeout(2600)
-  await page.evaluate(() => window.GAME_TEST_API!.pauseWorld(true))
-  await page.waitForTimeout(700)
-}
 
 test.describe('sector visuals', () => {
   test('downtown gateway overview', async ({ page }) => {

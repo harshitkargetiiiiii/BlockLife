@@ -2,7 +2,26 @@
 interface Window {
   GAME_TEST_API?: {
     ready: () => boolean
-    assetsSettled: () => boolean
+    /**
+     * The scene on screen is mounted AND has stopped changing (issue #46 §4): nothing pending,
+     * at least one GLB landmark has ever registered, and the mount graph unchanged for
+     * `quietMs` (default `ASSET_SETTLE_QUIET_MS`). Prefer `waitForSceneSettled` in
+     * `tests/visual/visualHelpers.ts`, which also proves WHICH bodies are on screen.
+     */
+    assetsSettled: (quietMs?: number) => boolean
+    /** Settled AND showing the named bodies, evaluated in ONE instant (issue #46 §4). */
+    sceneReady: (requireGlb?: string[], quietMs?: number) => boolean
+    getAssetReadiness: () => {
+      expected: number
+      active: number
+      failed: number
+      pending: number
+      epoch: number
+      quietMs: number
+      glbActive: string[]
+      glbFailed: string[]
+      glbPending: { id: string; pending: number }[]
+    }
     getStats: () => Record<string, unknown>
     teleportPlayer: (position: [number, number, number]) => void
     teleportTo: (name: string) => boolean

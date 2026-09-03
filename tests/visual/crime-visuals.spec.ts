@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
+import { waitForSceneSettled } from './visualHelpers'
 
 /**
  * Crime & Law Enforcement v1 visual snapshots. All scenes are deterministic:
@@ -14,9 +15,7 @@ async function ready(page: Page): Promise<void> {
   await page.waitForFunction(() => window.GAME_TEST_API?.ready() === true, undefined, {
     timeout: 45_000,
   })
-  await page.waitForFunction(() => window.GAME_TEST_API?.assetsSettled() === true, undefined, {
-    timeout: 45_000,
-  })
+  await waitForSceneSettled(page)
 }
 
 interface SceneOpts {
@@ -60,6 +59,9 @@ async function scene(page: Page, opts: SceneOpts): Promise<void> {
     api.pauseWorld(true)
   }, opts)
   await page.waitForTimeout(2600)
+  // `resetGame()` + `teleportPlayer()` REMOUNT the streamed sectors this frame photographs, so
+  // the boot-time settle above describes a scene that no longer exists (issue #46 §4).
+  await waitForSceneSettled(page)
 }
 
 test.describe('crime visuals', () => {

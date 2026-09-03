@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
+import { boot, settleAndPause } from './visualHelpers'
 import { pressE, waitForActiveInteractable } from '../e2e/helpers'
 
 /**
@@ -57,33 +58,13 @@ const CLASSES: {
   { id: 'veh_sports', slug: 'sports', label: 'Premium Sports Car', parkedView: { at: [27.4, 14.6], zoom: 1.75 } },
 ]
 
-async function boot(page: Page) {
-  await page.goto('/')
-  await page.waitForFunction(() => window.GAME_TEST_API?.ready() === true, undefined, { timeout: 45_000 })
-  // Wait for the GLBs to actually mount, or a shot races the fallback->model swap.
-  await page.waitForFunction(() => window.GAME_TEST_API?.assetsSettled() === true, undefined, {
-    timeout: 45_000,
-  })
-}
-
 /**
- * A vehicle GLB only mounts once a class is ACTIVE or parked, i.e. AFTER the grant — so the
- * boot-time `assetsSettled()` says nothing about it. Without re-waiting here a shot races the
- * CarMesh -> GLB swap and photographs whichever won, which is exactly how a "stable" baseline
- * ends up recording the fallback.
+ * A vehicle GLB only mounts once a class is ACTIVE or parked, i.e. AFTER the grant — so a
+ * settle check taken at boot says nothing about it, and a shot races the CarMesh -> GLB swap
+ * and photographs whichever won. That is exactly how a "stable" baseline ends up recording the
+ * fallback. The shared `settleAndPause` requires the mount graph to hold still, which the
+ * post-grant mount always disturbs.
  */
-async function waitForVehicleGlb(page: Page) {
-  await page.waitForFunction(() => window.GAME_TEST_API?.assetsSettled() === true, undefined, {
-    timeout: 30_000,
-  })
-}
-
-async function settleAndPause(page: Page) {
-  await waitForVehicleGlb(page)
-  await page.waitForTimeout(2600)
-  await page.evaluate(() => window.GAME_TEST_API!.pauseWorld(true))
-  await page.waitForTimeout(700)
-}
 
 async function arrange(page: Page, at: [number, number], hour = 13, zoom = 1, azimuth = 0) {
   await page.evaluate(

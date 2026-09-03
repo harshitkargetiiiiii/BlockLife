@@ -16,6 +16,7 @@ import {
   detectDuplicateCitizens,
   validateAnchorClearance,
   validateBaseContact,
+  validateCameraClearance,
   validatePropVisualClip,
 } from './placementValidation'
 import { VISUAL_CLIP_TOLERANCE } from '../propPlacement'
@@ -94,6 +95,13 @@ export function propFootprint(p: PropLike): SolidRect | null {
 export function validateSectorPlacement(input: PlacementReportInput, supportSurfaceY = 0): PlacementReport {
   const failures: PlacementFailure[] = []
   const { sectorId } = input
+
+  // Buildings: an authored box that reaches the diorama camera's own height is an authoring
+  // failure, not a style choice — the camera then renders from inside it (issue #46 §2).
+  for (const b of input.buildings) {
+    const clearance = validateCameraClearance({ id: b.id, size: b.size }, sectorId)
+    if (clearance) failures.push(clearance)
+  }
 
   const buildingSolids = input.buildings.map(buildingFootprint)
   const propSolids = input.props.map(propFootprint).filter((r): r is SolidRect => r != null)

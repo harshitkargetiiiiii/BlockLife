@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
+import { boot, settleAndPause } from './visualHelpers'
 
 /**
  * Issue #42 Integration Wave 2 — required visual acceptance evidence.
@@ -25,21 +26,6 @@ const HYDRANT_CENTRAL: [number, number] = [-21.5, -6] // prop_hydrant_01, Corner
 const BIN_SOUTH: [number, number] = [19.9, 41.8] // prop_trash_can_s1, open south sidewalk
 const BIN_EAST: [number, number] = [43.6, 21.6] // prop_trash_can_i1
 const BIN_PARK: [number, number] = [-8, 6.8] // prop_trash_can_03, central park edge
-
-async function boot(page: Page) {
-  await page.goto('/')
-  await page.waitForFunction(() => window.GAME_TEST_API?.ready() === true, undefined, { timeout: 45_000 })
-  // Wait for the GLBs to actually mount, or a shot races the fallback->model swap.
-  await page.waitForFunction(() => window.GAME_TEST_API?.assetsSettled() === true, undefined, {
-    timeout: 45_000,
-  })
-}
-
-async function settleAndPause(page: Page) {
-  await page.waitForTimeout(2600)
-  await page.evaluate(() => window.GAME_TEST_API!.pauseWorld(true))
-  await page.waitForTimeout(700)
-}
 
 /**
  * World-space SCREEN-RIGHT unit vector for a given DEV orbit azimuth.

@@ -8,7 +8,7 @@ import { ASSET_MANIFEST_BY_ID } from '../assets/assetManifest'
 import { resolveBuildingVisual } from './buildingProjection'
 import { visibilityRuntime } from '../visibility/visibilityRuntime'
 import { registry } from './runtimeRegistry'
-import { isGlbBodyRendering } from '../assets/modelRegistry'
+import { getGlbBranch, isGlbBodyRendering } from '../assets/modelRegistry'
 
 /**
  * Issue #44 Wave 3 — the RENDER-TREE half of the building contract, which the byte-level
@@ -211,7 +211,7 @@ describe('issue #44 Wave 3 — the garage keeps exactly one door representation'
     )
     // The manifest still says a model is registered — which is exactly why keying off
     // `hasRealModel()` was wrong. The real branch is the fallback.
-    expect(registry.glbAssetState.get('building_garage_01'), 'recorded branch').toBe('failed')
+    expect(getGlbBranch('building_garage_01'), 'recorded branch').toBe('failed')
     expect(isGlbBodyRendering('building_garage_01'), 'fallback is the rendering branch').toBe(false)
     expect(visibilityRuntime.occluders.has('decals_garage_01'), 'painted door restored').toBe(true)
     await renderer.unmount()

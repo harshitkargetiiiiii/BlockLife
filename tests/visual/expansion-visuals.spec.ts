@@ -1,26 +1,11 @@
 import { expect, test, type Page } from '@playwright/test'
+import { boot, settleAndPause } from './visualHelpers'
 
 /**
  * City Expansion Content Pack v1 visual snapshots: one overview per new
  * sector, the expanded phone map, a rainy waterfront night, and routed
  * traffic on the yard road. Deterministic via pause-snap.
  */
-
-async function boot(page: Page) {
-  await page.goto('/')
-  await page.waitForFunction(() => window.GAME_TEST_API?.ready() === true, undefined, {
-    timeout: 45_000,
-  })
-  await page.waitForFunction(() => window.GAME_TEST_API?.assetsSettled() === true, undefined, {
-    timeout: 45_000,
-  })
-}
-
-async function settleAndPause(page: Page) {
-  await page.waitForTimeout(2600)
-  await page.evaluate(() => window.GAME_TEST_API!.pauseWorld(true))
-  await page.waitForTimeout(700)
-}
 
 async function teleportReady(page: Page, location: string, sectorId: string) {
   await page.evaluate(

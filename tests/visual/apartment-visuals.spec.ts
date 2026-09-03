@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
+import { waitForSceneSettled } from './visualHelpers'
 
 /**
  * Apartment / Home Base v1 visual snapshots. The world is paused (weather
@@ -11,9 +12,7 @@ async function setupApartmentScene(page: Page, hour: number, weather: string) {
   await page.waitForFunction(() => window.GAME_TEST_API?.ready() === true, undefined, {
     timeout: 45_000,
   })
-  await page.waitForFunction(() => window.GAME_TEST_API?.assetsSettled() === true, undefined, {
-    timeout: 45_000,
-  })
+  await waitForSceneSettled(page)
   await page.evaluate(
     ([h, kind]) => {
       const api = window.GAME_TEST_API!
@@ -27,6 +26,9 @@ async function setupApartmentScene(page: Page, hour: number, weather: string) {
     [hour, weather] as const,
   )
   await page.waitForTimeout(2800)
+  // `resetGame()` + `teleportPlayer()` REMOUNT the streamed sectors this frame photographs, so
+  // the boot-time settle above describes a scene that no longer exists (issue #46 §4).
+  await waitForSceneSettled(page)
 }
 
 test.describe('apartment visuals', () => {

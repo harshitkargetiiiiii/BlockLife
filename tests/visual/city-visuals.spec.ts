@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
+import { waitForSceneSettled } from './visualHelpers'
 
 /**
  * Visual regression snapshots. The world is paused via the test API, which
@@ -16,9 +17,7 @@ async function setupScene(page: Page, hour: number, position: [number, number, n
   })
   // GLB landmarks load asynchronously behind Suspense; wait for the last
   // in-flight model/texture before framing the shot.
-  await page.waitForFunction(() => window.GAME_TEST_API?.assetsSettled() === true, undefined, {
-    timeout: 45_000,
-  })
+  await waitForSceneSettled(page)
   await page.evaluate(
     ([h, pos]) => {
       const api = window.GAME_TEST_API!
@@ -31,6 +30,9 @@ async function setupScene(page: Page, hour: number, position: [number, number, n
   )
   // Let the follow camera settle and toasts fade.
   await page.waitForTimeout(2800)
+  // `resetGame()` + `teleportPlayer()` REMOUNT the streamed sectors this frame photographs, so
+  // the boot-time settle above describes a scene that no longer exists (issue #46 §4).
+  await waitForSceneSettled(page)
 }
 
 test.describe('city visuals', () => {

@@ -242,8 +242,19 @@ describe('issue #44 Wave 3 — production building GLB contract (real bytes)', (
     }
   })
 
-  it('occluder identity still derives from the authored box, never from the model', () => {
-    for (const { placement } of PROJECTION) {
+  /**
+   * Issue #46 §3 restates one clause of this contract, and it is worth being explicit about
+   * which one. Wave 3 asserted `maxY === def.size[1] + 0.5` as proof that the occluder never
+   * reads the model. That held the FOOTPRINT invariant — which is the one that matters, because
+   * the footprint is the collider, the routing obstacle and the anchor authority — but it also
+   * froze a real defect: a body rendering taller than its authored box carried mass detection
+   * could not see, so a player standing behind a 15 m facade over an 8 m box got no fade at all.
+   * The occluder's vertical extent now covers the body that actually renders. Everything else
+   * here is unchanged, and the height is still recomputed from the COMMITTED BYTES and the
+   * derived fit rather than read back from the manifest.
+   */
+  it('the occluder footprint still derives from the authored box; its height covers the body', () => {
+    for (const { placement, file, canonicalFacing } of PROJECTION) {
       const def = defFor(placement)
       const occ = getBuildingOccluderDescriptor(def)
       const [w, h, d] = AUTHORED[placement].size
@@ -254,7 +265,19 @@ describe('issue #44 Wave 3 — production building GLB contract (real bytes)', (
         maxZ: AUTHORED[placement].position[1] + d / 2,
       })
       expect(occ.minY, `${placement} occluder minY`).toBe(0)
-      expect(occ.maxY, `${placement} occluder maxY`).toBe(h + 0.5)
+
+      // Every Wave 3 body is bottom-origin (asserted below), so its rendered top IS the fitted
+      // height; a projected placement then multiplies it by the archetype projection.
+      const yaw = FACING_YAW[def.door as Facing] - FACING_YAW[canonicalFacing]
+      const fit = derivedFit(file, def.size, yaw)
+      const visual = resolveBuildingVisual(def)
+      const renderedTop = visual
+        ? visual.offset[1] + visual.scale[1] * fit.local.height
+        : fit.local.height
+      expect(occ.maxY, `${placement} occluder maxY`).toBeCloseTo(Math.max(h + 0.5, renderedTop), 4)
+      // …and it never shrinks below the procedural fallback that stands here when a file is gone.
+      expect(occ.maxY, `${placement} occluder covers its fallback`).toBeGreaterThanOrEqual(h + 0.5)
+
       expect(occ.fadeMode, `${placement} fade mode`).toBe('wholeObject')
       expect(occ.enabled, `${placement} participates in occlusion`).toBe(true)
       // No Wave 3 body bought itself an occlusion exemption.

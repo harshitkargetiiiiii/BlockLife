@@ -508,6 +508,34 @@ standard 180s soak budget on IPC alone — and the fix is NOT raising the timeou
 iteration (the store-action ops + the invariant snapshot) inside a single `page.evaluate` returning
 the numbers to assert; the browser runs the loop, you pay one round-trip per iteration.
 
+### 34. A settled-asset check needs a QUIET WINDOW, not a counter comparison
+`assetsSettled()` compared mounted-vs-committed GLB counters, which describes a moment and
+cannot tell "everything committed" from "between scenes". A sector remount (`resetGame`, a
+teleport, a streaming crossing) tears the old instances down before the new ones register, so
+all three counters pass through a trough reading 0 where `expected <= active + failed` is
+VACUOUSLY true. Two committed baselines were captured in that trough, each holding a procedural
+fallback where the GLB belongs — and the specs' own workarounds (`waitForTimeout(1200)`, then
+re-check) were the same race with a longer fuse. The fix is a quiescence clock: any change to
+the mount graph stamps `registry.glbLandmarkChangedAt`, and the predicate additionally requires
+that nothing has moved for `ASSET_SETTLE_QUIET_MS` and that at least one landmark has EVER
+mounted (`glbLandmarkEpoch > 0`, which also kills the same vacuity at boot). When a shot is
+ABOUT a body, name it: `waitForSceneSettled(page, { requireGlb: ['building_office_01'] })` proves
+the photograph has the model rather than its fallback.
+
+### 35. A camera-height limit belongs to the camera, not to the wave that found it
+Wave 3 shipped a body that would have rendered 24.3 m tall under an orthographic camera whose
+eye sits at y = 18, so the camera rendered from INSIDE it. `tsc`, lint, 1,563 unit tests, the
+asset report, the placement validators, district certification and 365 E2E tests were all green;
+only a visual baseline caught it. The fix at the time was a literal in that wave's intake config,
+enforced for that wave's six bodies. That is a property of `FollowCamera`, not of Wave 3:
+[`camera/cameraGeometry.ts`](../src/game/camera/cameraGeometry.ts) now owns `CAMERA_OFFSET` and
+DERIVES `MAX_WORLD_RENDER_HEIGHT` from it, `FollowCamera` imports the offset rather than
+declaring it, every world-rendered manifest entry is measured against the ceiling from the real
+bytes, and an authored `def.size` that reaches the eye is a placement-validation FAILURE like a
+floating prop. When a per-image gate catches a class of defect every static gate missed, promote
+the rule to the layer that owns it and gate the whole city — the next body will not be in that
+wave.
+
 ---
 
 ## The verification workflow (honest gates)

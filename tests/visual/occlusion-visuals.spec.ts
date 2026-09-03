@@ -1,26 +1,10 @@
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test } from '@playwright/test'
+import { boot, settleAndPause } from './visualHelpers'
 
 /**
  * Building Occlusion v1 visual snapshots. The world is paused after setup;
  * the pause snap completes fades instantly, so frames are deterministic.
  */
-
-async function boot(page: Page) {
-  await page.goto('/')
-  await page.waitForFunction(() => window.GAME_TEST_API?.ready() === true, undefined, {
-    timeout: 45_000,
-  })
-  await page.waitForFunction(() => window.GAME_TEST_API?.assetsSettled() === true, undefined, {
-    timeout: 45_000,
-  })
-}
-
-async function settleAndPause(page: Page) {
-  // Let the camera settle and the fade reach its target, then freeze.
-  await page.waitForTimeout(2600)
-  await page.evaluate(() => window.GAME_TEST_API!.pauseWorld(true))
-  await page.waitForTimeout(700)
-}
 
 test.describe('occlusion visuals', () => {
   test('player behind the GLB office tower — building ghosts, player readable', async ({

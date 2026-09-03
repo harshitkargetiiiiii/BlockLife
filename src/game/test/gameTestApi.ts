@@ -1,5 +1,6 @@
 import { useGameStore, canEditFurnish as canEditFurnishRt } from '../store/useGameStore'
 import { registry } from '../world/runtimeRegistry'
+import { ASSET_SETTLE_QUIET_MS, assetGraphPending, isAssetGraphSettled, isSceneReady, unresolvedInstances, type AssetGraphCounters } from '../assets/assetSettle'
 import { perfRuntime } from '../world/perfRuntime'
 import { countUniqueMaterials, materialProbe } from '../world/materialProbe'
 import { variantCacheStats } from '../assets/variantMaterialCache'
@@ -298,8 +299,45 @@ function serializeRouteState(vehicleId: string): SerializedRouteState | null {
  */
 export interface GameTestApi {
   ready: () => boolean
-  /** True when no GLB/texture loads are in flight (visual tests wait on this). */
-  assetsSettled: () => boolean
+  /**
+   * True when the scene on screen is mounted AND has stopped changing (issue #46 §4).
+   *
+   * Nothing pending, at least one GLB landmark has ever registered, and the mount graph has
+   * been unchanged for `quietMs` (default `ASSET_SETTLE_QUIET_MS`). The quiescence term is
+   * what makes this non-vacuous: a sector remount drives the counters through a trough where
+   * a plain `expected <= active + failed` comparison reads true for a scene that no longer
+   * exists, and visual baselines were captured in that window.
+   */
+  assetsSettled: (quietMs?: number) => boolean
+  /**
+   * Settled AND showing the named bodies, evaluated in ONE instant (issue #46 §4).
+   *
+   * Two separate waits — settle, then "is the body up" — let a remount start between them, so
+   * the shot can be taken mid-load. This is the atomic form every visual readiness wait uses.
+   */
+  sceneReady: (requireGlb?: string[], quietMs?: number) => boolean
+  /**
+   * The GLB mount graph, for readiness waits that must prove WHICH bodies are on screen —
+   * not merely that loading finished. `glbActive` and `glbFailed` are INDEPENDENT: one archetype
+   * backs several placements, so an id can appear in both.
+   */
+  getAssetReadiness: () => {
+    expected: number
+    active: number
+    failed: number
+    /** expected − active − failed; > 0 means something is still loading. */
+    pending: number
+    /** Monotonic mount-graph change counter (0 = nothing has ever mounted). */
+    epoch: number
+    /** Milliseconds since the mount graph last changed. */
+    quietMs: number
+    /** Manifest ids whose GLB body committed to the scene. */
+    glbActive: string[]
+    /** Manifest ids whose GLB failed and are rendering their procedural fallback. */
+    glbFailed: string[]
+    /** Ids with instances that have neither committed nor failed — which body is stalling. */
+    glbPending: { id: string; pending: number }[]
+  }
   getStats: () => {
     money: number
     hunger: number
@@ -1219,15 +1257,62 @@ export const TEST_LOCATIONS: Record<string, [number, number, number]> = {
   apartment_interior: APARTMENT_SPAWN,
 }
 
+/** The live GLB mount-graph census, read straight off the runtime registry (issue #46 §4). */
+function assetGraphCounters(): AssetGraphCounters {
+  return {
+    expected: registry.glbLandmarksExpected,
+    active: registry.glbLandmarksActive,
+    failed: registry.glbLandmarksFailed,
+    epoch: registry.glbLandmarkEpoch,
+    changedAt: registry.glbLandmarkChangedAt,
+    unresolved: unresolvedInstances(registry.glbAssetState),
+  }
+}
+
 export function installTestApi(): void {
   if (!import.meta.env.DEV) return
   const api: GameTestApi = {
     ready: () => registry.gameReady,
     // Every mounted GLB instance has either committed to the scene or fallen
     // back. Callers must check ready() first so all instances are mounted.
-    assetsSettled: () =>
-      registry.glbLandmarksActive + registry.glbLandmarksFailed >=
-      registry.glbLandmarksExpected,
+    assetsSettled: (quietMs = ASSET_SETTLE_QUIET_MS) =>
+      isAssetGraphSettled(assetGraphCounters(), performance.now(), quietMs),
+    sceneReady: (requireGlb = [], quietMs = ASSET_SETTLE_QUIET_MS) => {
+      const glbActive: string[] = []
+      const glbFailed: string[] = []
+      for (const [id, counts] of registry.glbAssetState) {
+        if (counts.active > 0) glbActive.push(id)
+        if (counts.failed > 0) glbFailed.push(id)
+      }
+      return isSceneReady(assetGraphCounters(), { glbActive, glbFailed }, performance.now(), requireGlb, quietMs)
+    },
+    getAssetReadiness: () => {
+      const glbActive: string[] = []
+      const glbFailed: string[] = []
+      // INDEPENDENT, not either/or: one archetype backs several placements, so an id can be
+      // both active and failed at once (three houses committed, the fourth fell back). Collapsing
+      // that to one list hid the procedural body still in frame (issue #46 §4).
+      const glbPending: { id: string; pending: number }[] = []
+      for (const [id, counts] of registry.glbAssetState) {
+        if (counts.active > 0) glbActive.push(id)
+        if (counts.failed > 0) glbFailed.push(id)
+        const p = counts.expected - counts.active - counts.failed
+        if (p > 0) glbPending.push({ id, pending: p })
+      }
+      glbPending.sort((a, b) => b.pending - a.pending)
+      const c = assetGraphCounters()
+      return {
+        expected: c.expected,
+        active: c.active,
+        failed: c.failed,
+        pending: assetGraphPending(c),
+        epoch: c.epoch,
+        quietMs: performance.now() - c.changedAt,
+        glbActive: glbActive.sort(),
+        glbFailed: glbFailed.sort(),
+        glbPending,
+      }
+    },
     getStats: () => {
       const s = useGameStore.getState()
       const pos = s.mode === 'driving' ? registry.vehiclePosition : registry.playerPosition

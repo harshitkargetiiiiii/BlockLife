@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
+import { waitForSceneSettled } from './visualHelpers'
 
 /**
  * City Expansion v2 visual snapshots: one framed shot per new block. The
@@ -11,9 +12,7 @@ async function setupScene(page: Page, hour: number, position: [number, number, n
   await page.waitForFunction(() => window.GAME_TEST_API?.ready() === true, undefined, {
     timeout: 45_000,
   })
-  await page.waitForFunction(() => window.GAME_TEST_API?.assetsSettled() === true, undefined, {
-    timeout: 45_000,
-  })
+  await waitForSceneSettled(page)
   await page.evaluate(
     ([h, pos]) => {
       const api = window.GAME_TEST_API!
@@ -25,6 +24,9 @@ async function setupScene(page: Page, hour: number, position: [number, number, n
     [hour, position] as const,
   )
   await page.waitForTimeout(2800)
+  // `resetGame()` + `teleportPlayer()` REMOUNT the streamed sectors this frame photographs, so
+  // the boot-time settle above describes a scene that no longer exists (issue #46 §4).
+  await waitForSceneSettled(page)
 }
 
 test.describe('city expansion visuals', () => {

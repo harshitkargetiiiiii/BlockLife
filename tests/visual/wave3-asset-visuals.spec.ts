@@ -1,4 +1,21 @@
 import { expect, test, type Page } from '@playwright/test'
+import {
+  AZIMUTH,
+  BASE_ZOOM,
+  SHOT,
+  STANDOFF,
+  VIEWPORT_H,
+  type BodyDims,
+  type ViewName,
+  boot,
+  fadeGeometry,
+  frameFor,
+  manifestBody,
+  manifestEntry,
+  opaque,
+  settleAndPause,
+  waitForSceneSettled,
+} from './visualHelpers'
 
 /**
  * Issue #44 Integration Wave 3 — required visual acceptance evidence.
@@ -15,8 +32,9 @@ import { expect, test, type Page } from '@playwright/test'
  *
  * FRAMING IS DERIVED, NOT TUNED BY HAND. A building is 4–24 m tall and the camera centres on the
  * PLAYER, so a hand-picked zoom crops one subject and loses another in the middle distance —
- * which is exactly the "unjudgeable capture" issue #44 says to reject. `frameFor()` below solves
- * the camera geometry instead; see its comment for the derivation.
+ * which is exactly the "unjudgeable capture" issue #44 says to reject. `frameFor()` solves the
+ * camera geometry instead; issue #46 §5 moved it into `tests/visual/framing.ts` so no spec can
+ * hand-tune a zoom that crops or aims at the sky, and its derivation is documented there.
  *
  * OCCLUSION. The cardinal framing deliberately puts the building BEHIND the player on the camera
  * ray, so the shipped occlusion fade would make every facade shot half-transparent and
@@ -27,8 +45,6 @@ import { expect, test, type Page } from '@playwright/test'
  * The world is PAUSED before each shot, which snaps actors to canonical poses for
  * pixel-determinism. 3D-world shots allow a small pixel-diff ratio (low-poly AA on device pixels).
  */
-
-const SHOT = { maxDiffPixelRatio: 0.02 }
 
 /** Authored placements, straight out of cityLayout.ts. */
 const APARTMENT: [number, number] = [-14.5, -14.5] // 9 x 7.5 x 9, door south, central
@@ -42,25 +58,34 @@ const GARAGE: [number, number] = [59.5, 8] // 8 x 5.5 x 7, door west, east indus
 const HOTEL: [number, number] = [63, -110] // 9 x 13 x 8, door west, downtown gateway
 
 /**
- * Rendered body dimensions in WORLD units (after each placement's canonical-facing yaw) —
- * `entry.bounds` from the manifest, which `wave3Contract.test.ts` recomputes from the committed
- * bytes. Framing is derived from these, so a body that changed size reframes itself rather than
- * silently cropping. The garage and hotel are yawed −π⁄2, so their world width is the model's Z.
+ * The manifest asset id each body renders through — the id `LandmarkAsset` mounts, so it is
+ * also what a readiness wait names when it proves THIS body is the thing being photographed.
  */
-const BODY = {
-  apartment: { height: 14.9996, width: 5.5376, depth: 5.1183 },
-  shop: { height: 4.824, width: 5.9925, depth: 4.8836 },
-  house: { height: 4.757, width: 5.4935, depth: 5.0635 },
-  rowhouse: { height: 7.9515, width: 6.9612, depth: 5.2868 },
-  garage: { height: 3.7824, width: 4.834, depth: 6.9915 },
-  hotel: { height: 14.9994, width: 8.4457, depth: 7.6179 },
+const ASSET = {
+  apartment: 'building_apartment_01',
+  shop: 'building_shop_01',
+  house: 'arch_house_01',
+  rowhouse: 'building_townhomes_01',
+  garage: 'building_garage_01',
+  hotel: 'building_gate_hotel_01',
 } as const
-type BodyKey = keyof typeof BODY
+type BodyKey = keyof typeof ASSET
 
-/** Shipped uniform scale per body, straight out of the manifest — see wave3Contract.test.ts. */
-const SCALE: Record<BodyKey, number> = {
-  apartment: 0.6, shop: 1.206, house: 0.9515, rowhouse: 0.8835, garage: 0.6304, hotel: 0.8333,
-}
+/**
+ * Rendered body dimensions in WORLD units, READ FROM THE MANIFEST rather than transcribed
+ * here (issue #46 §5). `manifestBody` applies the entry's own canonical-facing yaw, so the
+ * garage and hotel — yawed −π⁄2 — come back with the model's Z as their world width. The
+ * numbers are the ones `wave3Contract.test.ts` recomputes from the committed bytes, so a body
+ * that changed size reframes itself here instead of silently cropping.
+ */
+const BODY: Record<BodyKey, BodyDims> = Object.fromEntries(
+  Object.entries(ASSET).map(([key, id]) => [key, manifestBody(id)]),
+) as Record<BodyKey, BodyDims>
+
+/** Shipped uniform scale per body, READ from the manifest — see wave3Contract.test.ts. */
+const SCALE: Record<BodyKey, number> = Object.fromEntries(
+  Object.entries(ASSET).map(([key, id]) => [key, manifestEntry(id).scale[0]]),
+) as Record<BodyKey, number>
 
 /**
  * The authored `def.size` height of each body's placement, plus BuildingMesh's 0.5 roof slab —
@@ -79,116 +104,11 @@ const pairBody = (key: BodyKey) => ({
   height: Math.max(BODY[key].height, FALLBACK_HEIGHT[key]),
 })
 
-/** Shipped file per body, relative to public/ — used by the DEV review hook and the fallback routes. */
-const GLB: Record<BodyKey, string> = {
-  apartment: 'assets/models/city/arch_apartment_01.glb',
-  shop: 'assets/models/city/arch_shop_01.glb',
-  house: 'assets/models/city/arch_house_01.glb',
-  rowhouse: 'assets/models/city/arch_row_house_01.glb',
-  garage: 'assets/models/city/arch_repair_garage_01.glb',
-  hotel: 'assets/models/city/arch_hotel_01.glb',
-}
-
-/** Compass → DEV orbit azimuth that puts the CAMERA on that side of the player. */
-const AZIMUTH = {
-  south: -Math.PI / 4,
-  east: Math.PI / 4,
-  north: (3 * Math.PI) / 4,
-  west: (-3 * Math.PI) / 4,
-  /** The shipped view: the camera on the south-east corner, i.e. the three-quarter. */
-  corner: 0,
-} as const
-type ViewName = keyof typeof AZIMUTH
-
-/** Player stand-off from the building centre, along the outward normal of the viewed face. */
-const STANDOFF: Record<ViewName, [number, number]> = {
-  south: [0, 1],
-  east: [1, 0],
-  north: [0, -1],
-  west: [-1, 0],
-  corner: [Math.SQRT1_2, Math.SQRT1_2],
-}
-
-/** FollowCamera's fixed offset: horizontal reach and height above the look target. */
-const CAM_R = Math.hypot(12, 12) // 16.9706
-const CAM_H = 18
-/** drei's OrthographicCamera uses a canvas-sized frustum, so 1 world unit = `zoom` px. */
-const BASE_ZOOM = 34 // FollowCamera ZOOM_WALKING
-const VIEWPORT_H = 720
-
-/** The player transform's own height above the ground plane, which the camera aims at. */
-const PLAYER_Y = 0.8
-
-/**
- * Solve `setCameraLookY` + `setCameraZoomMul` so a body of `height`, standing `gap` units from
- * the player along the camera axis, lands VERTICALLY CENTRED and fills `fill` of the frame.
- *
- * `FollowCamera` keeps its position at `player + R(azimuth)·(12, 18, 12)` and only re-aims at the
- * LOOK TARGET `player + (0, lookY, 0)`, so lookY tilts the view rather than moving it. Writing
- * `R = |(12, 12)| = 16.97` and `Λ = CAM_H − lookY` (the camera's height above that target), the
- * view distance is `D = √(R² + Λ²)`, the camera's screen-up axis is `(0, R, −Λ)/D` about the
- * horizontal direction `ĥ` from the player toward the camera, and a world point `Q` lands at
- *
- *   screenUp(Q) = (Q.y − PLAYER_Y − lookY)·(R / D) − (Λ / D)·((Q − player) · ĥ)
- *
- * The height term is measured from the LOOK TARGET, not from the ground — getting that wrong
- * aims tens of metres high and photographs the sky, which is exactly what the first capture pass
- * did. A subject standing behind the player has `(Q − player) · ĥ = −gap`; `side: 'near'` puts
- * the player behind IT, giving `+gap`.
- *
- * Centring the body means `screenUp(base) + screenUp(top) = 0`, which solves in closed form:
- *
- *   lookY = (height/2 − PLAYER_Y ∓ CAM_H·gap/R) / (1 ∓ gap/R)      (∓ = far / near)
- *
- * and its on-screen span is then `(R / D)·height`. drei's OrthographicCamera uses a canvas-sized
- * frustum, so 1 world unit = `zoom` px and `zoomMul = fill · 720 / (BASE_ZOOM · span)`.
- *
- * Every framing number in this spec comes out of those lines; nothing is hand-tuned, so a body
- * that changed size reframes itself instead of cropping. `lookY` stays well below `CAM_H` for
- * every body here, so the camera keeps looking DOWN — a look target above the camera would
- * photograph roof undersides.
- */
-function frameFor(
-  body: { height: number; width: number; depth: number },
-  view: ViewName,
-  gap: number,
-  fill: number,
-  side: 'far' | 'near' = 'far',
-) {
-  const sign = side === 'far' ? 1 : -1
-  const lookY = (body.height / 2 - PLAYER_Y + sign * (CAM_H * gap) / CAM_R) / (1 + sign * gap / CAM_R)
-  const d = Math.hypot(CAM_R, CAM_H - lookY)
-  const k = CAM_R / d
-  const m = (CAM_H - lookY) / d
-  // Extent of the body ALONG the camera axis: a box's depth also projects vertically, and
-  // ignoring it is what made a 4.8 m shop overflow a frame solved for 4.8 m of height.
-  const along =
-    view === 'corner'
-      ? (body.width + body.depth) / Math.SQRT2
-      : view === 'south' || view === 'north'
-        ? body.depth
-        : body.width
-  const span = k * body.height + m * along
-  return {
-    lookY: +lookY.toFixed(4),
-    zoom: +((fill * VIEWPORT_H) / (BASE_ZOOM * span)).toFixed(4),
-  }
-}
-
-async function boot(page: Page) {
-  await page.goto('/')
-  await page.waitForFunction(() => window.GAME_TEST_API?.ready() === true, undefined, { timeout: 45_000 })
-  // Wait for the GLBs to actually mount, or a shot races the fallback->model swap.
-  await page.waitForFunction(() => window.GAME_TEST_API?.assetsSettled() === true, undefined, {
-    timeout: 45_000,
-  })
-}
-
-async function settleAndPause(page: Page) {
-  await page.waitForTimeout(2600)
-  await page.evaluate(() => window.GAME_TEST_API!.pauseWorld(true))
-  await page.waitForTimeout(700)
-}
+/** Shipped file per body, relative to public/ — READ from the manifest, so the DEV review hook
+ *  and the aborted-route fallback tests can only ever name the file the game really fetches. */
+const GLB: Record<BodyKey, string> = Object.fromEntries(
+  Object.entries(ASSET).map(([key, id]) => [key, manifestEntry(id).glbPath!]),
+) as Record<BodyKey, string>
 
 interface Shot {
   /** Distance from the building centre to the player, along the camera axis. */
@@ -202,6 +122,11 @@ interface Shot {
   body?: { height: number; width: number; depth: number }
   /** Override the solved zoom (context shots frame a fixed world height, not a fixed fill). */
   zoom?: number
+  /**
+   * This shot deliberately photographs the PROCEDURAL fallback (its GLB is aborted at the
+   * network layer), so the readiness wait must not require the body it just made unreachable.
+   */
+  fallback?: boolean
 }
 
 /** Stand the player off the building on `view`'s side and orbit the camera onto the same axis. */
@@ -224,14 +149,11 @@ async function viewFrom(page: Page, at: [number, number], view: ViewName, key: B
     },
     [pos, s.hour ?? 13, zoom, AZIMUTH[view], f.lookY] as const,
   )
-}
-
-/** An opaque, judgeable shot: the fade is proved in its own block, not smeared over every frame. */
-async function opaque(page: Page, body: () => Promise<void>) {
-  await page.evaluate(() => window.GAME_TEST_API!.setOcclusionEnabled(false))
-  await settleAndPause(page)
-  await body()
-  await page.evaluate(() => window.GAME_TEST_API!.setOcclusionEnabled(true))
+  // The teleport above remounts the sectors around the subject, so the boot-time settle
+  // describes a scene that is gone. Naming THIS body is what makes the wait prove the frame:
+  // a shot that races the fallback -> GLB swap is exactly how a baseline comes to hold the
+  // procedural building (issue #46 §4).
+  await waitForSceneSettled(page, s.fallback ? {} : { requireGlb: [ASSET[key]] })
 }
 
 /**
@@ -439,28 +361,135 @@ test.describe('Wave 3 — all nine placements in city context', () => {
 
 // ------------------------------------------------------------ occlusion, fade ON ----
 /**
- * Issue #44 requires occlusion IDENTITY to be unchanged: the occluder box still derives from the
- * authored `def.size`, never from the model. These three are the tall bodies — the ones where a
- * broken contract would leave the player hidden behind an opaque wall. `side: 'near'` stands the
- * player on the FAR side, so the body sits squarely between the camera and the player.
+ * EVERY projected body's fade, as a same-geometry A/B pair (issue #46 §3).
+ *
+ * Wave 3 shot the three tall bodies here and asserted that an occluder id had faded. Issue #46
+ * found the contract those shots rested on was broken — the occluder's vertical extent came from
+ * `def.size[1]` alone, so five placements carried mass detection could not see — and
+ * `occluderData` now drives `maxY` from the body that actually renders.
+ *
+ * A REVIEW OF THE FIRST ATTEMPT AT THIS EVIDENCE IS WHY IT LOOKS LIKE THIS. Those frames showed
+ * the player floating clear of the body's silhouette: the state assertion proved an occluder had
+ * faded, but the picture did not show the fade revealing anything. "The occluder faded" and "the
+ * fade revealed the player" are different claims and the first does not imply the second, because
+ * the occluder is an AABB over the AUTHORED FOOTPRINT while the thing on screen is a mesh that
+ * under-fills its lot.
+ *
+ * So each body gets TWO frames from ONE PAUSED INSTANT — same world clock, same HUD stats, same
+ * camera, same player, same ambient poses — with nothing changed between the shutters but
+ * `setOcclusionEnabled`:
+ *   `wave3-{body}-occlusion-fade.png`    — occlusion ON, the body faded (taken first)
+ *   `wave3-{body}-occlusion-control.png` — occlusion OFF, the body opaque
+ * The fade is captured first BECAUSE the pair must not resume the world: the fade needs real
+ * frames to resolve, so it is settled and then frozen, and only afterwards is occlusion switched
+ * off — `clearAllFades()` restores the original materials synchronously and the disabled manager
+ * early-returns thereafter. The test asserts the clock/HUD/position really were identical across
+ * the two shutters, and the runtime opacity/id assertion is kept on top.
+ *
+ * The geometry is solved by `fadeGeometry`, at the SHIPPED aim (lookY 0, azimuth 0 — a fade shot
+ * should be about the shipped view), with the player at the closest stand-off that still clears
+ * the authored footprint. It also reports whether the body's silhouette can cover the player at
+ * all: `H ≥ SUBJECT_HEIGHT + (CAM_H/CAM_R)·gap`. Three of the six can (4.2x, 4.4x and 1.1x of
+ * the player's height); three CANNOT at any legal stand-off, because a body shorter than its own
+ * lot is wide can never get in front of a subject standing outside that lot. Those three are
+ * labelled as what they are — the AABB over-fading a body whose mesh does not block the subject —
+ * and the derivation is in docs/VISUAL_QUALITY_AND_BASELINE_INTEGRITY.md §3.
  */
-test.describe('Wave 3 — tall bodies still fade off the player', () => {
-  const FADES: [string, [number, number], BodyKey, string, number][] = [
-    ['apartment', APARTMENT, 'apartment', 'building_apartment_01', 9],
-    ['hotel', HOTEL, 'hotel', 'building_gate_hotel_01', 9],
-    ['townhomes', TOWNHOMES, 'rowhouse', 'building_townhomes_01', 8],
+/** Authored `def.size` footprints, straight out of cityLayout (pinned by wave3Contract.test.ts). */
+const FOOTPRINT: Record<BodyKey, { width: number; depth: number }> = {
+  apartment: { width: 9, depth: 9 },
+  shop: { width: 6, depth: 6 },
+  house: { width: 5.5, depth: 5.5 },
+  rowhouse: { width: 7, depth: 7 },
+  garage: { width: 8, depth: 7 },
+  hotel: { width: 9, depth: 8 },
+}
+
+/**
+ * Whether each body's rendered silhouette can cover the player at a legal stand-off. Pinned here
+ * so the classification cannot flip silently: if a body is ever re-scaled, the assertion below
+ * fails and the caption has to be re-earned rather than quietly becoming untrue.
+ */
+const REVEALS: Record<BodyKey, boolean> = {
+  apartment: true, hotel: true, rowhouse: true, shop: false, house: false, garage: false,
+}
+
+test.describe('Wave 3 — every projected body fades, shown as an opaque/faded A/B', () => {
+  /** label (baseline name), placement, body, PLACEMENT id the fade is keyed on. */
+  const FADES: [string, [number, number], BodyKey, string][] = [
+    ['apartment', APARTMENT, 'apartment', 'building_apartment_01'],
+    ['hotel', HOTEL, 'hotel', 'building_gate_hotel_01'],
+    ['townhomes', TOWNHOMES, 'rowhouse', 'building_townhomes_01'],
+    ['shop', SHOP, 'shop', 'building_shop_01'],
+    ['house', HOUSE_C, 'house', 'building_house_01'],
+    ['garage', GARAGE, 'garage', 'building_garage_01'],
   ]
-  for (const [key, at, h, id, gap] of FADES) {
-    test(`${key} fades when it stands between the camera and the player`, async ({ page }) => {
+  for (const [label, at, key, id] of FADES) {
+    const g = fadeGeometry(BODY[key], FOOTPRINT[key])
+    const claim = REVEALS[key]
+      ? 'the body hides the player and the fade reveals them'
+      : 'the fade acts on this body, whose mesh is too short to hide the player (AABB over-fade)'
+    test(`${label}: ${claim}`, async ({ page }) => {
+      expect(g.reveals, `${label} reveal classification`).toBe(REVEALS[key])
       await boot(page)
-      await viewFrom(page, at, 'corner', h, { gap, fill: 0.6, side: 'near' })
+      // The player stands BEYOND the body on the camera axis, so the body is between the two.
+      const pos: [number, number] = [
+        at[0] - Math.SQRT1_2 * g.gap,
+        at[1] - Math.SQRT1_2 * g.gap,
+      ]
+      await page.evaluate(
+        ([p, z]) => {
+          const a = window.GAME_TEST_API!
+          a.resetGame()
+          a.setTime(13)
+          a.setWeather('clear')
+          a.teleportPlayer([(p as number[])[0], 1.2, (p as number[])[1]])
+          a.setCameraZoomMul(z as number)
+          a.setCameraAzimuth(0) // the shipped view
+          a.setCameraLookY(0) // the shipped aim
+        },
+        [pos, g.zoom] as const,
+      )
+      await waitForSceneSettled(page, { requireGlb: [ASSET[key]] })
+
+      // Let the fade resolve while the world RUNS — hysteresis and the fade ramp both need real
+      // frames — then pause once. `OcclusionManager` snaps every occluder to its target on the
+      // first frame of a pause, so the paused state is the settled fade, not a frame of the ramp.
       await page.waitForFunction(
         (bid) => window.GAME_TEST_API!.getVisibilityState().faded.some((x) => x.id === bid && x.opacity < 0.6),
         id,
         { timeout: 20_000 },
       )
-      await settleAndPause(page)
-      await expect(page).toHaveScreenshot(`wave3-${key}-occlusion-fade.png`, SHOT)
+      await settleAndPause(page, { requireGlb: [ASSET[key]] })
+
+      // BOTH shutters fire from THIS one paused instant. The pair is only evidence if the two
+      // frames differ in opacity and nothing else, and an earlier revision failed that: it
+      // un-paused between them, so the control read 13:04 / hunger 20 and the faded frame
+      // 13:09 / hunger 21, with ambient actors free to move in between. The world is now never
+      // resumed — `setOcclusionEnabled(false)` calls `clearAllFades()`, which restores the
+      // original materials synchronously, and the disabled manager then early-returns every
+      // frame, so opacity is the only thing that can change.
+      const before = await page.evaluate(() => window.GAME_TEST_API!.getStats())
+      await expect(page).toHaveScreenshot(`wave3-${label}-occlusion-fade.png`, SHOT)
+
+      await page.evaluate(() => window.GAME_TEST_API!.setOcclusionEnabled(false))
+      await page.waitForTimeout(300) // one restore + a rendered frame
+      await expect(page).toHaveScreenshot(`wave3-${label}-occlusion-control.png`, SHOT)
+
+      // Prove the pair really was atomic rather than asserting it in a comment.
+      const after = await page.evaluate(() => window.GAME_TEST_API!.getStats())
+      expect(after.worldPaused, 'the world stayed paused across the pair').toBe(true)
+      expect(
+        {
+          day: after.day, hour: after.hour, hunger: after.hunger, energy: after.energy,
+          health: after.health, mode: after.mode, position: after.position,
+        },
+        'clock, HUD stats, mode and player position identical across the A/B',
+      ).toEqual({
+        day: before.day, hour: before.hour, hunger: before.hunger, energy: before.energy,
+        health: before.health, mode: before.mode, position: before.position,
+      })
+      await page.evaluate(() => window.GAME_TEST_API!.setOcclusionEnabled(true))
     })
   }
 })
@@ -537,7 +566,7 @@ test.describe('Wave 3 — fallback when a model is missing', () => {
       await page.route(`**/${FILES[key]}`, (route) => route.abort())
       await boot(page)
       // The SAME framing as this body's entrance shot, so the two read as an A/B pair.
-      await viewFrom(page, at, door, key, { gap, fill: 0.72, body: pairBody(key) })
+      await viewFrom(page, at, door, key, { gap, fill: 0.72, body: pairBody(key), fallback: true })
       await opaque(page, async () => {
         await expect(page).toHaveScreenshot(`wave3-${key}-fallback-missing-model.png`, SHOT)
       })
@@ -576,7 +605,7 @@ test('Wave 3 — the garage south wall carries one shutter, not a painted decal 
 test('Wave 3 — an unreachable garage GLB restores the painted door on that same wall', async ({ page }) => {
   await page.route('**/arch_repair_garage_01.glb', (route) => route.abort())
   await boot(page)
-  await viewFrom(page, GARAGE, 'south', 'garage', { gap: 8, fill: 0.72, body: pairBody('garage') })
+  await viewFrom(page, GARAGE, 'south', 'garage', { gap: 8, fill: 0.72, body: pairBody('garage'), fallback: true })
   await opaque(page, async () => {
     await expect(page).toHaveScreenshot('wave3-garage-south-fallback-decal.png', SHOT)
   })

@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
+import { waitForSceneSettled } from './visualHelpers'
 import { generateVisualSweepFrames } from '../../src/game/world/integrity/citySweep'
 
 /**
@@ -16,7 +17,7 @@ const FRAMES = generateVisualSweepFrames()
 async function setupDistrictFrame(page: Page, x: number, z: number): Promise<void> {
   await page.goto('/')
   await page.waitForFunction(() => window.GAME_TEST_API?.ready() === true, undefined, { timeout: 45_000 })
-  await page.waitForFunction(() => window.GAME_TEST_API?.assetsSettled() === true, undefined, { timeout: 45_000 })
+  await waitForSceneSettled(page)
   await page.evaluate(
     ([px, pz]) => {
       const api = window.GAME_TEST_API!
@@ -28,6 +29,10 @@ async function setupDistrictFrame(page: Page, x: number, z: number): Promise<voi
     [x, z] as const,
   )
   await page.waitForTimeout(3200) // stream the district in + let citizens/traffic settle
+  // The teleport streams a WHOLE district in, which is the largest remount the suite performs;
+  // photographing it before its GLB bodies commit is exactly the stale-transient baseline class
+  // (issue #46 §4). The sweep is generated, so a new district inherits this automatically.
+  await waitForSceneSettled(page)
   await page.evaluate(() => window.GAME_TEST_API!.pauseWorld(true))
   await page.waitForTimeout(1600) // pause-snap to canonical deterministic poses
 }

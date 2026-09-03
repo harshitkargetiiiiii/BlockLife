@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
+import { waitForSceneSettled } from './visualHelpers'
 
 /**
  * Housing, Furniture & Property Progression v1 (issue #17 §17) visual baselines.
@@ -9,7 +10,7 @@ import { expect, test, type Page } from '@playwright/test'
 async function ready(page: Page): Promise<void> {
   await page.goto('/')
   await page.waitForFunction(() => window.GAME_TEST_API?.ready() === true, undefined, { timeout: 45_000 })
-  await page.waitForFunction(() => window.GAME_TEST_API?.assetsSettled() === true, undefined, { timeout: 45_000 })
+  await waitForSceneSettled(page)
   await page.evaluate(() => {
     const api = window.GAME_TEST_API!
     api.resetGame()
