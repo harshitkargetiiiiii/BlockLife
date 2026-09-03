@@ -505,7 +505,7 @@ test.describe('Wave 3 — day and night treatment', () => {
     })
   })
 
-  test('hotel at night — a 15.7 m body with no self-glow', async ({ page }) => {
+  test('hotel at night — a 15.0 m body with no self-glow', async ({ page }) => {
     await boot(page)
     await viewFrom(page, HOTEL, 'west', 'hotel', { gap: 7, fill: 0.6, hour: 22 })
     await opaque(page, async () => {
@@ -558,6 +558,27 @@ test('Wave 3 — the garage south wall carries one shutter, not a painted decal 
   await viewFrom(page, GARAGE, 'south', 'garage', { gap: 8, fill: 0.72, body: pairBody('garage') })
   await opaque(page, async () => {
     await expect(page).toHaveScreenshot('wave3-garage-south-no-decal.png', SHOT)
+  })
+})
+
+/**
+ * The other half of that pair, and the frame issue #44's second Codex review asked for.
+ *
+ * The decal is gated on the ACTUAL render branch, so aborting the garage GLB at the network
+ * layer — a real missing/corrupt file, nothing stubbed — must bring the painted rolling door
+ * back on this exact wall. Same stand point, same framing and same body dimensions as the
+ * healthy shot above, so the two read as a true A/B: one shutter baked into the model, versus
+ * the painted stand-in the procedural box needs.
+ *
+ * An earlier revision gated this on `hasRealModel()`, which is a manifest fact decided before
+ * the file is fetched; under it this capture showed the procedural garage with NO door at all.
+ */
+test('Wave 3 — an unreachable garage GLB restores the painted door on that same wall', async ({ page }) => {
+  await page.route('**/arch_repair_garage_01.glb', (route) => route.abort())
+  await boot(page)
+  await viewFrom(page, GARAGE, 'south', 'garage', { gap: 8, fill: 0.72, body: pairBody('garage') })
+  await opaque(page, async () => {
+    await expect(page).toHaveScreenshot('wave3-garage-south-fallback-decal.png', SHOT)
   })
 })
 

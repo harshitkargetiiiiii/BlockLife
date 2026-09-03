@@ -247,9 +247,10 @@ still the thing under test for that mechanism.
 
 `building_apartment_01` carried two authored emissive night grids, tuned for the Quaternius
 Building_Medium_2 body (9.06 × 15.0 × 7.86 at 0.60). Against the replacement body they are wrong
-in every dimension: the south plane at `facadeDistance 3.98` would sit **0.17 m inside** the new
-8.30 m-deep facade, the east plane at 4.58 would float **0.09 m outside** it, and five rows of
-glow reaching 13.2 m would cover only the lower half of a 24.3 m building.
+in every dimension. The replacement renders **5.54 × 15.00 × 5.12** against the pack model's
+9.06 × 15.0 × 7.86, so a facade 3.5 m narrower and 2.7 m shallower leaves both planes — authored
+at `facadeDistance` 3.98 (south) and 4.58 (east) — floating clear of any wall, roughly 1.4 m and
+1.8 m outside the body they were meant to sit on.
 
 Issue #44 allows realigning **or** suppressing a legacy grid. Suppression is the honest option
 here: this body bakes its own windows into its single atlas, exactly like the row house, the
@@ -267,11 +268,17 @@ windowless procedural box. The approved body carries its own pair of roller shut
 that same south wall. Leaving the decal would paint a second, contradictory door directly over a
 real one.
 
-The decal is therefore gated on `hasRealModel('building_garage_01')`: it renders only while no
-real model is registered for that placement, which is exactly when the procedural box needs it.
-Both branches are photographed. (The gate is manifest-level, not load-state-level, so the forced
-missing-model capture shows the procedural garage without the painted door; the building fallback
-itself is complete, which is what the "exactly one body" contract covers.)
+The decal is therefore gated on the **actual render branch** — `isGlbBodyRendering`, backed by
+`registry.glbAssetState`, which records `'active'` when the model commits and `'failed'` when
+`AssetErrorBoundary` catches. It is suppressed only while the GLB is really the body on screen,
+and comes back the moment a missing or corrupt file drops the placement to its procedural
+fallback, which is exactly when that box needs its door.
+
+An earlier revision gated this on `hasRealModel()` instead. That reports the MANIFEST's intent —
+decided before the file is ever fetched — so a registered-but-broken GLB left the procedural
+garage with no door at all. Issue #44's second Codex review caught it; two regression tests now
+pin both branches, and both are photographed on the garage's south wall (healthy: the model's own
+single shutter, no painted stand-in over it; aborted: the painted door restored).
 
 ## Payload and render stats
 
@@ -295,13 +302,13 @@ photogrammetry-grade bodies at the 1024² policy ceiling.
 
 ## Visual evidence
 
-[`tests/visual/wave3-asset-visuals.spec.ts`](../tests/visual/wave3-asset-visuals.spec.ts) — 68
+[`tests/visual/wave3-asset-visuals.spec.ts`](../tests/visual/wave3-asset-visuals.spec.ts) — 69
 baselines, every one inspected by eye before it was written. See the delivery report for the
 indexed list.
 
 ### Framing is derived, not tuned
 
-A building is 3.8–24.3 m tall and the camera centres on the PLAYER, so a hand-picked zoom crops
+A building is 3.8–15.0 m tall and the camera centres on the PLAYER, so a hand-picked zoom crops
 one subject and loses another in the middle distance. `frameFor()` solves the camera geometry
 instead. `FollowCamera` keeps its position at `player + R(azimuth)·(12, 18, 12)` and only re-aims
 at the look target `player + (0, lookY, 0)`, so with `R = 16.97` and `Λ = 18 − lookY`,
@@ -327,9 +334,11 @@ three-quarter view of the south-east corner.
 
 The first capture pass shot all four cardinals of every body at its own placement. Two of them
 came back unjudgeable, and not because of framing: the Mini Mart's **west** elevation stands
-9.5 m from a 24.3 m apartment tower and its **east** elevation 2 m from the 6 m Book Nook. The
-shipped rig puts its camera 18 m above the look target, so no camera it can produce sees past a
-24 m neighbour at that distance — those two elevations are physically unphotographable in situ.
+9.5 m from the apartment — which at that point in the wave still rendered 24.31 m tall under the
+rejected footprint-only fit — and its **east** elevation 2 m from the 6 m Book Nook. The shipped
+rig puts its camera 18 m above the look target, so neither elevation could be photographed in
+situ. The apartment now ships at 15.00 m, but the Book Nook has not moved and the isolated review
+path is the right home for asset evidence regardless, so the block stays where it is.
 Issue #44 says to reject an occluded capture rather than ship it.
 
 So the ASSET evidence (requirement 1) uses the existing DEV review hook `setPlayerStaticGlb` —
@@ -347,7 +356,7 @@ by `y` presents the elevation at `y + 180`. That offset is **measured, not assum
 the repair garage — whose two roller shutters are unmistakably on its +z face — showed its blank
 −z elevation.
 
-### Index — 68 inspected baselines
+### Index — 69 inspected baselines
 
 `tests/visual/wave3-asset-visuals.spec.ts-snapshots/`, all `…-chromium-darwin.png`.
 
@@ -385,8 +394,11 @@ to that body's entrance shot, so the pair is a true A/B. The GLB request is abor
 `page.route(...).abort()` before the page loads: `useGLTF` throws, `AssetErrorBoundary` catches,
 and the complete procedural `BuildingMesh` renders — nothing in the app is stubbed or disabled.
 
-**One door representation (1)** — `wave3-garage-south-no-decal`: the garage's south wall with the
-GLB healthy, carrying the model's own single shutter and no painted stand-in over it.
+**One door representation (2)** — a true A/B on the garage's south wall, same stand point and
+framing: `wave3-garage-south-no-decal` with the GLB healthy (the model's own single shutter, no
+painted stand-in over it) and `wave3-garage-south-fallback-decal` with the GLB aborted at the
+network layer (the procedural box with its painted rolling door restored). Under the earlier
+`hasRealModel()` gate the second frame showed no door at all.
 
 **District overviews (6)** — `wave3-district-{central, north-residential, west-residential,
 south-residential, east-industrial, downtown-gateway}`, occlusion ON, the shipped aim, widened
