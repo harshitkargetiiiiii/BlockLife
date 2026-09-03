@@ -315,6 +315,18 @@ export const BUILDINGS: BuildingDef[] = [
     roofColor: '#6d4468',
     door: 'north',
     accentColor: '#e8c9e4',
+    // Issue #44 Wave 3: draw the reusable approved detached-house archetype here. PURELY
+    // VISUAL — `maxScaleDeviation: 0` pins the per-placement scale to [1, 1, 1] so the approved
+    // body ships undistorted, and the only thing this projection does is yaw the model's
+    // measured +z front onto THIS placement's authored door. Gameplay identity, the collider,
+    // the entrance anchor and the occluder all stay keyed to building_house_01; the procedural
+    // BuildingMesh remains the fallback if the GLB is missing.
+    visual: {
+      assetId: 'arch_house_01',
+      referenceSize: [5.5, 4.5, 5.5],
+      canonicalFacing: 'south',
+      maxScaleDeviation: 0,
+    },
   },
   // Backdrop buildings outside the play area add depth to the diorama.
   // (Towers 02/03 moved out past the new districts in City Expansion v1.)
@@ -392,6 +404,18 @@ export const BUILDINGS: BuildingDef[] = [
     roofColor: '#7d9460',
     door: 'south',
     accentColor: '#e07a5f',
+    // Issue #44 Wave 3: draw the reusable approved detached-house archetype here. PURELY
+    // VISUAL — `maxScaleDeviation: 0` pins the per-placement scale to [1, 1, 1] so the approved
+    // body ships undistorted, and the only thing this projection does is yaw the model's
+    // measured +z front onto THIS placement's authored door. Gameplay identity, the collider,
+    // the entrance anchor and the occluder all stay keyed to building_house_r2; the procedural
+    // BuildingMesh remains the fallback if the GLB is missing.
+    visual: {
+      assetId: 'arch_house_01',
+      referenceSize: [5.5, 4.5, 5.5],
+      canonicalFacing: 'south',
+      maxScaleDeviation: 0,
+    },
   },
   {
     id: 'building_house_r3',
@@ -498,6 +522,18 @@ export const BUILDINGS: BuildingDef[] = [
     roofColor: '#5f8391',
     door: 'east',
     accentColor: '#e07a5f',
+    // Issue #44 Wave 3: draw the reusable approved detached-house archetype here. PURELY
+    // VISUAL — `maxScaleDeviation: 0` pins the per-placement scale to [1, 1, 1] so the approved
+    // body ships undistorted, and the only thing this projection does is yaw the model's
+    // measured +z front onto THIS placement's authored door. Gameplay identity, the collider,
+    // the entrance anchor and the occluder all stay keyed to building_house_w2; the procedural
+    // BuildingMesh remains the fallback if the GLB is missing.
+    visual: {
+      assetId: 'arch_house_01',
+      referenceSize: [5.5, 4.5, 5.5],
+      canonicalFacing: 'south',
+      maxScaleDeviation: 0,
+    },
   },
   {
     id: 'building_house_w3',
@@ -565,6 +601,18 @@ export const BUILDINGS: BuildingDef[] = [
     roofColor: '#a5705c',
     door: 'south',
     accentColor: '#8fb8a8',
+    // Issue #44 Wave 3: draw the reusable approved detached-house archetype here. PURELY
+    // VISUAL — `maxScaleDeviation: 0` pins the per-placement scale to [1, 1, 1] so the approved
+    // body ships undistorted, and the only thing this projection does is yaw the model's
+    // measured +z front onto THIS placement's authored door. Gameplay identity, the collider,
+    // the entrance anchor and the occluder all stay keyed to building_house_s2; the procedural
+    // BuildingMesh remains the fallback if the GLB is missing.
+    visual: {
+      assetId: 'arch_house_01',
+      referenceSize: [5.5, 4.5, 5.5],
+      canonicalFacing: 'south',
+      maxScaleDeviation: 0,
+    },
   },
   {
     id: 'building_house_s3',

@@ -6,6 +6,8 @@
  * layout data from cityLayout.ts, so a missing, disabled or broken GLB can
  * never affect simulation or physics.
  */
+import { useGameStore } from '../store/useGameStore'
+import { registry } from '../world/runtimeRegistry'
 import {
   ASSET_MANIFEST,
   ASSET_MANIFEST_BY_ID,
@@ -48,4 +50,36 @@ export function reportAssetLoadFailure(assetId: string, error: unknown): void {
       error,
     )
   }
+}
+
+/**
+ * Record which body a landmark actually committed, and wake any UI that depends on it.
+ *
+ * Issue #44 Codex review: `hasRealModel()` reports the MANIFEST's intent, which is decided
+ * before the file is ever fetched. A registered, enabled GLB still renders its procedural
+ * fallback when the file is missing or corrupt, so callers that must not double up with that
+ * fallback — the garage's painted rolling door — have to key off the real branch instead.
+ */
+export function markGlbBranch(assetId: string, branch: 'active' | 'failed'): void {
+  if (registry.glbAssetState.get(assetId) === branch) return
+  registry.glbAssetState.set(assetId, branch)
+  useGameStore.setState((s) => ({ assetLoadVersion: s.assetLoadVersion + 1 }))
+}
+
+/** Forget a branch when the instance unmounts (sector streaming remounts these constantly). */
+export function clearGlbBranch(assetId: string): void {
+  if (!registry.glbAssetState.delete(assetId)) return
+  useGameStore.setState((s) => ({ assetLoadVersion: s.assetLoadVersion + 1 }))
+}
+
+/**
+ * True when the GLB body — not the procedural fallback — is what is on screen for this id.
+ *
+ * Loading counts as "will render": Suspense is showing the fallback for a frame or two and the
+ * model normally arrives, so treating it as fallback would flash a duplicate door on every
+ * sector remount. Only a real load FAILURE flips this to false.
+ */
+export function isGlbBodyRendering(assetId: string): boolean {
+  if (!hasRealModel(assetId)) return false
+  return registry.glbAssetState.get(assetId) !== 'failed'
 }

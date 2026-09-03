@@ -369,6 +369,8 @@ interface GameDataState {
   /** Bumped when vehicle-ownership runtime state changes so the Garage app + HUD re-render
    *  (the vehicle-ownership runtime lives outside zustand, like housing/commerce/social). */
   vehicleVersion: number
+  /** Bumped when a GLB asset commits or fails, so UI that depends on the render branch re-renders. */
+  assetLoadVersion: number
   saveStatus: string | null
   /** Player health 0–100 (HUD-reactive). Persists across save/load. */
   playerHealth: number
@@ -624,6 +626,7 @@ export function createInitialGameState(): GameDataState {
     careerVersion: 0,
     housingVersion: 0,
     vehicleVersion: 0,
+    assetLoadVersion: 0,
     saveStatus: null,
     playerHealth: PLAYER_MAX_HEALTH,
     playerIncapacitated: false,

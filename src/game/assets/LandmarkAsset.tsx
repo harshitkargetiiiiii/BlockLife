@@ -2,7 +2,7 @@ import { Component, Suspense, useEffect, useMemo, type ReactNode } from 'react'
 import * as THREE from 'three'
 import { useGLTF } from '@react-three/drei'
 import type { AssetManifestEntry } from './assetManifest'
-import { getManifestEntry, reportAssetLoadFailure, resolveGlbUrl, shouldLoadGlb } from './modelRegistry'
+import { clearGlbBranch, getManifestEntry, markGlbBranch, reportAssetLoadFailure, resolveGlbUrl, shouldLoadGlb } from './modelRegistry'
 import { applyVariant, createVariantInstances, disposeVariantMaterials, type MaterialVariant, type ResolvedSlots } from './assetVariants'
 import { acquireTintedMaterials, assignTintedMaterials } from './variantMaterialCache'
 import { registry } from '../world/runtimeRegistry'
@@ -69,6 +69,9 @@ class AssetErrorBoundary extends Component<BoundaryProps, { failed: boolean }> {
 
   componentDidCatch(error: Error): void {
     registry.glbLandmarksFailed++
+    // Record the REAL branch, not the manifest's intent: consumers that must not double up
+    // with the procedural fallback (the garage's painted door) key off this.
+    markGlbBranch(this.props.assetId, 'failed')
     reportAssetLoadFailure(this.props.assetId, error)
   }
 
@@ -103,10 +106,11 @@ function GlbModel({
   // scene-settled indicator used by visual tests via the test API.
   useEffect(() => {
     registry.glbLandmarksActive++
+    markGlbBranch(entry.id, 'active')
     return () => {
       registry.glbLandmarksActive--
     }
-  }, [])
+  }, [entry.id])
 
   // Clone so several landmarks can share one file; apply shadow flags. Materials: with a
   // variantCacheKey, assign the shared immutable tinted set (issue #25, no per-instance
@@ -178,8 +182,11 @@ export function LandmarkAsset({
     registry.glbLandmarksExpected++
     return () => {
       registry.glbLandmarksExpected--
+      // Sector streaming remounts these constantly; a stale 'failed' would keep a duplicate
+      // door alive long after the instance that failed is gone.
+      clearGlbBranch(assetId)
     }
-  }, [useGlb])
+  }, [useGlb, assetId])
 
   const model = (
     <GlbModel

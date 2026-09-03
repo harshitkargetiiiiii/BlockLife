@@ -1,0 +1,971 @@
+{
+  "issue": 44,
+  "wave": 3,
+  "note": "Rebuild with: node scripts/asset-intake/buildWave3.mjs   |   verify with --check",
+  "maxTexture": 1024,
+  "textureFormat": "jpeg",
+  "textureQuality": 85,
+  "boundsEpsilon": 0.00005,
+  "scaleDecimals": 4,
+  "maxRenderedHeight": 15,
+  "projection": "Uniform scale s = floor(min((w/2) / hx, (d/2) / hz, MAX_RENDERED_HEIGHT / sizeY) * 1e4) / 1e4, where (w, d) is the placement’s AUTHORED def.size footprint in src/game/world/cityLayout.ts and (fx, fz) are the measured local X/Z extents after the canonical-facing yaw that points the body’s front at the authored door (each measured dimension inflated by boundsEpsilon first). MAX_RENDERED_HEIGHT is the camera-engulf ceiling: FollowCamera sits 18 m above its target, so a taller body would contain it. Recomputed in src/game/assets/wave3Contract.test.ts.",
+  "assets": [
+    {
+      "id": "arch_apartment_01",
+      "label": "Sunrise Apartments body (projected onto the existing building_apartment_01 placement)",
+      "kind": "building",
+      "placements": [
+        "building_apartment_01"
+      ],
+      "output": "public/assets/models/city/arch_apartment_01.glb",
+      "sources": [
+        {
+          "role": "source",
+          "path": "/Users/harshitkargeti/BlockLife-intake/asset-sprint-2026-08-31/buildings-worker/glb/apartment_01.glb",
+          "sha256": "772035e2a20306b4427617d62295b3d4bf2f003023314ee9f33e865cb9df23fe",
+          "bytes": 9638264,
+          "structure": {
+            "bytes": 9638264,
+            "triangles": 20817,
+            "meshes": 1,
+            "materials": [
+              {
+                "name": "Material_0.001",
+                "metallic": 0,
+                "roughness": 0.5,
+                "emissive": [
+                  0,
+                  0,
+                  0
+                ],
+                "emissiveTexture": false,
+                "specularExtension": false
+              }
+            ],
+            "textures": [
+              {
+                "name": "Baked_BaseColor",
+                "mime": "image/png",
+                "width": 2048,
+                "height": 2048,
+                "bytes": 8605062
+              }
+            ],
+            "clips": [],
+            "skin": null,
+            "cameras": 0,
+            "scenes": 1,
+            "lights": 0,
+            "bounds": {
+              "min": [
+                -4.6273,
+                0,
+                -4.2796
+              ],
+              "max": [
+                4.602,
+                24.9993,
+                4.2509
+              ],
+              "size": [
+                9.2293,
+                24.9993,
+                8.5305
+              ]
+            },
+            "extensions": []
+          }
+        }
+      ],
+      "groundOffsetY": 0,
+      "operations": [
+        "assert approved source SHA-256 772035e2a20306b4427617d62295b3d4bf2f003023314ee9f33e865cb9df23fe + 9638264 bytes + 20817 triangles before reading (read-only)",
+        "normalize single material name -> \"baked_atlas\" (baked atlas — exposes NO recolorable slot)",
+        "origin already at the base — no vertical transform applied; rendered minimum y=0 asserted",
+        "dedup + prune",
+        "textureCompress resize <=1024 targetFormat=jpeg quality=85 filter=lanczos3",
+        "assert mesh digest unchanged (geometry, indices, topology, triangle count, proportions preserved)",
+        "assert bounds unchanged except the declared grounding offset on Y",
+        "assert runtime-safe: metallic 0, emissive [0,0,0], no unlit/lights/cameras, no draco/meshopt/KTX2, embedded textures only"
+      ],
+      "attribution": "Meshy AI — generated original asset (owner-approved 2026-08-31 sprint), texture-optimized in-repo",
+      "license": "Meshy AI generated asset (meshy.ai terms)",
+      "outputSha256": "32b65625a86332a22490ac54277994d46b4e997047c600d097ef276291426704",
+      "outputBytes": 1380496,
+      "structure": {
+        "bytes": 1380496,
+        "triangles": 20817,
+        "meshes": 1,
+        "materials": [
+          {
+            "name": "baked_atlas",
+            "metallic": 0,
+            "roughness": 0.5,
+            "emissive": [
+              0,
+              0,
+              0
+            ],
+            "emissiveTexture": false,
+            "specularExtension": false
+          }
+        ],
+        "textures": [
+          {
+            "name": "Baked_BaseColor",
+            "mime": "image/jpeg",
+            "width": 1024,
+            "height": 1024,
+            "bytes": 347323
+          }
+        ],
+        "clips": [],
+        "skin": null,
+        "cameras": 0,
+        "scenes": 1,
+        "lights": 0,
+        "bounds": {
+          "min": [
+            -4.6273,
+            0,
+            -4.2796
+          ],
+          "max": [
+            4.602,
+            24.9993,
+            4.2509
+          ],
+          "size": [
+            9.2293,
+            24.9993,
+            8.5305
+          ]
+        },
+        "extensions": []
+      },
+      "facades": {
+        "rule": "per-side span / entrance-band inset / near-plane vertex density, measured in the bottom 30% of the body",
+        "bandTop": 7.4998,
+        "bandVertices": 8032,
+        "south": {
+          "span": 9.2293,
+          "inset": 0.0008,
+          "lowVerts": 2817
+        },
+        "north": {
+          "span": 9.2293,
+          "inset": 0.0008,
+          "lowVerts": 3102
+        },
+        "east": {
+          "span": 8.5305,
+          "inset": 0,
+          "lowVerts": 1149
+        },
+        "west": {
+          "span": 8.5305,
+          "inset": 0,
+          "lowVerts": 1163
+        }
+      }
+    },
+    {
+      "id": "arch_shop_01",
+      "label": "Mini Mart body (projected onto the existing building_shop_01 placement)",
+      "kind": "building",
+      "placements": [
+        "building_shop_01"
+      ],
+      "output": "public/assets/models/city/arch_shop_01.glb",
+      "sources": [
+        {
+          "role": "source",
+          "path": "/Users/harshitkargeti/BlockLife-intake/asset-sprint-2026-08-31/buildings-worker/glb/shop_01.glb",
+          "sha256": "46fb0e5e133ae852a40c831583bfde663c942448b653760edfa19d32163ca5f8",
+          "bytes": 7902184,
+          "structure": {
+            "bytes": 7902184,
+            "triangles": 16089,
+            "meshes": 1,
+            "materials": [
+              {
+                "name": "Material_0.001",
+                "metallic": 0,
+                "roughness": 0.5,
+                "emissive": [
+                  0,
+                  0,
+                  0
+                ],
+                "emissiveTexture": false,
+                "specularExtension": false
+              }
+            ],
+            "textures": [
+              {
+                "name": "Baked_BaseColor",
+                "mime": "image/png",
+                "width": 2048,
+                "height": 2048,
+                "bytes": 7147559
+              }
+            ],
+            "clips": [],
+            "skin": null,
+            "cameras": 0,
+            "scenes": 1,
+            "lights": 0,
+            "bounds": {
+              "min": [
+                -2.4874,
+                0,
+                -2.0255
+              ],
+              "max": [
+                2.4815,
+                4,
+                2.0238
+              ],
+              "size": [
+                4.9689,
+                4,
+                4.0494
+              ]
+            },
+            "extensions": []
+          }
+        }
+      ],
+      "groundOffsetY": 0,
+      "operations": [
+        "assert approved source SHA-256 46fb0e5e133ae852a40c831583bfde663c942448b653760edfa19d32163ca5f8 + 7902184 bytes + 16089 triangles before reading (read-only)",
+        "normalize single material name -> \"baked_atlas\" (baked atlas — exposes NO recolorable slot)",
+        "origin already at the base — no vertical transform applied; rendered minimum y=0 asserted",
+        "dedup + prune",
+        "textureCompress resize <=1024 targetFormat=jpeg quality=85 filter=lanczos3",
+        "assert mesh digest unchanged (geometry, indices, topology, triangle count, proportions preserved)",
+        "assert bounds unchanged except the declared grounding offset on Y",
+        "assert runtime-safe: metallic 0, emissive [0,0,0], no unlit/lights/cameras, no draco/meshopt/KTX2, embedded textures only"
+      ],
+      "attribution": "Meshy AI — generated original asset (owner-approved 2026-08-31 sprint), texture-optimized in-repo",
+      "license": "Meshy AI generated asset (meshy.ai terms)",
+      "outputSha256": "fc758a288365afa4450aa78dc03cce7d7936b6456f81ea0cf19b16ca6b0eaf61",
+      "outputBytes": 1019504,
+      "structure": {
+        "bytes": 1019504,
+        "triangles": 16089,
+        "meshes": 1,
+        "materials": [
+          {
+            "name": "baked_atlas",
+            "metallic": 0,
+            "roughness": 0.5,
+            "emissive": [
+              0,
+              0,
+              0
+            ],
+            "emissiveTexture": false,
+            "specularExtension": false
+          }
+        ],
+        "textures": [
+          {
+            "name": "Baked_BaseColor",
+            "mime": "image/jpeg",
+            "width": 1024,
+            "height": 1024,
+            "bytes": 264912
+          }
+        ],
+        "clips": [],
+        "skin": null,
+        "cameras": 0,
+        "scenes": 1,
+        "lights": 0,
+        "bounds": {
+          "min": [
+            -2.4874,
+            0,
+            -2.0255
+          ],
+          "max": [
+            2.4815,
+            4,
+            2.0238
+          ],
+          "size": [
+            4.9689,
+            4,
+            4.0494
+          ]
+        },
+        "extensions": []
+      },
+      "facades": {
+        "rule": "per-side span / entrance-band inset / near-plane vertex density, measured in the bottom 30% of the body",
+        "bandTop": 1.2,
+        "bandVertices": 6643,
+        "south": {
+          "span": 4.9689,
+          "inset": 0.0978,
+          "lowVerts": 318
+        },
+        "north": {
+          "span": 4.9689,
+          "inset": 0,
+          "lowVerts": 841
+        },
+        "east": {
+          "span": 4.0494,
+          "inset": 0,
+          "lowVerts": 1370
+        },
+        "west": {
+          "span": 4.0494,
+          "inset": 0,
+          "lowVerts": 1407
+        }
+      }
+    },
+    {
+      "id": "arch_house_01",
+      "label": "Reusable detached-house archetype (four authored house placements, one per district)",
+      "kind": "building",
+      "placements": [
+        "building_house_01",
+        "building_house_r2",
+        "building_house_w2",
+        "building_house_s2"
+      ],
+      "output": "public/assets/models/city/arch_house_01.glb",
+      "sources": [
+        {
+          "role": "source",
+          "path": "/Users/harshitkargeti/BlockLife-intake/asset-sprint-2026-08-31/buildings-worker/glb/house_01.glb",
+          "sha256": "8f05a4d8c06c98c27dd4cdaf472f34ceffcf3161f4a5b019074f97371afb43c7",
+          "bytes": 9291256,
+          "structure": {
+            "bytes": 9291256,
+            "triangles": 17208,
+            "meshes": 1,
+            "materials": [
+              {
+                "name": "Material_0.002",
+                "metallic": 0,
+                "roughness": 0.5,
+                "emissive": [
+                  0,
+                  0,
+                  0
+                ],
+                "emissiveTexture": false,
+                "specularExtension": false
+              }
+            ],
+            "textures": [
+              {
+                "name": "Baked_BaseColor",
+                "mime": "image/png",
+                "width": 2048,
+                "height": 2048,
+                "bytes": 8438522
+              }
+            ],
+            "clips": [],
+            "skin": null,
+            "cameras": 0,
+            "scenes": 1,
+            "lights": 0,
+            "bounds": {
+              "min": [
+                -2.8899,
+                0,
+                -2.6631
+              ],
+              "max": [
+                2.8836,
+                4.9995,
+                2.6585
+              ],
+              "size": [
+                5.7735,
+                4.9995,
+                5.3216
+              ]
+            },
+            "extensions": []
+          }
+        }
+      ],
+      "groundOffsetY": 0,
+      "operations": [
+        "assert approved source SHA-256 8f05a4d8c06c98c27dd4cdaf472f34ceffcf3161f4a5b019074f97371afb43c7 + 9291256 bytes + 17208 triangles before reading (read-only)",
+        "normalize single material name -> \"baked_atlas\" (baked atlas — exposes NO recolorable slot)",
+        "origin already at the base — no vertical transform applied; rendered minimum y=0 asserted",
+        "dedup + prune",
+        "textureCompress resize <=1024 targetFormat=jpeg quality=85 filter=lanczos3",
+        "assert mesh digest unchanged (geometry, indices, topology, triangle count, proportions preserved)",
+        "assert bounds unchanged except the declared grounding offset on Y",
+        "assert runtime-safe: metallic 0, emissive [0,0,0], no unlit/lights/cameras, no draco/meshopt/KTX2, embedded textures only"
+      ],
+      "attribution": "Meshy AI — generated original asset (owner-approved 2026-08-31 sprint), texture-optimized in-repo",
+      "license": "Meshy AI generated asset (meshy.ai terms)",
+      "outputSha256": "cf388916e095c4a386a8acb6475c9b3d3cd5000f517ed328f8cf9fa623b419c0",
+      "outputBytes": 1199528,
+      "structure": {
+        "bytes": 1199528,
+        "triangles": 17208,
+        "meshes": 1,
+        "materials": [
+          {
+            "name": "baked_atlas",
+            "metallic": 0,
+            "roughness": 0.5,
+            "emissive": [
+              0,
+              0,
+              0
+            ],
+            "emissiveTexture": false,
+            "specularExtension": false
+          }
+        ],
+        "textures": [
+          {
+            "name": "Baked_BaseColor",
+            "mime": "image/jpeg",
+            "width": 1024,
+            "height": 1024,
+            "bytes": 346825
+          }
+        ],
+        "clips": [],
+        "skin": null,
+        "cameras": 0,
+        "scenes": 1,
+        "lights": 0,
+        "bounds": {
+          "min": [
+            -2.8899,
+            0,
+            -2.6631
+          ],
+          "max": [
+            2.8836,
+            4.9995,
+            2.6585
+          ],
+          "size": [
+            5.7735,
+            4.9995,
+            5.3216
+          ]
+        },
+        "extensions": []
+      },
+      "facades": {
+        "rule": "per-side span / entrance-band inset / near-plane vertex density, measured in the bottom 30% of the body",
+        "bandTop": 1.4998,
+        "bandVertices": 3101,
+        "south": {
+          "span": 5.7735,
+          "inset": 0,
+          "lowVerts": 240
+        },
+        "north": {
+          "span": 5.7735,
+          "inset": 0,
+          "lowVerts": 52
+        },
+        "east": {
+          "span": 5.3216,
+          "inset": 0,
+          "lowVerts": 397
+        },
+        "west": {
+          "span": 5.3216,
+          "inset": 0,
+          "lowVerts": 293
+        }
+      }
+    },
+    {
+      "id": "arch_row_house_01",
+      "label": "Townhomes body (projected onto the existing building_townhomes_01 placement)",
+      "kind": "building",
+      "placements": [
+        "building_townhomes_01"
+      ],
+      "output": "public/assets/models/city/arch_row_house_01.glb",
+      "sources": [
+        {
+          "role": "source",
+          "path": "/Users/harshitkargeti/BlockLife-intake/asset-sprint-2026-08-31/buildings-worker/glb/row_house_01.glb",
+          "sha256": "a7d1fd629f4e985e0f0b166219607d0a53313cbb344cff5b7d4b824726040a4f",
+          "bytes": 5610216,
+          "structure": {
+            "bytes": 5610216,
+            "triangles": 18374,
+            "meshes": 1,
+            "materials": [
+              {
+                "name": null,
+                "metallic": 0,
+                "roughness": 0.8,
+                "emissive": [
+                  0,
+                  0,
+                  0
+                ],
+                "emissiveTexture": false,
+                "specularExtension": false
+              }
+            ],
+            "textures": [
+              {
+                "name": null,
+                "mime": "image/jpeg",
+                "width": 2048,
+                "height": 2048,
+                "bytes": 4426151
+              }
+            ],
+            "clips": [],
+            "skin": null,
+            "cameras": 0,
+            "scenes": 1,
+            "lights": 0,
+            "bounds": {
+              "min": [
+                -3.9179,
+                0,
+                -2.9915
+              ],
+              "max": [
+                3.9613,
+                9,
+                2.9924
+              ],
+              "size": [
+                7.8791,
+                9,
+                5.9839
+              ]
+            },
+            "extensions": []
+          }
+        }
+      ],
+      "groundOffsetY": 0,
+      "operations": [
+        "assert approved source SHA-256 a7d1fd629f4e985e0f0b166219607d0a53313cbb344cff5b7d4b824726040a4f + 5610216 bytes + 18374 triangles before reading (read-only)",
+        "normalize single material name -> \"baked_atlas\" (baked atlas — exposes NO recolorable slot)",
+        "origin already at the base — no vertical transform applied; rendered minimum y=0 asserted",
+        "dedup + prune",
+        "textureCompress resize <=1024 targetFormat=jpeg quality=85 filter=lanczos3",
+        "assert mesh digest unchanged (geometry, indices, topology, triangle count, proportions preserved)",
+        "assert bounds unchanged except the declared grounding offset on Y",
+        "assert runtime-safe: metallic 0, emissive [0,0,0], no unlit/lights/cameras, no draco/meshopt/KTX2, embedded textures only"
+      ],
+      "attribution": "Meshy AI — generated original asset (owner-approved 2026-08-31 sprint), texture-optimized in-repo",
+      "license": "Meshy AI generated asset (meshy.ai terms)",
+      "outputSha256": "53eb375b50eddb7e1c26ceb4b10d090aafa1f194dc9f2defb5953dec9632b4a8",
+      "outputBytes": 1517372,
+      "structure": {
+        "bytes": 1517372,
+        "triangles": 18374,
+        "meshes": 1,
+        "materials": [
+          {
+            "name": "baked_atlas",
+            "metallic": 0,
+            "roughness": 0.8,
+            "emissive": [
+              0,
+              0,
+              0
+            ],
+            "emissiveTexture": false,
+            "specularExtension": false
+          }
+        ],
+        "textures": [
+          {
+            "name": null,
+            "mime": "image/jpeg",
+            "width": 1024,
+            "height": 1024,
+            "bytes": 333777
+          }
+        ],
+        "clips": [],
+        "skin": null,
+        "cameras": 0,
+        "scenes": 1,
+        "lights": 0,
+        "bounds": {
+          "min": [
+            -3.9179,
+            0,
+            -2.9915
+          ],
+          "max": [
+            3.9613,
+            9,
+            2.9924
+          ],
+          "size": [
+            7.8791,
+            9,
+            5.9839
+          ]
+        },
+        "extensions": []
+      },
+      "facades": {
+        "rule": "per-side span / entrance-band inset / near-plane vertex density, measured in the bottom 30% of the body",
+        "bandTop": 2.7,
+        "bandVertices": 12984,
+        "south": {
+          "span": 7.8791,
+          "inset": 0,
+          "lowVerts": 50
+        },
+        "north": {
+          "span": 7.8791,
+          "inset": 0.2196,
+          "lowVerts": 3613
+        },
+        "east": {
+          "span": 5.9839,
+          "inset": 0,
+          "lowVerts": 5813
+        },
+        "west": {
+          "span": 5.9839,
+          "inset": 0.063,
+          "lowVerts": 1486
+        }
+      }
+    },
+    {
+      "id": "arch_repair_garage_01",
+      "label": "Repair garage body (projected onto the existing building_garage_01 placement)",
+      "kind": "building",
+      "placements": [
+        "building_garage_01"
+      ],
+      "output": "public/assets/models/city/arch_repair_garage_01.glb",
+      "sources": [
+        {
+          "role": "source",
+          "path": "/Users/harshitkargeti/BlockLife-intake/asset-sprint-2026-08-31/buildings-worker/glb/repair_garage_01.glb",
+          "sha256": "c67736036e12025dc7b8275e67de743552c4d05b812805f1543f93698a343d19",
+          "bytes": 4034328,
+          "structure": {
+            "bytes": 4034328,
+            "triangles": 11214,
+            "meshes": 1,
+            "materials": [
+              {
+                "name": null,
+                "metallic": 0,
+                "roughness": 0.8,
+                "emissive": [
+                  0,
+                  0,
+                  0
+                ],
+                "emissiveTexture": false,
+                "specularExtension": false
+              }
+            ],
+            "textures": [
+              {
+                "name": null,
+                "mime": "image/jpeg",
+                "width": 2048,
+                "height": 2048,
+                "bytes": 3325816
+              }
+            ],
+            "clips": [],
+            "skin": null,
+            "cameras": 0,
+            "scenes": 1,
+            "lights": 0,
+            "bounds": {
+              "min": [
+                -5.5512,
+                0,
+                -3.8393
+              ],
+              "max": [
+                5.5394,
+                6,
+                3.8289
+              ],
+              "size": [
+                11.0906,
+                6,
+                7.6682
+              ]
+            },
+            "extensions": []
+          }
+        }
+      ],
+      "groundOffsetY": 0,
+      "operations": [
+        "assert approved source SHA-256 c67736036e12025dc7b8275e67de743552c4d05b812805f1543f93698a343d19 + 4034328 bytes + 11214 triangles before reading (read-only)",
+        "normalize single material name -> \"baked_atlas\" (baked atlas — exposes NO recolorable slot)",
+        "origin already at the base — no vertical transform applied; rendered minimum y=0 asserted",
+        "dedup + prune",
+        "textureCompress resize <=1024 targetFormat=jpeg quality=85 filter=lanczos3",
+        "assert mesh digest unchanged (geometry, indices, topology, triangle count, proportions preserved)",
+        "assert bounds unchanged except the declared grounding offset on Y",
+        "assert runtime-safe: metallic 0, emissive [0,0,0], no unlit/lights/cameras, no draco/meshopt/KTX2, embedded textures only"
+      ],
+      "attribution": "Meshy AI — generated original asset (owner-approved 2026-08-31 sprint), texture-optimized in-repo",
+      "license": "Meshy AI generated asset (meshy.ai terms)",
+      "outputSha256": "fe870f4c3704dc911f45162854b68785a397f94c7b806848ef74ccd68f54fe6c",
+      "outputBytes": 946876,
+      "structure": {
+        "bytes": 946876,
+        "triangles": 11214,
+        "meshes": 1,
+        "materials": [
+          {
+            "name": "baked_atlas",
+            "metallic": 0,
+            "roughness": 0.8,
+            "emissive": [
+              0,
+              0,
+              0
+            ],
+            "emissiveTexture": false,
+            "specularExtension": false
+          }
+        ],
+        "textures": [
+          {
+            "name": null,
+            "mime": "image/jpeg",
+            "width": 1024,
+            "height": 1024,
+            "bytes": 238833
+          }
+        ],
+        "clips": [],
+        "skin": null,
+        "cameras": 0,
+        "scenes": 1,
+        "lights": 0,
+        "bounds": {
+          "min": [
+            -5.5512,
+            0,
+            -3.8393
+          ],
+          "max": [
+            5.5394,
+            6,
+            3.8289
+          ],
+          "size": [
+            11.0906,
+            6,
+            7.6682
+          ]
+        },
+        "extensions": []
+      },
+      "facades": {
+        "rule": "per-side span / entrance-band inset / near-plane vertex density, measured in the bottom 30% of the body",
+        "bandTop": 1.8,
+        "bandVertices": 8261,
+        "south": {
+          "span": 11.0906,
+          "inset": 0.0844,
+          "lowVerts": 2475
+        },
+        "north": {
+          "span": 11.0906,
+          "inset": 0.0803,
+          "lowVerts": 797
+        },
+        "east": {
+          "span": 7.6682,
+          "inset": 0.098,
+          "lowVerts": 1515
+        },
+        "west": {
+          "span": 7.6682,
+          "inset": 0.1028,
+          "lowVerts": 469
+        }
+      }
+    },
+    {
+      "id": "arch_hotel_01",
+      "label": "Gateway hotel body (projected onto the existing building_gate_hotel_01 placement)",
+      "kind": "building",
+      "placements": [
+        "building_gate_hotel_01"
+      ],
+      "output": "public/assets/models/city/arch_hotel_01.glb",
+      "sources": [
+        {
+          "role": "source",
+          "path": "/Users/harshitkargeti/BlockLife-intake/asset-sprint-2026-08-31/buildings-worker/glb/hotel_01.glb",
+          "sha256": "ddc81fd303ad8dcfb349b5a044d748404d56c36cab0e9de1628b44168e97a7f9",
+          "bytes": 5430120,
+          "structure": {
+            "bytes": 5430120,
+            "triangles": 20520,
+            "meshes": 1,
+            "materials": [
+              {
+                "name": null,
+                "metallic": 0,
+                "roughness": 0.8,
+                "emissive": [
+                  0,
+                  0,
+                  0
+                ],
+                "emissiveTexture": false,
+                "specularExtension": false
+              }
+            ],
+            "textures": [
+              {
+                "name": null,
+                "mime": "image/jpeg",
+                "width": 2048,
+                "height": 2048,
+                "bytes": 4144000
+              }
+            ],
+            "clips": [],
+            "skin": null,
+            "cameras": 0,
+            "scenes": 1,
+            "lights": 0,
+            "bounds": {
+              "min": [
+                -4.5798,
+                0,
+                -5.0768
+              ],
+              "max": [
+                4.562,
+                18,
+                5.0584
+              ],
+              "size": [
+                9.1418,
+                18,
+                10.1352
+              ]
+            },
+            "extensions": []
+          }
+        }
+      ],
+      "groundOffsetY": 0,
+      "operations": [
+        "assert approved source SHA-256 ddc81fd303ad8dcfb349b5a044d748404d56c36cab0e9de1628b44168e97a7f9 + 5430120 bytes + 20520 triangles before reading (read-only)",
+        "normalize single material name -> \"baked_atlas\" (baked atlas — exposes NO recolorable slot)",
+        "origin already at the base — no vertical transform applied; rendered minimum y=0 asserted",
+        "dedup + prune",
+        "textureCompress resize <=1024 targetFormat=jpeg quality=85 filter=lanczos3",
+        "assert mesh digest unchanged (geometry, indices, topology, triangle count, proportions preserved)",
+        "assert bounds unchanged except the declared grounding offset on Y",
+        "assert runtime-safe: metallic 0, emissive [0,0,0], no unlit/lights/cameras, no draco/meshopt/KTX2, embedded textures only"
+      ],
+      "attribution": "Meshy AI — generated original asset (owner-approved 2026-08-31 sprint), texture-optimized in-repo",
+      "license": "Meshy AI generated asset (meshy.ai terms)",
+      "outputSha256": "8a4fcacc19c574a3f33f8517266947623dfd92c92f1f274926210f89c7ac49ec",
+      "outputBytes": 1608588,
+      "structure": {
+        "bytes": 1608588,
+        "triangles": 20520,
+        "meshes": 1,
+        "materials": [
+          {
+            "name": "baked_atlas",
+            "metallic": 0,
+            "roughness": 0.8,
+            "emissive": [
+              0,
+              0,
+              0
+            ],
+            "emissiveTexture": false,
+            "specularExtension": false
+          }
+        ],
+        "textures": [
+          {
+            "name": null,
+            "mime": "image/jpeg",
+            "width": 1024,
+            "height": 1024,
+            "bytes": 322922
+          }
+        ],
+        "clips": [],
+        "skin": null,
+        "cameras": 0,
+        "scenes": 1,
+        "lights": 0,
+        "bounds": {
+          "min": [
+            -4.5798,
+            0,
+            -5.0768
+          ],
+          "max": [
+            4.562,
+            18,
+            5.0584
+          ],
+          "size": [
+            9.1418,
+            18,
+            10.1352
+          ]
+        },
+        "extensions": []
+      },
+      "facades": {
+        "rule": "per-side span / entrance-band inset / near-plane vertex density, measured in the bottom 30% of the body",
+        "bandTop": 5.4,
+        "bandVertices": 6855,
+        "south": {
+          "span": 9.1418,
+          "inset": 0,
+          "lowVerts": 2188
+        },
+        "north": {
+          "span": 9.1418,
+          "inset": 0,
+          "lowVerts": 1874
+        },
+        "east": {
+          "span": 10.1352,
+          "inset": 0,
+          "lowVerts": 1649
+        },
+        "west": {
+          "span": 10.1352,
+          "inset": 0,
+          "lowVerts": 1647
+        }
+      }
+    }
+  ]
+}

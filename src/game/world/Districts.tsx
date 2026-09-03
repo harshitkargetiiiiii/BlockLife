@@ -9,6 +9,8 @@ import {
 import { roadMaterial, sidewalkMaterial } from './materials'
 import { Occludable } from '../visibility/Occludable'
 import { getLinkedOccluderDescriptor } from '../visibility/occluderData'
+import { isGlbBodyRendering } from '../assets/modelRegistry'
+import { useGameStore } from '../store/useGameStore'
 
 const MARKING_COLOR = '#e8e4da'
 const DASH_COLOR = '#d8c46a'
@@ -390,6 +392,11 @@ const PLAZA_SEAMS = [-14, -7, 0, 7, 14]
  * past the walls. Purely decorative — no colliders, no interactions.
  */
 function CityDressing() {
+  // Issue #44 Codex review: the garage's painted rolling door must follow the ACTUAL render
+  // branch, so this subscribes to the counter `markGlbBranch` bumps when a GLB commits or
+  // fails. Reading the registry alone would never re-render — it is a module singleton.
+  useGameStore((st) => st.assetLoadVersion)
+  const garageGlbRendering = isGlbBodyRendering('building_garage_01')
   return (
     <group name="city-dressing">
       {/* Road patches: repaired asphalt rectangles */}
@@ -446,20 +453,31 @@ function CityDressing() {
             </mesh>
           ))}
         </Occludable>
-        <Occludable
-          descriptor={getLinkedOccluderDescriptor('decals_garage_01', 'building_garage_01')}
-        >
-          <mesh position={[59.5, 1.7, 11.56]}>
-            <planeGeometry args={[4.2, 3]} />
-            <meshStandardMaterial color="#57616e" />
-          </mesh>
-          {[0.7, 1.4, 2.1, 2.8].map((y) => (
-            <mesh key={y} position={[59.5, y, 11.58]}>
-              <planeGeometry args={[3.8, 0.09]} />
-              <meshStandardMaterial color="#46505c" />
+        {/* Issue #44 Wave 3: the approved repair-garage body carries its OWN pair of roller
+            shutters, yawed onto the authored west door, and the −π/2 yaw puts its third
+            shutter on this same south wall — so this painted stand-in would be a second,
+            contradictory door drawn over a real one.
+            
+            It keys off the ACTUAL render branch, not the manifest (issue #44 Codex review):
+            a registered, enabled GLB still shows the procedural garage when the file is
+            missing or corrupt, and that box needs its door back. `assetLoadVersion` is what
+            re-renders this group when the branch flips. Exactly one door, either way. */}
+        {!garageGlbRendering && (
+          <Occludable
+            descriptor={getLinkedOccluderDescriptor('decals_garage_01', 'building_garage_01')}
+          >
+            <mesh position={[59.5, 1.7, 11.56]}>
+              <planeGeometry args={[4.2, 3]} />
+              <meshStandardMaterial color="#57616e" />
             </mesh>
-          ))}
-        </Occludable>
+            {[0.7, 1.4, 2.1, 2.8].map((y) => (
+              <mesh key={y} position={[59.5, y, 11.58]}>
+                <planeGeometry args={[3.8, 0.09]} />
+                <meshStandardMaterial color="#46505c" />
+              </mesh>
+            ))}
+          </Occludable>
+        )}
         {/* Gym poster next to its door — sits on the GLB's recessed wall
             plane, same depth convention as the window overlays. */}
         <Occludable

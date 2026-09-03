@@ -45,6 +45,20 @@ export const registry = {
   /** GLB landmark instances that failed to load and fell back to primitives. */
   glbLandmarksFailed: 0,
   /**
+   * PER-ASSET render branch, keyed by manifest id (issue #44 Codex review).
+   *
+   * `hasRealModel()` only answers "is a model registered and enabled" — a manifest fact known
+   * before any fetch. It cannot tell a caller which body is actually ON SCREEN, because a
+   * registered GLB still falls back to its procedural sibling when the file is missing or
+   * corrupt. Anything that must not double up with the procedural body (the garage's painted
+   * rolling door) needs the real branch, not the manifest's intent.
+   *
+   * 'active' = the GLB committed to the scene; 'failed' = AssetErrorBoundary caught and the
+   * procedural fallback is rendering. An id absent from the map is still loading (Suspense is
+   * showing the fallback) or was never asked for.
+   */
+  glbAssetState: new Map<string, 'active' | 'failed'>(),
+  /**
    * Bumped every time the world is paused. Animated actors (NPCs, ambient
    * cars, smoke, birds) snap to canonical poses once per pause so paused
    * frames are pixel-deterministic for visual regression tests.

@@ -76,17 +76,18 @@ describe('CityBlock (R3F)', () => {
 
   it('GLB buildings get night window overlays; street props render with fallbacks', async () => {
     const renderer = await ReactThreeTestRenderer.create(<CityBlock />)
-    for (const id of [
-      'building_apartment_01',
-      'building_gym_01',
-      'building_office_01',
-      'building_tower_01',
-    ]) {
+    for (const id of ['building_gym_01', 'building_office_01', 'building_tower_01']) {
       expect(
         renderer.scene.findAll((n) => n.props.name === `window-overlay:${id}`).length,
         `window overlay for ${id}`,
       ).toBe(1)
     }
+    // Issue #44 Wave 3: the apartment's approved body bakes its own windows, so its
+    // Quaternius-era grid was suppressed — there must be no ghost grid left behind it.
+    expect(
+      renderer.scene.findAll((n) => n.props.name === 'window-overlay:building_apartment_01').length,
+      'suppressed apartment overlay',
+    ).toBe(0)
     // New decorative street props exist (fallbacks render — loader is mocked off).
     for (const prefix of ['prop_bollard', 'prop_ac_unit', 'prop_street_planter', 'prop_manhole', 'prop_drain']) {
       const found = renderer.scene.findAll((n) => String(n.props.name ?? '').startsWith(prefix))
