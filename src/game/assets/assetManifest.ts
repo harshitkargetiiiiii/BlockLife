@@ -333,8 +333,11 @@ export const ASSET_MANIFEST: AssetManifestEntry[] = [
   // placement keeps `BuildingMesh` as its LandmarkAsset fallback child.
   //
   // Every `scale` is the largest UNIFORM factor that keeps the MEASURED half-extents inside the
-  // placement's authored `def.size` footprint AFTER the canonical-facing yaw, at 4 dp rounded
-  // DOWN:  s = floor(min((w/2) / hx, (d/2) / hz) * 1e4) / 1e4.  Nothing here is guessed;
+  // placement's authored `def.size` footprint AFTER the canonical-facing yaw AND keeps the body
+  // short enough never to contain the camera, at 4 dp rounded DOWN:
+  //   s = floor(min((w/2) / hx, (d/2) / hz, MAX_RENDERED_HEIGHT / sizeY) * 1e4) / 1e4
+  // The height bound binds on the apartment and the hotel, the footprint on the other four.
+  // Nothing here is guessed;
   // `wave3Contract.test.ts` recomputes every number from cityLayout's BUILDINGS and the
   // committed bytes, and the canonical facings come from rendered cardinal evidence, not from
   // filenames (see tests/visual/wave3-asset-visuals.spec.ts). ----

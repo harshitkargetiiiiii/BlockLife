@@ -7,7 +7,8 @@
   "textureQuality": 85,
   "boundsEpsilon": 0.00005,
   "scaleDecimals": 4,
-  "projection": "Uniform scale s = floor(min(w / fx, d / fz) * 1e4) / 1e4, where (w, d) is the placement’s AUTHORED def.size footprint in src/game/world/cityLayout.ts and (fx, fz) are the measured local X/Z extents after the canonical-facing yaw that points the body’s front at the authored door (each measured dimension inflated by boundsEpsilon first). Recomputed in src/game/assets/wave3Contract.test.ts.",
+  "maxRenderedHeight": 15,
+  "projection": "Uniform scale s = floor(min((w/2) / hx, (d/2) / hz, MAX_RENDERED_HEIGHT / sizeY) * 1e4) / 1e4, where (w, d) is the placement’s AUTHORED def.size footprint in src/game/world/cityLayout.ts and (fx, fz) are the measured local X/Z extents after the canonical-facing yaw that points the body’s front at the authored door (each measured dimension inflated by boundsEpsilon first). MAX_RENDERED_HEIGHT is the camera-engulf ceiling: FollowCamera sits 18 m above its target, so a taller body would contain it. Recomputed in src/game/assets/wave3Contract.test.ts.",
   "assets": [
     {
       "id": "arch_apartment_01",

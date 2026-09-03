@@ -42,8 +42,8 @@ export const WINDOW_OVERLAYS: WindowOverlayDef[] = [
   // the Quaternius Building_Medium_2 body (9.06 x 15.0 x 7.86 @ 0.60) and are wrong for the
   // approved sprint apartment that replaced it on this id: the south plane at 3.98 would sit
   // 0.17 m INSIDE the new 8.30 m-deep facade and the east plane at 4.58 would float 0.09 m
-  // OUTSIDE it, and either way five rows of glow reach 13.2 m up a 24.3 m body — a ghost
-  // overlay across the upper two thirds of the building. Issue #44 allows realigning OR
+  // OUTSIDE it — the replacement body is 5.54 m wide and 5.12 m deep against the pack model's
+  // 9.06 x 7.86, so neither plane lands on a wall any more. Issue #44 allows realigning OR
   // suppressing a legacy grid; suppression is the honest option here, because this body bakes
   // its own windows into its single atlas, exactly like the row house and every other Wave-3
   // building, and like the issue #21 §6 apartment noted below. Proven day and night in

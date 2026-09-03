@@ -143,11 +143,11 @@ The scale is **uniform**, so every approved body ships with its own proportions 
 | `arch_house_01` (×4) | 5.5 × 4.5 × 5.5 | per door | 0.9515 | 5.494 × 4.757 × 5.064 | X (half 2.7497 / 2.75) |
 | `building_townhomes_01` | 7 × 6 × 7 | 0 | 0.8835 | 6.961 × 7.952 × 5.287 | X (half 3.4998 / 3.5) |
 | `building_garage_01` | 8 × 5.5 × 7 | −π⁄2 | 0.6304 | 4.834 × 3.782 × 6.992 | world Z (half 3.4995 / 3.5) |
-| `building_gate_hotel_01` | 9 × 13 × 8 | −π⁄2 | 0.8733 | 8.851 × 15.719 × 7.984 | world Z (half 3.9995 / 4) |
+| `building_gate_hotel_01` | 9 × 13 × 8 | −π⁄2 | 0.8333 | 8.446 × 14.999 × 7.618 | **height ceiling** |
 
-`wave3Contract.test.ts` recomputes every one of those numbers from `BUILDINGS` and the committed
-bytes — including that the binding axis really is at its bound (`fill > 0.999`), so a body can
-never be silently shrunk to a doll's house inside its own collider by a copied constant.
+`wave3Contract.test.ts` recomputes every one of those numbers from `BUILDINGS`, `MAX_RENDERED_HEIGHT`
+and the committed bytes — including that one of the three bounds really is saturated
+(`fill > 0.999`), so a body can never be silently shrunk to a doll's house by a copied constant.
 
 ### The reusable house archetype is facing-only
 
@@ -198,13 +198,13 @@ replaced.
 
 ### Rendered height is a consequence, not a free parameter
 
-A uniform footprint fit decides the height. Three of the nine bodies therefore stand above the
-procedural box height their placement authors:
+The uniform fit decides the height, bounded by the camera ceiling. Three of the nine bodies
+stand above the procedural box height their placement authors:
 
 | Placement | Authored box height | Wave 3 rendered height | Height it replaces |
 |---|---:|---:|---:|
-| `building_apartment_01` | 7.5 | **24.31** | 15.0 (Quaternius Building_Medium_2 @ 0.60) |
-| `building_gate_hotel_01` | 13 | **15.72** | — (was procedural) |
+| `building_apartment_01` | 7.5 | **15.00** (at the ceiling) | 15.0 (Quaternius Building_Medium_2 @ 0.60) — **unchanged** |
+| `building_gate_hotel_01` | 13 | **15.00** (at the ceiling) | — (was procedural) |
 | `building_townhomes_01` | 6 | **7.95** | 10.5 (`blocklife_apartment_hq_01` @ 5.5) — **2.55 m shorter** |
 | `building_shop_01` | 5 | 4.82 | — (was procedural) |
 | `arch_house_01` (×4) | 4.5 / 4.2 | 4.76 | — (was procedural) |

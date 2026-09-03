@@ -24,7 +24,8 @@ import {
   assertSource, buildStatic, describe, fileSha, io, KB, makeCheckDir,
 } from './lib.mjs'
 import {
-  BUILDINGS, MAX_TEXTURE, TEXTURE_FORMAT, TEXTURE_QUALITY, PROVENANCE_OUT, BOUNDS_EPSILON, SCALE_DECIMALS,
+  BUILDINGS, MAX_TEXTURE, TEXTURE_FORMAT, TEXTURE_QUALITY, PROVENANCE_OUT, BOUNDS_EPSILON,
+  SCALE_DECIMALS, MAX_RENDERED_HEIGHT,
 } from './wave3.config.mjs'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
@@ -153,12 +154,14 @@ writeFileSync(join(ROOT, PROVENANCE_OUT), JSON.stringify({
   issue: 44, wave: 3,
   note: 'Rebuild with: node scripts/asset-intake/buildWave3.mjs   |   verify with --check',
   maxTexture: MAX_TEXTURE, textureFormat: TEXTURE_FORMAT, textureQuality: TEXTURE_QUALITY,
-  boundsEpsilon: BOUNDS_EPSILON, scaleDecimals: SCALE_DECIMALS,
+  boundsEpsilon: BOUNDS_EPSILON, scaleDecimals: SCALE_DECIMALS, maxRenderedHeight: MAX_RENDERED_HEIGHT,
   projection:
-    'Uniform scale s = floor(min(w / fx, d / fz) * 1e4) / 1e4, where (w, d) is the placement’s AUTHORED '
+    'Uniform scale s = floor(min((w/2) / hx, (d/2) / hz, MAX_RENDERED_HEIGHT / sizeY) * 1e4) / 1e4, where (w, d) is the placement’s AUTHORED '
     + 'def.size footprint in src/game/world/cityLayout.ts and (fx, fz) are the measured local X/Z extents '
     + 'after the canonical-facing yaw that points the body’s front at the authored door (each measured '
-    + 'dimension inflated by boundsEpsilon first). Recomputed in src/game/assets/wave3Contract.test.ts.',
+    + 'dimension inflated by boundsEpsilon first). MAX_RENDERED_HEIGHT is the camera-engulf ceiling: '
+    + 'FollowCamera sits 18 m above its target, so a taller body would contain it. '
+    + 'Recomputed in src/game/assets/wave3Contract.test.ts.',
   assets: records,
 }, null, 2) + '\n')
 

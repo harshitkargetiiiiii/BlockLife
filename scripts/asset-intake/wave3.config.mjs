@@ -147,22 +147,23 @@ export const BUILDINGS = [
  * literals.
  *
  * Issue #44 forbids moving a single authored footprint, collider, anchor or coordinate, so the
- * body must be fitted to the LOT rather than the lot to the body:
+ * body must be fitted to the LOT rather than the lot to the body — and, since the shipped camera
+ * lives 18 m above its target, it must also stay short enough never to contain it. THREE bounds:
  *
- *   s = floor( min( w / fx , d / fz ) * 10^4 ) / 10^4
+ *   s = floor( min( (w/2) / hx , (d/2) / hz , MAX_RENDERED_HEIGHT / sizeY ) * 10^4 ) / 10^4
  *
- * where (w, d) is the placement's authored `def.size` footprint and (fx, fz) are the model's
- * measured X/Z extents AFTER the canonical-facing yaw that points its front at the authored
+ * where (w, d) is the placement's authored `def.size` footprint, (hx, hz) are the model's
+ * measured X/Z HALF-extents AFTER the canonical-facing yaw that points its front at the authored
  * door (a 90° yaw swaps them — getting that backwards is how a body ends up overhanging its
- * lot on one axis while under-filling the other). Every measured dimension is inflated by
- * BOUNDS_EPSILON first: that epsilon is half of `measureBounds`' 4-dp rounding step, without
- * which a value that rounded DOWN could let the derived scale overhang the lot by up to 5e-5.
+ * lot on one axis while under-filling the other), and MAX_RENDERED_HEIGHT is the camera-engulf
+ * ceiling documented below. Every measured dimension is inflated by BOUNDS_EPSILON first: that
+ * epsilon is half of `measureBounds`' 4-dp rounding step, without which a value that rounded
+ * DOWN could let the derived scale overhang the lot by up to 5e-5.
  *
- * The scale is UNIFORM, so each approved body ships with its own proportions undistorted. That
- * makes rendered HEIGHT a consequence of the footprint fit, not a free parameter — see the
- * per-entry notes in `assetManifest.ts` for the measured height of each body against the
- * procedural box height it replaces. `def.size` remains the authority for colliders, occluder
- * bounds, routing and every other gameplay read; nothing in this wave changes it.
+ * The scale is UNIFORM, so each approved body ships with its own proportions undistorted. The
+ * height bound binds on the apartment and the hotel; the footprint binds on the other four —
+ * see the per-entry notes in `assetManifest.ts`. `def.size` remains the authority for colliders,
+ * occluder bounds, routing and every other gameplay read; nothing in this wave changes it.
  */
 /**
  * Hard ceiling on a projected body's RENDERED height, in world units.

@@ -7,6 +7,8 @@ import { BUILDINGS } from './cityLayout'
 import { ASSET_MANIFEST_BY_ID } from '../assets/assetManifest'
 import { resolveBuildingVisual } from './buildingProjection'
 import { visibilityRuntime } from '../visibility/visibilityRuntime'
+import { registry } from './runtimeRegistry'
+import { isGlbBodyRendering } from '../assets/modelRegistry'
 
 /**
  * Issue #44 Wave 3 — the RENDER-TREE half of the building contract, which the byte-level
@@ -75,6 +77,9 @@ function countMeshes(root: THREE.Object3D): number {
 }
 
 beforeEach(() => {
+  // The recorded render branch is a module singleton; a leftover entry would let the healthy
+  // test pass on the previous test's state instead of its own.
+  registry.glbAssetState.clear()
   useGLTFMock.mockReset()
   vi.spyOn(console, 'warn').mockImplementation(() => {})
   vi.spyOn(console, 'error').mockImplementation(() => {})
@@ -171,16 +176,44 @@ describe('issue #44 Wave 3 — the projected transform is what actually renders'
 })
 
 describe('issue #44 Wave 3 — the garage keeps exactly one door representation', () => {
-  it('the painted rolling-door decal is suppressed while the approved body renders', async () => {
+  /**
+   * Issue #44 Codex review, blocker 1.
+   *
+   * The painted rolling door used to be gated on `hasRealModel()`, which reports the MANIFEST's
+   * intent — decided before the file is ever fetched. A registered, enabled GLB still renders
+   * the procedural garage when the file is missing or corrupt, and that box needs its door
+   * back. These two tests pin BOTH branches: the model must not double up with the decal, and a
+   * load failure must restore it.
+   */
+  it('a healthy GLB suppresses the decal — the model carries its own shutter, no duplicate', async () => {
     useGLTFMock.mockReturnValue({ scene: glbScene() })
-    const renderer = await ReactThreeTestRenderer.create(<Districts />)
-    // The approved repair-garage body carries its own pair of roller shutters, yawed onto the
-    // authored west door, so the painted stand-in on the blank south wall must be gone...
-    expect(visibilityRuntime.occluders.has('decals_garage_01'), 'garage door decal').toBe(false)
-    // ...while the warehouse shutter and the gym poster — neither of which this wave touches —
-    // are still registered and still fade with their buildings.
+    const renderer = await ReactThreeTestRenderer.create(
+      <>
+        <Buildings only={['building_garage_01']} />
+        <Districts />
+      </>,
+    )
+    expect(isGlbBodyRendering('building_garage_01'), 'GLB is the rendering branch').toBe(true)
+    expect(visibilityRuntime.occluders.has('decals_garage_01'), 'painted door suppressed').toBe(false)
+    // ...while the neighbours this wave does not touch keep theirs.
     expect(visibilityRuntime.occluders.has('decals_warehouse_01'), 'warehouse decal').toBe(true)
     expect(visibilityRuntime.occluders.has('decals_gym_01'), 'gym poster').toBe(true)
+    await renderer.unmount()
+  })
+
+  it('a FAILED GLB restores the decal — the procedural box gets its door back', async () => {
+    useGLTFMock.mockImplementation(() => { throw new Error('404 model not found') })
+    const renderer = await ReactThreeTestRenderer.create(
+      <>
+        <Buildings only={['building_garage_01']} />
+        <Districts />
+      </>,
+    )
+    // The manifest still says a model is registered — which is exactly why keying off
+    // `hasRealModel()` was wrong. The real branch is the fallback.
+    expect(registry.glbAssetState.get('building_garage_01'), 'recorded branch').toBe('failed')
+    expect(isGlbBodyRendering('building_garage_01'), 'fallback is the rendering branch').toBe(false)
+    expect(visibilityRuntime.occluders.has('decals_garage_01'), 'painted door restored').toBe(true)
     await renderer.unmount()
   })
 })
