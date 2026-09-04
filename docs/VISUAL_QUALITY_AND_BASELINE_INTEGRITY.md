@@ -195,13 +195,23 @@ had one spec time out at 15 s waiting for a model. Individual specs had grown th
 
 **The fix.** Any change to the mount graph — a mount, an unmount, a commit or a load failure —
 now stamps `registry.glbLandmarkEpoch` and `registry.glbLandmarkChangedAt`
-(`noteGlbLandmarkChange()`), and the predicate requires all three of:
+(`noteGlbLandmarkChange()`), and the predicate requires ALL of the following five checks — each
+one fails at a moment none of the others catch:
 
-1. nothing pending (`active + failed >= expected`, as before);
-2. the mount graph unchanged for `ASSET_SETTLE_QUIET_MS` (400 ms) — a remount trough always
-   violates this;
-3. `glbLandmarkEpoch > 0` — at least one landmark has ever registered, which kills the same
+1. `expected > 0` — a graph is mounted RIGHT NOW. After a full teardown every counter is zero and
+   every other clause is satisfied by a scene that does not exist. Review caught this one:
+   "nothing is mounted" must never read as "everything is ready".
+2. `glbLandmarkEpoch > 0` — at least one landmark has EVER registered, which kills the same
    vacuity at boot, before anything has mounted.
+3. `unresolved === 0` — nothing is still in flight, counted per asset so that an id whose file is
+   unreachable does not block the whole scene forever (see below).
+4. `assetGraphPending(c) >= 0` — the raw `expected - active - failed` census is not CORRUPT. A
+   negative reading means more instances committed a branch than ever declared they wanted one —
+   a leaked or double-counted branch — and per-asset bookkeeping cannot see it, because the
+   per-asset clamp above floors each id at zero. Settling on a census that does not add up would
+   photograph whatever that bug left on screen.
+5. the mount graph unchanged for `ASSET_SETTLE_QUIET_MS` (400 ms) — a remount trough always
+   violates this.
 
 A timestamp beats sampling the counters from the test side: the trough can be a few frames long,
 and a poll that misses it would call a half-built scene settled.

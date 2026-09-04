@@ -517,8 +517,12 @@ VACUOUSLY true. Two committed baselines were captured in that trough, each holdi
 fallback where the GLB belongs — and the specs' own workarounds (`waitForTimeout(1200)`, then
 re-check) were the same race with a longer fuse. The fix is a quiescence clock: any change to
 the mount graph stamps `registry.glbLandmarkChangedAt`, and the predicate additionally requires
-that nothing has moved for `ASSET_SETTLE_QUIET_MS` and that at least one landmark has EVER
-mounted (`glbLandmarkEpoch > 0`, which also kills the same vacuity at boot). When a shot is
+that nothing has moved for `ASSET_SETTLE_QUIET_MS`, that a graph is mounted RIGHT NOW
+(`expected > 0`) and that at least one landmark has EVER mounted (`glbLandmarkEpoch > 0`). Those
+last two are not redundant — they fail at different moments: `epoch` catches boot before the first
+landmark registers, `expected` catches a full teardown that leaves the graph empty but perfectly
+quiet. The lesson generalises: every "is it ready" predicate wants an explicit answer to "is there
+anything here to be ready", or emptiness passes as readiness. When a shot is
 ABOUT a body, name it: `waitForSceneSettled(page, { requireGlb: ['building_office_01'] })` proves
 the photograph has the model rather than its fallback.
 

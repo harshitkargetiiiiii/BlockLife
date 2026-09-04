@@ -302,11 +302,11 @@ export interface GameTestApi {
   /**
    * True when the scene on screen is mounted AND has stopped changing (issue #46 §4).
    *
-   * Nothing pending, at least one GLB landmark has ever registered, and the mount graph has
-   * been unchanged for `quietMs` (default `ASSET_SETTLE_QUIET_MS`). The quiescence term is
-   * what makes this non-vacuous: a sector remount drives the counters through a trough where
-   * a plain `expected <= active + failed` comparison reads true for a scene that no longer
-   * exists, and visual baselines were captured in that window.
+   * A graph is mounted right now, nothing is unresolved, and it has been unchanged for
+   * `quietMs` (default `ASSET_SETTLE_QUIET_MS`). Each clause closes a different way the old
+   * counter comparison read true for a scene that was not there: a remount trough (the counters
+   * pass through zero mid-teardown — visual baselines were captured in that window), boot before
+   * anything registers, and a full teardown that leaves the graph empty but quiet.
    */
   assetsSettled: (quietMs?: number) => boolean
   /**

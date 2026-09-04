@@ -104,6 +104,52 @@ value, no behaviour and no registration order changed. The runtime registration 
 touch is the GLB mount census (`glbLandmarksExpected/Active/Failed` and the per-asset branch map),
 which no citizen, route, occupancy or crossing path reads.
 
+## GitHub Actions: the same suite on both trees, same runner class
+
+The local attribution above compares one test at a time. This is the whole-suite version of the
+same question, run by CI on identical hardware, and it is the stronger evidence because neither
+run was on my laptop.
+
+| | base | candidate |
+| --- | --- | --- |
+| run | [33818518335](https://github.com/harshitkargetiiiiii/BlockLife/actions/runs/33818518335) | [33814041506](https://github.com/harshitkargetiiiiii/BlockLife/actions/runs/33814041506) |
+| head SHA | `04ae46e35812a8bc9ee73da8706864e4c419e552` | `0e6c7762fc6e08ec781dfe9e949217ef44267f84` |
+| branch | `master` | `feat/issue-46-visual-integrity` |
+| workflow | E2E (full Playwright), 8 shards | E2E (full Playwright), 8 shards |
+| **failures** | **35** | **35** |
+
+**31 of the 35 are the SAME test on both trees.** The remaining 4-on-4 are a swap, not a delta:
+each tree fails four tests the other passes, and the totals are identical. Full lists are
+committed beside this file as `ci-failures-base-33818518335.txt` and
+`ci-failures-candidate-33814041506.txt`.
+
+### The four that failed only on the candidate — each re-run locally on this branch
+
+| test | CI failure | local re-run, alone, on the review-fixed working tree based on `0e6c776` |
+| --- | --- | --- |
+| `citizen-destinations:89` › waits at the curb, crosses on all-walk | `waitForFunction` 90 s timeout | **PASS** (2.0 m) |
+| `citizen-destinations:133` › travels toward the waterfront through the painted crossing | `waitForFunction` 90 s timeout | **PASS** (45.3 s) |
+| `city-sweep:15` › traverses every district with continuous integrity assertions | test 90 s timeout in `page.evaluate` | **PASS** (22.0 s) |
+| `crime:525` › 18 — a pursuit survives crossing sector boundaries | `after.police` was 1, expected 2 | **PASS** (9.3 s) |
+
+All four landed on CI **shard 2/8**, in the same run. Three are wall-clock timeouts and the fourth
+is a police-escalation count that depends on how many simulated seconds elapse before the assert —
+the same clock, read through a different assertion. None of them touches the GLB mount census,
+the occluder descriptor, the camera-clearance table or the visual-test helpers, which is the whole
+of what this branch changes outside `tests/visual/` and docs.
+
+### The four that failed only on the base
+`gameplay-flow:91` (Coffee for Ravi, 90 s test timeout), `occlusion:61` (clear-view restore, the
+same 6 s `waitForFunction` already attributed as row 4 above), `social:303` (invitation through the
+production UI, 90 s test timeout) and `vehicles-soak:56` (180 s soak timeout). Same failure
+family, different shards, on the tree this branch is measured against.
+
+The conclusion the numbers support: this host class runs the headless software-WebGL sim slowly
+enough that ~35 timing-sensitive E2E tests fall over per run, and WHICH 35 varies by a handful
+between runs. It does not vary with this branch.
+
 ## Logs
+`ci-failures-base-33818518335.txt` / `ci-failures-candidate-33814041506.txt` — the two whole-suite
+GitHub Actions failure lists compared above.
 `g01/g02/g05/g06/g09.log` (+ `.json`) — the original group runs, untouched.
 `CAND-diag-*.log`, `BASE-diag-*.log`, `CAND-*.json`, `BASE-*.json` — the alone runs on each tree.

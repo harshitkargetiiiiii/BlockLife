@@ -87,9 +87,13 @@ export function unresolvedInstances(perAsset: Iterable<readonly [string, AssetIn
 /**
  * Is the scene on screen mounted AND finished changing?
  *
- * All three terms are load-bearing:
- *  - `epoch > 0` — something has actually mounted. Without it the predicate is true at boot,
- *    before any landmark has registered, which is the same vacuity in a different disguise.
+ * Every term is load-bearing:
+ *  - `expected > 0` — a graph is mounted RIGHT NOW. Not "has been": after a full teardown the
+ *    counters are all zero and, once the quiet window elapses, every other clause is satisfied by
+ *    a scene that does not exist. "Nothing is mounted" must never read as "everything is ready".
+ *  - `epoch > 0` — something has actually mounted at some point. Kept alongside the clause above
+ *    because they fail at different moments: `epoch` catches the instant before the first
+ *    landmark registers, when `expected` has not been incremented yet either.
  *  - `unresolved === 0` — nothing is still in flight, counted per asset so that an id whose file
  *    is unreachable does not block on instances that will never resolve (see
  *    `unresolvedInstances`).
@@ -106,7 +110,8 @@ export function isAssetGraphSettled(
   now: number,
   quietMs: number = ASSET_SETTLE_QUIET_MS,
 ): boolean {
-  return c.epoch > 0 && c.unresolved === 0 && assetGraphPending(c) >= 0 && now - c.changedAt >= quietMs
+  if (c.expected <= 0 || c.epoch <= 0) return false
+  return c.unresolved === 0 && assetGraphPending(c) >= 0 && now - c.changedAt >= quietMs
 }
 
 /** Which asset ids are currently rendering which branch, counted across every mounted instance. */

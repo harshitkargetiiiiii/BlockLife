@@ -33,6 +33,32 @@ describe('asset settle gate', () => {
     expect(isAssetGraphSettled(graph({ epoch: 0, expected: 0 }), 1e9)).toBe(false)
   })
 
+  it('a previously-mounted but now EMPTY graph never settles, however long it stays quiet', () => {
+    // The third disguise of the same vacuity. After a full teardown — entering an interior, a
+    // reset, the world unmounting — every counter is zero while `epoch` still remembers that
+    // something once mounted. `unresolved` is 0, `pending` is 0, and the quiet window elapses,
+    // so every other clause is satisfied by a scene that does not exist. "Nothing is mounted"
+    // must never read as "everything is ready".
+    const emptyAfterTeardown = graph({ expected: 0, active: 0, failed: 0, epoch: 77, changedAt: 1_000 })
+    expect(emptyAfterTeardown.unresolved).toBe(0)
+    expect(assetGraphPending(emptyAfterTeardown)).toBe(0)
+    expect(isAssetGraphSettled(emptyAfterTeardown, 1_000 + QUIET), 'just past the window').toBe(false)
+    expect(isAssetGraphSettled(emptyAfterTeardown, 1_000 + QUIET * 1000), 'and long after it').toBe(false)
+
+    // It only settles once a graph is actually mounted and committed again.
+    const remounted = graph({ expected: 5, active: 5, failed: 0, epoch: 90, changedAt: 50_000 })
+    expect(isAssetGraphSettled(remounted, 50_000 + QUIET)).toBe(true)
+  })
+
+  it('the scene-ready gate inherits that: an empty graph is never ready either', () => {
+    const empty = graph({ expected: 0, epoch: 77, changedAt: 0 })
+    expect(isSceneReady(empty, { glbActive: [], glbFailed: [] }, QUIET * 1000, [])).toBe(false)
+    // …not even when the id it is asked for is somehow still recorded as active.
+    expect(
+      isSceneReady(empty, { glbActive: ['building_office_01'], glbFailed: [] }, QUIET * 1000, ['building_office_01']),
+    ).toBe(false)
+  })
+
   it('is false while anything is still loading', () => {
     expect(isAssetGraphSettled(graph({ expected: 3, active: 1 }), 10_000)).toBe(false)
     expect(assetGraphPending(graph({ expected: 3, active: 1 }))).toBe(2)
@@ -48,7 +74,10 @@ describe('asset settle gate', () => {
     // More instances committed/failed than are mounted. That cannot happen if the counters are
     // kept honestly, so it means the accounting has drifted — which is exactly the shape the
     // leaked `failed` produced. `pending <= 0` called this settled and let the gate open on a
-    // half-built scene; `pending === 0` makes it fail loudly instead.
+    // half-built scene; the guard is `assetGraphPending(c) >= 0`, so a negative census fails
+    // loudly. (It is deliberately NOT `=== 0`: the per-asset `unresolved` clause is what proves
+    // nothing is in flight, and a positive raw pending is legitimate once an unreachable id has
+    // been excluded there — see the aborted-file case below.)
     const corrupt = graph({ expected: 1, active: 0, failed: 2, epoch: 5, changedAt: 0 })
     expect(assetGraphPending(corrupt)).toBe(-1)
     expect(isAssetGraphSettled(corrupt, QUIET * 100), 'must refuse a corrupt census').toBe(false)
