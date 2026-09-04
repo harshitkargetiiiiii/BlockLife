@@ -60,26 +60,97 @@ export function reportAssetLoadFailure(assetId: string, error: unknown): void {
  * fallback when the file is missing or corrupt, so callers that must not double up with that
  * fallback — the garage's painted rolling door — have to key off the real branch instead.
  */
-export function markGlbBranch(assetId: string, branch: 'active' | 'failed'): void {
-  if (registry.glbAssetState.get(assetId) === branch) return
-  registry.glbAssetState.set(assetId, branch)
-  useGameStore.setState((s) => ({ assetLoadVersion: s.assetLoadVersion + 1 }))
-}
-
-/** Forget a branch when the instance unmounts (sector streaming remounts these constantly). */
-export function clearGlbBranch(assetId: string): void {
-  if (!registry.glbAssetState.delete(assetId)) return
-  useGameStore.setState((s) => ({ assetLoadVersion: s.assetLoadVersion + 1 }))
+function branchCounts(assetId: string): { expected: number; active: number; failed: number } {
+  let c = registry.glbAssetState.get(assetId)
+  if (!c) {
+    c = { expected: 0, active: 0, failed: 0 }
+    registry.glbAssetState.set(assetId, c)
+  }
+  return c
 }
 
 /**
- * True when the GLB body — not the procedural fallback — is what is on screen for this id.
+ * One more instance of this id WANTS a GLB (issue #46 §4). Counted per asset so a stalled load
+ * can be named: the global pending number says a scene is not ready, this says which body is
+ * holding it up — which is the difference between a 45-second timeout and a diagnosis.
+ */
+export function noteGlbExpected(assetId: string, delta: 1 | -1): void {
+  const c = branchCounts(assetId)
+  c.expected += delta
+  if (c.expected <= 0 && c.active <= 0 && c.failed <= 0) registry.glbAssetState.delete(assetId)
+}
+
+export function markGlbBranch(assetId: string, branch: 'active' | 'failed'): void {
+  const before = getGlbBranch(assetId)
+  branchCounts(assetId)[branch] += 1
+  if (getGlbBranch(assetId) !== before) {
+    useGameStore.setState((s) => ({ assetLoadVersion: s.assetLoadVersion + 1 }))
+  }
+}
+
+/**
+ * Release ONE instance's claim on a branch when that instance unmounts.
  *
- * Loading counts as "will render": Suspense is showing the fallback for a frame or two and the
- * model normally arrives, so treating it as fallback would flash a duplicate door on every
- * sector remount. Only a real load FAILURE flips this to false.
+ * Sector streaming remounts these constantly and one archetype backs several placements, so the
+ * release has to be per instance and per branch (issue #46 §4). The previous
+ * `clearGlbBranch(assetId)` deleted the whole entry, which meant one of four houses unmounting
+ * told the world the other three were no longer rendering their GLB.
+ */
+export function releaseGlbBranch(assetId: string, branch: 'active' | 'failed'): void {
+  const counts = registry.glbAssetState.get(assetId)
+  if (!counts || counts[branch] <= 0) return
+  const before = getGlbBranch(assetId)
+  counts[branch] -= 1
+  if (counts.expected <= 0 && counts.active <= 0 && counts.failed <= 0) {
+    registry.glbAssetState.delete(assetId)
+  }
+  if (getGlbBranch(assetId) !== before) {
+    useGameStore.setState((s) => ({ assetLoadVersion: s.assetLoadVersion + 1 }))
+  }
+}
+
+/**
+ * The branch this asset id is actually rendering, across every mounted instance:
+ * 'active' if any instance committed the GLB, 'failed' if none did and at least one fell back,
+ * `undefined` while every instance is still loading (or none is mounted).
+ */
+export function getGlbBranch(assetId: string): 'active' | 'failed' | undefined {
+  const counts = registry.glbAssetState.get(assetId)
+  if (!counts) return undefined
+  if (counts.active > 0) return 'active'
+  return counts.failed > 0 ? 'failed' : undefined
+}
+
+/**
+ * True when the GLB body IS on screen for this id — at least one mounted instance has committed
+ * its model.
+ *
+ * Exactly what the name says, and no more. This used to be `getGlbBranch(id) !== 'failed'`, which
+ * also returned true while every instance was still LOADING (Suspense showing the fallback) and
+ * for an id with nothing mounted at all — i.e. it answered true in the two states where the
+ * procedural body is what a screenshot would catch. That was deliberate, but for a reason
+ * belonging to a different question; see `suppressProceduralDouble` below.
+ *
+ * Use this for "is the model actually rendering". Use the other for "may I draw a stand-in".
  */
 export function isGlbBodyRendering(assetId: string): boolean {
   if (!hasRealModel(assetId)) return false
-  return registry.glbAssetState.get(assetId) !== 'failed'
+  return getGlbBranch(assetId) === 'active'
+}
+
+/**
+ * Should a repo-owned stand-in for this body be SUPPRESSED — the loading-tolerant policy.
+ *
+ * The garage's painted rolling door exists only because the procedural box has no door of its
+ * own. Draw it whenever the GLB is not confirmed-on-screen and it flashes on top of the model's
+ * real shutter for the frame or two Suspense takes on every sector remount, which is worse than
+ * being briefly absent. So the policy is optimistic: suppress unless the load actually FAILED.
+ *
+ * Deliberately a separate, differently-named predicate from `isGlbBodyRendering`. The two
+ * questions genuinely differ while loading, and collapsing them into one function meant the
+ * honest-sounding name carried the optimistic answer.
+ */
+export function suppressProceduralDouble(assetId: string): boolean {
+  if (!hasRealModel(assetId)) return false
+  return getGlbBranch(assetId) !== 'failed'
 }

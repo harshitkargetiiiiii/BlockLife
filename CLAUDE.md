@@ -76,7 +76,42 @@ regression) and `scripts/crime-gate.sh`.
 compiles 0 files and always passes. Only `-b --force` really typechecks.
 
 ## Current state
-In progress: **Character Identity & Population Visual Upgrade v1** (issue #23) — the
+Latest: **Holistic Visual Quality & Baseline Integrity Pass v1** (issue #46) — one pass over the
+whole city instead of another per-asset wave, turning each of Waves 0–3's one-off visual findings
+into standing coverage. (1) The camera-clearance limit is now **structural**:
+[`camera/cameraGeometry.ts`](src/game/camera/cameraGeometry.ts) owns `CAMERA_OFFSET` and DERIVES
+`MAX_WORLD_RENDER_HEIGHT = CAMERA_EYE_HEIGHT − CAMERA_CLEARANCE` (18 − 3 = 15) from it;
+`FollowCamera` imports the offset instead of declaring it; **every** enabled manifest GLB is
+measured from the shipped bytes through the renderer's own transform chain (and per placement,
+composing the archetype projection) in `assets/cameraClearance.test.ts`; and an authored `def.size`
+whose massing reaches the camera eye is now a placement-validation FAILURE
+(`validateCameraClearance`) gated for every district. (2) The **occluder-height gap is closed**:
+`maxY` is `max(authored box + roof slab, the body that actually renders)` — five placements were
+carrying up to 7.0 m of undetectable mass (`building_apartment_01`: a 15 m body over an 8 m box),
+so a player behind them got no fade. Footprint, participation and ids are untouched; the rendered
+top is declared as `renderedTopY` and recomputed from the bytes; fade evidence now covers all six
+projected bodies. (3) `assetsSettled()` is no longer **vacuously true during a remount**: the mount
+graph stamps an epoch + timestamp, and the predicate requires nothing-pending AND a 400 ms quiet
+window AND that a landmark has ever mounted — with `getAssetReadiness()` +
+`waitForSceneSettled(page, { requireGlb })` proving WHICH bodies are on screen, which retires three
+specs' hand-rolled `waitForTimeout`-then-recheck workarounds. (4) Wave 3's `frameFor()` solver is
+extracted to [`tests/visual/framing.ts`](tests/visual/framing.ts) — pure, unit-tested, refusing a
+cropped fill or a look target above the camera, reading body dimensions/scale/paths from the
+manifest instead of a transcribed table. (5) An individually
+adjudicated baseline migration — **nothing bulk-updated, 0 rejected-without-replacement**: 92
+existing baselines modified (89 accepted as captured, 3 rejected-and-reframed) + 9 new = 101 files.
+The debt is broader than the issue assumed — the 88 mismatches at the merge base are every frame
+containing ANY merged approved body (Waves 0–3), not just the nine Wave 3 placements, while
+`wave3-asset-visuals` itself was 0/69 — and exactly ONE existing baseline changed because of code
+in this branch. Gate green at the terminal bytes: unit **1616**, visual `--no-update` **292/292 twice**, build +
+dist clean, asset report 29/0-over; full E2E 369 executed with **9 failures all attributed to the
+exact merge base** (8 reproduce on `04ae46e`, 1 is the documented CPU-bound cold load). Per-image
+ledger, the ten committed `expected | actual | diff` contact sheets and the E2E attribution:
+[`docs/review/issue-46-baseline-migration/`](docs/review/issue-46-baseline-migration/); design and
+derivations in
+[`docs/VISUAL_QUALITY_AND_BASELINE_INTEGRITY.md`](docs/VISUAL_QUALITY_AND_BASELINE_INTEGRITY.md).
+
+Prior: **Character Identity & Population Visual Upgrade v1** (issue #23) — the
 capstone of the #21 character pipeline: every person (the named cast, a bounded rigged
 ambient crowd, and the player) gets a **distinct deterministic visual identity** on the
 ONE `AnimatedCharacter` rig, with NO second rendering/animation/dialogue/population

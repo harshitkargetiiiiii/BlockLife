@@ -8,13 +8,15 @@
  * or a bench beside a building is fine; a canopy PENETRATING a facade past a
  * tolerance is a clip. Tolerances live with the data (`propPlacement`).
  */
-import type { PropType, Vec2 } from '../worldTypes'
+import type { PropType, Vec2, Vec3 } from '../worldTypes'
 import {
   BASE_CONTACT_TOLERANCE,
   PROP_PLACEMENT,
   VISUAL_CLIP_TOLERANCE,
   type PropPlacementSpec,
 } from '../propPlacement'
+import { buildingMassingTop } from '../buildingMassing'
+import { CAMERA_EYE_HEIGHT, cameraClearanceOf, containsCameraEye } from '../../camera/cameraGeometry'
 
 export type PlacementFailureKind =
   | 'prop_floating'
@@ -22,6 +24,7 @@ export type PlacementFailureKind =
   | 'anchor_invalid'
   | 'duplicate_citizen'
   | 'route_corridor'
+  | 'building_over_camera'
 
 export interface PlacementFailure {
   kind: PlacementFailureKind
@@ -213,6 +216,40 @@ export function validateGroundContactParity(
     }
   }
   return null
+}
+
+/**
+ * Camera clearance (issue #46 §2): an authored building box may never reach the height the
+ * diorama camera flies at.
+ *
+ * `FollowCamera` is an ORTHOGRAPHIC camera at `subject + CAMERA_OFFSET`, so its eye is a real
+ * point in the world at y = 18. A body that reaches it contains it, and the frame fills with
+ * the inside of a roof — the exact failure Wave 3 (#44) shipped and only a screenshot caught,
+ * with `tsc`, lint, 1,563 unit tests, the asset report, these validators, district
+ * certification and 365 E2E tests all green.
+ *
+ * This is the authoring half of the invariant, and it is deliberately the HARD threshold
+ * (`containsCameraEye`) rather than the softer `MAX_WORLD_RENDER_HEIGHT` a rendered visual body
+ * is held to: an authored box is gameplay massing that a district may legitimately push tall,
+ * whereas a projected GLB is presentation and has no reason to spend the clearance. The
+ * matching gate for what actually renders lives in `assets/cameraClearance.test.ts`.
+ *
+ * The measured top is the box plus `BuildingMesh`'s roof slab; see `buildingMassing` for what
+ * is deliberately outside it.
+ */
+export function validateCameraClearance(
+  building: { id: string; size: Vec3 },
+  sectorId: string | null = null,
+): PlacementFailure | null {
+  const top = buildingMassingTop(building.size[1])
+  if (!containsCameraEye(top)) return null
+  return {
+    kind: 'building_over_camera',
+    entityId: building.id,
+    sectorId,
+    reason: `massing reaches ${top.toFixed(2)}u, at or above the camera eye at ${CAMERA_EYE_HEIGHT}u — the camera renders from inside it`,
+    correction: -cameraClearanceOf(top),
+  }
 }
 
 // ---- duplicate-citizen detector ------------------------------------------

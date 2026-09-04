@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
+import { boot, settleAndPause } from './visualHelpers'
 
 /**
  * 3D Asset Pipeline & Visual Upgrade v1 (issue #21 §14) — dedicated showcase
@@ -8,26 +9,12 @@ import { expect, test, type Page } from '@playwright/test'
  * 3D-world shots allow a small pixel-diff ratio (low-poly AA on device pixels).
  */
 
-async function boot(page: Page) {
-  await page.goto('/')
-  await page.waitForFunction(() => window.GAME_TEST_API?.ready() === true, undefined, { timeout: 45_000 })
-  await page.waitForFunction(() => window.GAME_TEST_API?.assetsSettled() === true, undefined, {
-    timeout: 45_000,
-  })
-}
-
 async function waitForNpcModel(page: Page, id: string) {
   await page.waitForFunction(
     (n) => window.GAME_TEST_API!.getCharacterState(n)?.modelLoaded === true,
     id,
     { timeout: 15_000 },
   )
-}
-
-async function settleAndPause(page: Page) {
-  await page.waitForTimeout(2600)
-  await page.evaluate(() => window.GAME_TEST_API!.pauseWorld(true))
-  await page.waitForTimeout(700)
 }
 
 test.describe('asset upgrade visuals (§21 §14)', () => {

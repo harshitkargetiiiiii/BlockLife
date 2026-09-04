@@ -1,0 +1,35 @@
+[chromium] › tests/e2e/authoring.spec.ts:73:3 › district authoring kit › routed traffic drives the compiled road to the kit destination
+[chromium] › tests/e2e/careers.spec.ts:147:3 › careers platform › 6. start + complete a café shift through the production UI + HUD tracker
+[chromium] › tests/e2e/citizen-destinations.spec.ts:133:3 › crossing-aware citizen destinations › a citizen travels toward the waterfront through the painted drive crossing
+[chromium] › tests/e2e/citizen-destinations.spec.ts:165:3 › crossing-aware citizen destinations › the yard worker completes a cross-district commute to the warehouse door
+[chromium] › tests/e2e/citizen-destinations.spec.ts:318:3 › crossing-aware citizen destinations › 150s mixed soak: trips keep completing, nobody strands, occupancy never leaks
+[chromium] › tests/e2e/citizen-destinations.spec.ts:89:3 › crossing-aware citizen destinations › waits at the curb, crosses on all-walk, reaches the destination
+[chromium] › tests/e2e/city-sweep.spec.ts:15:3 › automated city sweeper › traverses every district with continuous integrity assertions
+[chromium] › tests/e2e/crime-soak.spec.ts:11:1 › 180-second crime soak: pursuits, arrests, recoveries — bounded + no errors
+[chromium] › tests/e2e/crime.spec.ts:120:3 › crime & law enforcement › 6 — police arrest a cornered, stopped suspect
+[chromium] › tests/e2e/crime.spec.ts:201:3 › crime & law enforcement › 8b — the carjacked driver flees the scene then despawns
+[chromium] › tests/e2e/crime.spec.ts:429:3 › crime & law enforcement › 16 — a quest NPC (Ravi) flees gunfire then recovers toward his anchor
+[chromium] › tests/e2e/crime.spec.ts:525:3 › crime & law enforcement › 18 — a pursuit survives crossing sector boundaries (streaming)
+[chromium] › tests/e2e/districts.spec.ts:151:3 › districts › Officer Kim patrols into Residential Street
+[chromium] › tests/e2e/districts.spec.ts:184:3 › districts › named test locations all teleport correctly
+[chromium] › tests/e2e/districts.spec.ts:34:3 › districts › player can drive from Central through the east connector into the Market Strip
+[chromium] › tests/e2e/districts.spec.ts:95:3 › districts › an ambient car works the residential loop and holds at the stop sign
+[chromium] › tests/e2e/expansion.spec.ts:160:3 › city expansion content pack › routed freight trip completes to the Industrial Yard loading dock
+[chromium] › tests/e2e/expansion.spec.ts:200:3 › city expansion content pack › routed trip completes to the Waterfront promenade
+[chromium] › tests/e2e/expansion.spec.ts:355:3 › city expansion content pack › large-world soak: routed trips to every new sector while streaming churns
+[chromium] › tests/e2e/gameplay-flow.spec.ts:53:3 › gameplay flow › gym, job board and apartment interactions work
+[chromium] › tests/e2e/getaway-pursuit.spec.ts:54:3 › robbery pursuit & getaway › 1 — containment arms and advances while wanted inside a robbed store
+[chromium] › tests/e2e/getaway-pursuit.spec.ts:77:3 › robbery pursuit & getaway › 2 — a fair breach warning fires, then forces the player out to the street
+[chromium] › tests/e2e/intersections.spec.ts:112:3 › signalized cross-street intersection › a routed trip TURNS through the intersection to a harbor arm
+[chromium] › tests/e2e/intersections.spec.ts:55:3 › signalized cross-street intersection › red approach stops a routed car at the stop line without replanning; green resumes
+[chromium] › tests/e2e/pedestrian-crossings.spec.ts:312:3 › live pedestrian crossings at Harbor Cross › 130s mixed soak: overlaps zero, nobody stranded, no deadlock, no replan storm
+[chromium] › tests/e2e/phone.spec.ts:11:3 › phone › opens with Tab, switches apps, closes, and movement resumes
+[chromium] › tests/e2e/population-soak.spec.ts:46:1 › bounded rigged population: real LOD promote/demote, appearance rehydration, no leaks
+[chromium] › tests/e2e/save-load.spec.ts:55:3 › save / load › the HUD save buttons work ───────
+[chromium] › tests/e2e/traffic-routing.spec.ts:100:3 › cross-district traffic routing › red signal stops a routed car at the line without replanning; green resumes it
+[chromium] › tests/e2e/traffic-routing.spec.ts:236:3 › cross-district traffic routing › 120-second mixed-fleet soak: motion, trips, zero overlaps, stable registries
+[chromium] › tests/e2e/traffic-routing.spec.ts:55:3 › cross-district traffic routing › central → north freight: connector + arterial T traversal completes a trip
+[chromium] › tests/e2e/traffic.spec.ts:155:3 › traffic › ambient car follows the driven car without ever overlapping it
+[chromium] › tests/e2e/traffic.spec.ts:209:3 › traffic › cars stop at red and proceed on green
+[chromium] › tests/e2e/traffic.spec.ts:319:3 › traffic › Officer Kim uses the west crosswalk with signal etiquette
+[chromium] › tests/e2e/vehicles.spec.ts:532:3 › Vehicle Ownership v1 › §34 Give a Ride is invited, started, and completed entirely through the social UI

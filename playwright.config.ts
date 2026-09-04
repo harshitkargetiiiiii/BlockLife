@@ -4,6 +4,14 @@ const PORT = 5199
 
 export default defineConfig({
   testDir: 'tests',
+  /**
+   * Playwright owns `*.spec.ts`; Vitest owns `*.test.ts` (issue #46 §5 put the pure half of the
+   * visual helpers — the framing solver — under the unit gate, where arithmetic belongs).
+   * Playwright's DEFAULT testMatch collects both suffixes, so without this it tries to load a
+   * file that imports `vitest` and the whole run dies with "Vitest failed to access its internal
+   * state" and `Total: 0 tests`.
+   */
+  testMatch: '**/*.spec.ts',
   timeout: 90_000,
   // WebGL scenes are heavy in headless browsers; run serially for stability.
   workers: 1,

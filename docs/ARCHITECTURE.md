@@ -240,8 +240,12 @@ rules: [DISTRICT_AUTHORING_KIT.md](DISTRICT_AUTHORING_KIT.md).
 - **Occlusion / cutaway** ([`visibility/`](../src/game/visibility/)) — when a
   building would hide the player, its materials fade out. A broad-phase corridor
   test plus a precise per-occluder detection feed a material-fade engine
-  (`Occludable` components + `OcclusionManager`). Deep dive in
-  [SYSTEMS.md](SYSTEMS.md#visibility--occlusion).
+  (`Occludable` components + `OcclusionManager`). An occluder's FOOTPRINT is the
+  authored `def.size`; its vertical extent is the taller of that box and the GLB
+  body the placement actually renders (issue #46 §3 — a projected body used to
+  carry mass detection could not see). Deep dive in
+  [SYSTEMS.md](SYSTEMS.md#visibility--occlusion) and
+  [VISUAL_QUALITY_AND_BASELINE_INTEGRITY.md](VISUAL_QUALITY_AND_BASELINE_INTEGRITY.md).
 - **Unified solidity.** Buildings, props, water and fences contribute footprints
   to one solid table
   ([`world/solidFootprints.ts`](../src/game/world/solidFootprints.ts),
@@ -322,12 +326,12 @@ documented. (LOC excludes tests.)
 | **store** (0.6k) | The single zustand store: stats, mode, location, UI, health, all game actions | `useGameStore.ts` | this doc §3 |
 | **npc** (0.6k) | Named residents (Ravi/Maya/Kim…), dialogue system, routines, quest-giver behaviour | `NPC.tsx`, `NPCManager.tsx`, `DialogueSystem.ts`, `npcBehavior.ts` | [SYSTEMS §NPCs](SYSTEMS.md#npcs-dialogue--quests) |
 | **weather** (0.6k) | Weather kinds, blend/wetness runtime, rain/fog/puddles/wet-surface effects | `weatherSystem.ts`, `weatherRuntime.ts`, `WeatherEffects.tsx`, `RainEffect.tsx` | [SYSTEMS §Weather](SYSTEMS.md#weather) |
-| **assets** (0.5k) | Asset manifest, GLB landmark loader with primitive fallback | `assetManifest.ts`, `LandmarkAsset.tsx` | [SYSTEMS §Assets](SYSTEMS.md#assets--glb-loading) |
+| **assets** (0.5k) | Asset manifest (incl. measured `renderedTopY` per world body), GLB landmark loader with primitive fallback, the asset-settle quiet-window policy | `assetManifest.ts`, `LandmarkAsset.tsx`, `assetSettle.ts` | [SYSTEMS §Assets](SYSTEMS.md#assets--glb-loading), [VISUAL_QUALITY](VISUAL_QUALITY_AND_BASELINE_INTEGRITY.md) |
 | **interactables** (0.3k) | Interactable registry, nearby-detection hook, interaction handlers, inventory | `interactionHandlers.ts`, `useNearbyInteractable.ts` | [SYSTEMS §Interaction](SYSTEMS.md#interaction-quests--economy) |
 | **simulation** (0.3k) | In-game clock, needs (hunger/energy), economy, world mood | `timeSystem.ts`, `needsSystem.ts`, `economySystem.ts`, `worldMoodSystem.ts` | [SYSTEMS §Simulation](SYSTEMS.md#simulation-time-needs-economy-mood) |
 | **player** (0.2k) | On-foot controller (rapier body), movement, driving hand-off | `PlayerController.tsx`, `playerTypes.ts` | [SYSTEMS §Player](SYSTEMS.md#player-vehicles--camera) |
 | **audio** (0.2k) | Procedural WebAudio SFX + engine tone | `audioManager.ts` | [SYSTEMS §Audio](SYSTEMS.md#audio) |
-| **camera** (0.1k) | Orthographic follow camera + zoom | `FollowCamera.tsx` | [SYSTEMS §Camera](SYSTEMS.md#player-vehicles--camera) |
+| **camera** (0.1k) | Orthographic follow camera + zoom; **owns `CAMERA_OFFSET` and the world-height invariants derived from it** (a body that reaches the eye contains the camera — issue #46) | `FollowCamera.tsx`, `cameraGeometry.ts` | [SYSTEMS §Camera](SYSTEMS.md#player-vehicles--camera), [VISUAL_QUALITY](VISUAL_QUALITY_AND_BASELINE_INTEGRITY.md) |
 | **save** (0.1k) | Snapshot create/validate/persist/load (IndexedDB) | `saveGame.ts`, `saveTypes.ts` | [SYSTEMS §Save](SYSTEMS.md#save--load) |
 | **controls** (0.1k) | Keyboard input → movement flags + combat edges | `useKeyboardControls.ts` | [SYSTEMS §Controls](SYSTEMS.md#controls--input) |
 | **quests** (0.03k) | Quest FSM (`not_started→active→has_coffee→completed`) | `questMachine.ts`, `questTypes.ts` | [SYSTEMS §Quests](SYSTEMS.md#npcs-dialogue--quests) |

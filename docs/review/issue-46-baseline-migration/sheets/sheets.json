@@ -1,0 +1,70 @@
+{
+  "sheets": [
+    {
+      "name": "sheet-01.jpg",
+      "rows": 10,
+      "first": "asset-building-apartment",
+      "last": "asset-vehicle-van"
+    },
+    {
+      "name": "sheet-02.jpg",
+      "rows": 10,
+      "first": "character-ambient-crowd-rigged",
+      "last": "city-morning"
+    },
+    {
+      "name": "sheet-03.jpg",
+      "rows": 10,
+      "first": "city-night",
+      "last": "crime-cruiser-closeup"
+    },
+    {
+      "name": "sheet-04.jpg",
+      "rows": 10,
+      "first": "crime-hud-l1",
+      "last": "economy-storage-transfer"
+    },
+    {
+      "name": "sheet-05.jpg",
+      "rows": 10,
+      "first": "economy-wardrobe-locked",
+      "last": "driving-compact"
+    },
+    {
+      "name": "sheet-06.jpg",
+      "rows": 10,
+      "first": "driving-scooter",
+      "last": "wave0-candidate-kabir-walk"
+    },
+    {
+      "name": "sheet-07.jpg",
+      "rows": 10,
+      "first": "wave0-candidate-ravi-close",
+      "last": "wave0-sedan-driving-seat"
+    },
+    {
+      "name": "sheet-08.jpg",
+      "rows": 10,
+      "first": "wave1-scooter-active-front",
+      "last": "wave2-streetlight-context-central"
+    },
+    {
+      "name": "sheet-09.jpg",
+      "rows": 9,
+      "first": "wave2-streetlight-context-east",
+      "last": "wave2-trashbin-context-east"
+    },
+    {
+      "name": "sheet-10.jpg",
+      "rows": 3,
+      "first": "wave3-apartment-occlusion-fade",
+      "last": "wave3-townhomes-occlusion-fade",
+      "kind": "rejected-and-reframed"
+    }
+  ],
+  "acceptedRows": 89,
+  "reframedRows": 3,
+  "existingBaselinesAdjudicated": 92,
+  "newBaselines": 9,
+  "filesTouched": 101
+}

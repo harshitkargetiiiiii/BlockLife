@@ -2,10 +2,10 @@ import { Component, Suspense, useEffect, useMemo, type ReactNode } from 'react'
 import * as THREE from 'three'
 import { useGLTF } from '@react-three/drei'
 import type { AssetManifestEntry } from './assetManifest'
-import { clearGlbBranch, getManifestEntry, markGlbBranch, reportAssetLoadFailure, resolveGlbUrl, shouldLoadGlb } from './modelRegistry'
+import { getManifestEntry, markGlbBranch, noteGlbExpected, releaseGlbBranch, reportAssetLoadFailure, resolveGlbUrl, shouldLoadGlb } from './modelRegistry'
 import { applyVariant, createVariantInstances, disposeVariantMaterials, type MaterialVariant, type ResolvedSlots } from './assetVariants'
 import { acquireTintedMaterials, assignTintedMaterials } from './variantMaterialCache'
-import { registry } from '../world/runtimeRegistry'
+import { noteGlbLandmarkChange, registry } from '../world/runtimeRegistry'
 
 export interface LandmarkAssetProps {
   /** Stable semantic id, looked up in the asset manifest. */
@@ -62,17 +62,49 @@ interface BoundaryProps {
 /** Turns a failed GLB load (thrown through Suspense) into the fallback visual. */
 class AssetErrorBoundary extends Component<BoundaryProps, { failed: boolean }> {
   state = { failed: false }
+  /**
+   * Whether THIS boundary is currently counted in `glbLandmarksFailed` (issue #46 §4).
+   *
+   * The counter is a live census of failed instances, not a tally of failures ever seen. Without
+   * the release below, a failed instance that unmounted left its 1 behind forever — and a fresh,
+   * slow remount then read `expected: 1, active: 0, failed: 1 (stale)`, so the settle gate saw
+   * "nothing pending" while the new GLB was still in flight. Quiescence does not rescue that:
+   * a slow network is exactly the case where the mount graph sits still. `componentDidCatch` can
+   * also fire more than once for one boundary, so the flag makes the increment idempotent.
+   */
+  /**
+   * The id this boundary's claim is registered against — NOT `this.props.assetId` at release
+   * time. A projected building can resolve to a different archetype without this boundary
+   * unmounting, and releasing the id it happens to hold *now* would decrement a stranger's
+   * branch while leaving its own behind. (The `key` at the render site makes an id change remount
+   * the boundary, so both halves of the guard agree; this field is what makes it true even if
+   * that key is ever removed.)
+   */
+  private countedAssetId: string | null = null
 
   static getDerivedStateFromError(): { failed: boolean } {
     return { failed: true }
   }
 
   componentDidCatch(error: Error): void {
-    registry.glbLandmarksFailed++
-    // Record the REAL branch, not the manifest's intent: consumers that must not double up
-    // with the procedural fallback (the garage's painted door) key off this.
-    markGlbBranch(this.props.assetId, 'failed')
+    if (this.countedAssetId === null) {
+      this.countedAssetId = this.props.assetId
+      registry.glbLandmarksFailed++
+      noteGlbLandmarkChange()
+      // Record the REAL branch, not the manifest's intent: consumers that must not double up
+      // with the procedural fallback (the garage's painted door) key off this.
+      markGlbBranch(this.props.assetId, 'failed')
+    }
     reportAssetLoadFailure(this.props.assetId, error)
+  }
+
+  componentWillUnmount(): void {
+    const id = this.countedAssetId
+    if (id === null) return
+    this.countedAssetId = null
+    registry.glbLandmarksFailed--
+    noteGlbLandmarkChange()
+    releaseGlbBranch(id, 'failed')
   }
 
   render(): ReactNode {
@@ -106,9 +138,12 @@ function GlbModel({
   // scene-settled indicator used by visual tests via the test API.
   useEffect(() => {
     registry.glbLandmarksActive++
+    noteGlbLandmarkChange()
     markGlbBranch(entry.id, 'active')
     return () => {
       registry.glbLandmarksActive--
+      noteGlbLandmarkChange()
+      releaseGlbBranch(entry.id, 'active')
     }
   }, [entry.id])
 
@@ -180,11 +215,15 @@ export function LandmarkAsset({
   useEffect(() => {
     if (!useGlb) return
     registry.glbLandmarksExpected++
+    noteGlbExpected(assetId, 1)
+    noteGlbLandmarkChange()
     return () => {
       registry.glbLandmarksExpected--
-      // Sector streaming remounts these constantly; a stale 'failed' would keep a duplicate
-      // door alive long after the instance that failed is gone.
-      clearGlbBranch(assetId)
+      noteGlbExpected(assetId, -1)
+      noteGlbLandmarkChange()
+      // The branch claims are released by whoever took them — the model effect for 'active',
+      // the error boundary for 'failed' — so one of four house instances unmounting no longer
+      // clears the branch for the three still on screen (issue #46 §4).
     }
   }, [useGlb, assetId])
 
@@ -200,8 +239,11 @@ export function LandmarkAsset({
 
   return (
     <group name={`asset:${assetId}`} position={position} rotation-y={rotationY}>
+      {/* The boundary is keyed by the asset id: switching a placement to a different archetype
+          must give it a FRESH boundary, so a failure counted against the old id is released and
+          the new id starts un-failed rather than inheriting `state.failed` (issue #46 §4). */}
       {useGlb ? (
-        <AssetErrorBoundary assetId={assetId} fallback={children}>
+        <AssetErrorBoundary key={assetId} assetId={assetId} fallback={children}>
           <Suspense fallback={children}>
             {projection ? (
               // Nested group = matrix composition with the primitive's entry TRS.

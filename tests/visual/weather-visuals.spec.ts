@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
+import { waitForSceneSettled } from './visualHelpers'
 
 /**
  * Weather visual snapshots. Weather is forced instantly through the test API
@@ -17,9 +18,7 @@ async function setupWeatherScene(
   await page.waitForFunction(() => window.GAME_TEST_API?.ready() === true, undefined, {
     timeout: 45_000,
   })
-  await page.waitForFunction(() => window.GAME_TEST_API?.assetsSettled() === true, undefined, {
-    timeout: 45_000,
-  })
+  await waitForSceneSettled(page)
   await page.evaluate(
     ([h, kind, pos]) => {
       const api = window.GAME_TEST_API!
@@ -31,16 +30,13 @@ async function setupWeatherScene(
     },
     [hour, weather, position] as const,
   )
-  // `resetGame()` + `teleportPlayer()` REMOUNT every streamed sector, so the GLB settle counters
-  // pass through a trough where `expected` is momentarily 0 and `assetsSettled()` is vacuously
-  // true. The boot-time wait above therefore says nothing about the scene being photographed.
-  // Let the new instances register first, THEN wait for them to actually commit — otherwise the
-  // frame captures whichever models happened to be up when a fixed deadline expired, which is how
-  // this baseline came to hold `building_office_01`'s procedural FALLBACK rather than its GLB.
-  await page.waitForTimeout(1200)
-  await page.waitForFunction(() => window.GAME_TEST_API?.assetsSettled() === true, undefined, {
-    timeout: 45_000,
-  })
+  // `resetGame()` + `teleportPlayer()` REMOUNT every streamed sector, and the boot-time wait
+  // above says nothing about the scene that remount produced. `waitForSceneSettled` requires
+  // the mount graph to hold still, so the remount trough — where the counters read 0 and the
+  // old predicate was vacuously true — can no longer pass. `requireGlb` then names the body
+  // this baseline is actually about: it is `building_office_01`'s procedural FALLBACK that got
+  // recorded here once, and only naming it makes that impossible rather than unlikely.
+  await waitForSceneSettled(page, { requireGlb: ['building_office_01'] })
   await page.waitForTimeout(2800)
 }
 

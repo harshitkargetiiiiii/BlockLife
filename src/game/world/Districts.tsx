@@ -9,7 +9,7 @@ import {
 import { roadMaterial, sidewalkMaterial } from './materials'
 import { Occludable } from '../visibility/Occludable'
 import { getLinkedOccluderDescriptor } from '../visibility/occluderData'
-import { isGlbBodyRendering } from '../assets/modelRegistry'
+import { suppressProceduralDouble } from '../assets/modelRegistry'
 import { useGameStore } from '../store/useGameStore'
 
 const MARKING_COLOR = '#e8e4da'
@@ -395,8 +395,13 @@ function CityDressing() {
   // Issue #44 Codex review: the garage's painted rolling door must follow the ACTUAL render
   // branch, so this subscribes to the counter `markGlbBranch` bumps when a GLB commits or
   // fails. Reading the registry alone would never re-render — it is a module singleton.
+  //
+  // Issue #46: this is the loading-TOLERANT question ("may I draw a stand-in"), not the literal
+  // "is the model on screen". Drawing the painted door while the GLB is still loading flashes it
+  // over the model's own shutter on every sector remount, so it stays suppressed until the load
+  // genuinely fails. The two predicates now have separate names to keep that distinction visible.
   useGameStore((st) => st.assetLoadVersion)
-  const garageGlbRendering = isGlbBodyRendering('building_garage_01')
+  const garageGlbRendering = suppressProceduralDouble('building_garage_01')
   return (
     <group name="city-dressing">
       {/* Road patches: repaired asphalt rectangles */}

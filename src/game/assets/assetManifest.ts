@@ -76,6 +76,25 @@ export interface AssetManifestEntry {
   /** Optional visual bounds (world units) for tooling/labels; render reads the GLB. */
   bounds?: { width: number; height: number; depth: number }
   /**
+   * Top of the rendered GLB body, in world units above this landmark's own origin — i.e. the
+   * measured model bounds put through `rotation` → `scale` → `positionOffset` (issue #46 §3).
+   *
+   * NOT the same number as `bounds.height`: `bounds` is a SIZE, and a body whose pivot sits at
+   * its centre (or that is lifted by a `positionOffset`) reaches a different height than its
+   * size suggests. Occlusion needs the height, not the size.
+   *
+   * Why the manifest carries it at all: `getBuildingOccluderDescriptor` used to derive an
+   * occluder's vertical extent from the authored `def.size` alone, so a projected body taller
+   * than its box carried mass detection could not see — the sight line passed over the
+   * descriptor's roof while the real facade stood in front of it, and the player sat hidden
+   * behind an opaque wall with no fade. The runtime cannot measure a GLB synchronously, so the
+   * measurement is declared here and RECOMPUTED from the shipped bytes by
+   * `cameraClearance.test.ts`, which fails if the declaration drifts from the file.
+   *
+   * Required on every enabled `city` entry (the placements that can be occluders).
+   */
+  renderedTopY?: number
+  /**
    * Where the occupant indicators sit on THIS body (issue #40), in WORLD metres relative to the
    * vehicle's ground origin: x = lateral (+ right), y = up from the ground, z = longitudinal
    * (+z is the nose). Only consulted when the GLB body is the thing rendering — the procedural
@@ -187,6 +206,7 @@ export const ASSET_MANIFEST: AssetManifestEntry[] = [
     // materials that do not exist in this body.
     materialSlots: {},
     bounds: { width: 5.5376, height: 14.9996, depth: 5.1183 },
+    renderedTopY: 14.9996,
     enabled: true,
     budget: { maxTriangles: 60000 },
     attribution: 'Meshy AI — generated original asset (owner-approved 2026-08-31 sprint), texture-optimized in-repo',
@@ -205,6 +225,7 @@ export const ASSET_MANIFEST: AssetManifestEntry[] = [
     positionOffset: [0.62, 0.01, 3.07],
     labelHeight: 11.8,
     materialSlots: { wall: ['MI_RedBrick_Pale', 'MI_Concrete'], trim: ['MI_Trim', 'MI_Trim_MetalConcrete'] },
+    renderedTopY: 10.5587,
     enabled: true,
   },
   {
@@ -225,6 +246,7 @@ export const ASSET_MANIFEST: AssetManifestEntry[] = [
     positionOffset: [0, 0, 0],
     labelHeight: 10.2,
     materialSlots: { wall: ['wall'] },
+    renderedTopY: 9.5002,
     enabled: true,
     budget: { maxTriangles: 60000 },
     attribution: 'Meshy AI — generated original asset (owner-approved 2026-08-31 sprint), assembled + texture-optimized in-repo',
@@ -245,6 +267,7 @@ export const ASSET_MANIFEST: AssetManifestEntry[] = [
     rotation: [0, Math.PI / 2, 0],
     positionOffset: [3.84, 0, 0.48],
     materialSlots: { wall: ['MI_InteriorWall'], trim: ['MI_Trim_Dark', 'MI_Trim_MetalConcrete'] },
+    renderedTopY: 13.44,
     enabled: true,
   },
   {
@@ -263,6 +286,7 @@ export const ASSET_MANIFEST: AssetManifestEntry[] = [
     scale: [2.95, 2.95, 2.95],
     positionOffset: [0, 2.81, 0],
     labelHeight: 6.2,
+    renderedTopY: 5.6214,
     enabled: true,
     budget: { maxTriangles: 60000 },
     attribution: 'Meshy AI — generated original low-poly asset (text→image→3D), texture-optimized in-repo',
@@ -320,6 +344,7 @@ export const ASSET_MANIFEST: AssetManifestEntry[] = [
     // slot is claimed, and the source colours ship as approved.
     materialSlots: {},
     bounds: { width: 6.9612, height: 7.9515, depth: 5.2868 },
+    renderedTopY: 7.9515,
     enabled: true,
     budget: { maxTriangles: 60000 },
     attribution: 'Meshy AI — generated original asset (owner-approved 2026-08-31 sprint), texture-optimized in-repo',
@@ -361,6 +386,7 @@ export const ASSET_MANIFEST: AssetManifestEntry[] = [
     labelHeight: 6,
     materialSlots: {},
     bounds: { width: 5.9925, height: 4.824, depth: 4.8836 },
+    renderedTopY: 4.824,
     enabled: true,
     budget: { maxTriangles: 60000 },
     attribution: 'Meshy AI — generated original asset (owner-approved 2026-08-31 sprint), texture-optimized in-repo',
@@ -400,6 +426,7 @@ export const ASSET_MANIFEST: AssetManifestEntry[] = [
     positionOffset: [0, 0, 0],
     materialSlots: {},
     bounds: { width: 5.4935, height: 4.757, depth: 5.0635 },
+    renderedTopY: 4.757,
     enabled: true,
     budget: { maxTriangles: 60000 },
     attribution: 'Meshy AI — generated original asset (owner-approved 2026-08-31 sprint), texture-optimized in-repo',
@@ -434,6 +461,7 @@ export const ASSET_MANIFEST: AssetManifestEntry[] = [
     // MODEL-LOCAL extents at this scale, the same convention every other entry uses; the −π/2
     // yaw swaps them in world space, so this body renders 4.834 wide × 6.9915 deep on the lot.
     bounds: { width: 6.9915, height: 3.7824, depth: 4.834 },
+    renderedTopY: 3.7824,
     enabled: true,
     budget: { maxTriangles: 60000 },
     attribution: 'Meshy AI — generated original asset (owner-approved 2026-08-31 sprint), texture-optimized in-repo',
@@ -467,6 +495,7 @@ export const ASSET_MANIFEST: AssetManifestEntry[] = [
     // MODEL-LOCAL extents at this scale, the same convention every other entry uses; the −π/2
     // yaw swaps them in world space, so this body renders 8.4457 wide × 7.6179 deep on the lot.
     bounds: { width: 7.6179, height: 14.9994, depth: 8.4457 },
+    renderedTopY: 14.9994,
     enabled: true,
     budget: { maxTriangles: 60000 },
     attribution: 'Meshy AI — generated original asset (owner-approved 2026-08-31 sprint), texture-optimized in-repo',

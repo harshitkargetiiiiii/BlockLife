@@ -1,26 +1,11 @@
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test } from '@playwright/test'
+import { boot, settleAndPause } from './visualHelpers'
 
 /**
  * District Authoring Kit v1 visual snapshots: the Main Street East proof
  * sector (compiled entirely from templates) and the phone map that includes
  * it. Deterministic via pause-snap.
  */
-
-async function boot(page: Page) {
-  await page.goto('/')
-  await page.waitForFunction(() => window.GAME_TEST_API?.ready() === true, undefined, {
-    timeout: 45_000,
-  })
-  await page.waitForFunction(() => window.GAME_TEST_API?.assetsSettled() === true, undefined, {
-    timeout: 45_000,
-  })
-}
-
-async function settleAndPause(page: Page) {
-  await page.waitForTimeout(2600)
-  await page.evaluate(() => window.GAME_TEST_API!.pauseWorld(true))
-  await page.waitForTimeout(700)
-}
 
 test.describe('authoring kit visuals', () => {
   test('main street east proof sector overview', async ({ page }) => {

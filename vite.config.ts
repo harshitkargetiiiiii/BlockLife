@@ -44,7 +44,10 @@ export default defineConfig({
     // Globals let @testing-library/react register its automatic DOM cleanup.
     globals: true,
     setupFiles: ['./src/setup/setupTests.ts'],
-    include: ['src/**/*.test.{ts,tsx}'],
+    // `tests/**/*.test.ts` is the PURE half of the Playwright helpers (the framing solver),
+    // which is arithmetic and belongs in the unit gate. Playwright's own files are `*.spec.ts`
+    // and are never picked up here.
+    include: ['src/**/*.test.{ts,tsx}', 'tests/**/*.test.ts'],
     css: false,
   },
 })

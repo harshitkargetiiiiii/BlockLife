@@ -1,4 +1,5 @@
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test } from '@playwright/test'
+import { boot, settleAndPause } from './visualHelpers'
 
 /**
  * Cross-District Routing v1 visual snapshots. Pausing snaps every routed
@@ -7,22 +8,6 @@ import { expect, test, type Page } from '@playwright/test'
  * scenarios (connector traversal, signal waits, queues) are covered by the
  * E2E suite — these baselines pin the rendered road network + fleet.
  */
-
-async function boot(page: Page) {
-  await page.goto('/')
-  await page.waitForFunction(() => window.GAME_TEST_API?.ready() === true, undefined, {
-    timeout: 45_000,
-  })
-  await page.waitForFunction(() => window.GAME_TEST_API?.assetsSettled() === true, undefined, {
-    timeout: 45_000,
-  })
-}
-
-async function settleAndPause(page: Page) {
-  await page.waitForTimeout(2600)
-  await page.evaluate(() => window.GAME_TEST_API!.pauseWorld(true))
-  await page.waitForTimeout(700)
-}
 
 test.describe('routing visuals', () => {
   test('central ring north junction with routed + loop traffic at anchors', async ({ page }) => {
