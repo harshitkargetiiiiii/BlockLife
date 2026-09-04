@@ -125,12 +125,16 @@ committed beside this file as `ci-failures-base-33818518335.txt` and
 
 ### The four that failed only on the candidate — each re-run locally on this branch
 
-| test | CI failure | local re-run, alone, on the review-fixed working tree based on `0e6c776` |
+| test | CI failure | local re-run, alone, on the review-fixed tree — now `a4423c6` |
 | --- | --- | --- |
 | `citizen-destinations:89` › waits at the curb, crosses on all-walk | `waitForFunction` 90 s timeout | **PASS** (2.0 m) |
 | `citizen-destinations:133` › travels toward the waterfront through the painted crossing | `waitForFunction` 90 s timeout | **PASS** (45.3 s) |
 | `city-sweep:15` › traverses every district with continuous integrity assertions | test 90 s timeout in `page.evaluate` | **PASS** (22.0 s) |
 | `crime:525` › 18 — a pursuit survives crossing sector boundaries | `after.police` was 1, expected 2 | **PASS** (9.3 s) |
+
+These ran on the working tree that became `a4423c6` (`0e6c776` plus the empty-graph review fix).
+Everything committed after the runs is a comment or a doc — no runtime file changed — so the
+simulation under test is byte-identical to the committed head.
 
 All four landed on CI **shard 2/8**, in the same run. Three are wall-clock timeouts and the fourth
 is a police-escalation count that depends on how many simulated seconds elapse before the assert —
