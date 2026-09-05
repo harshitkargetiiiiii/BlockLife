@@ -255,6 +255,81 @@ unit files pass 67/67, and `dist` contains **neither** `GAME_TEST_API` **nor** `
 **Outcome: it named a pre-existing id** (`vehicle_compact_car_01`), so by the criterion set out
 before the run, this is not Wave 4's asset regression. See the RESULT section above.
 
+## RESULT 2 — the network question is closed: the bytes arrive, the instance never commits
+
+Run [33984584811](https://github.com/harshitkargetiiiiii/BlockLife/actions/runs/33984584811), job
+101355702332, shard 8/8, head `9ac1d76`. **All eight shards failed** in this run.
+
+```
+GLB_NET  requested: 32   finished: 32   failed: []   outstanding: []
+ASSETS_NOT_SETTLED  expected:320 active:319 failed:0 pending:1  quietMs:16374
+  unresolvedByAsset:[{"id":"vehicle_compact_car_01","unresolved":1,"expected":1,"active":0,"failed":0}]
+```
+
+Every GLB — `compact_sedan_01.glb` included — completed its HTTP response, and nothing was
+outstanding or failed. Of the three causes, two are eliminated:
+
+| Cause | Status |
+| ----- | ------ |
+| request never issued | **ruled out** — it is in `requested` |
+| issued, never completed (starvation / hung connection) | **ruled out** — it is in `finished`, `outstanding` is empty |
+| arrived, but the instance never committed | **the remaining case** |
+
+**This also eliminates the one mechanism by which Wave 4 could plausibly have contributed.** The
+concurrency hypothesis — that Wave 4's four extra GLB requests to this sector starve an older one
+under HTTP/1.1 per-origin limits — required an unfinished request. There are none.
+
+Read narrowly: `requestfinished` means the response body completed, and nothing more. It does **not**
+establish that the GLTF parsed, that drei's cached promise resolved, or that the suspended component
+re-rendered. Those three remain, all in unchanged pre-existing `VehicleAsset`/drei code, and the
+snapshot is consistent with all of them (`active: 0`, `failed: 0`, graph still for 16.4 s).
+
+**Two limits of this instrument, stated so the next reader does not over-trust it.** It keys on
+filename in a `Set`, so a *second* request for the same file is invisible — a remount re-fetch would
+not show — and it records no counts or timings. The failing test also moved from the 2nd in the spec
+to the 1st, so this is the boot path, not one test.
+
+## Base vs candidate, and why the diff cannot attribute anything
+
+| | base `efda5d6` (33898503820) | candidate `9ac1d76` (33984584811) |
+| - | - | - |
+| shards failing | 7 of 8 | **8 of 8** |
+| distinct failing tests | 35 | 48 |
+
+- **33 fail on both** — pre-existing.
+- **2 fail only on base**: `crime` "8b — the carjacked driver flees the scene then despawns";
+  `density` "traffic keeps flowing with citizens registered as pedestrians".
+- **14 fail only on the candidate**, including `careers` café shift, `missions` save/load ×2,
+  `save-load` HUD buttons, `sectors` boundary crossing, `expansion` streaming cycles, `vehicles`
+  §34 Give a Ride, `traffic` Officer Kim crosswalk, and Wave 4's own
+  "a streaming unload → reload leaves no stale active/failed state".
+
+**That 14 is not a regression count, and this branch can now prove why rather than assert it.**
+Shard 8 **passed 14/14** on run 33984155689 (head `6f74d43`) and **failed** on run 33984584811 (head
+`9ac1d76`) — and those two heads differ **only by a documentation commit**. Same effective code,
+opposite outcomes on consecutive runs. With one sample per side, a base-vs-candidate diff of a suite
+that behaves like this cannot attribute individual tests in either direction; the two "fixed" tests
+are equally meaningless as evidence.
+
+### Bounded conclusion
+
+Supported by the evidence: the stall is real; the body holding readiness open is
+`vehicle_compact_car_01`, **Wave 0 code untouched by this branch**; every Wave 4 body is in
+`glbActive`; `glbFailed` is empty; and the bytes arrive over the network. Not supported: any
+attribution of the 14 candidate-only failures, in either direction, from single samples.
+
+The one Wave-4-authored new failure — "a streaming unload → reload leaves no stale active/failed
+state" — is worth a closer look precisely because it is thematically adjacent to a
+never-committed branch. On one sample it is not yet evidence.
+
+### Proposed next step (NOT implemented)
+
+Separating "Wave 4 contributes" from "this suite is intermittent" needs repeated sampling, which is
+out of scope here. The cheapest non-rerun step that would still advance it: log the request **count**
+per GLB filename and whether a second `compact_sedan_01.glb` request occurred, which distinguishes a
+remount re-fetch from a single never-resumed load and closes the instrument gap noted above.
+Test-only, ~5 lines. No production change is proposed until that ambiguity is resolved.
+
 ### The first timing probe returned a NULL result — my instrument was wrong
 
 Run 33983640488 (job 101353197531, shard 8/8, head `2ca9c43`) reproduced the stall a **fourth**
