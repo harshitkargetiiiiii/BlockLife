@@ -236,18 +236,37 @@ unit files pass 67/67, and `dist` contains **neither** `GAME_TEST_API` **nor** `
 **Outcome: it named a pre-existing id** (`vehicle_compact_car_01`), so by the criterion set out
 before the run, this is not Wave 4's asset regression. See the RESULT section above.
 
-### The next (and smallest) diagnostic, now shipped
+### The first timing probe returned a NULL result — my instrument was wrong
 
-`boot()` additionally logs `GLB_TIMING` on timeout: the browser's own
-`PerformanceResourceTiming` for every `.glb` — how many were requested, which have
-`responseEnd === 0` (issued but never finished), and the six slowest. That separates the three
+Run 33983640488 (job 101353197531, shard 8/8, head `2ca9c43`) reproduced the stall a **fourth**
+time, with an identical `unresolvedByAsset` naming `vehicle_compact_car_01` (`quietMs` 21,357).
+The new probe reported:
+
+```
+GLB_TIMING {"requested":0,"neverFinished":[],"slowest":[]}
+```
+
+**That is an artifact, not a finding.** Zero `.glb` resource entries while 319 GLB instances are
+active is self-contradictory. The cause is `resourceTimingBufferSize`, which defaults to **250**
+entries: under the Vite dev server hundreds of ES modules are requested before the first GLB, the
+buffer fills, and every later entry — including all the GLBs — is silently dropped.
+`performance.getEntriesByType('resource')` was the wrong instrument for this page.
+
+It is replaced with Playwright-side network events (`request` / `requestfinished` /
+`requestfailed`), attached before navigation, which have no buffer limit. On timeout `boot()` now
+logs `GLB_NET` with `requested`, `finished`, `failed`, and — the field that answers the question —
+`outstanding`: requested but never finished.
+
+### The diagnostic, now shipped
+
+`boot()` logs `GLB_NET` on timeout, from Playwright's own network events. That separates the three
 remaining causes directly:
 
-| `GLB_TIMING` shows | Cause | Fix belongs to |
+| `GLB_NET` shows for `compact_sedan_01.glb` | Cause | Fix belongs to |
 | ------------------ | ----- | -------------- |
-| no entry for `compact_sedan_01.glb` | the request was never issued | the loader / suspense path |
-| an entry with `responseEnd: 0` | issued, never completed — starvation or a hung connection | request concurrency; Wave 4's +4 requests are then a real contributing factor |
-| a completed entry | the file arrived and the component never resumed | React/drei resume in `VehicleAsset` |
+| absent from `requested` | the request was never issued | the loader / suspense path |
+| in `outstanding` (requested, never finished) | issued, never completed — starvation or a hung connection | request concurrency; Wave 4's +4 requests to this sector are then a real contributing factor |
+| in `finished` | the file arrived and the component never resumed | React/drei resume in `VehicleAsset` |
 
 Test-only, in the same already-failed catch block, original error still rethrown. No production
 code, no predicate, timeout, retry, asset, mapping, wardrobe or baseline change.

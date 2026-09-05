@@ -27,6 +27,13 @@ const call = (page: Page, m: string, ...a: unknown[]) =>
  * `glbPending` is the raw census and also lists ids that do not block.
  */
 async function boot(page: Page): Promise<void> {
+  const file = (u: string) => u.split('/').pop() ?? u
+  const glbRequested = new Set<string>()
+  const glbFinished = new Set<string>()
+  const glbFailed = new Set<string>()
+  page.on('request', (r) => { if (r.url().endsWith('.glb')) glbRequested.add(file(r.url())) })
+  page.on('requestfinished', (r) => { if (r.url().endsWith('.glb')) glbFinished.add(file(r.url())) })
+  page.on('requestfailed', (r) => { if (r.url().endsWith('.glb')) glbFailed.add(file(r.url())) })
   await page.goto('/')
   await page.waitForFunction(() => window.GAME_TEST_API?.ready() === true, undefined, { timeout: 45_000 })
   try {
@@ -37,26 +44,22 @@ async function boot(page: Page): Promise<void> {
       .catch(() => null)
     // eslint-disable-next-line no-console
     console.log('ASSETS_NOT_SETTLED ' + JSON.stringify(readiness))
-    // Second half of the question. The snapshot above says WHICH id stalled; this says whether its
-    // file was ever requested, requested-but-never-finished, or finished while the component stayed
-    // suspended. Those are three different causes with three different fixes, and nothing else in
-    // the log distinguishes them.
-    const timing = await page
-      .evaluate(() => {
-        const glb = performance.getEntriesByType('resource').filter((e) => e.name.endsWith('.glb'))
-        const name = (e: PerformanceEntry) => e.name.split('/').pop() ?? e.name
-        return {
-          requested: glb.length,
-          neverFinished: glb.filter((e) => (e as PerformanceResourceTiming).responseEnd === 0).map(name),
-          slowest: glb
-            .map((e) => ({ file: name(e), ms: Math.round(e.duration) }))
-            .sort((a, b) => b.ms - a.ms)
-            .slice(0, 6),
-        }
-      })
-      .catch(() => null)
+    // Second half of the question: was the stalled id's file ever requested, requested but never
+    // finished, or finished while the component stayed suspended? Three causes, three fixes.
+    //
+    // Measured from PLAYWRIGHT's network events, not `performance.getEntriesByType('resource')`.
+    // The in-page version reported `requested: 0` while 319 GLB instances were active — an
+    // artifact of `resourceTimingBufferSize` (default 250): under Vite dev, hundreds of ES modules
+    // fill the buffer before the first GLB is requested, and later entries are simply dropped. The
+    // event listeners below have no such limit.
     // eslint-disable-next-line no-console
-    console.log('GLB_TIMING ' + JSON.stringify(timing))
+    console.log('GLB_NET ' + JSON.stringify({
+      requested: [...glbRequested].sort(),
+      finished: [...glbFinished].sort(),
+      failed: [...glbFailed].sort(),
+      // Requested but never finished — the ones a stalled boot is actually waiting on.
+      outstanding: [...glbRequested].filter((f) => !glbFinished.has(f) && !glbFailed.has(f)).sort(),
+    }))
     throw err
   }
 }
