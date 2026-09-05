@@ -155,6 +155,62 @@ scope here.
 Raising the timeout would hide exactly this distinction, so it was not touched. Nothing was re-run,
 no assertion weakened, no retry added.
 
+## RESULT — the diagnostic fired, and the stalled body is NOT a Wave 4 asset
+
+Run [33982913648](https://github.com/harshitkargetiiiiii/BlockLife/actions/runs/33982913648), job
+101351269316, shard 8/8, on head `0934bd2`. Third consecutive failure of the same boot — and this
+time it reported why:
+
+```
+ASSETS_NOT_SETTLED {
+  "expected":320, "active":319, "failed":0, "pending":1,
+  "epoch":1917, "quietMs":19839.2,
+  "glbFailed":[],
+  "unresolvedByAsset":[
+    {"id":"vehicle_compact_car_01","unresolved":1,"expected":1,"active":0,"failed":0}
+  ]
+}
+```
+
+**Exactly one instance of one id is holding readiness open: `vehicle_compact_car_01`** — the
+drivable player car shell (`compact_sedan_01.glb`), committed in **Wave 0** (`5f42392`, issue #38)
+and **untouched by this branch**.
+
+What the snapshot rules out:
+
+| Hypothesis | Verdict from the snapshot |
+| ---------- | ------------------------- |
+| A Wave 4 body failed to load | **No.** All four parked bodies AND `building_gate_tower_02` are in `glbActive`; `glbFailed` is empty. |
+| Mount-graph churn (state 5) | **No.** `quietMs = 19,839` — the graph sat perfectly still for ~20 s against a 400 ms window. |
+| A load error / unreachable file | **No.** `failed: 0`, no `[assets]` warning, no `pageerror`. |
+| Corrupt accounting (state 4) | **No.** `pending: 1` is a clean, positive census. |
+| Payload volume alone | **Not directly.** 319 of 320 instances committed, including every Wave 4 body. |
+
+So the shape is the permanent single-instance suspension the module already documents: an instance
+that never commits and never throws. The skip rule in `unresolvedInstances` cannot rescue it,
+because that rule keys off *the same id* having a failed sibling — and the player car shell is a
+**single-instance id**, so there is never a sibling to fail. That is a real blind spot, but
+"resolving" a lone suspended instance is exactly the leaked-failure hole the module refuses to
+reopen, so it must not be patched there.
+
+**This is not a Wave 4 asset regression.** Wave 4 may still be a *contributing* factor — it adds
+4.38 MiB across 4 GLB ids to this very sector, which changes load ordering and concurrency — but the
+body that stalls is unchanged pre-existing code, and the evidence does not establish that Wave 4
+causes it.
+
+### Why no fix is being committed yet
+
+Three distinct causes remain, and they need different fixes:
+
+1. the request for `compact_sedan_01.glb` was **never issued** (the component suspended before the
+   fetch, or the loader never started it);
+2. it was **issued and never completed** (starved or hung — plausible under HTTP/1.1 per-origin
+   connection limits once Wave 4 adds four more GLB requests to the same sector);
+3. it **completed** and the suspended component was never re-rendered to resume.
+
+Guessing between them would mean speculative production code in the vehicle asset path — the one
+place this wave has been most careful not to touch. So the next measurement is shipped instead.
+
 ## The diagnostic added to settle it
 
 Two identical failures with no usable evidence is the actual blocker: a bare timeout reports only
@@ -177,9 +233,21 @@ Verified without a browser: `tsc -b --force` clean, `oxlint` clean, the settle/c
 unit files pass 67/67, and `dist` contains **neither** `GAME_TEST_API` **nor** `unresolvedByAsset`
 (0 matches each), so none of this reaches production.
 
-**What to read next.** When shard 8 next fails, the log line `ASSETS_NOT_SETTLED` gives
-`unresolvedByAsset` — the ids still in flight. If it names `vehicle_parked_*` ids, Wave 4 is
-implicated directly and the 4.38 MiB the spawn sector gained is the mechanism. If it is empty while
-`quietMs < 400`, the graph is churning and the cause is remount behaviour, not payload. If it names
-a pre-existing id, this is not Wave 4's. Each of those is a different fix, which is why guessing one
-now would be wrong.
+**Outcome: it named a pre-existing id** (`vehicle_compact_car_01`), so by the criterion set out
+before the run, this is not Wave 4's asset regression. See the RESULT section above.
+
+### The next (and smallest) diagnostic, now shipped
+
+`boot()` additionally logs `GLB_TIMING` on timeout: the browser's own
+`PerformanceResourceTiming` for every `.glb` — how many were requested, which have
+`responseEnd === 0` (issued but never finished), and the six slowest. That separates the three
+remaining causes directly:
+
+| `GLB_TIMING` shows | Cause | Fix belongs to |
+| ------------------ | ----- | -------------- |
+| no entry for `compact_sedan_01.glb` | the request was never issued | the loader / suspense path |
+| an entry with `responseEnd: 0` | issued, never completed — starvation or a hung connection | request concurrency; Wave 4's +4 requests are then a real contributing factor |
+| a completed entry | the file arrived and the component never resumed | React/drei resume in `VehicleAsset` |
+
+Test-only, in the same already-failed catch block, original error still rethrown. No production
+code, no predicate, timeout, retry, asset, mapping, wardrobe or baseline change.

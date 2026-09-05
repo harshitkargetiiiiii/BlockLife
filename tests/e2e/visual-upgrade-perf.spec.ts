@@ -37,6 +37,26 @@ async function boot(page: Page): Promise<void> {
       .catch(() => null)
     // eslint-disable-next-line no-console
     console.log('ASSETS_NOT_SETTLED ' + JSON.stringify(readiness))
+    // Second half of the question. The snapshot above says WHICH id stalled; this says whether its
+    // file was ever requested, requested-but-never-finished, or finished while the component stayed
+    // suspended. Those are three different causes with three different fixes, and nothing else in
+    // the log distinguishes them.
+    const timing = await page
+      .evaluate(() => {
+        const glb = performance.getEntriesByType('resource').filter((e) => e.name.endsWith('.glb'))
+        const name = (e: PerformanceEntry) => e.name.split('/').pop() ?? e.name
+        return {
+          requested: glb.length,
+          neverFinished: glb.filter((e) => (e as PerformanceResourceTiming).responseEnd === 0).map(name),
+          slowest: glb
+            .map((e) => ({ file: name(e), ms: Math.round(e.duration) }))
+            .sort((a, b) => b.ms - a.ms)
+            .slice(0, 6),
+        }
+      })
+      .catch(() => null)
+    // eslint-disable-next-line no-console
+    console.log('GLB_TIMING ' + JSON.stringify(timing))
     throw err
   }
 }
