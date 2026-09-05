@@ -7,7 +7,7 @@ import { BUILDINGS } from '../world/cityLayout'
 import { resolveBuildingVisual } from '../world/buildingProjection'
 import { VEHICLE_DEFS } from '../vehicles/vehicleRegistry'
 import { shellMeshScale } from '../vehicles/vehicleProjection'
-import { CHARACTER_ASSETS } from '../characters/characterManifest'
+import { CHARACTER_ASSETS, WAVE4_NAMED_BODIES } from '../characters/characterManifest'
 import { BODY_BUILDS } from '../characters/characterMaterials'
 import { AMBIENT_RIG_SCALE } from '../citizens/AmbientCitizens'
 import {
@@ -266,6 +266,9 @@ describe('issue #46 §2 — camera clearance is a world invariant, not a Wave 3 
     }
   })
 
+  /** Bodies fitted to the reference rig by issue #47 — see the note on the upper bound below. */
+  const FITTED_TO_RIG = new Set(Object.values(WAVE4_NAMED_BODIES))
+
   it('every CHARACTER body clears the camera at its EXACT final runtime scale', () => {
     // Characters are NOT measured from the GLB here, on purpose. Their meshes are skinned, and a
     // skinned mesh ignores its node matrix at render time (the skin's joint matrices drive it),
@@ -284,7 +287,20 @@ describe('issue #46 §2 — camera clearance is a world invariant, not a Wave 3 
       // A person is person-sized: this is the check that would catch a unit-scale mistake, which
       // is the realistic way a character ever ends up near the camera.
       expect(top, `${def.id} is a plausible human height`).toBeGreaterThan(1)
-      expect(top, `${def.id} is a plausible human height`).toBeLessThan(3)
+      // The upper bound is expressed in DECLARED arithmetic, and issue #47 found that the two do
+      // not agree for the reference rig: `blocklife_person` declares `visualHeight: 1.92` but its
+      // shipped bytes measure 2.930 m, which is also what it renders (verified in the running
+      // scene — every mounted `blocklife_person` reports a world Box3 of h = 2.930 with feet at
+      // y = 0). A Wave 4 body is FITTED to that real 2.930 m so its NPC does not change size, so
+      // its `scale x visualHeight` is 2.930 by construction and necessarily exceeds a bound
+      // calibrated against the rig's understated declaration. Those bodies are held to a STRICTER
+      // rule instead — `wave4Contract.test.ts` asserts each one renders at exactly the reference
+      // rig's measured height, per body, with every height pinned to the sha256 of the file it was
+      // measured from. Correcting the rig's own declaration would move the PLAYER's authored
+      // bounds, which issue #47 forbids; it is recorded for a later issue.
+      if (!FITTED_TO_RIG.has(def.id)) {
+        expect(top, `${def.id} is a plausible human height`).toBeLessThan(3)
+      }
     }
     // The bounded rigged ambient crowd renders the same rig SMALLER, so the build above is the
     // maximum applicable and this stays the worst case.

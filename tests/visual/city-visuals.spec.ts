@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
-import { waitForSceneSettled } from './visualHelpers'
+import { waitForSceneSettled, waitForVehicleGrounded } from './visualHelpers'
 
 /**
  * Visual regression snapshots. The world is paused via the test API, which
@@ -112,6 +112,10 @@ test.describe('city visuals', () => {
     await page.waitForFunction(
       () => window.GAME_TEST_API!.getStats().activeInteractableId === 'vehicle_compact_car_01',
     )
+    // Wait for the shell to LAND before driving it: `resetGame()` re-seats it at CAR_SPAWN's
+    // y = 0.8 and `VehicleController` preserves vertical velocity, so entering mid-fall makes
+    // the car — and the follow camera — drift for the whole shot (CONVENTIONS #40).
+    await waitForVehicleGrounded(page)
     await page.keyboard.press('e')
     await page.waitForFunction(() => window.GAME_TEST_API!.getStats().mode === 'driving')
     // Camera glides over to the car; wait for it to settle.

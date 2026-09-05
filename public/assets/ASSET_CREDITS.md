@@ -380,3 +380,66 @@ footprint, collider, entrance anchor, interaction, label, district, streaming id
 occluder descriptor is unchanged; rendered HEIGHT is the consequence of the uniform footprint
 fit and is presentation only. `src/game/assets/wave3Contract.test.ts` recomputes every number
 from `BUILDINGS` and the committed bytes, so a hand-edited constant cannot pass silently.
+
+---
+
+### Intake record — issue #47 Integration Wave 4 (2026-09-04)
+
+- **Source:** the same owner-approved 2026-08-31 Meshy sprint, read **read-only** from
+  `/Users/harshitkargeti/BlockLife-intake/asset-sprint-2026-08-31/`.
+- **Generation cost this wave: 0 credits.** No Meshy generation, enhancement, remesh, retexture,
+  rig, animation or purchase was performed; the sprint account is reconciled at a balance of 0.
+  Nine already-approved outputs were reduced and normalized in-repo.
+- **Deterministic and verifiable.** `node scripts/asset-intake/buildWave4.mjs` rebuilds every file
+  from the recorded sources; `--check` rebuilds into a temp directory outside the worktree and
+  fails if a committed byte differs. Each source's SHA-256 is asserted **before** the file is
+  read.
+- **Characters** are assembled the way issue #38 Wave 0 assembled Kabir and Ravi: the three
+  per-clip sprint GLBs for ONE character are proven to share a byte-identical mesh, texture and
+  24-bone `c432d433d51d` skeleton, then Walk/Run are grafted onto the base document's own joints
+  **by bone name** and the clips renamed to the canonical roles `Idle` / `Walk` / `Run`.
+  Geometry, skin weights and bind matrices are untouched — the intake re-asserts the mesh digest
+  and skeleton signature after assembly, and re-measures the shipped rig's grounded height
+  through three.js.
+- **Static bodies** (four parked vehicles, one building) get material-name normalization to
+  `baked_atlas`, prune/dedup and texture reduction only. All five sources are already
+  bottom-origin, so **no vertical transform was applied**; the intake asserts the shipped minimum
+  really is `y = 0`, that the mesh digest is identical across the transform, and that the bounding
+  box did not move.
+
+| Shipped file | Runtime home | Triangles | Texture | Size | Output SHA-256 | Pristine source |
+|---|---|---|---|---|---|---|
+| `assets/models/characters/blocklife_maya_01.glb` | `npc_maya_01` | 10411 | 1024×1024 jpeg | 1029 KB | `2b2de77624956433…` | `maya-okafor-{rigged,walking,running}.glb` `664cc006c186a422…` |
+| `assets/models/characters/blocklife_bruno_01.glb` | `npc_bruno_01` | 10420 | 1024×1024 jpeg | 1021 KB | `7abc583cf88e3def…` | `bruno-castillo-{rigged,walking,running}.glb` `6d08b8963bc0f508…` |
+| `assets/models/characters/blocklife_kim_01.glb` | `npc_kim_01` | 10406 | 1024×1024 jpeg | 1060 KB | `8b2d162eec4c5518…` | `officer-kim-{rigged,walking,running}.glb` `c5140273f4cc0a78…` |
+| `assets/models/characters/blocklife_nisha_01.glb` | `npc_nisha_01` | 10395 | 1024×1024 jpeg | 1009 KB | `da73025eadeea480…` | `nisha-rao-{rigged,walking,running}.glb` `20edd14e27472f2a…` |
+| `assets/models/vehicles/parked_hatchback_01.glb` | `parked_car` placements | 14776 | 1024×1024 jpeg | 877 KB | `75d7e8f9f486092f…` | `blocklife_vehicle_hatchback.glb` `9154dad9e00ead70…` |
+| `assets/models/vehicles/parked_pickup_01.glb` | `parked_car` placements | 14107 | 1024×1024 jpeg | 1168 KB | `ddebc598850a77c8…` | `blocklife_vehicle_pickup_truck.glb` `ffb35718a7694631…` |
+| `assets/models/vehicles/parked_delivery_van_01.glb` | `parked_truck` placements | 13831 | 1024×1024 jpeg | 1284 KB | `b5ab5fd7cd85fd5d…` | `blocklife_vehicle_delivery_van.glb` `a18001267a81e230…` |
+| `assets/models/vehicles/parked_box_truck_01.glb` | `parked_truck` placements | 14653 | 1024×1024 jpeg | 1156 KB | `215e6c08c9dcd0e1…` | `blocklife_vehicle_box_truck.glb` `d459e027d0d43621…` |
+| `assets/models/city/arch_apartment_02.glb` | `building_gate_tower_02` | 19800 | 1024×1024 jpeg | 1381 KB | `fa21f96dde29af34…` | `apartment_02.glb` `1fbf978b14c30d4e…` |
+
+**Ravi ships no new file.** His approved source (`ravi-sharma-*`) was already built into
+production as `blocklife_ravi_01.glb` by issue #38 Wave 0. Wave 4 reconciles that existing,
+byte-unchanged body into his runtime slot rather than rebuilding it — which is why this wave adds
+**nine** files for **ten** shipped bodies.
+
+**Source colours are retained — nothing here is recolored.** Each vehicle and building body is
+ONE mesh with ONE material carrying a baked base-colour atlas (panels, glass, lights and tyres;
+walls, balconies, glazing and roof). There is no clean recolorable slot to expose, so each
+declares an explicitly **empty** `materialSlots` map and names its material `baked_atlas`. The
+four character bodies carry ONE baked material (`Material_1`) for the same reason: their approved
+clothing is **immutable** — no tint, palette wash, atlas rewrite or material replacement.
+
+**Projection.** Parked bodies are scaled UNIFORMLY as the largest factor that keeps the measured
+bbox entirely inside their prop type's **authored** visual envelope in
+`src/game/world/propPlacement.ts`, after the +π/2 yaw that puts the model's length axis on the
+placement's longitudinal axis. The building body uses the Wave-3 rule: the largest uniform factor
+that keeps its measured half-extents inside the placement's **authored** `def.size` footprint in
+`src/game/world/cityLayout.ts` and its rendered top under the camera-engulf ceiling derived in
+`src/game/camera/cameraGeometry.ts`. Characters carry no scale at all — the rigs are authored in
+metres with their feet at `y = 0`. Every number is recomputed from the committed bytes by
+`src/game/assets/wave4Contract.test.ts`, so a hand-edited constant cannot pass silently.
+
+**No file was retired or replaced by this wave** — every GLB it adds is new, and the ten Wave-0/1/2/3
+files it stands beside are untouched.

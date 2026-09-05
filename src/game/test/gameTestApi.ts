@@ -399,6 +399,14 @@ export interface GameTestApi {
   /** Advance the signal clock by N seconds. */
   advanceSignalTime: (seconds: number) => void
   getVehiclePositions: () => Record<string, [number, number]>
+  /**
+   * The ONE drivable shell's live world position, in ANY mode — `getStats().position` only
+   * reports it while actually driving. A visual shot that is about to enter the car needs to
+   * know whether it has finished falling from its respawn height first: entering it mid-fall
+   * leaves residual vertical velocity that `VehicleController` preserves every frame, so the car
+   * and the camera following it drift for the rest of the shot.
+   */
+  getDrivableVehiclePosition: () => [number, number, number]
   /** Background citizens: id, district, live position and behavior state. */
   getAmbientCitizens: () => {
     id: string
@@ -1408,6 +1416,11 @@ export function installTestApi(): void {
     advanceSignalTime: (seconds) => {
       trafficRuntime.signal.elapsed += seconds
     },
+    getDrivableVehiclePosition: () => [
+      registry.vehiclePosition.x,
+      registry.vehiclePosition.y,
+      registry.vehiclePosition.z,
+    ],
     getVehiclePositions: () => {
       const out: Record<string, [number, number]> = {}
       for (const f of collectAllVehicleFootprints()) out[f.id] = [f.position.x, f.position.z]

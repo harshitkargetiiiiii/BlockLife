@@ -1,6 +1,7 @@
 import { expect, type Page } from '@playwright/test'
 import { checkFraming, type BodyDims, type ViewName } from './framing'
 import { ASSET_SETTLE_QUIET_MS } from '../../src/game/assets/assetSettle'
+export { waitForVehicleGrounded } from '../e2e/helpers'
 
 /**
  * Shared visual-test helpers (issue #46 §4 + §5) — the browser-facing half. The pure framing

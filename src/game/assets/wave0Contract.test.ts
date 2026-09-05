@@ -10,6 +10,7 @@ import {
   CHARACTER_ASSETS,
   DEFAULT_CHARACTER_ASSET_ID,
   PLAYER_CHARACTER_ASSET_ID,
+  WAVE4_NAMED_BODIES,
   resolveClips,
 } from '../characters/characterManifest'
 import { NPC_DEFS } from '../../data/npcs'
@@ -117,12 +118,23 @@ describe('issue #38 Wave 0 — production GLB contract (real bytes)', () => {
     }
   })
 
-  // ---- OWNER DECISION 2026-08-31: preserve the wardrobe / identity axes ----
-  // The Wave 0 sprint characters carry ONE baked material, so they cannot expose the
-  // recolorable material slots that the save-backed player wardrobe and the issue #23
-  // identity axes are built on. They therefore ship as CANDIDATE assets and must stay out of
-  // the player slot and out of every NPC def until they are re-authored with real material
-  // segmentation. These tests are the regression guard for that decision.
+  // ---- OWNER DECISION 2026-08-31, NARROWED by issue #47 (2026-09-04) ----
+  // A baked single-material body cannot expose the recolorable material slots the SAVE-BACKED
+  // PLAYER WARDROBE is built on, so it may never be the player. That half of the Wave 0 decision
+  // is permanent and is still guarded here, verbatim.
+  //
+  // The other half — "and out of every NPC def" — was a blanket rule Wave 0 adopted because at
+  // the time no baked body had an owner-approved 1:1 identity to justify a runtime slot. Issue
+  // #47 replaces it deliberately, not by weakening it: a NAMED NPC may ride the ONE approved
+  // body that depicts that exact character, the mapping is strict 1:1 and injective, and it is
+  // gated by `WAVE4_NAMED_BODIES` + `src/game/assets/wave4Contract.test.ts` — which additionally
+  // proves each body was BUILT from that same character's sources, that no body serves two
+  // people, that the player is not in the mapping, and that every NPC without one keeps the
+  // wardrobe-capable rig with its full registry identity as the fallback.
+  //
+  // What remains true here, and is what these tests now assert: `CANDIDATE_CHARACTER_ASSET_IDS`
+  // is the register of approved bodies with NO runtime home, and a candidate must stay out of
+  // both the player slot and every NPC def.
 
   it('the player keeps the wardrobe-capable rig, not a baked-material candidate', () => {
     expect(PLAYER_CHARACTER_ASSET_ID).toBe(DEFAULT_CHARACTER_ASSET_ID)
@@ -150,13 +162,16 @@ describe('issue #38 Wave 0 — production GLB contract (real bytes)', () => {
     }
   })
 
-  it('every NPC def names an asset that can carry its identity axes', () => {
+  it('every NPC def names a real asset, and any NPC WITHOUT an approved 1:1 body keeps the identity axes', () => {
     for (const npc of NPC_DEFS) {
       const def = CHARACTER_ASSETS[npc.characterAssetId ?? DEFAULT_CHARACTER_ASSET_ID]
       expect(def, `${npc.id} resolves an asset`).toBeTruthy()
+      // A named 1:1 body IS that character's authored identity (issue #47); everyone else must
+      // still name a rig that can carry the recolorable axes issue #23 gave them.
+      if (WAVE4_NAMED_BODIES[npc.id] === npc.characterAssetId) continue
       expect(
         Object.keys(def.materialSlots).length,
-        `${npc.id} keeps recolorable identity axes`,
+        `${npc.id} has no approved 1:1 body, so it must keep recolorable identity axes`,
       ).toBeGreaterThan(0)
     }
   })

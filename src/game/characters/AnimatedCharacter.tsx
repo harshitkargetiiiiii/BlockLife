@@ -46,6 +46,25 @@ export interface AnimatedCharacterProps {
   active?: () => boolean
   /** Primitive fallback — always available, wardrobe-colored. */
   fallback: ReactNode
+  /**
+   * Optional DISTINCT visual for the ERROR branch only — i.e. the model genuinely failed, as
+   * opposed to merely not having arrived yet. Defaults to `fallback`, so every caller that does
+   * not set it behaves exactly as before.
+   *
+   * The two branches must be separable because they have different costs and different meanings.
+   * The Suspense branch runs on EVERY healthy load, for as long as the fetch takes; whatever it
+   * renders is instantiated, uploaded and then thrown away on every boot and every sector
+   * remount. The error branch runs only when the file is unreachable or broken, and is allowed to
+   * be expensive because it is the last thing standing between the player and an empty scene.
+   *
+   * Issue #47 measured what conflating them costs: routing a named NPC's rich identity-rig
+   * fallback through BOTH branches mounted five extra `blocklife_person` clones on every healthy
+   * boot, and the GPU texture census at four district vantage points rose from 274–276 to
+   * 329–331 — +55 retained textures for a rig that the settled scene does not show. Splitting the
+   * branches keeps the cheap primitive as the loading visual (what every character has always
+   * done) and pays for the rich fallback only when it is actually needed.
+   */
+  errorFallback?: ReactNode
 }
 
 class ModelErrorBoundary extends Component<
@@ -212,6 +231,7 @@ export function AnimatedCharacter({
   active,
   renderMode = 'auto',
   fallback,
+  errorFallback,
 }: AnimatedCharacterProps) {
   const info = useMemo(
     () => createCharacterInstanceInfo(instanceId, tier, def),
@@ -235,7 +255,9 @@ export function AnimatedCharacter({
   }
 
   return (
-    <ModelErrorBoundary info={info} fallback={fallback}>
+    // The ERROR branch may be richer than the LOADING branch (see `errorFallback`): a failed
+    // model is a lasting state worth spending on, an in-flight one is not.
+    <ModelErrorBoundary info={info} fallback={errorFallback ?? fallback}>
       <Suspense fallback={fallback}>
         <ModelInstance
           def={def}

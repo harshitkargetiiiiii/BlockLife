@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { boot, settleAndPause } from './visualHelpers'
+import { boot, settleAndPause, waitForVehicleGrounded } from './visualHelpers'
 
 /**
  * Building Occlusion v1 visual snapshots. The world is paused after setup;
@@ -45,6 +45,10 @@ test.describe('occlusion visuals', () => {
     await page.waitForFunction(
       () => window.GAME_TEST_API!.getStats().activeInteractableId === 'vehicle_compact_car_01',
     )
+    // Wait for the shell to LAND before driving it: `resetGame()` re-seats it at CAR_SPAWN's
+    // y = 0.8 and `VehicleController` preserves vertical velocity, so entering mid-fall makes
+    // the car — and the follow camera — drift for the whole shot (CONVENTIONS #40).
+    await waitForVehicleGrounded(page)
     await page.keyboard.press('e')
     await page.waitForFunction(() => window.GAME_TEST_API!.getStats().mode === 'driving')
     await page.evaluate(() => window.GAME_TEST_API!.setDrivenCarPosition([9, -17.5], 0))

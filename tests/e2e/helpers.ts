@@ -62,4 +62,28 @@ export async function pressE(page: Page): Promise<void> {
 export async function acquireDrivableCar(page: Page): Promise<void> {
   await page.evaluate(() => window.GAME_TEST_API!.vehicleGrant('veh_compact', { location: 'active' }))
   await page.waitForTimeout(150) // one frame for the shell body/mesh to wake + register its interactable
+  // …and then wait for the shell to LAND. `resetGame()` re-seats it at CAR_SPAWN's y = 0.8 and
+  // physics drops it; a test that drives away mid-fall leaves residual vertical velocity that
+  // `VehicleController` preserves on every frame it writes (`setLinvel({ x, y: vel.y, z })`), so
+  // the car keeps climbing — measured 0.302 -> 0.717 over six seconds on issue #47's branch,
+  // which drags the follow camera and shifts an entire visual frame. The window is narrow (at
+  // the merge base the same tests entered a car already at y = -0.00006), which is why only a
+  // change in load timing exposed it.
+  await waitForVehicleGrounded(page)
+}
+
+/** Wait until the ONE drivable shell has settled onto the ground after a respawn. */
+export async function waitForVehicleGrounded(
+  page: Page,
+  opts: { maxY?: number; timeout?: number } = {},
+): Promise<void> {
+  const maxY = opts.maxY ?? 0.05
+  await page.waitForFunction(
+    (limit) => {
+      const p = window.GAME_TEST_API?.getDrivableVehiclePosition?.() ?? null
+      return p != null && Math.abs(p[1]) <= limit
+    },
+    maxY,
+    { timeout: opts.timeout ?? 20_000, polling: 100 },
+  )
 }

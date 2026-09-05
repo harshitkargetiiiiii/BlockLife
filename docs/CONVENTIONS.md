@@ -540,7 +540,194 @@ floating prop. When a per-image gate catches a class of defect every static gate
 the rule to the layer that owns it and gate the whole city — the next body will not be in that
 wave.
 
+### 36. An authored VISUAL ENVELOPE is a contract — the envelope sizes the body, not vice versa
+
+`propPlacement.ts` declares, per prop type, the silhouette the procedural mesh actually occupies,
+and the placement validators measure against it. When a wave projects a GLB onto one of those
+types, the honest move is to scale the body UNIFORMLY until it fits INSIDE that box — not to widen
+the box to suit the body, and not to ship a body that quietly overhangs it. Issue #47 states it as
+a rejection criterion ("exceeds its authored envelope"), and Wave 2 had already set the precedent
+with the bench.
+
+The consequence is the part worth writing down: **the envelope decides which sources are eligible
+at all.** `parked_car` caps a body at 1.4 m tall and 4.0 m long, so a source's height-to-length
+ratio — not its looks — decides what it becomes. Measured across the sixteen approved vehicles,
+only the hatchback (h/l 0.344) fills the 4.0 m length; the family SUV (h/l 0.579) shrinks to
+**2.42 m**, a toy beside it, and the bus, ambulance, garbage truck and fire engine land at
+2.5–3.1 m. Two of those were rejected on semantics anyway, but the SUV would have passed every
+static gate in the repo and only looked wrong on screen. Compute the fit for every candidate from
+the real bytes BEFORE choosing, and reject on the number.
+
+### 37. "Deterministic" is not "visually balanced" — a placement hash clusters, so gate the space
+
+A `hash(id) % poolSize` mapping is reproducible, total and trivially testable, and it was the
+obvious way to spread four approved vehicle bodies over 29 authored parked placements. Measured on
+the shipped city it put identical bodies **5.9 m apart** in the central lot and repeated one van
+three times across the industrial yard — because a hash knows the id and nothing about where the
+placement stands. "No crowd of identical bodies in one camera view" is a SPATIAL property and a
+hash cannot satisfy it by construction.
+
+The fix is a deterministic spatial rule plus a gate that measures the property rather than the
+mechanism: process placements in ascending id order (total, stable, independent of array position)
+and give each the pool body whose nearest already-assigned instance is farthest away, ties broken
+by pool order. Then assert the thing you actually care about — no two placements within
+`PARKED_BODY_MIN_SEPARATION` share a body, and the pool is used within one placement of even. Do
+NOT overclaim: with two bodies and three placements inside a 9 m triangle one repeat is forced by
+geometry, so the threshold is "close enough to read as cloned", not "anywhere in the frame".
+
+### 38. "The fallback" is whatever shipped LAST, not whatever is oldest in the chain
+
+A fallback chain accumulates. `NpcCharacter` had two steps — the `blocklife_person` rig, and a
+coloured `NPCMesh` capsule beneath it — and the visible pre-wave behaviour was the RIG; the capsule
+had not been on screen in normal play since issue #23. Issue #47 swapped a new baked body onto the
+top of that chain, and the tempting (and wrong) reading is "the fallback is unchanged, therefore
+the failure case is unchanged". It is not: the failure case silently regressed two steps, from a
+rigged character with a curated identity to a capsule.
+
+When you put something NEW on top of an existing fallback, the thing it must fall back TO is what
+the user saw before your change — so re-point the chain rather than inheriting its bottom. Here
+that is one nested `AnimatedCharacter` (the same component as its own fallback: no second
+renderer, loader or animation path), registered under a distinct instance id so a test can ask
+WHICH step produced the picture. Then evidence every step: assert the middle rig is what rendered
+AND photograph the bottom step by breaking both.
+
+**And the correction that cost a wasted test run: LOADING and ERROR are different branches, and a
+rich fallback belongs only to the second.** React renders a `<Suspense fallback>` on EVERY healthy
+load, so passing the rich fallback as the component's one `fallback` prop mounts it on every boot
+and every sector remount, not "only on failure" as the first revision's comment claimed. It is
+invisible to a settled-state assertion — the instance registry is clean by the time anything looks
+— and it is not free: five extra `blocklife_person` clones moved the GPU texture census at four
+district vantage points from **274–276 to 329–331**, +55 retained textures, while draw calls,
+triangles, materials and the registry all stayed identical. Split the props (`fallback` for
+Suspense, `errorFallback` for the boundary, defaulting to `fallback` so every other caller is
+byte-identical), keep the cheap primitive as the loading visual, and gate the MEASUREMENT rather
+than the registry — a ceiling on the texture census is what catches this class, because the
+settled state looks perfect either way.
+
+### 39. Narrow a blanket gate deliberately; never just delete it
+
+Wave 0 (#38) recorded an owner decision as one test: a baked single-material body must stay out of
+the player slot AND out of every NPC def. Issue #47 authorises exactly half of that to change. The
+temptation is to delete the assertion; the right move is to split it:
+
+- keep the permanent half **verbatim** — the save-backed player wardrobe needs recolorable slots, so
+  a baked body may never be the player;
+- replace the circumstantial half with a STRONGER contract rather than none — a named NPC may ride
+  the ONE approved body that depicts that exact character, expressed as a `Record<npcId, assetId>`
+  that a new test proves is total, **injective**, absent from the player slot, and — the part that
+  actually prevents identity swapping — built from the sources of the character it names (the
+  contract cross-checks the runtime mapping against the intake config's own per-character source
+  paths, so a body cannot be renamed onto another NPC without its source file disagreeing);
+- leave the old register meaningful: `CANDIDATE_*` still means "approved body with NO runtime home",
+  and the old test now guards that definition instead of guarding nothing.
+
+Write the reason down in the test itself. A future reader has to be able to tell "this rule was
+narrowed on purpose, here is what replaced it" from "someone deleted an assertion to go green".
+
+### 40. A visual shot that DRIVES the car must wait for the car to land
+
+`resetGame()` re-seats the ONE drivable shell at `CAR_SPAWN`'s **y = 0.8** and lets physics drop
+it. `VehicleController` then writes the car's velocity every frame as
+`setLinvel({ x: vx, y: vel.y, z: vz })` — it preserves whatever vertical velocity it finds. So a
+test that enters the car BEFORE it lands hands the controller a residual upward velocity that it
+faithfully keeps forever: the car climbs, the follow camera climbs with it, and the whole frame
+shifts by several pixels. Measured on issue #47's branch: entered at y = 0.302, climbing to 0.717
+over six seconds, producing 40k–139k pixel diffs in which every building edge and every world
+label was DOUBLED.
+
+The window is narrow — at the merge base the same tests entered a car already at y = -0.00006 and
+were stable 10/10 across three runs — which is what makes this so easy to misdiagnose. Anything
+that shifts pre-shot timing exposes it, and the resulting mismatch looks exactly like a content
+change until you notice the HUD moved too. **A whole-frame offset with doubled labels is never a
+content diff; it is the camera, and the camera follows a physics body.**
+
+Diagnosis discipline that mattered here, because four plausible causes were all wrong:
+`colliders={false}` on every rapier body ruled out new colliders; forcing primitives made the
+drift WORSE, ruling out render cost; frame time was a flat 50 ms on both, ruling out dt; and the
+base had MORE and LARGER main-thread spikes (2142 ms vs 1623 ms), ruling out stalls. What settled
+it was hashing `-actual.png` across repeated runs (three distinct hashes = nondeterminism, not
+content) and running the SAME spec at the merge base (stable there = introduced, not inherited).
+
+The fix belongs in the shot's readiness contract, never in the tolerance: `acquireDrivableCar`
+now waits for `waitForVehicleGrounded`, backed by a DEV `getDrivableVehiclePosition()` — the
+existing `getStats().position` only reports the car once you are ALREADY driving, which is too
+late to ask. With the car grounded, the branch's frames matched the committed baselines exactly
+and **no baseline needed updating**.
+
+
 ---
+
+### 41. A leftover dev server makes a cross-worktree A/B measure the WRONG code
+
+`playwright.config.ts` pins port 5199 and sets `reuseExistingServer: !process.env.CI`. So a run
+launched from *any* worktree attaches to whatever is already listening on 5199 — including a
+server another worktree (or an earlier chunked run) left behind. The spec files come from the
+worktree you launched in; the **application** comes from whoever owns the server.
+
+Issue #47 lost a full attribution round to this. Two visual baselines were A/B'd against the exact
+merge base to decide whether a change was pre-existing; the base worktree's runs reported the same
+failures as the branch, which read as "pre-existing, not ours". They were not: a vite server from
+the branch worktree was still bound to 5199, so the "base" runs rendered the branch's code with the
+base's specs. Re-measured with Playwright owning its own server, the merge base **passed all 17**
+images — the exact opposite conclusion, and the one that made the branch's real side effect
+visible.
+
+The failure is silent. There is no warning, the run looks completely normal, and a same-worktree
+run is unaffected — which is why it survives casual checking.
+
+**Before any cross-worktree comparison, assert the port is free and let Playwright start the
+server:**
+
+```bash
+while lsof -nP -iTCP:5199 -sTCP:LISTEN >/dev/null 2>&1; do sleep 2; done
+```
+
+Between the two sides too, not just at the start — Playwright stops only the server it started
+itself. If you deliberately share one dev server to save laptop time (a legitimate memory-saving
+trick for a long per-spec sweep), every run in that sweep must come from the SAME worktree, and the
+sweep must end by freeing the port.
+
+### 42. A character body authored at REAL human height is the wrong size for this world
+
+BlockLife's people are stylised, not scale models. `blocklife_person` — the player's rig, and the
+body every named NPC rendered as before issue #47 — measures **2.930 m** from the shipped bytes.
+An approved external body authored at a correct real-world 1.70–1.84 m is therefore **60 % of the
+size of everyone already in the city**, even though nothing about it is wrong in isolation.
+
+Issue #47 Wave 4 shipped exactly that mistake and it survived the whole contract gate: the rig was
+canonical, the skeleton signature matched, the skin weights were valid, the base was grounded, and
+the intake asserted the measured height equalled the declared height — **1.70 m measured, 1.70 m
+declared, green**. Every check was about the body's internal consistency. None compared it to what
+it replaced. It was caught by looking at the "player beside each named resident" screenshot, and
+then measured: a **1.674x** rendered silhouette ratio between player and NPC, against **1.665**
+predicted from the two bounding boxes.
+
+**Fit the body to the thing it replaces, and gate the RENDERED height, not the authored one.** This
+is CONVENTIONS #36 restated for characters — there, an authored `propPlacement` envelope sizes a
+prop body; here, the rig's height sizes a character body:
+
+```ts
+scale: RIG_HEIGHT_METERS / measuredHeightMeters   // 2.93 / 1.76 = 1.6648
+```
+
+with the gate asserting `scale * measured === rig height` per body, the reference rig re-measured
+from its own bytes, and every pinned height tied to the sha256 of the file it was measured from so
+a re-authored body fails instead of silently keeping a stale scale
+(`src/game/assets/wave4Contract.test.ts`).
+
+Two traps worth naming:
+
+- **The declared `bounds`/`anchors` are not the model's bounding box.** `blocklife_person` declares
+  `visualHeight: 1.92` while its GLB measures 2.930 — and 2.930 is what it renders (every mounted
+  instance reports a world `Box3` of h = 2.930 with feet at y = 0). Rendering uses the model and
+  `def.scale`; the declarations are a separate authored contract. Treat them separately: `bounds`
+  describe the MODEL, so a fitted body keeps its own; `anchors` are world offsets that are NOT
+  multiplied by `def.scale`, so a fitted body must adopt the RIG's, or every label attached to that
+  NPC moves. Expect a gate written in declared arithmetic to disagree with one written in measured
+  arithmetic — say which one each gate speaks, at the gate.
+- **"Same absolute height" is not the invariant — "same height as before" is.** The point is not
+  that an NPC is 2.93 m; it is that swapping its body must not change its size, because the crowd,
+  the camera framing and everything anchored to it were tuned against the old one.
 
 ## The verification workflow (honest gates)
 
