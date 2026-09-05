@@ -266,35 +266,37 @@ ASSETS_NOT_SETTLED  expected:320 active:319 failed:0 pending:1  quietMs:16374
   unresolvedByAsset:[{"id":"vehicle_compact_car_01","unresolved":1,"expected":1,"active":0,"failed":0}]
 ```
 
-Every GLB — `compact_sedan_01.glb` included — completed its HTTP response, and nothing was
-outstanding or failed. Of the three causes, two are eliminated:
+Every GLB — `compact_sedan_01.glb` included — had completed its HTTP response **by the timeout
+instant**, with nothing outstanding or failed.
 
-| Cause | Status |
-| ----- | ------ |
-| request never issued | **ruled out** — it is in `requested` |
-| issued, never completed (starvation / hung connection) | **ruled out** — it is in `finished`, `outstanding` is empty |
-| arrived, but the instance never committed | **the remaining case** |
+**Read strictly, that is a snapshot, not a timeline.** It rules out one thing only: a request that
+was still absent or still hung *at the moment the wait gave up*. It does **not** show when the
+request started or finished, so it does **not** rule out:
 
-**This also eliminates the one mechanism by which Wave 4 could plausibly have contributed.** The
-concurrency hypothesis — that Wave 4's four extra GLB requests to this sector starve an older one
-under HTTP/1.1 per-origin limits — required an unfinished request. There are none.
+- **Wave 4 delaying the request.** Four extra GLB requests in this same sector could push the
+  shell's request start or finish later without leaving it unfinished at 45 s.
+- **Post-network contention.** Parse, decode and commit all happen after the bytes land, and the
+  extra assets contend for exactly those.
 
-Read narrowly: `requestfinished` means the response body completed, and nothing more. It does **not**
-establish that the GLTF parsed, that drei's cached promise resolved, or that the suspended component
-re-rendered. Those three remain, all in unchanged pre-existing `VehicleAsset`/drei code, and the
-snapshot is consistent with all of them (`active: 0`, `failed: 0`, graph still for 16.4 s).
+An earlier revision of this document claimed this evidence "eliminates the one mechanism by which
+Wave 4 could plausibly have contributed". **That was an overclaim and is retracted.** Set membership
+without timings cannot support it.
 
-**Two limits of this instrument, stated so the next reader does not over-trust it.** It keys on
-filename in a `Set`, so a *second* request for the same file is invisible — a remount re-fetch would
-not show — and it records no counts or timings. The failing test also moved from the 2nd in the spec
-to the 1st, so this is the boot path, not one test.
+What remains true is narrower: `requestfinished` means the response body completed, and nothing
+more — not that the GLTF parsed, that drei's cached promise resolved, or that the suspended
+component re-rendered. The snapshot (`active: 0`, `failed: 0`, graph still for 16.4 s) is consistent
+with every one of those.
+
+**Limits of that instrument.** It recorded set membership only — no counts, no timings — which is
+precisely why it could not answer the two questions above. It also keys on filename in a `Set`. The
+failing test moved from the 2nd in the spec to the 1st, so this is the boot path, not one test.
 
 ## Base vs candidate, and why the diff cannot attribute anything
 
 | | base `efda5d6` (33898503820) | candidate `9ac1d76` (33984584811) |
 | - | - | - |
 | shards failing | 7 of 8 | **8 of 8** |
-| distinct failing tests | 35 | 48 |
+| distinct failing tests | 35 | **47** |
 
 - **33 fail on both** — pre-existing.
 - **2 fail only on base**: `crime` "8b — the carjacked driver flees the scene then despawns";
@@ -322,15 +324,98 @@ The one Wave-4-authored new failure — "a streaming unload → reload leaves no
 state" — is worth a closer look precisely because it is thematically adjacent to a
 never-committed branch. On one sample it is not yet evidence.
 
-### Proposed next step (NOT implemented)
+### The stage/timing diagnostic — now implemented
 
-Separating "Wave 4 contributes" from "this suite is intermittent" needs repeated sampling, which is
-out of scope here. The cheapest non-rerun step that would still advance it: log the request **count**
-per GLB filename and whether a second `compact_sedan_01.glb` request occurred, which distinguishes a
-remount re-fetch from a single never-resumed load and closes the instrument gap noted above.
-Test-only, ~5 lines. No production change is proposed until that ambiguity is resolved.
+A previous revision proposed logging the request **count** per file, to tell a remount re-fetch from
+a single never-resumed load. **That was the wrong instrument**: the failing case is the **first**
+boot, before the test performs any remount, so a second request was never the ambiguity. Retracted.
 
-### The first timing probe returned a NULL result — my instrument was wrong
+What the evidence actually lacks is **timings**, and that is what has been added. For
+`vehicle_compact_car_01` alone, `boot()` now emits on timeout:
+
+| Field | Answers |
+| ----- | ------- |
+| `requestStartMs`, `requestFinishMs`, `requestEndMs`, `networkMs` | did Wave 4 delay the request's start or finish? `requestEndMs` is the TERMINAL event — a completed response **or** a failure — while `requestFinishMs` is arrival, i.e. bytes, and is null for a failure |
+| `stage` = `request-failed` | the request terminated without arriving. A failure is terminal, so it also stops counting toward concurrency; an earlier version left it unstamped, which read as permanently outstanding and inflated every later concurrency number |
+| `waitedAfterArrivalMs` | how long the boot kept waiting **after** the bytes were already in hand |
+| `peersCommittedAfterArrival`, `peersBaselineAvailable` | context only, and **only when a baseline sample exists at or before arrival**. Sampling starts after `ready()`, so a fast response can finish before the first sample; with no baseline every already-committed body would look "new" and the list would be fabricated, so it is reported empty with `peersBaselineAvailable: false`. Even when present it does **not** show the body was "skipped" — samples are ~500 ms apart and see only post-commit state, so a peer committing later is equally consistent with the stalled body being mid-parse, mid-decode or awaiting Suspense |
+| `concurrentAtStart`, `concurrentAtFinish` | how many peer GLB requests were in flight at those instants — the payload-contention question, measured |
+| `firstUnresolvedMs`, `lastUnresolvedMs` | the first and last samples in which the id was **observed** unresolved. The sampler starts only after `ready()` and polls every ~500 ms, so it cannot observe when the instance *registered* as expected — only when it was seen still waiting |
+
+plus `GLB_TIMINGS`, the raw per-file start/finish list, so request ordering is inspectable directly.
+
+#### Timings alone are still outside the render
+
+Network timings and readiness sampling both observe the load from **outside**: bytes arrive, and
+later the instance still has not committed. Neither can see the steps in between, and those are
+distinct failures with distinct fixes. So a second, DEV-only probe records a timestamp as each is
+reached, for `vehicle_compact_car_01` **only** — `src/game/assets/assetStallProbe.ts`, surfaced as
+`GAME_TEST_API.getAssetStageMarks()` and folded into the single `STALL_REPORT` line emitted in the
+already-failed catch (as `stages` and `missingStages`) — one report rather than a second log line:
+
+| Marker | Placed at | A gap before it means |
+| ------ | --------- | --------------------- |
+| `hook-returned` | immediately after `useGLTF(...)` in `VehicleGlb` | the component never got past the hook |
+| `clone-built` | end of the render-phase `useMemo` that clones the scene | render reached the hook but not the clone |
+| `react-commit` | a `useLayoutEffect` (commit phase, before paint) | the render was built but thrown away, never committed |
+| `active-effect` | the existing passive `useEffect` that calls `markGlbBranch(id, 'active')` | committed, but the passive effect never ran |
+
+**What a missing `hook-returned` does NOT prove.** It means the component never got past
+`useGLTF` — so GLTF **parse**, **decode** and **Suspense-resume** all remain unresolved *between
+themselves*. This probe narrows the question to "before the hook returned"; it does not answer it,
+and the documentation must not claim otherwise. Every later gap is a genuine separation, because the
+stages either side of it are ordinary synchronous code.
+
+#### Evidence is frozen at the failure boundary
+
+The report is assembled by `await`ing further browser queries, so the sampler and the network
+listeners keep running while it is built. Anything after the wait gave up is not evidence about the
+failure. Two mechanisms enforce that: the spec clones samples and timings **synchronously** the
+instant `gaveUpEpochMs` is taken, before any `await`; and `summarizeStall` independently cuts every
+source off at `gaveUpEpochMs` — samples, stage marks, and request terminal events, where a
+termination later than the cut-off is reported as "still in flight as of the cut-off", which is the
+truthful statement. `GLB_TIMINGS` prints that same frozen snapshot, so the raw log and the report
+cannot disagree.
+
+This is also why `waitedAfterArrivalMs` can never be negative: an arrival is by construction at or
+before the cut-off. That is a property of the semantics, not a clamp hiding a bad value — a unit
+test sweeps terminal events either side of the boundary to prove it.
+
+#### One clock
+
+The three sources live in two processes: stage marks are recorded in the **browser**, network
+timings and readiness samples in the **Node** test process. A first version used
+`performance.now()` for the marks, which is measured from the document's own time origin and
+cannot be compared with Node timings — it would have produced a plausible-looking but meaningless
+timeline. All three now record wall-clock `Date.now()`, and the reporter normalises every field to
+one `t0`. A unit test asserts the normalisation by feeding a large epoch and requiring every
+reported value to be `t0`-relative rather than a raw timestamp.
+
+#### Why none of this reaches production
+
+Every call site is wrapped in `if (import.meta.env.DEV)`, which Vite folds to `false` and drops.
+Asserted against a real build — **0 occurrences in `dist/`** for each of `markAssetStage`,
+`readAssetStageMarks`, `STALL_PROBE_ASSET_ID`, `getAssetStageMarks`, `hook-returned`,
+`clone-built`, `react-commit`, `active-effect`, alongside the standing `GAME_TEST_API` check.
+
+The pure network/readiness analysis lives in `tests/e2e/assetStallReport.ts`, unit-tested without a
+browser in `assetStallReport.test.ts` (**13 tests**) — the same split issue #46 §5 used for the
+visual framing solver. The spec change is diagnostic only: the predicate, the 45 s timeout and the failure
+are untouched, the sampler is always stopped in a `finally`, every report is emitted strictly after
+the wait has already lost, and the original error is rethrown.
+
+The probe writes to a ledger nothing reads back: no render or readiness path consults it, so
+behaviour is preserved. **This measures; it does not fix.** No production change is proposed.
+
+## Appendix — superseded instrument history (kept for the record)
+
+> Everything below describes instruments that have since been **replaced**. It is retained because
+> the null result and the reason for it are evidence in their own right. **For what ships today, see
+> "The stage/timing diagnostic" above** — one `STALL_REPORT` line carrying request timings, the
+> render/commit stage marks and the cut-off, plus a raw `GLB_TIMINGS` list. `GLB_TIMING` and
+> `GLB_NET`, described below, are **no longer emitted**.
+
+### Superseded: the first timing probe returned a NULL result
 
 Run 33983640488 (job 101353197531, shard 8/8, head `2ca9c43`) reproduced the stall a **fourth**
 time, with an identical `unresolvedByAsset` naming `vehicle_compact_car_01` (`quietMs` 21,357).
@@ -346,21 +431,21 @@ entries: under the Vite dev server hundreds of ES modules are requested before t
 buffer fills, and every later entry — including all the GLBs — is silently dropped.
 `performance.getEntriesByType('resource')` was the wrong instrument for this page.
 
-It is replaced with Playwright-side network events (`request` / `requestfinished` /
-`requestfailed`), attached before navigation, which have no buffer limit. On timeout `boot()` now
-logs `GLB_NET` with `requested`, `finished`, `failed`, and — the field that answers the question —
-`outstanding`: requested but never finished.
+It was replaced with Playwright-side network events (`request` / `requestfinished` /
+`requestfailed`), attached before navigation, which have no buffer limit.
 
-### The diagnostic, now shipped
+### Superseded: the `GLB_NET` set-membership log
 
-`boot()` logs `GLB_NET` on timeout, from Playwright's own network events. That separates the three
-remaining causes directly:
+That second instrument emitted `GLB_NET` with `requested` / `finished` / `failed` / `outstanding`,
+and it produced the run-33984584811 result quoted earlier (32 requested, 32 finished). It has since
+been replaced too, for three reasons found in review:
 
-| `GLB_NET` shows for `compact_sedan_01.glb` | Cause | Fix belongs to |
-| ------------------ | ----- | -------------- |
-| absent from `requested` | the request was never issued | the loader / suspense path |
-| in `outstanding` (requested, never finished) | issued, never completed — starvation or a hung connection | request concurrency; Wave 4's +4 requests to this sector are then a real contributing factor |
-| in `finished` | the file arrived and the component never resumed | React/drei resume in `VehicleAsset` |
+- **Set membership is not a timeline.** It could not say WHEN a request started or finished, so it
+  could not address either "did Wave 4 delay the request" or post-network contention — the
+  overclaim retracted above.
+- **It could not see past the network at all**, which is what the stage marks now cover.
+- **It misreported failures**: a failed request was recorded without a terminal timestamp, so it read
+  as permanently outstanding and inflated concurrency counts. The current model stamps the terminal
+  event for success and failure alike.
 
-Test-only, in the same already-failed catch block, original error still rethrown. No production
-code, no predicate, timeout, retry, asset, mapping, wardrobe or baseline change.
+The current instrument is the `STALL_REPORT` described above. `GLB_NET` is no longer emitted.

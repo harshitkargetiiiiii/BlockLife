@@ -25,12 +25,13 @@
  * therefore procedural-body-only (the GLB's lamps are baked into its one texture and cannot be
  * lit separately); that is a recorded limitation, not a regression.
  */
-import { Component, Suspense, useEffect, useMemo, type ReactNode } from 'react'
+import { Component, Suspense, useEffect, useLayoutEffect, useMemo, type ReactNode } from 'react'
 import * as THREE from 'three'
 import { useGLTF } from '@react-three/drei'
 import type { AssetManifestEntry } from './assetManifest'
 import { getManifestEntry, markGlbBranch, noteGlbExpected, releaseGlbBranch, reportAssetLoadFailure, resolveGlbUrl, shouldLoadGlb } from './modelRegistry'
 import { applyVariant, createVariantInstances, disposeVariantMaterials, type MaterialSlotMap, type MaterialVariant } from './assetVariants'
+import { markAssetStage } from './assetStallProbe'
 import { noteGlbLandmarkChange, registry } from '../world/runtimeRegistry'
 
 const PAINT_SLOT = 'paint'
@@ -113,8 +114,12 @@ function VehicleGlb({
   wheelHub?: string
 }) {
   const gltf = useGLTF(resolveGlbUrl(entry))
+  // Issue #47 shard 8 probe (DEV only, one asset). Reaching this line means parse, decode and
+  // Suspense-resume have ALL succeeded; its ABSENCE leaves those three undistinguished.
+  if (import.meta.env.DEV) markAssetStage(entry.id, 'hook-returned')
 
   useEffect(() => {
+    if (import.meta.env.DEV) markAssetStage(entry.id, 'active-effect')
     registry.glbLandmarksActive++
     noteGlbLandmarkChange()
     markGlbBranch(entry.id, 'active')
@@ -151,8 +156,15 @@ function VehicleGlb({
         ? {}
         : { ...DEFAULT_VEHICLE_SLOTS, ...(declared ?? {}) }
     const slots = createVariantInstances(scene, slotMap, [PAINT_SLOT, WHEEL_SLOT])
+    if (import.meta.env.DEV) markAssetStage(entry.id, 'clone-built')
     return { scene, slots }
   }, [gltf.scene, entry])
+
+  // 3. React actually COMMITTED this subtree (layout phase runs before paint and before passive
+  //    effects), so a gap between 'clone-built' and here is a render that was thrown away.
+  useLayoutEffect(() => {
+    if (import.meta.env.DEV) markAssetStage(entry.id, 'react-commit')
+  }, [entry.id, instance])
 
   // Dispose isolated materials symmetrically with the memo that made them.
   useEffect(() => () => disposeVariantMaterials(instance.slots), [instance])

@@ -1,5 +1,6 @@
 import { useGameStore, canEditFurnish as canEditFurnishRt } from '../store/useGameStore'
 import { registry } from '../world/runtimeRegistry'
+import { readAssetStageMarks, type AssetStageMark } from '../assets/assetStallProbe'
 import { ASSET_SETTLE_QUIET_MS, assetGraphPending, isAssetGraphSettled, isSceneReady, unresolvedByAsset, unresolvedInstances, type AssetGraphCounters, type UnresolvedAsset } from '../assets/assetSettle'
 import { perfRuntime } from '../world/perfRuntime'
 import { countUniqueMaterials, materialProbe } from '../world/materialProbe'
@@ -347,6 +348,15 @@ export interface GameTestApi {
      */
     unresolvedByAsset: UnresolvedAsset[]
   }
+  /**
+   * DEV-only render/commit milestones for the ONE asset under investigation in issue #47's shard 8
+   * stall (`vehicle_compact_car_01`). Read-only; nothing consults it.
+   *
+   * A missing `hook-returned` means the component never got past `useGLTF`, which leaves parse,
+   * decode and Suspense-resume all unresolved between them — this narrows the question, it does not
+   * answer it.
+   */
+  getAssetStageMarks: () => AssetStageMark[]
   getStats: () => {
     money: number
     hunger: number
@@ -1331,6 +1341,7 @@ export function installTestApi(): void {
         unresolvedByAsset: unresolvedByAsset(registry.glbAssetState),
       }
     },
+    getAssetStageMarks: () => readAssetStageMarks(),
     getStats: () => {
       const s = useGameStore.getState()
       const pos = s.mode === 'driving' ? registry.vehiclePosition : registry.playerPosition

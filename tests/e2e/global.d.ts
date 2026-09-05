@@ -21,7 +21,14 @@ interface Window {
       glbActive: string[]
       glbFailed: string[]
       glbPending: { id: string; pending: number }[]
+      /** Issue #47: the per-id breakdown of the number readiness actually blocks on. */
+      unresolvedByAsset: { id: string; unresolved: number; expected: number; active: number; failed: number }[]
     }
+    /**
+     * Issue #47 shard 8: DEV-only render/commit milestones for `vehicle_compact_car_01`.
+     * `epochMs` is wall-clock `Date.now()`, so it shares a clock with the Playwright-side timings.
+     */
+    getAssetStageMarks: () => { stage: string; epochMs: number }[]
     getStats: () => Record<string, unknown>
     teleportPlayer: (position: [number, number, number]) => void
     teleportTo: (name: string) => boolean

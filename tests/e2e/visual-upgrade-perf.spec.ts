@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
+import { cutOffAt, summarizeStall, type GlbRequestTiming, type ReadinessSample, type StageMark } from './assetStallReport'
 
 /**
  * Issue #25 Stage A — GLB integration + perf/material regression guard. Proves the enabled
@@ -15,52 +16,120 @@ const call = (page: Page, m: string, ...a: unknown[]) =>
 /**
  * Boot and wait for the scene to settle.
  *
- * The `assetsSettled()` wait has timed out here twice in a row in CI (runs 33979652484 and
- * 33981345067, shard 8/8, on unchanged production code), and a bare timeout says only THAT the
- * graph never settled — never which body held it open. So on failure this reports the readiness
- * snapshot and rethrows the original error.
+ * This wait has timed out repeatedly in CI shard 8, always with the same culprit: exactly one
+ * instance of `vehicle_compact_car_01` unresolved, `failed: 0`, the graph still for ~20 s. Earlier
+ * instrumentation established that its file's HTTP response completes — which rules out a request
+ * that is absent or hung *at the timeout instant*, and nothing more. It does NOT rule out Wave 4's
+ * four extra GLBs in this sector delaying the request, nor post-network parse/decode/commit
+ * contention from them.
  *
- * Diagnostic only, and deliberately so: the predicate, the timeout and the failure are all
- * unchanged, the report happens strictly after the wait has already lost, and the original error is
- * rethrown untouched, so this cannot turn a red run green. `unresolvedByAsset` is the field to
- * read — it is the per-id breakdown of the number readiness actually blocks on, whereas
- * `glbPending` is the raw census and also lists ids that do not block.
+ * So this records, for that one asset, WHEN each step happened — request start and finish, the
+ * render/commit milestones from the DEV stage probe, how long the boot then kept waiting, and how
+ * many peer GLB requests were in flight at those instants. Peer progress is reported as context
+ * only: a peer committing later does NOT show this body was skipped, since it is equally consistent
+ * with the body being mid-parse, mid-decode or awaiting Suspense.
+ *
+ * All three sources record wall-clock `Date.now()` and are normalised to one `t0` by the reporter.
+ * The browser's `performance.now()` is relative to the document's own time origin and cannot be
+ * compared with Node timings, so it is deliberately not used.
+ *
+ * Diagnostic only. The predicate, the timeout and the failure are untouched; the sampler runs
+ * alongside and is always stopped; the report is emitted strictly after the wait has already lost;
+ * and the original error is rethrown, so this cannot turn a red run green. The analysis itself is
+ * pure and unit-tested in `assetStallReport.test.ts` — no browser needed to verify it.
  */
+const STALL_ASSET_ID = 'vehicle_compact_car_01'
+const STALL_FILE = 'compact_sedan_01.glb'
+
 async function boot(page: Page): Promise<void> {
-  const file = (u: string) => u.split('/').pop() ?? u
-  const glbRequested = new Set<string>()
-  const glbFinished = new Set<string>()
-  const glbFailed = new Set<string>()
-  page.on('request', (r) => { if (r.url().endsWith('.glb')) glbRequested.add(file(r.url())) })
-  page.on('requestfinished', (r) => { if (r.url().endsWith('.glb')) glbFinished.add(file(r.url())) })
-  page.on('requestfailed', (r) => { if (r.url().endsWith('.glb')) glbFailed.add(file(r.url())) })
+  const t0 = Date.now()
+  const fileOf = (u: string) => u.split('/').pop() ?? u
+  const timings = new Map<string, GlbRequestTiming>()
+  page.on('request', (r) => {
+    if (!r.url().endsWith('.glb')) return
+    const f = fileOf(r.url())
+    if (!timings.has(f)) timings.set(f, { file: f, startEpochMs: Date.now(), endEpochMs: null })
+  })
+  page.on('requestfinished', (r) => {
+    if (!r.url().endsWith('.glb')) return
+    const t = timings.get(fileOf(r.url()))
+    if (t && t.endEpochMs === null) t.endEpochMs = Date.now()
+  })
+  page.on('requestfailed', (r) => {
+    if (!r.url().endsWith('.glb')) return
+    const t = timings.get(fileOf(r.url()))
+    // Terminal, exactly like a completed response: stamp the moment it ended and mark it failed.
+    // Leaving it unstamped made a dead request look permanently in flight.
+    if (t && t.endEpochMs === null) {
+      t.endEpochMs = Date.now()
+      t.failed = true
+    }
+  })
+
   await page.goto('/')
   await page.waitForFunction(() => window.GAME_TEST_API?.ready() === true, undefined, { timeout: 45_000 })
+
+  const samples: ReadinessSample[] = []
+  let sampling = true
+  const sampler = (async () => {
+    while (sampling) {
+      const snap = await page
+        .evaluate(() => {
+          const r = window.GAME_TEST_API?.getAssetReadiness?.()
+          return r ? { u: r.unresolvedByAsset.map((x) => x.id), a: [...r.glbActive] } : null
+        })
+        .catch(() => null)
+      if (snap) samples.push({ epochMs: Date.now(), unresolvedIds: snap.u, activeIds: snap.a })
+      await new Promise((r) => setTimeout(r, 500))
+    }
+  })()
+
   try {
     await page.waitForFunction(() => window.GAME_TEST_API?.assetsSettled() === true, undefined, { timeout: 45_000 })
   } catch (err) {
+    const gaveUpEpochMs = Date.now()
+    // Freeze the evidence at the failure boundary, SYNCHRONOUSLY, before any await. The sampler and
+    // the network listeners keep running while the report is assembled, so without this a request
+    // could terminate after the wait gave up and be reported as pre-failure evidence — including a
+    // negative "waited after arrival". `summarizeStall` also cuts off at `gaveUpEpochMs`; this
+    // makes the raw log agree with it.
+    const frozen = cutOffAt(
+      samples.map((x) => ({ ...x })),
+      [...timings.values()].map((t) => ({ ...t })),
+      [],
+      gaveUpEpochMs,
+    )
     const readiness = await page
       .evaluate(() => window.GAME_TEST_API?.getAssetReadiness?.() ?? null)
       .catch(() => null)
     // eslint-disable-next-line no-console
     console.log('ASSETS_NOT_SETTLED ' + JSON.stringify(readiness))
-    // Second half of the question: was the stalled id's file ever requested, requested but never
-    // finished, or finished while the component stayed suspended? Three causes, three fixes.
-    //
-    // Measured from PLAYWRIGHT's network events, not `performance.getEntriesByType('resource')`.
-    // The in-page version reported `requested: 0` while 319 GLB instances were active — an
-    // artifact of `resourceTimingBufferSize` (default 250): under Vite dev, hundreds of ES modules
-    // fill the buffer before the first GLB is requested, and later entries are simply dropped. The
-    // event listeners below have no such limit.
+    // Where between "bytes arrived" and "committed" it stopped. A MISSING 'hook-returned' means the
+    // component never got past useGLTF, which leaves parse, decode and Suspense-resume all
+    // unresolved between them — narrowing the question, not answering it.
+    const stageMarks: StageMark[] = (await page
+      .evaluate(() => window.GAME_TEST_API?.getAssetStageMarks?.() ?? [])
+      .catch(() => [])) as StageMark[]
     // eslint-disable-next-line no-console
-    console.log('GLB_NET ' + JSON.stringify({
-      requested: [...glbRequested].sort(),
-      finished: [...glbFinished].sort(),
-      failed: [...glbFailed].sort(),
-      // Requested but never finished — the ones a stalled boot is actually waiting on.
-      outstanding: [...glbRequested].filter((f) => !glbFinished.has(f) && !glbFailed.has(f)).sort(),
-    }))
+    console.log('STALL_REPORT ' + JSON.stringify(
+      summarizeStall(STALL_ASSET_ID, STALL_FILE, frozen.samples, frozen.timings, stageMarks, t0, gaveUpEpochMs),
+    ))
+    // Raw per-file request timings, so "did Wave 4 delay the request" is answerable directly.
+    // eslint-disable-next-line no-console
+    console.log('GLB_TIMINGS ' + JSON.stringify(
+      frozen.timings
+        .sort((a, b) => a.startEpochMs - b.startEpochMs)
+        .map((t) => ({
+          file: t.file,
+          startMs: t.startEpochMs - t0,
+          endMs: t.endEpochMs === null ? null : t.endEpochMs - t0,
+          failed: t.failed === true,
+        })),
+    ))
     throw err
+  } finally {
+    sampling = false
+    await sampler.catch(() => {})
   }
 }
 
