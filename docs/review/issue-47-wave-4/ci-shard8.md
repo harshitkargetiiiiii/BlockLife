@@ -12,7 +12,25 @@ Run [33979652484](https://github.com/harshitkargetiiiiii/BlockLife/actions/runs/
 1 failed, 13 passed (6.6m)
 ```
 
-**Verdict: not proven to be a Wave 4 regression. No production code changed.**
+**Verdict: cause still not established, but it is now REPRODUCIBLE, not a one-off.** No production
+behaviour changed. A DEV-only diagnostic has been added so the next CI run reports which body is
+holding readiness open.
+
+## Update — second consecutive identical failure
+
+Run [33981345067](https://github.com/harshitkargetiiiiii/BlockLife/actions/runs/33981345067), job
+101347042123, `E2E shard 8/8`, on head `490b0ae` — **the same `visual-upgrade-perf`
+`assetsSettled()` boot timeout, on production code identical to the previous run** (the only commits
+between the two heads were documentation).
+
+This materially weakens the "unlucky sample of a flaky runner" reading. Two for two on the same
+test, the same shard and the same predicate is a reproducible failure, and the honest position is
+now: **something specific is holding this boot open, and the existing logs cannot say what.** The
+structural analysis below still stands (the named character bodies are absent from the settle graph;
+the parked bodies add no new mount/unmount shape; no new counters exist to leak), and the merge base
+still times out on the same predicate — so Wave 4 is not *demonstrated* to be the cause. But
+"not demonstrated" is no longer the same as "probably environmental", and it should not be read that
+way.
 
 > **Correction (Codex review, second pass).** An earlier version of this document overstated the
 > evidence in two ways and mis-cited the base comparison. All three are fixed below: the shard's
@@ -136,3 +154,32 @@ scope here.
 
 Raising the timeout would hide exactly this distinction, so it was not touched. Nothing was re-run,
 no assertion weakened, no retry added.
+
+## The diagnostic added to settle it
+
+Two identical failures with no usable evidence is the actual blocker: a bare timeout reports only
+THAT the graph never settled. So this branch now adds, **DEV-only and behaviour-free**:
+
+- `unresolvedByAsset(perAsset)` in `src/game/assets/assetSettle.ts` — the per-id breakdown of
+  `unresolvedInstances`, i.e. of the exact number readiness blocks on. It is a **separate** function
+  from `unresolvedInstances` on purpose: that one is on the live readiness path and a diagnostic
+  must not risk changing what it returns. A unit test asserts the two **always** agree, across eight
+  censuses including a corrupt one, so they cannot drift.
+- `getAssetReadiness().unresolvedByAsset` on the DEV test API. The pre-existing `glbPending` field
+  answers a different question — it is the RAW `expected − active − failed`, so it also lists ids
+  that do **not** block readiness (an id with a failure is deliberately treated as resolved) — which
+  is precisely why it could not have answered this.
+- `visual-upgrade-perf.spec.ts`'s `boot()` now logs `ASSETS_NOT_SETTLED <snapshot>` **on timeout and
+  rethrows the original error**. The predicate, the timeout and the failure are unchanged; the report
+  runs strictly after the wait has already lost, so it cannot turn a red run green.
+
+Verified without a browser: `tsc -b --force` clean, `oxlint` clean, the settle/contract/clearance
+unit files pass 67/67, and `dist` contains **neither** `GAME_TEST_API` **nor** `unresolvedByAsset`
+(0 matches each), so none of this reaches production.
+
+**What to read next.** When shard 8 next fails, the log line `ASSETS_NOT_SETTLED` gives
+`unresolvedByAsset` — the ids still in flight. If it names `vehicle_parked_*` ids, Wave 4 is
+implicated directly and the 4.38 MiB the spawn sector gained is the mechanism. If it is empty while
+`quietMs < 400`, the graph is churning and the cause is remount behaviour, not payload. If it names
+a pre-existing id, this is not Wave 4's. Each of those is a different fix, which is why guessing one
+now would be wrong.

@@ -1,6 +1,6 @@
 import { useGameStore, canEditFurnish as canEditFurnishRt } from '../store/useGameStore'
 import { registry } from '../world/runtimeRegistry'
-import { ASSET_SETTLE_QUIET_MS, assetGraphPending, isAssetGraphSettled, isSceneReady, unresolvedInstances, type AssetGraphCounters } from '../assets/assetSettle'
+import { ASSET_SETTLE_QUIET_MS, assetGraphPending, isAssetGraphSettled, isSceneReady, unresolvedByAsset, unresolvedInstances, type AssetGraphCounters, type UnresolvedAsset } from '../assets/assetSettle'
 import { perfRuntime } from '../world/perfRuntime'
 import { countUniqueMaterials, materialProbe } from '../world/materialProbe'
 import { variantCacheStats } from '../assets/variantMaterialCache'
@@ -337,6 +337,15 @@ export interface GameTestApi {
     glbFailed: string[]
     /** Ids with instances that have neither committed nor failed — which body is stalling. */
     glbPending: { id: string; pending: number }[]
+    /**
+     * WHICH ids `assetsSettled()` is actually waiting on, by the predicate's own rule.
+     *
+     * `glbPending` above is the RAW `expected − active − failed` per id, so it also lists ids that
+     * do NOT block readiness (an id with a failure is treated as resolved). This is the breakdown
+     * of `unresolvedInstances` — the number readiness waits on — so a boot that times out can say
+     * which body stalled it instead of only that it did.
+     */
+    unresolvedByAsset: UnresolvedAsset[]
   }
   getStats: () => {
     money: number
@@ -1319,6 +1328,7 @@ export function installTestApi(): void {
         glbActive: glbActive.sort(),
         glbFailed: glbFailed.sort(),
         glbPending,
+        unresolvedByAsset: unresolvedByAsset(registry.glbAssetState),
       }
     },
     getStats: () => {

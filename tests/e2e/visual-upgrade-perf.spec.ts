@@ -12,10 +12,33 @@ type Api = Record<string, (...a: unknown[]) => unknown>
 const call = (page: Page, m: string, ...a: unknown[]) =>
   page.evaluate(([mm, aa]) => (window.GAME_TEST_API as unknown as Api)[mm as string](...(aa as unknown[])), [m, a] as const)
 
+/**
+ * Boot and wait for the scene to settle.
+ *
+ * The `assetsSettled()` wait has timed out here twice in a row in CI (runs 33979652484 and
+ * 33981345067, shard 8/8, on unchanged production code), and a bare timeout says only THAT the
+ * graph never settled — never which body held it open. So on failure this reports the readiness
+ * snapshot and rethrows the original error.
+ *
+ * Diagnostic only, and deliberately so: the predicate, the timeout and the failure are all
+ * unchanged, the report happens strictly after the wait has already lost, and the original error is
+ * rethrown untouched, so this cannot turn a red run green. `unresolvedByAsset` is the field to
+ * read — it is the per-id breakdown of the number readiness actually blocks on, whereas
+ * `glbPending` is the raw census and also lists ids that do not block.
+ */
 async function boot(page: Page): Promise<void> {
   await page.goto('/')
   await page.waitForFunction(() => window.GAME_TEST_API?.ready() === true, undefined, { timeout: 45_000 })
-  await page.waitForFunction(() => window.GAME_TEST_API?.assetsSettled() === true, undefined, { timeout: 45_000 })
+  try {
+    await page.waitForFunction(() => window.GAME_TEST_API?.assetsSettled() === true, undefined, { timeout: 45_000 })
+  } catch (err) {
+    const readiness = await page
+      .evaluate(() => window.GAME_TEST_API?.getAssetReadiness?.() ?? null)
+      .catch(() => null)
+    // eslint-disable-next-line no-console
+    console.log('ASSETS_NOT_SETTLED ' + JSON.stringify(readiness))
+    throw err
+  }
 }
 
 test.describe('issue #25 Stage A — GLB integration', () => {
