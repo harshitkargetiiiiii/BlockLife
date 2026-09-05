@@ -407,6 +407,73 @@ the wait has already lost, and the original error is rethrown.
 The probe writes to a ledger nothing reads back: no render or readiness path consults it, so
 behaviour is preserved. **This measures; it does not fix.** No production change is proposed.
 
+## RESULT 3 — run 33989903251 on head `88f7663`: shard 8 PASSED, and no Wave 4 cause is established
+
+Static CI 33989903036: **success**. Full E2E
+[33989903251](https://github.com/harshitkargetiiiiii/BlockLife/actions/runs/33989903251):
+**shard 8 SUCCESS (14/14)**, shards 1–7 failure.
+
+`STALL_REPORT` did **not** fire, correctly: it is emitted only from the failed-wait catch, and the
+targeted `visual-upgrade-perf` boot passed. The probe shipped in `88f7663` therefore still has no
+occurrence to describe — the stall did not reproduce on this head.
+
+### Every Wave 4 failure is a wall-clock timeout, not an assertion
+
+Shard 1 failed 8 of 74. Failure modes across that shard:
+
+| Mode | Count |
+| ---- | ----: |
+| whole-test `Test timeout of 90000ms exceeded` | 7 |
+| `waitForFunction` 45 s | 2 |
+| `waitForFunction` 150 s | 1 |
+| **`Error: expect(` assertion failures** | **0** |
+
+Five of the eight were Wave 4 tests: the wardrobe save→reset→load rehydrate, the streaming
+unload→reload round trip, the gateway-tower boot (45 s `assetsSettled`), and the central and
+residential perf cases. **None failed an assertion.**
+
+### The perf cases are decisive against a Wave 4 cause
+
+All four `WAVE4_PERF` lines logged, every value inside every asserted budget:
+
+| District | drawCalls (< 2500) | triangles (< 4 M) | textures (< 300) | outcome |
+| -------- | -----------------: | ----------------: | ---------------: | ------- |
+| central | 999 | 1,070,117 | 270 | 90 s timeout |
+| residential | 974 | 1,022,644 | 274 | 90 s timeout |
+| industrial | 920 | 944,920 | 276 | **passed** |
+| gateway | 977 | 993,280 | 274 | **passed** |
+
+Central and residential printed passing numbers and then ran out of wall clock in the handful of
+`getCharacterState` round trips that follow the log. Same code, same budgets, same run — two of four
+finished, two did not. That is wall-clock exhaustion, not a defect. The texture ceiling of 300 that
+guards the fallback split held in all four.
+
+### Why the budget is marginal here, independent of Wave 4
+
+`boot()` can spend up to 45 s in `assetsSettled`, and `settleAt()` up to another 45 s, both inside
+Playwright's 90 s whole-test budget — and CI renders at `fps 20, frameMs ≈ 50` under software WebGL
+in every capture above. Shard wall-times swing accordingly: this run 40/28/60/45/51/25/65/**6**
+minutes, the prior candidate run 42/67/29/28/7/42/60/41. Shard 8 took 6 minutes and passed here
+after 41 minutes and failing before, on production code that did not change between them.
+
+The same shard also failed `asset-pipeline-round2`, `authoring` and `careers` with the same
+timeout classes, so this is not confined to Wave 4's specs.
+
+### Set differences are NOT read as regressions
+
+49 distinct failures in this run; 47 in the prior candidate run 33984584811 (38 common, 11
+current-only, 9 prior-only); 35 in exact-base run 33898503820 (32 common, 17 current-only, 3
+base-only). These are single samples of a suite demonstrated above to swing on runner speed, so no
+individual test is attributed in either direction.
+
+### Bounded conclusion
+
+**No production cause and no Wave-4-specific regression is established by this run.** Every Wave 4
+failure is a timeout; every Wave 4 numeric budget passed where it was reached; shard 8 passed on the
+head that carries the probe. The open question — what stalls `vehicle_compact_car_01` when it does
+stall — remains unanswered because it did not recur, and the instrument is in place for when it
+does.
+
 ## Appendix — superseded instrument history (kept for the record)
 
 > Everything below describes instruments that have since been **replaced**. It is retained because
