@@ -281,7 +281,11 @@ describe('issue #46 §2 — camera clearance is a world invariant, not a Wave 3 
     const defs = Object.values(CHARACTER_ASSETS)
     expect(defs.length, 'character assets').toBeGreaterThanOrEqual(5)
     for (const def of defs) {
-      const top = (def.verticalOffset ?? 0) + def.scale * tallestBuild * def.bounds.visualHeight
+      // A body with authored proportions (issue #47) is never reshaped by the registry build, so
+      // the worst-case multiplier does not apply to it — modelling it here would overstate its
+      // height by up to 7 %. The renderer's own policy decides, via `effectiveBuildScale`.
+      const worstBuild = def.proportions === 'authored' ? 1 : tallestBuild
+      const top = (def.verticalOffset ?? 0) + def.scale * worstBuild * def.bounds.visualHeight
       expect(containsCameraEye(top), `${def.id} at ${top.toFixed(2)}u contains the camera eye`).toBe(false)
       expect(top, `${def.id} rendered height`).toBeLessThanOrEqual(MAX_WORLD_RENDER_HEIGHT)
       // A person is person-sized: this is the check that would catch a unit-scale mistake, which

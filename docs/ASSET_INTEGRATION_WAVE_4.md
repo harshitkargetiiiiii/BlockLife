@@ -174,6 +174,46 @@ So each body is fitted to the rig it replaces:
 Each named NPC therefore renders at **exactly the height it had before Wave 4**, which is the
 invariant that matters: nothing anchored to that height moves.
 
+### The build vector had to be switched off for these bodies
+
+`scale` is not the whole runtime transform. `AnimatedCharacter` renders
+
+```
+scale = def.scale x bodyBuild[axis]
+```
+
+and the build vector from the issue #23 population registry is **non-uniform**: Officer Kim is
+`broad` = [1.13, **0.99**, 1.13] and Bruno is `stocky` = [1.08, **0.93**, 1.08]. Applied to an
+owner-approved 1:1 body that has two consequences, both wrong:
+
+1. it **distorts approved geometry**, stretching the body 8-13 % in X/Z, and
+2. it **changes the fitted height** — Bruno rendered **2.725 m**, not the 2.930 m the fit intended.
+
+That was found in Codex's review of PR #49; a first version of the rendered-height gate multiplied
+only `def.scale` and so reported 2.930 m while the renderer produced 2.725 m.
+
+Character defs therefore carry an explicit policy, `proportions: 'registry' | 'authored'`:
+
+| Body | Policy | Why |
+| ---- | ------ | --- |
+| the five approved 1:1 bodies | `'authored'` | fixed geometry depicting a specific person — render it as authored, uniformly |
+| `blocklife_person` (player, ambient crowd, **and the error fallback**) | `'registry'` (default) | a rig this repo authors; the build is exactly how issue #23 gives it distinct silhouettes |
+
+The registry appearance is **not** discarded for a moved NPC — it still drives that NPC's
+`blocklife_person` error fallback, which takes the build as it always did. One helper,
+`effectiveBuildScale(def, appearance)`, makes the decision, and the renderer and the contract gate
+both call it, so they cannot disagree.
+
+`wave4Contract.test.ts` asserts the **real runtime scale**: the applied vector is uniform on all
+three axes, the build resolves to [1, 1, 1], `scale x build.y x measured == 2.930 m` per body, at
+least one named NPC still carries a non-average registry build (so the check cannot pass
+vacuously), and the fallback rig still receives the NPC's own build. Removing the policy from one
+body fails it with the exact figure: `blocklife_bruno_01 renders 2.7249 m against the rig's 2.93 m`.
+
+No baseline moved: the corrected proportions change a few thousand pixels in the frames where Kim
+or Bruno appear, well inside the 3 % tolerance, and all 16 Wave 4 NPC frames plus the three
+existing NPC-bearing baselines still match.
+
 `bounds` and `anchors` are handled differently, and the difference is not cosmetic:
 
 - **`bounds` describe the MODEL** and are validated against it, so each body keeps its own measured

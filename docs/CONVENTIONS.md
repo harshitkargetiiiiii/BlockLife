@@ -715,7 +715,18 @@ from its own bytes, and every pinned height tied to the sha256 of the file it wa
 a re-authored body fails instead of silently keeping a stale scale
 (`src/game/assets/wave4Contract.test.ts`).
 
-Two traps worth naming:
+**`scale` is not the whole transform.** `AnimatedCharacter` renders
+`def.scale x bodyBuild[axis]`, and the issue #23 build vector is NON-UNIFORM — `broad` is
+[1.13, 0.99, 1.13], `stocky` [1.08, 0.93, 1.08]. On a rig whose proportions the repo authors that
+is the point. On a fixed, owner-approved body it distorts the art AND changes the height you just
+fitted: Bruno rendered 2.725 m, not 2.930 m. Give such a body an explicit
+`proportions: 'authored'` policy, resolve it in ONE helper the renderer and the gate share, and
+assert the RUNTIME vector (uniform on all three axes, `scale x build.y x measured`) rather than
+`scale` alone — a gate that multiplies only `scale` will report the height you intended while the
+renderer produces a different one. Keep the registry build on the fallback rig, which is still a
+rig.
+
+Three traps worth naming:
 
 - **The declared `bounds`/`anchors` are not the model's bounding box.** `blocklife_person` declares
   `visualHeight: 1.92` while its GLB measures 2.930 — and 2.930 is what it renders (every mounted

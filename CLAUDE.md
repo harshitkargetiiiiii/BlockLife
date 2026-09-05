@@ -87,9 +87,16 @@ player's rig and these NPCs' pre-wave body — measures **2.930 m**, so at `scal
 shipped at ~58% of the player. The whole structural gate passed while that was true (canonical rig,
 valid skinning, grounded base, measured == declared height); it was caught by LOOKING at the
 `wave4-player-beside-*` shot and measured at a 1.674× silhouette ratio vs 1.665 predicted from the
-bytes. Each body now renders at exactly its pre-wave height (`scale = 2.93 / measured`) and adopts
-the rig's `bounds`/`anchors` so no label moves; the player stays at `scale: 1`, gated
-(CONVENTIONS #42). The mapping is a `Record<npcId, assetId>`
+bytes. Each body now renders at exactly its pre-wave height (`scale = 2.93 / measured`); it keeps its OWN
+`bounds` (they describe the model) but adopts the rig's `anchors`, which are world offsets NOT
+multiplied by `scale`, so no label moves; the player stays at `scale: 1`, gated
+(CONVENTIONS #42). A Codex review of PR #49 then caught that `scale` is not the
+whole transform: `AnimatedCharacter` multiplies a NON-UNIFORM registry build (Kim `broad`
+[1.13, 0.99, 1.13], Bruno `stocky` [1.08, 0.93, 1.08]), which stretched the approved geometry in
+X/Z and made Bruno render **2.725 m**, not 2.930 m. The approved bodies now declare
+`proportions: 'authored'` while the rig — player, ambient crowd, AND the error fallback — keeps the
+registry build; one shared `effectiveBuildScale` helper decides, and the contract gates the REAL
+runtime vector (uniform on all three axes, `scale x build.y x measured`). The mapping is a `Record<npcId, assetId>`
 ([`WAVE4_NAMED_BODIES`](src/game/characters/characterManifest.ts)) gated as total, **injective**,
 absent from the player slot, and **built from the sources of the character it names** (the contract
 cross-checks the runtime mapping against the intake config's own per-character source paths, so a

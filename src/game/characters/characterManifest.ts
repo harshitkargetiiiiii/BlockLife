@@ -111,6 +111,12 @@ export const CHARACTER_ASSETS: Record<string, CharacterAssetDefinition> = {
     // sizes the body, never the reverse (CONVENTIONS #36 restated for characters), and each body
     // keeps the EXACT rendered height its NPC had before Wave 4. Gated in wave4Contract.test.ts.
     scale: 1.6648,
+    // Issue #47: an owner-approved 1:1 body renders at ITS OWN proportions. The registry
+    // bodyBuild vector is non-uniform — Officer Kim is 'broad' [1.13, 0.99, 1.13] and Bruno
+    // 'stocky' [1.08, 0.93, 1.08] — so applying it here would stretch approved geometry in X/Z
+    // and change the fitted height (Bruno would render 2.725 m, not 2.930 m). The appearance is
+    // NOT discarded: it still drives this NPC's blocklife_person error fallback, which is a rig.
+    proportions: 'authored',
     rotationOffset: 0,
     verticalOffset: 0,
     skeletonRootName: 'Hips',
@@ -149,6 +155,12 @@ export const CHARACTER_ASSETS: Record<string, CharacterAssetDefinition> = {
     // sizes the body, never the reverse (CONVENTIONS #36 restated for characters), and each body
     // keeps the EXACT rendered height its NPC had before Wave 4. Gated in wave4Contract.test.ts.
     scale: 1.7235,
+    // Issue #47: an owner-approved 1:1 body renders at ITS OWN proportions. The registry
+    // bodyBuild vector is non-uniform — Officer Kim is 'broad' [1.13, 0.99, 1.13] and Bruno
+    // 'stocky' [1.08, 0.93, 1.08] — so applying it here would stretch approved geometry in X/Z
+    // and change the fitted height (Bruno would render 2.725 m, not 2.930 m). The appearance is
+    // NOT discarded: it still drives this NPC's blocklife_person error fallback, which is a rig.
+    proportions: 'authored',
     rotationOffset: 0,
     verticalOffset: 0,
     skeletonRootName: 'Hips',
@@ -170,6 +182,12 @@ export const CHARACTER_ASSETS: Record<string, CharacterAssetDefinition> = {
     // sizes the body, never the reverse (CONVENTIONS #36 restated for characters), and each body
     // keeps the EXACT rendered height its NPC had before Wave 4. Gated in wave4Contract.test.ts.
     scale: 1.5924,
+    // Issue #47: an owner-approved 1:1 body renders at ITS OWN proportions. The registry
+    // bodyBuild vector is non-uniform — Officer Kim is 'broad' [1.13, 0.99, 1.13] and Bruno
+    // 'stocky' [1.08, 0.93, 1.08] — so applying it here would stretch approved geometry in X/Z
+    // and change the fitted height (Bruno would render 2.725 m, not 2.930 m). The appearance is
+    // NOT discarded: it still drives this NPC's blocklife_person error fallback, which is a rig.
+    proportions: 'authored',
     rotationOffset: 0,
     verticalOffset: 0,
     skeletonRootName: 'Hips',
@@ -191,6 +209,12 @@ export const CHARACTER_ASSETS: Record<string, CharacterAssetDefinition> = {
     // sizes the body, never the reverse (CONVENTIONS #36 restated for characters), and each body
     // keeps the EXACT rendered height its NPC had before Wave 4. Gated in wave4Contract.test.ts.
     scale: 1.7135,
+    // Issue #47: an owner-approved 1:1 body renders at ITS OWN proportions. The registry
+    // bodyBuild vector is non-uniform — Officer Kim is 'broad' [1.13, 0.99, 1.13] and Bruno
+    // 'stocky' [1.08, 0.93, 1.08] — so applying it here would stretch approved geometry in X/Z
+    // and change the fitted height (Bruno would render 2.725 m, not 2.930 m). The appearance is
+    // NOT discarded: it still drives this NPC's blocklife_person error fallback, which is a rig.
+    proportions: 'authored',
     rotationOffset: 0,
     verticalOffset: 0,
     skeletonRootName: 'Hips',
@@ -212,6 +236,12 @@ export const CHARACTER_ASSETS: Record<string, CharacterAssetDefinition> = {
     // sizes the body, never the reverse (CONVENTIONS #36 restated for characters), and each body
     // keeps the EXACT rendered height its NPC had before Wave 4. Gated in wave4Contract.test.ts.
     scale: 1.7235,
+    // Issue #47: an owner-approved 1:1 body renders at ITS OWN proportions. The registry
+    // bodyBuild vector is non-uniform — Officer Kim is 'broad' [1.13, 0.99, 1.13] and Bruno
+    // 'stocky' [1.08, 0.93, 1.08] — so applying it here would stretch approved geometry in X/Z
+    // and change the fitted height (Bruno would render 2.725 m, not 2.930 m). The appearance is
+    // NOT discarded: it still drives this NPC's blocklife_person error fallback, which is a rig.
+    proportions: 'authored',
     rotationOffset: 0,
     verticalOffset: 0,
     skeletonRootName: 'Hips',

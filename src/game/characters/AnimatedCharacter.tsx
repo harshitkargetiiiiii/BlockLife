@@ -15,9 +15,9 @@ import { CharacterAnimationController } from './CharacterAnimationController'
 import {
   applyCharacterAppearance,
   applyCharacterVariants,
-  bodyBuildScale,
   createCustomizableMaterialInstances,
   disposeIsolatedMaterials,
+  effectiveBuildScale,
 } from './characterMaterials'
 import {
   characterRuntime,
@@ -204,8 +204,12 @@ function ModelInstance({
     info.activeActionCount = controller.activeActionCount
   })
 
-  // Body silhouette (issue #23): compose the scale-safe build onto the asset scale.
-  const build = bodyBuildScale(appearance)
+  // Body silhouette (issue #23): compose the scale-safe build onto the asset scale — but only
+  // for a body whose proportions this repo authors. An owner-approved 1:1 body renders at its own
+  // proportions (issue #47), because the build vector is NON-UNIFORM: 'broad' is [1.13, 0.99, 1.13]
+  // and 'stocky' [1.08, 0.93, 1.08], which both distort approved geometry and quietly change the
+  // body's height. The policy lives on the def and is resolved in exactly one place.
+  const build = effectiveBuildScale(def, appearance)
   return (
     <primitive
       object={instance.scene}

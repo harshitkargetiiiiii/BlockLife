@@ -14,7 +14,8 @@ import {
   resolveClips,
 } from '../characters/characterManifest'
 import { IDENTITY_FALLBACK_SUFFIX } from '../characters/NpcCharacter'
-import { NAMED_IDENTITIES } from '../characters/populationAppearance'
+import { NAMED_IDENTITIES, appearanceForId } from '../characters/populationAppearance'
+import { bodyBuildScale, effectiveBuildScale } from '../characters/characterMaterials'
 import { NPC_DEFS } from '../../data/npcs'
 import { BUILDINGS, PROPS } from '../world/cityLayout'
 import { PROP_PLACEMENT } from '../world/propPlacement'
@@ -283,8 +284,10 @@ describe('issue #47 Wave 4 — Priority 1: named residents, strict 1:1', () => {
       // Wave 4 FITS the body to the rig it replaces, so the manifest deliberately declares the
       // RIG's bounds rather than this model's raw height (see the rig-fit gate below). What must
       // tie back to the measured source height is the RENDERED height.
+      const npcId = Object.keys(WAVE4_NAMED_BODIES).find((n) => WAVE4_NAMED_BODIES[n] === assetId)!
+      const buildY = effectiveBuildScale(CHARACTER_ASSETS[assetId], appearanceForId(npcId))[1]
       expect(
-        CHARACTER_ASSETS[assetId].scale * r.groundedBounds.size[1],
+        CHARACTER_ASSETS[assetId].scale * buildY * r.groundedBounds.size[1],
         `${assetId} rendered height`,
       ).toBeCloseTo(RIG_HEIGHT_METERS, 3)
     }
@@ -709,14 +712,70 @@ describe('issue #47 Wave 4 — named bodies are FITTED to the rig they replace',
   })
 
   it('each named body renders at the reference rig height, so no NPC changes size', async () => {
-    for (const assetId of Object.values(WAVE4_NAMED_BODIES)) {
+    /**
+     * This asserts the height the RENDERER produces, not `scale` alone. `AnimatedCharacter`
+     * multiplies `def.scale` by a build vector, and that vector is non-uniform — so a gate that
+     * ignored the Y term would report Bruno at 2.930 m while he actually rendered 2.725 m
+     * ('stocky' multiplies Y by 0.93). The build comes from the same `effectiveBuildScale` the
+     * renderer calls, with that NPC's real registry appearance.
+     */
+    for (const [npcId, assetId] of Object.entries(WAVE4_NAMED_BODIES)) {
       const def = CHARACTER_ASSETS[assetId]
-      const rendered = def.scale * (await measure(assetId))
+      const build = effectiveBuildScale(def, appearanceForId(npcId))
+      const rendered = def.scale * build[1] * (await measure(assetId))
       expect(
         Math.abs(rendered - RIG_HEIGHT_METERS),
         `${assetId} renders ${rendered.toFixed(4)} m against the rig's ${RIG_HEIGHT_METERS} m ` +
-          `(scale ${def.scale}). A named resident must not change size when it gains a body.`,
+          `(scale ${def.scale}, build y ${build[1]}). A named resident must not change size.`,
       ).toBeLessThanOrEqual(RIG_FIT_TOLERANCE_METERS)
+    }
+  })
+
+  it('an approved 1:1 body renders UNDISTORTED — the registry build never reshapes it', () => {
+    /**
+     * The defect this gate exists for (Codex review of PR #49): the build vector is applied per
+     * axis, so a named NPC whose registry silhouette is not 'average' had its approved geometry
+     * stretched — Officer Kim 'broad' [1.13, 0.99, 1.13], Bruno 'stocky' [1.08, 0.93, 1.08].
+     * That is a distortion of owner-approved art AND a silent height change.
+     */
+    for (const [npcId, assetId] of Object.entries(WAVE4_NAMED_BODIES)) {
+      const def = CHARACTER_ASSETS[assetId]
+      expect(def.proportions, `${assetId} must declare authored proportions`).toBe('authored')
+      const build = effectiveBuildScale(def, appearanceForId(npcId))
+      expect(build, `${assetId} build vector`).toEqual([1, 1, 1])
+      // The applied scale is uniform on all three axes, so the body keeps its authored shape.
+      const applied = [def.scale * build[0], def.scale * build[1], def.scale * build[2]]
+      expect(applied[0], `${assetId} x/y uniform`).toBeCloseTo(applied[1], 10)
+      expect(applied[2], `${assetId} z/y uniform`).toBeCloseTo(applied[1], 10)
+    }
+  })
+
+  it('the NPCs whose registry build is NOT average are the ones this protects', () => {
+    // Named explicitly so the gate keeps meaning if the registry changes: at least one named NPC
+    // must carry a non-unit build, or the test above would pass vacuously.
+    const nonUnit = Object.keys(WAVE4_NAMED_BODIES).filter((npcId) => {
+      const b = bodyBuildScale(appearanceForId(npcId))
+      return b[0] !== 1 || b[1] !== 1 || b[2] !== 1
+    })
+    expect(nonUnit.length, 'at least one named NPC has a non-average registry build').toBeGreaterThan(0)
+    expect(nonUnit, 'the known non-average named residents').toEqual(
+      expect.arrayContaining(['npc_kim_01', 'npc_bruno_01']),
+    )
+  })
+
+  it('the identity FALLBACK still receives the NPC registry appearance and its build', () => {
+    /**
+     * The policy must not leak into the fallback. When a named body fails, the NPC drops to
+     * `blocklife_person` wearing its registry identity — and that IS a rig this repo authors, so
+     * it takes the build exactly as it did before this wave.
+     */
+    const rig = CHARACTER_ASSETS[DEFAULT_CHARACTER_ASSET_ID]
+    expect(rig.proportions, 'the reference rig keeps registry proportions').not.toBe('authored')
+    for (const npcId of Object.keys(WAVE4_NAMED_BODIES)) {
+      const appearance = appearanceForId(npcId)
+      expect(effectiveBuildScale(rig, appearance), `${npcId} fallback build`).toEqual(
+        bodyBuildScale(appearance),
+      )
     }
   })
 
