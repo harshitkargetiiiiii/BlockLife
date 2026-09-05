@@ -108,13 +108,31 @@ predicates with different budgets and are not evidence about `assetsSettled()`.
 4. CI renders at ~20 fps: the passing test in this very shard reports `frameMs: 49.99, fps: 20`
    under software WebGL, so a 45-second boot budget is marginal there for the whole suite.
 
-## The honest residual risk
+## The honest residual risk, quantified
 
-Wave 4 is a **resource** increase: `dist` grows +9.758 MiB and the mount graph gains ~30 landmark
-instances, so boot has strictly more to fetch and commit than the base did. That can only move
-state 3 — "still in flight" — and it makes a marginal 45 s budget more marginal. It is a plausible
-contributing factor and is recorded as such. It is **not** demonstrated to be a lifecycle bug, and
-the evidence is not sufficient to call it the cause.
+The failing spec boots into the **default spawn sector `s0_0`** (stated in its own header comment),
+which spans x, z ∈ [−72, 72) at `SECTOR_SIZE = 144`, `GRID_ORIGIN = −72`. Measured statically from
+`cityLayout.ts` and the shipped `parkedBodyAssignment()`:
+
+| | |
+| - | - |
+| parked placements declared in `cityLayout.ts` | 17 — **all 17 inside `s0_0`** |
+| Wave 4 bodies they resolve to | **all four**: hatchback ×7, pickup ×8, box-truck ×1, delivery-van ×1 |
+| new GLB bytes that sector must now fetch | **4.38 MiB** (0.86 + 1.14 + 1.13 + 1.25) |
+| `building_gate_tower_02` | at `[34, −94]` → sector `s0_-1`, **not** in this boot |
+| the four new character bodies (4.03 MiB) | outside the settle graph entirely (see above) |
+
+So this is sharper than "the branch got bigger": **the exact sector this test boots into gained four
+GLB ids and 4.38 MiB it did not have on the merge base**, and all of them are `LandmarkAsset`
+instances that `assetsSettled()` genuinely waits on. That is a real, quantified increase in the work
+the 45-second boot budget has to cover, and it can only move state 3, "still in flight".
+
+It remains a **contributing factor, not a demonstrated cause**: the same predicate times out at boot
+on the merge base with none of these assets (above), and no permanent-stall state is reachable here
+(no `[assets]` failure, no `pageerror`, no new churn shape, no new counters). Nothing in the
+existing evidence distinguishes "Wave 4 pushed a marginal budget over" from "this runner class
+misses that budget anyway", and that distinction cannot be settled without a run — which is out of
+scope here.
 
 Raising the timeout would hide exactly this distinction, so it was not touched. Nothing was re-run,
 no assertion weakened, no retry added.
