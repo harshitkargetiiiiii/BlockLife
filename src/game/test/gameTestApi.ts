@@ -1,6 +1,7 @@
 import { useGameStore, canEditFurnish as canEditFurnishRt } from '../store/useGameStore'
 import { registry } from '../world/runtimeRegistry'
-import { ASSET_SETTLE_QUIET_MS, assetGraphPending, isAssetGraphSettled, isSceneReady, unresolvedInstances, type AssetGraphCounters } from '../assets/assetSettle'
+import { readAssetStageMarks, type AssetStageMark } from '../assets/assetStallProbe'
+import { ASSET_SETTLE_QUIET_MS, assetGraphPending, isAssetGraphSettled, isSceneReady, unresolvedByAsset, unresolvedInstances, type AssetGraphCounters, type UnresolvedAsset } from '../assets/assetSettle'
 import { perfRuntime } from '../world/perfRuntime'
 import { countUniqueMaterials, materialProbe } from '../world/materialProbe'
 import { variantCacheStats } from '../assets/variantMaterialCache'
@@ -337,7 +338,25 @@ export interface GameTestApi {
     glbFailed: string[]
     /** Ids with instances that have neither committed nor failed — which body is stalling. */
     glbPending: { id: string; pending: number }[]
+    /**
+     * WHICH ids `assetsSettled()` is actually waiting on, by the predicate's own rule.
+     *
+     * `glbPending` above is the RAW `expected − active − failed` per id, so it also lists ids that
+     * do NOT block readiness (an id with a failure is treated as resolved). This is the breakdown
+     * of `unresolvedInstances` — the number readiness waits on — so a boot that times out can say
+     * which body stalled it instead of only that it did.
+     */
+    unresolvedByAsset: UnresolvedAsset[]
   }
+  /**
+   * DEV-only render/commit milestones for the ONE asset under investigation in issue #47's shard 8
+   * stall (`vehicle_compact_car_01`). Read-only; nothing consults it.
+   *
+   * A missing `hook-returned` means the component never got past `useGLTF`, which leaves parse,
+   * decode and Suspense-resume all unresolved between them — this narrows the question, it does not
+   * answer it.
+   */
+  getAssetStageMarks: () => AssetStageMark[]
   getStats: () => {
     money: number
     hunger: number
@@ -399,6 +418,14 @@ export interface GameTestApi {
   /** Advance the signal clock by N seconds. */
   advanceSignalTime: (seconds: number) => void
   getVehiclePositions: () => Record<string, [number, number]>
+  /**
+   * The ONE drivable shell's live world position, in ANY mode — `getStats().position` only
+   * reports it while actually driving. A visual shot that is about to enter the car needs to
+   * know whether it has finished falling from its respawn height first: entering it mid-fall
+   * leaves residual vertical velocity that `VehicleController` preserves every frame, so the car
+   * and the camera following it drift for the rest of the shot.
+   */
+  getDrivableVehiclePosition: () => [number, number, number]
   /** Background citizens: id, district, live position and behavior state. */
   getAmbientCitizens: () => {
     id: string
@@ -1311,8 +1338,10 @@ export function installTestApi(): void {
         glbActive: glbActive.sort(),
         glbFailed: glbFailed.sort(),
         glbPending,
+        unresolvedByAsset: unresolvedByAsset(registry.glbAssetState),
       }
     },
+    getAssetStageMarks: () => readAssetStageMarks(),
     getStats: () => {
       const s = useGameStore.getState()
       const pos = s.mode === 'driving' ? registry.vehiclePosition : registry.playerPosition
@@ -1408,6 +1437,11 @@ export function installTestApi(): void {
     advanceSignalTime: (seconds) => {
       trafficRuntime.signal.elapsed += seconds
     },
+    getDrivableVehiclePosition: () => [
+      registry.vehiclePosition.x,
+      registry.vehiclePosition.y,
+      registry.vehiclePosition.z,
+    ],
     getVehiclePositions: () => {
       const out: Record<string, [number, number]> = {}
       for (const f of collectAllVehicleFootprints()) out[f.id] = [f.position.x, f.position.z]

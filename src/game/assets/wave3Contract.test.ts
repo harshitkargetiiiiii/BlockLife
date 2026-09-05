@@ -483,6 +483,7 @@ describe('issue #44 Wave 3 — production building GLB contract (real bytes)', (
     const files = readdirSync('public/assets/models/city').filter((f) => f.endsWith('.glb')).sort()
     expect(files).toEqual([
       'arch_apartment_01.glb', // issue #44 Wave 3
+      'arch_apartment_02.glb', // issue #47 Wave 4
       'arch_hotel_01.glb', // issue #44 Wave 3
       'arch_house_01.glb', // issue #44 Wave 3
       'arch_office_01.glb', // issue #38 Wave 0
@@ -505,14 +506,21 @@ describe('issue #44 Wave 3 — production building GLB contract (real bytes)', (
     }
   })
 
-  it('leaves every non-building asset row exactly as Wave 2 shipped it', () => {
-    // Issue #44 touches buildings only. Characters, vehicles and props must not gain, lose or
-    // repoint a row — the cheapest possible guard against collateral damage.
-    const rows = ASSET_MANIFEST
-      .filter((e) => e.category !== 'city')
-      .map((e) => `${e.category}/${e.id}:${e.glbPath}:${e.enabled}`)
-      .sort()
-    expect(rows).toEqual([
+  it('leaves every non-building asset row Wave 3 inherited exactly as Wave 2 shipped it', () => {
+    // Issue #44 touched buildings only, and none of the character / vehicle / prop rows it
+    // inherited may be lost, disabled or repointed — the cheapest possible guard against
+    // collateral damage, and the reason a later wave cannot quietly retarget a Wave-2 file.
+    //
+    // It is a SUPERSET check, not an equality one: issue #47 Wave 4 legitimately ADDS rows in
+    // those categories (four named-resident bodies and four parked-vehicle bodies), and each of
+    // those is pinned by its own wave's contract. Asserting "no row was ever added" would make
+    // this test a tax on every future wave while proving nothing about Wave 3.
+    const rows = new Set(
+      ASSET_MANIFEST
+        .filter((e) => e.category !== 'city')
+        .map((e) => `${e.category}/${e.id}:${e.glbPath}:${e.enabled}`),
+    )
+    for (const row of [
       'characters/blocklife_female_01:assets/models/characters/blocklife_female_01.glb:true',
       'characters/blocklife_kabir_01:assets/models/characters/blocklife_kabir_01.glb:true',
       'characters/blocklife_male_01:assets/models/characters/blocklife_male_01.glb:true',
@@ -532,7 +540,9 @@ describe('issue #44 Wave 3 — production building GLB contract (real bytes)', (
       'vehicles/vehicle_scooter_01:assets/models/vehicles/scooter_01.glb:true',
       'vehicles/vehicle_sports_car_01:assets/models/vehicles/sports_car_01.glb:true',
       'vehicles/vehicle_utility_van_01:assets/models/vehicles/utility_van_01.glb:true',
-    ])
+    ]) {
+      expect(rows.has(row), `Wave 3 inherited row changed or lost: ${row}`).toBe(true)
+    }
   })
 
   it('committed bytes match the recorded provenance hashes', () => {

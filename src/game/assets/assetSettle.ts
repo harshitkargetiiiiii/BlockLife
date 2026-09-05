@@ -75,6 +75,42 @@ export interface AssetInstanceCounts {
  * released on unmount (`AssetErrorBoundary`), so such an id has `failed: 0` and its pending
  * instance still blocks.
  */
+export interface UnresolvedAsset {
+  id: string
+  /** Instances of this id that are genuinely still in flight. */
+  unresolved: number
+  expected: number
+  active: number
+  failed: number
+}
+
+/**
+ * The per-id breakdown of `unresolvedInstances` — WHICH bodies are holding readiness open.
+ *
+ * Diagnostic only; nothing in the render or readiness path reads it. It exists because
+ * `getAssetReadiness().glbPending` answers a subtly different question: that field is the RAW
+ * `expected - active - failed` for every id, so it both lists ids that do not block (an id with a
+ * failure is deliberately treated as resolved — see `unresolvedInstances`) and gives no way to
+ * tell which of the remaining ids the predicate is actually waiting on. When a boot times out
+ * waiting for `assetsSettled()`, the only useful question is "which id is still in flight, by the
+ * same rule the predicate uses", and this answers exactly that.
+ *
+ * Deliberately a separate function rather than a rewrite of `unresolvedInstances`: that one is on
+ * the live readiness path, and a diagnostic must not risk changing what it returns. A unit test
+ * asserts the two agree on every case, so they cannot drift.
+ */
+export function unresolvedByAsset(
+  perAsset: Iterable<readonly [string, AssetInstanceCounts]>,
+): UnresolvedAsset[] {
+  const out: UnresolvedAsset[] = []
+  for (const [id, c] of perAsset) {
+    if (c.failed > 0) continue
+    const unresolved = Math.max(0, c.expected - c.active - c.failed)
+    if (unresolved > 0) out.push({ id, unresolved, expected: c.expected, active: c.active, failed: c.failed })
+  }
+  return out.sort((a, b) => b.unresolved - a.unresolved || a.id.localeCompare(b.id))
+}
+
 export function unresolvedInstances(perAsset: Iterable<readonly [string, AssetInstanceCounts]>): number {
   let unresolved = 0
   for (const [, c] of perAsset) {

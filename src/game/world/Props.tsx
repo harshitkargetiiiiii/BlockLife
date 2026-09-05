@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useRef, type ReactNode } from 'react'
 import * as THREE from 'three'
 import { useFrame } from '@react-three/fiber'
 import { PROPS, JOB_KIOSK } from './cityLayout'
@@ -9,6 +9,7 @@ import { useGameStore } from '../store/useGameStore'
 import { LandmarkAsset } from '../assets/LandmarkAsset'
 import { getManifestEntry } from '../assets/modelRegistry'
 import { STREET_PROP_ASSET_IDS } from './propAssetIds'
+import { parkedBodyAssetId } from './parkedVehicleBodies'
 
 // Repeated props share geometry + materials: one allocation per shape for
 // the whole city (11 trees, 9 lamps, 3 benches, 3 cans, ...).
@@ -496,6 +497,22 @@ function PorchLight() {
   )
 }
 
+/**
+ * A parked vehicle placement: the approved GLB body when this placement has one, otherwise the
+ * procedural mesh alone. Split out so `parked_car` and `parked_truck` share one branch shape and
+ * an unmapped placement is byte-identical to its pre-wave render (no wrapper group, no counter).
+ */
+function ParkedBody({
+  assetId,
+  children,
+}: {
+  assetId: string | undefined
+  children: ReactNode
+}) {
+  if (!assetId) return <>{children}</>
+  return <LandmarkAsset assetId={assetId}>{children}</LandmarkAsset>
+}
+
 /** Boxy delivery truck: cab + cargo box. Nose faces +z like CarMesh. */
 function TruckMesh({ color = '#c9803d' }: { color?: string }) {
   return (
@@ -566,7 +583,14 @@ function PropByType({ def, seed }: { def: PropDef; seed: number }) {
     case 'planter':
       return <Planter />
     case 'parked_car':
-      return <CarMesh color={def.color ?? '#7a9cc6'} />
+      // Issue #47 Wave 4: an approved parked-car body when this placement has one, with the
+      // complete procedural car — its authored `def.color` included — as the LandmarkAsset
+      // fallback. The GLB is a whole vehicle (wheels, glass and lights are in its baked atlas),
+      // so it REPLACES CarMesh rather than composing over it: no duplicate wheels, no primitive
+      // shell behind a healthy body. An unmapped placement keeps exactly the pre-wave render.
+      return <ParkedBody assetId={parkedBodyAssetId(def.id)}>
+        <CarMesh color={def.color ?? '#7a9cc6'} />
+      </ParkedBody>
     case 'ac_unit':
       return (
         <LandmarkAsset assetId={STREET_PROP_ASSET_IDS.ac_unit!}>
@@ -604,7 +628,9 @@ function PropByType({ def, seed }: { def: PropDef; seed: number }) {
     case 'stop_sign':
       return <StopSignMesh />
     case 'parked_truck':
-      return <TruckMesh color={def.color} />
+      return <ParkedBody assetId={parkedBodyAssetId(def.id)}>
+        <TruckMesh color={def.color} />
+      </ParkedBody>
     case 'crate':
       return <CrateStack />
     case 'barrel':

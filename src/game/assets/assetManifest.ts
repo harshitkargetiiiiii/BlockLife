@@ -897,6 +897,214 @@ export const ASSET_MANIFEST: AssetManifestEntry[] = [
     attribution: 'Meshy AI — generated original asset (owner-approved 2026-08-31 sprint), texture-optimized in-repo',
     license: 'Meshy AI generated asset (meshy.ai terms)',
   },
+  // ---- Issue #47 Integration Wave 4: FOUR named-resident bodies. Each ships as ONE production
+  // GLB carrying all three semantic clips (Idle / Walk / Run) on the canonical 24-bone
+  // c432d433d51d skeleton, assembled by scripts/asset-intake/buildWave4.mjs from that ONE
+  // character's three per-clip sprint sources, which share a byte-identical mesh/texture/skeleton.
+  // No second character or animation system; the procedural `blocklife_person` stays the
+  // authoritative fallback on load failure, and it keeps that NPC's full registry appearance.
+  //
+  // STRICT 1:1. Each body is named by exactly ONE NPC and may back no other (issue #47:
+  // "No identity swapping", "no cross-character reuse"). `wave4Contract.test.ts` gates that
+  // against `WAVE4_NAMED_BODIES` and `NPC_DEFS`. The PLAYER is untouched and stays
+  // `blocklife_person`: a baked single-material body cannot expose the recolorable slots the
+  // save-backed wardrobe needs, so `PLAYER_CHARACTER_ASSET_ID` never points at one of these. ----
+  {
+    ...defaults,
+    id: 'blocklife_maya_01',
+    label: 'Maya Okafor — named resident body (issue #47 Wave 4)',
+    category: 'characters',
+    glbPath: 'assets/models/characters/blocklife_maya_01.glb',
+    fallbackKey: 'blocklife_primitive',
+    enabled: true,
+    budget: { maxTriangles: 25000 },
+    attribution: 'Meshy AI — generated original asset (owner-approved 2026-08-31 sprint), assembled + texture-optimized in-repo',
+    license: 'Meshy AI generated asset (meshy.ai terms)',
+  },
+  {
+    ...defaults,
+    id: 'blocklife_bruno_01',
+    label: 'Bruno Castillo — named resident body (issue #47 Wave 4)',
+    category: 'characters',
+    glbPath: 'assets/models/characters/blocklife_bruno_01.glb',
+    fallbackKey: 'blocklife_primitive',
+    enabled: true,
+    budget: { maxTriangles: 25000 },
+    attribution: 'Meshy AI — generated original asset (owner-approved 2026-08-31 sprint), assembled + texture-optimized in-repo',
+    license: 'Meshy AI generated asset (meshy.ai terms)',
+  },
+  {
+    ...defaults,
+    id: 'blocklife_kim_01',
+    label: 'Officer Kim — named resident body (issue #47 Wave 4)',
+    category: 'characters',
+    glbPath: 'assets/models/characters/blocklife_kim_01.glb',
+    fallbackKey: 'blocklife_primitive',
+    enabled: true,
+    budget: { maxTriangles: 25000 },
+    attribution: 'Meshy AI — generated original asset (owner-approved 2026-08-31 sprint), assembled + texture-optimized in-repo',
+    license: 'Meshy AI generated asset (meshy.ai terms)',
+  },
+  {
+    ...defaults,
+    id: 'blocklife_nisha_01',
+    label: 'Nisha Rao — named resident body (issue #47 Wave 4)',
+    category: 'characters',
+    glbPath: 'assets/models/characters/blocklife_nisha_01.glb',
+    fallbackKey: 'blocklife_primitive',
+    enabled: true,
+    budget: { maxTriangles: 25000 },
+    attribution: 'Meshy AI — generated original asset (owner-approved 2026-08-31 sprint), assembled + texture-optimized in-repo',
+    license: 'Meshy AI generated asset (meshy.ai terms)',
+  },
+  // ---- Issue #47 Wave 4: FOUR parked-vehicle bodies projecting onto the EXISTING authored
+  // `parked_car` / `parked_truck` PROP placements. These are scenery, not gameplay: they are
+  // NOT vehicle classes, carry no `VehicleDef`, no collider, no seats, no tuning, no ownership
+  // and no save field. `PROP_SOLIDITY` still owns collision and `cityLayout`/the authoring kit
+  // still own every position, rotation, id and streaming membership. `CarMesh` / `TruckMesh`
+  // stay the LandmarkAsset fallback, so a failed load restores the pre-wave street exactly,
+  // per-placement `def.color` included.
+  //
+  // Each `scale` is the largest UNIFORM factor that keeps the MEASURED source bbox entirely
+  // inside that prop type's AUTHORED visual envelope in `propPlacement.ts`, at 4 dp rounded
+  // DOWN, computed AFTER the +π/2 yaw that puts the model's own length axis (local X) on the
+  // placement's longitudinal axis (local Z) — the same convention `vehicle_compact_car_01`
+  // already ships:
+  //   s = floor(min((2·visualHalf.z) / sizeX, (2·visualHalf.x) / sizeZ, vertical[1] / sizeY) * 1e4) / 1e4
+  // Issue #47 forbids a body that "exceeds its authored envelope", so the envelope decides the
+  // size and the bodies under-fill rather than the table being widened to suit them.
+  // `wave4Contract.test.ts` recomputes every number from PROP_PLACEMENT and the committed bytes.
+  //
+  // `bounds` is stated in the placement's LOCAL frame after that yaw: width = across the street,
+  // depth = along it. ----
+  {
+    ...defaults,
+    id: 'vehicle_parked_hatchback_01',
+    label: 'Parked hatchback body (issue #47 Wave 4, parked_car placements)',
+    category: 'vehicles',
+    glbPath: 'assets/models/vehicles/parked_hatchback_01.glb',
+    fallbackKey: 'CarMesh',
+    // Model 1.8985 × 0.6538 × 0.8078, origin at its base. LENGTH binds: at s = 2.1068 the body
+    // is 3.9998 long against the authored 4.0 envelope, 1.3774 tall against 1.4, and 1.7019
+    // wide against 2.0. The only approved car body that fills the authored envelope's length —
+    // it lands within 0.1 % of the procedural CarMesh's own 3.9 m, so the street's scale
+    // hierarchy is preserved rather than shrunk.
+    scale: [2.1068, 2.1068, 2.1068],
+    rotation: [0, Math.PI / 2, 0],
+    positionOffset: [0, 0, 0],
+    enabled: true,
+    budget: { maxTriangles: 25000 },
+    // One baked atlas: panels, glass, lights and tyres share a single texture, so no recolorable
+    // slot is claimed and the approved source paint ships as authored (the Wave 1 rule).
+    materialSlots: {},
+    bounds: { width: 1.7019, height: 1.3774, depth: 3.9998 },
+    attribution: 'Meshy AI — generated original asset (owner-approved 2026-08-31 sprint), texture-optimized in-repo',
+    license: 'Meshy AI generated asset (meshy.ai terms)',
+  },
+  {
+    ...defaults,
+    id: 'vehicle_parked_pickup_01',
+    label: 'Parked pickup body (issue #47 Wave 4, parked_car placements)',
+    category: 'vehicles',
+    glbPath: 'assets/models/vehicles/parked_pickup_01.glb',
+    fallbackKey: 'CarMesh',
+    // Model 1.8975 × 0.802 × 0.8481, origin at its base. HEIGHT binds: at s = 1.7455 the body
+    // fills the authored 1.4 ceiling exactly and lands 3.3121 long × 1.4804 wide. It therefore
+    // under-fills the 4.0 envelope by 0.69 m — deliberately, because the authored envelope is
+    // the contract and 3.31 m is a real small-utility-pickup length, not a distorted one.
+    scale: [1.7455, 1.7455, 1.7455],
+    rotation: [0, Math.PI / 2, 0],
+    positionOffset: [0, 0, 0],
+    enabled: true,
+    budget: { maxTriangles: 25000 },
+    materialSlots: {},
+    bounds: { width: 1.4804, height: 1.3999, depth: 3.3121 },
+    attribution: 'Meshy AI — generated original asset (owner-approved 2026-08-31 sprint), texture-optimized in-repo',
+    license: 'Meshy AI generated asset (meshy.ai terms)',
+  },
+  {
+    ...defaults,
+    id: 'vehicle_parked_delivery_van_01',
+    label: 'Parked delivery-van body (issue #47 Wave 4, parked_truck placements)',
+    category: 'vehicles',
+    glbPath: 'assets/models/vehicles/parked_delivery_van_01.glb',
+    fallbackKey: 'TruckMesh',
+    // Model 1.8962 × 0.9149 × 0.8871, origin at its base. HEIGHT binds: at s = 2.2952 the body
+    // fills the authored 2.1 ceiling and lands 4.3522 long × 2.0361 wide inside the 4.6 × 2.3
+    // `parked_truck` envelope.
+    scale: [2.2952, 2.2952, 2.2952],
+    rotation: [0, Math.PI / 2, 0],
+    positionOffset: [0, 0, 0],
+    enabled: true,
+    budget: { maxTriangles: 25000 },
+    materialSlots: {},
+    bounds: { width: 2.0361, height: 2.0999, depth: 4.3522 },
+    attribution: 'Meshy AI — generated original asset (owner-approved 2026-08-31 sprint), texture-optimized in-repo',
+    license: 'Meshy AI generated asset (meshy.ai terms)',
+  },
+  {
+    ...defaults,
+    id: 'vehicle_parked_box_truck_01',
+    label: 'Parked box-truck body (issue #47 Wave 4, parked_truck placements)',
+    category: 'vehicles',
+    glbPath: 'assets/models/vehicles/parked_box_truck_01.glb',
+    fallbackKey: 'TruckMesh',
+    // Model 1.8984 × 0.9901 × 0.8573, origin at its base. HEIGHT binds: at s = 2.1208 the body
+    // fills the authored 2.1 ceiling and lands 4.0261 long × 1.8182 wide.
+    scale: [2.1208, 2.1208, 2.1208],
+    rotation: [0, Math.PI / 2, 0],
+    positionOffset: [0, 0, 0],
+    enabled: true,
+    budget: { maxTriangles: 25000 },
+    materialSlots: {},
+    bounds: { width: 1.8182, height: 2.0998, depth: 4.0261 },
+    attribution: 'Meshy AI — generated original asset (owner-approved 2026-08-31 sprint), texture-optimized in-repo',
+    license: 'Meshy AI generated asset (meshy.ai terms)',
+  },
+  // ---- Issue #47 Wave 4: ONE approved building body on ONE existing authored placement.
+  // `building_gate_tower_02` is the UNLABELLED, east-door residential-scale tower in the
+  // Downtown Gateway; the approved second apartment style is a balconied residential slab, so
+  // no authored role, label or interaction is contradicted. Its position, the 8 × 14 × 8
+  // authored box, the collider, the east door anchor, the district, streaming identity and the
+  // occluder descriptor are all untouched; `BuildingMesh` stays the fallback.
+  //
+  // Measured local bbox 9.4642 × 22 × 9.4674, origin at the base. The intake's per-side facade
+  // measurement puts 974 entrance-band vertices on the model's own +z elevation against
+  // 434–531 on the other three, and the rendered cardinals show the single ground-floor door
+  // there — so canonical facing is 'south' (measured, not assumed) and the authored EAST door
+  // yaws the body by +π/2.
+  //   s = floor(min(4 / 4.73375, 4 / 4.73215, 15 / 22) * 1e4) / 1e4 = 0.6818   (HEIGHT binds)
+  // → model-local 6.4527 × 14.9996 × 6.4549; the +π/2 yaw swaps the two horizontal extents, so
+  // the body renders 6.4549 wide × 6.4527 deep on the 8 × 8 lot.
+  //
+  // HEIGHT binds because the body is 22 m tall and `MAX_WORLD_RENDER_HEIGHT` is 15 (issue #46:
+  // FollowCamera's eye sits at y = 18, so a taller body would contain the camera). The honest
+  // cost, recorded rather than hidden: at 0.6818 the eight storeys read at a 1.875 m pitch, and
+  // the body under-fills its 8 m lot by 0.77 m per side. Both are consequences of a camera
+  // invariant the repo owns, not of this placement — the same trade `building_apartment_01`
+  // already ships at 0.6.
+  {
+    ...defaults,
+    id: 'building_gate_tower_02',
+    label: 'Gateway residential tower (issue #47 Wave 4)',
+    category: 'city',
+    glbPath: 'assets/models/city/arch_apartment_02.glb',
+    fallbackKey: 'BuildingMesh',
+    scale: [0.6818, 0.6818, 0.6818],
+    rotation: [0, Math.PI / 2, 0],
+    positionOffset: [0, 0, 0],
+    // One baked atlas (render, balconies, glazing and the roof plant room in a single texture) —
+    // no recolorable slot is claimed, and the source colours ship as approved.
+    materialSlots: {},
+    // MODEL-LOCAL extents at this scale — the convention every other `city` entry uses (the yaw
+    // swaps them in world space, as the derivation above spells out).
+    bounds: { width: 6.4527, height: 14.9996, depth: 6.4549 },
+    renderedTopY: 14.9996,
+    enabled: true,
+    budget: { maxTriangles: 60000 },
+    attribution: 'Meshy AI — generated original asset (owner-approved 2026-08-31 sprint), texture-optimized in-repo',
+    license: 'Meshy AI generated asset (meshy.ai terms)',
+  },
   // NOTE (issue #27 H0): `human_gold_calibration_01` is intentionally NOT in this production manifest.
   // It is a not-yet-approved REVIEW asset kept outside public/ (dev-review-assets/) and loaded only
   // through the DEV review harness — see the note in characterManifest.ts. Not shipped in dist/.

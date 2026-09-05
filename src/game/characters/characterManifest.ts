@@ -103,7 +103,20 @@ export const CHARACTER_ASSETS: Record<string, CharacterAssetDefinition> = {
   blocklife_ravi_01: {
     id: 'blocklife_ravi_01',
     modelPath: 'assets/models/characters/blocklife_ravi_01.glb',
-    scale: 1,
+    // Issue #47 Wave 4 — FITTED to the rig it replaces. The approved bodies are authored at
+    // real-world human height (1.70-1.84 m); `blocklife_person`, which every one of these NPCs
+    // rendered as before this wave and which the PLAYER still renders as, stands 2.930 m. Shipping
+    // these at scale 1 made each named resident ~60 % of the player's height — measured at a
+    // 1.674x rendered silhouette ratio, against 1.665 predicted from the bytes. So the rig's height
+    // sizes the body, never the reverse (CONVENTIONS #36 restated for characters), and each body
+    // keeps the EXACT rendered height its NPC had before Wave 4. Gated in wave4Contract.test.ts.
+    scale: 1.6648,
+    // Issue #47: an owner-approved 1:1 body renders at ITS OWN proportions. The registry
+    // bodyBuild vector is non-uniform — Officer Kim is 'broad' [1.13, 0.99, 1.13] and Bruno
+    // 'stocky' [1.08, 0.93, 1.08] — so applying it here would stretch approved geometry in X/Z
+    // and change the fitted height (Bruno would render 2.725 m, not 2.930 m). The appearance is
+    // NOT discarded: it still drives this NPC's blocklife_person error fallback, which is a rig.
+    proportions: 'authored',
     rotationOffset: 0,
     verticalOffset: 0,
     skeletonRootName: 'Hips',
@@ -111,7 +124,132 @@ export const CHARACTER_ASSETS: Record<string, CharacterAssetDefinition> = {
     clips: { idle: ['Idle'], walk: ['Walk'], run: ['Run'] },
     animationSpeedScale: { walk: 1, run: 1 },
     bounds: { visualHeight: 1.76, radius: 0.4, centerY: 0.88, headY: 1.64 },
-    anchors: { headY: 1.96, chestY: 1.09 },
+    anchors: { headY: 2.15, chestY: 1.1 },
+    fallback: { primitiveStyle: 'blocklife_primitive' },
+  },
+  // ---- Issue #47 Integration Wave 4 — NAMED-RESIDENT bodies (strict 1:1) ----
+  // Each of these is the ONE owner-approved sprint body for ONE named NPC, assembled by
+  // scripts/asset-intake/buildWave4.mjs exactly the way Wave 0 assembled Kabir and Ravi: three
+  // per-clip sprint GLBs sharing a byte-identical mesh/texture/24-bone `c432d433d51d` skeleton,
+  // merged onto ONE production GLB whose clips are renamed to the literal role names the alias
+  // tables below already list. Nothing new is needed in the controller — idle/walk/run resolve
+  // through the EXISTING `resolveClips` path, and the procedural `blocklife_person` stays the
+  // fallback with that NPC's full registry appearance intact.
+  //
+  // Baked appearance (ONE material) => `materialSlots: {}`. That is why the PLAYER keeps
+  // `blocklife_person` (see PLAYER_CHARACTER_ASSET_ID): the save-backed wardrobe needs
+  // recolorable slots these bodies cannot expose. For a NAMED NPC the trade is different and
+  // issue #47 authorises it explicitly — the approved body IS that character's authored identity,
+  // and its baked clothing is immutable (no tint, palette wash or atlas rewrite).
+  //
+  // `bounds.visualHeight` is the height measured from the SHIPPED bytes by the intake
+  // (`inspectRig`), not a transcription; `wave4Contract.test.ts` re-measures it.
+  blocklife_maya_01: {
+    id: 'blocklife_maya_01',
+    modelPath: 'assets/models/characters/blocklife_maya_01.glb',
+    // Issue #47 Wave 4 — FITTED to the rig it replaces. The approved bodies are authored at
+    // real-world human height (1.70-1.84 m); `blocklife_person`, which every one of these NPCs
+    // rendered as before this wave and which the PLAYER still renders as, stands 2.930 m. Shipping
+    // these at scale 1 made each named resident ~60 % of the player's height — measured at a
+    // 1.674x rendered silhouette ratio, against 1.665 predicted from the bytes. So the rig's height
+    // sizes the body, never the reverse (CONVENTIONS #36 restated for characters), and each body
+    // keeps the EXACT rendered height its NPC had before Wave 4. Gated in wave4Contract.test.ts.
+    scale: 1.7235,
+    // Issue #47: an owner-approved 1:1 body renders at ITS OWN proportions. The registry
+    // bodyBuild vector is non-uniform — Officer Kim is 'broad' [1.13, 0.99, 1.13] and Bruno
+    // 'stocky' [1.08, 0.93, 1.08] — so applying it here would stretch approved geometry in X/Z
+    // and change the fitted height (Bruno would render 2.725 m, not 2.930 m). The appearance is
+    // NOT discarded: it still drives this NPC's blocklife_person error fallback, which is a rig.
+    proportions: 'authored',
+    rotationOffset: 0,
+    verticalOffset: 0,
+    skeletonRootName: 'Hips',
+    materialSlots: {},
+    clips: { idle: ['Idle'], walk: ['Walk'], run: ['Run'] },
+    animationSpeedScale: { walk: 1, run: 1 },
+    bounds: { visualHeight: 1.7, radius: 0.4, centerY: 0.85, headY: 1.58 },
+    anchors: { headY: 2.15, chestY: 1.1 },
+    fallback: { primitiveStyle: 'blocklife_primitive' },
+  },
+  blocklife_bruno_01: {
+    id: 'blocklife_bruno_01',
+    modelPath: 'assets/models/characters/blocklife_bruno_01.glb',
+    // Issue #47 Wave 4 — FITTED to the rig it replaces. The approved bodies are authored at
+    // real-world human height (1.70-1.84 m); `blocklife_person`, which every one of these NPCs
+    // rendered as before this wave and which the PLAYER still renders as, stands 2.930 m. Shipping
+    // these at scale 1 made each named resident ~60 % of the player's height — measured at a
+    // 1.674x rendered silhouette ratio, against 1.665 predicted from the bytes. So the rig's height
+    // sizes the body, never the reverse (CONVENTIONS #36 restated for characters), and each body
+    // keeps the EXACT rendered height its NPC had before Wave 4. Gated in wave4Contract.test.ts.
+    scale: 1.5924,
+    // Issue #47: an owner-approved 1:1 body renders at ITS OWN proportions. The registry
+    // bodyBuild vector is non-uniform — Officer Kim is 'broad' [1.13, 0.99, 1.13] and Bruno
+    // 'stocky' [1.08, 0.93, 1.08] — so applying it here would stretch approved geometry in X/Z
+    // and change the fitted height (Bruno would render 2.725 m, not 2.930 m). The appearance is
+    // NOT discarded: it still drives this NPC's blocklife_person error fallback, which is a rig.
+    proportions: 'authored',
+    rotationOffset: 0,
+    verticalOffset: 0,
+    skeletonRootName: 'Hips',
+    materialSlots: {},
+    clips: { idle: ['Idle'], walk: ['Walk'], run: ['Run'] },
+    animationSpeedScale: { walk: 1, run: 1 },
+    bounds: { visualHeight: 1.84, radius: 0.42, centerY: 0.92, headY: 1.72 },
+    anchors: { headY: 2.15, chestY: 1.1 },
+    fallback: { primitiveStyle: 'blocklife_primitive' },
+  },
+  blocklife_kim_01: {
+    id: 'blocklife_kim_01',
+    modelPath: 'assets/models/characters/blocklife_kim_01.glb',
+    // Issue #47 Wave 4 — FITTED to the rig it replaces. The approved bodies are authored at
+    // real-world human height (1.70-1.84 m); `blocklife_person`, which every one of these NPCs
+    // rendered as before this wave and which the PLAYER still renders as, stands 2.930 m. Shipping
+    // these at scale 1 made each named resident ~60 % of the player's height — measured at a
+    // 1.674x rendered silhouette ratio, against 1.665 predicted from the bytes. So the rig's height
+    // sizes the body, never the reverse (CONVENTIONS #36 restated for characters), and each body
+    // keeps the EXACT rendered height its NPC had before Wave 4. Gated in wave4Contract.test.ts.
+    scale: 1.7135,
+    // Issue #47: an owner-approved 1:1 body renders at ITS OWN proportions. The registry
+    // bodyBuild vector is non-uniform — Officer Kim is 'broad' [1.13, 0.99, 1.13] and Bruno
+    // 'stocky' [1.08, 0.93, 1.08] — so applying it here would stretch approved geometry in X/Z
+    // and change the fitted height (Bruno would render 2.725 m, not 2.930 m). The appearance is
+    // NOT discarded: it still drives this NPC's blocklife_person error fallback, which is a rig.
+    proportions: 'authored',
+    rotationOffset: 0,
+    verticalOffset: 0,
+    skeletonRootName: 'Hips',
+    materialSlots: {},
+    clips: { idle: ['Idle'], walk: ['Walk'], run: ['Run'] },
+    animationSpeedScale: { walk: 1, run: 1 },
+    bounds: { visualHeight: 1.71, radius: 0.4, centerY: 0.86, headY: 1.59 },
+    anchors: { headY: 2.15, chestY: 1.1 },
+    fallback: { primitiveStyle: 'blocklife_primitive' },
+  },
+  blocklife_nisha_01: {
+    id: 'blocklife_nisha_01',
+    modelPath: 'assets/models/characters/blocklife_nisha_01.glb',
+    // Issue #47 Wave 4 — FITTED to the rig it replaces. The approved bodies are authored at
+    // real-world human height (1.70-1.84 m); `blocklife_person`, which every one of these NPCs
+    // rendered as before this wave and which the PLAYER still renders as, stands 2.930 m. Shipping
+    // these at scale 1 made each named resident ~60 % of the player's height — measured at a
+    // 1.674x rendered silhouette ratio, against 1.665 predicted from the bytes. So the rig's height
+    // sizes the body, never the reverse (CONVENTIONS #36 restated for characters), and each body
+    // keeps the EXACT rendered height its NPC had before Wave 4. Gated in wave4Contract.test.ts.
+    scale: 1.7235,
+    // Issue #47: an owner-approved 1:1 body renders at ITS OWN proportions. The registry
+    // bodyBuild vector is non-uniform — Officer Kim is 'broad' [1.13, 0.99, 1.13] and Bruno
+    // 'stocky' [1.08, 0.93, 1.08] — so applying it here would stretch approved geometry in X/Z
+    // and change the fitted height (Bruno would render 2.725 m, not 2.930 m). The appearance is
+    // NOT discarded: it still drives this NPC's blocklife_person error fallback, which is a rig.
+    proportions: 'authored',
+    rotationOffset: 0,
+    verticalOffset: 0,
+    skeletonRootName: 'Hips',
+    materialSlots: {},
+    clips: { idle: ['Idle'], walk: ['Walk'], run: ['Run'] },
+    animationSpeedScale: { walk: 1, run: 1 },
+    bounds: { visualHeight: 1.7, radius: 0.4, centerY: 0.85, headY: 1.58 },
+    anchors: { headY: 2.15, chestY: 1.1 },
     fallback: { primitiveStyle: 'blocklife_primitive' },
   },
   // NOTE (issue #27 H0): the calibration human `human_gold_calibration_01` is deliberately NOT a
@@ -141,13 +279,47 @@ export const DEFAULT_CHARACTER_ASSET_ID = 'blocklife_person'
 export const PLAYER_CHARACTER_ASSET_ID = DEFAULT_CHARACTER_ASSET_ID
 
 /**
- * Issue #38 Wave 0 candidate characters: owner-approved, provenance-tracked, byte-pinned and
- * loadable through the ONE existing AnimatedCharacter pipeline — but deliberately NOT wired to
- * the player slot or any NPC def, because they carry one baked material and therefore cannot
- * expose the wardrobe / identity axes those runtime slots require. They become eligible for a
- * runtime slot only if they are re-authored with real material segmentation.
+ * Candidate characters: owner-approved, provenance-tracked, byte-pinned and loadable through the
+ * ONE existing AnimatedCharacter pipeline — but deliberately NOT wired to the player slot or any
+ * NPC def. A candidate is a body with no runtime home: either no NPC in the cast is the person it
+ * depicts, or its own named slot rejected it.
+ *
+ * Issue #38 Wave 0 introduced this list with Kabir AND Ravi on it, because at that time NO baked
+ * body was allowed in a runtime slot at all. Issue #47 narrows that decision rather than
+ * reversing it: the PLAYER still may never be a baked body (the save-backed wardrobe needs
+ * recolorable slots — see PLAYER_CHARACTER_ASSET_ID), but a NAMED NPC may ride the ONE approved
+ * body that depicts that exact character. `blocklife_ravi_01` therefore graduated to
+ * `WAVE4_NAMED_BODIES`; `blocklife_kabir_01` stays a candidate because Kabir is not a member of
+ * the shipped six-resident cast. (The two issue #21 §4 humanoids `blocklife_female_01` /
+ * `blocklife_male_01` are also unmapped, but they predate this list and keep their own
+ * documented status in docs/3D_ASSET_PIPELINE.md; this list stays the sprint-intake register.)
  */
-export const CANDIDATE_CHARACTER_ASSET_IDS = ['blocklife_kabir_01', 'blocklife_ravi_01'] as const
+export const CANDIDATE_CHARACTER_ASSET_IDS = ['blocklife_kabir_01'] as const
+
+/**
+ * Issue #47 Wave 4 — the STRICT 1:1 named-resident mapping: NPC id → the ONE approved body that
+ * depicts that character.
+ *
+ * This is the wave's central safety property in data form. Issue #47 permits "Ravi, Maya, Bruno,
+ * Leo, Officer Kim and Nisha [to] use their corresponding approved sources only. No identity
+ * swapping." A `Record` keyed by NPC id makes the mapping total, one-way and auditable:
+ * `wave4Contract.test.ts` asserts it is injective (no body serves two people), that every entry
+ * matches `NPC_DEFS[].characterAssetId` exactly, that the intake config built each body from that
+ * same character's sources, and that the player is not in it.
+ *
+ * `npc_leo_01` is deliberately ABSENT. His approved source (`leo-fernandes`) is a hard-hat,
+ * hi-vis CONSTRUCTION worker; Leo's shipped role is "Delivery guy" with a delivery-bag accessory.
+ * That mapping would drop his role signifier and substitute a different occupation's, which
+ * issue #47's wardrobe/identity lock says to reject — so Leo keeps his procedural body and the
+ * source is catalogued as ineligible (docs/ASSET_INTEGRATION_WAVE_4.md §Rejected).
+ */
+export const WAVE4_NAMED_BODIES: Readonly<Record<string, string>> = {
+  npc_ravi_01: 'blocklife_ravi_01',
+  npc_maya_01: 'blocklife_maya_01',
+  npc_bruno_01: 'blocklife_bruno_01',
+  npc_kim_01: 'blocklife_kim_01',
+  npc_nisha_01: 'blocklife_nisha_01',
+}
 
 export function getCharacterAsset(id: string): CharacterAssetDefinition | undefined {
   return CHARACTER_ASSETS[id]

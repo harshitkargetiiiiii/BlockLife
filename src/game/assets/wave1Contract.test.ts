@@ -112,13 +112,32 @@ describe('issue #40 Wave 1 — production vehicle GLB contract (real bytes)', ()
     expect(new Set(assetIds).size, 'every vehicle class has a distinct asset id').toBe(VEHICLE_DEFS.length)
   })
 
-  it('ships exactly the four approved vehicle bodies — no dead duplicate GLBs', () => {
+  it('ships exactly the approved vehicle bodies — no dead duplicate GLBs', () => {
     const files = readdirSync('public/assets/models/vehicles').filter((f) => f.endsWith('.glb')).sort()
     expect(files).toEqual([
       'compact_sedan_01.glb', // issue #38 Wave 0
+      // Issue #47 Wave 4 — PARKED scenery bodies. They live in the vehicles directory because
+      // that is what they are, but they back authored `parked_car` / `parked_truck` PROP
+      // placements through LandmarkAsset: no VehicleDef, no collider, no seats, no ownership.
+      'parked_box_truck_01.glb',
+      'parked_delivery_van_01.glb',
+      'parked_hatchback_01.glb',
+      'parked_pickup_01.glb',
       'scooter_01.glb',
       'sports_car_01.glb',
       'utility_van_01.glb',
+    ])
+  })
+
+  it('the ownable classes still map one-to-one onto exactly the four Wave 0/1 bodies', () => {
+    // The Wave-4 parked bodies must never become a drivable class by accident: this is the
+    // regression guard for "no new physics class, seat, tuning or ownership entry" (issue #47).
+    const classBodies = VEHICLE_DEFS.map((d) => d.assetId).filter(Boolean).sort()
+    expect(classBodies).toEqual([
+      'vehicle_compact_car_01',
+      'vehicle_scooter_01',
+      'vehicle_sports_car_01',
+      'vehicle_utility_van_01',
     ])
   })
 

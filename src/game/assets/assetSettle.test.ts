@@ -4,6 +4,7 @@ import {
   assetGraphPending,
   isAssetGraphSettled,
   isSceneReady,
+  unresolvedByAsset,
   unresolvedInstances,
   type AssetGraphCounters,
 } from './assetSettle'
@@ -172,6 +173,49 @@ describe('unresolved instances (what readiness actually waits on)', () => {
 
   it('one unreachable id does not excuse a different id that is still loading', () => {
     expect(unresolvedInstances(per({ prop_trash_bin_01: [24, 0, 22], building_office_01: [1, 0, 0] }))).toBe(1)
+  })
+
+  describe('unresolvedByAsset — the per-id breakdown a timed-out boot reports', () => {
+    it('names only the ids readiness is actually waiting on', () => {
+      expect(unresolvedByAsset(per({ a: [4, 4, 0] })), 'nothing in flight').toEqual([])
+      expect(unresolvedByAsset(per({ a: [4, 1, 0] }))).toEqual([
+        { id: 'a', unresolved: 3, expected: 4, active: 1, failed: 0 },
+      ])
+    })
+
+    it('excludes an unreachable id, exactly as the predicate does', () => {
+      // The 2 permanently-suspended trash bins are NOT what a boot is waiting for, so a timeout
+      // report that named them would send a reader after the wrong body.
+      expect(unresolvedByAsset(per({ prop_trash_bin_01: [24, 0, 22] }))).toEqual([])
+      expect(unresolvedByAsset(per({ prop_trash_bin_01: [24, 0, 22], building_office_01: [1, 0, 0] }))).toEqual([
+        { id: 'building_office_01', unresolved: 1, expected: 1, active: 0, failed: 0 },
+      ])
+    })
+
+    it('orders by how much each id is holding up, then by id', () => {
+      const out = unresolvedByAsset(per({ b: [2, 0, 0], a: [9, 0, 0], c: [2, 0, 0] }))
+      expect(out.map((u) => u.id)).toEqual(['a', 'b', 'c'])
+      expect(out[0].unresolved).toBe(9)
+    })
+
+    it('ALWAYS sums to unresolvedInstances, so the diagnostic cannot drift from the predicate', () => {
+      // The whole point of the report is that it explains the number readiness blocks on. If these
+      // two ever disagree, the report is pointing somewhere the predicate is not looking.
+      const cases: Record<string, [number, number, number]>[] = [
+        { a: [4, 4, 0] },
+        { a: [4, 1, 0] },
+        { a: [4, 2, 0], b: [2, 0, 0] },
+        { prop_trash_bin_01: [24, 0, 22] },
+        { prop_trash_bin_01: [24, 0, 22], building_office_01: [1, 0, 0] },
+        { a: [1, 0, 2] }, // corrupt: more failed than expected
+        { a: [0, 0, 0] },
+        { a: [3, 1, 1], b: [5, 5, 0], c: [2, 0, 0] },
+      ]
+      for (const m of cases) {
+        const sum = unresolvedByAsset(per(m)).reduce((n, u) => n + u.unresolved, 0)
+        expect(sum, JSON.stringify(m)).toBe(unresolvedInstances(per(m)))
+      }
+    })
   })
 
   it('still refuses a corrupt census even when nothing is unresolved', () => {
