@@ -12,9 +12,28 @@ Run [33979652484](https://github.com/harshitkargetiiiiii/BlockLife/actions/runs/
 1 failed, 13 passed (6.6m)
 ```
 
-**Verdict: cause still not established, but it is now REPRODUCIBLE, not a one-off.** No production
-behaviour changed. A DEV-only diagnostic has been added so the next CI run reports which body is
-holding readiness open.
+**Verdict: the stalled body is identified and is NOT a Wave 4 asset. The failure is INTERMITTENT at
+high frequency — 4 of 5 observed runs — not deterministic.** No production behaviour changed. A
+DEV-only diagnostic is armed and captures the culprit whenever it recurs.
+
+### Shard 8 history
+
+| Head | Run | shard 8/8 |
+| ---- | --- | --------- |
+| `d1e831c` | 33979652484 | ❌ fail |
+| `490b0ae` | 33981345067 | ❌ fail |
+| `0934bd2` | 33982913648 | ❌ fail (first `ASSETS_NOT_SETTLED`) |
+| `2ca9c43` | 33983640488 | ❌ fail (second `ASSETS_NOT_SETTLED`, null timing probe) |
+| `6f74d43` | 33984155689 | ✅ **pass — 14/14** |
+
+**The pass is not evidence of a fix.** The only changes between `2ca9c43` and `6f74d43` were the
+test-only network instrument and documentation; Playwright's network events are passive observers
+and cannot make a stalled GLB commit. The honest reading is that the failure is intermittent at
+roughly 4-in-5, and this run drew the other side. An earlier revision of this document called it
+"reproducible, not a one-off" — that overstated it and is corrected here.
+
+Because that run passed, no `GLB_NET` line was emitted, so the three remaining causes are still
+unseparated. The instrument stays in place and will report on the next failure.
 
 ## Update — second consecutive identical failure
 
@@ -158,8 +177,8 @@ no assertion weakened, no retry added.
 ## RESULT — the diagnostic fired, and the stalled body is NOT a Wave 4 asset
 
 Run [33982913648](https://github.com/harshitkargetiiiiii/BlockLife/actions/runs/33982913648), job
-101351269316, shard 8/8, on head `0934bd2`. Third consecutive failure of the same boot — and this
-time it reported why:
+101351269316, shard 8/8, on head `0934bd2` — and again on `2ca9c43` (run 33983640488, `quietMs`
+21,357). **Both failures reported an identical culprit:**
 
 ```
 ASSETS_NOT_SETTLED {
