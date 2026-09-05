@@ -432,7 +432,7 @@ Five of the eight were Wave 4 tests: the wardrobe save→reset→load rehydrate,
 unload→reload round trip, the gateway-tower boot (45 s `assetsSettled`), and the central and
 residential perf cases. **None failed an assertion.**
 
-### The perf cases are decisive against a Wave 4 cause
+### The perf counters show no numeric assertion failure but do not settle causality
 
 All four `WAVE4_PERF` lines logged, every value inside every asserted budget:
 
@@ -445,10 +445,10 @@ All four `WAVE4_PERF` lines logged, every value inside every asserted budget:
 
 Central and residential printed passing numbers and then ran out of wall clock in the handful of
 `getCharacterState` round trips that follow the log. Same code, same budgets, same run — two of four
-finished, two did not. That is wall-clock exhaustion, not a defect. The texture ceiling of 300 that
+finished, two did not. This is consistent with wall-clock exhaustion and shows no assertion defect, but does not exclude a Wave 4 contribution to load or timing. The texture ceiling of 300 that
 guards the fallback split held in all four.
 
-### Why the budget is marginal here, independent of Wave 4
+### Why the budget is marginal under the observed runner load
 
 `boot()` can spend up to 45 s in `assetsSettled`, and `settleAt()` up to another 45 s, both inside
 Playwright's 90 s whole-test budget — and CI renders at `fps 20, frameMs ≈ 50` under software WebGL
