@@ -9,6 +9,7 @@ Everything a reviewer needs to check the baseline work on
 | [`adjudication.md`](adjudication.md) | Per-image verdicts for every existing baseline this branch changes — 16 adopted, 2 held back, 0 rejected-without-replacement. |
 | [`flagged-customization-shots.md`](flagged-customization-shots.md) | The two baselines that were **refused**, with the full bisect that attributes them. **Read this one.** |
 | [`new-baselines.md`](new-baselines.md) | The 75 new `wave4-*` baselines: what each group proves and the inspection pass over them. |
+| [`ci-shard8.md`](ci-shard8.md) | The red CI gate on this head: which asset states can hold `assetsSettled()` false, and why it is not proven to be a Wave 4 regression. |
 | [`e2e.md`](e2e.md) | The one real E2E regression this wave caused (the accessory-slot contract), how it was fixed without weakening it, and why the remaining sweep failures are unattributed. |
 | [`new-sheets/`](new-sheets/) | Contact sheets of all 75 new baselines, 15 per sheet, as reviewed. |
 | [`sheets/`](sheets/) | The committed `expected \| actual \| diff` contact sheets the adjudication was done from. |
