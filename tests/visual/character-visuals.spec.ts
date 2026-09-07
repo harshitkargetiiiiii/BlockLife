@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
-import { settleAndPause, waitForSceneSettled } from './visualHelpers'
+import { settleAndPause, waitForSceneSettled, waitForVehicleGrounded } from './visualHelpers'
 
 /**
  * Character pipeline v1 visual snapshots. Pausing the world triggers the
@@ -124,6 +124,10 @@ test.describe('character visuals', () => {
     await page.waitForFunction(
       () => window.GAME_TEST_API!.getStats().activeInteractableId === 'vehicle_compact_car_01',
     )
+    // Wait for the shell to LAND before driving it: `resetGame()` re-seats it at CAR_SPAWN's
+    // y = 0.8 and `VehicleController` preserves vertical velocity, so entering mid-fall makes
+    // the car — and the follow camera — drift for the whole shot (CONVENTIONS #40).
+    await waitForVehicleGrounded(page)
     await page.keyboard.press('e')
     await page.waitForFunction(() => window.GAME_TEST_API!.getStats().mode === 'driving')
     await settleAndPause(page)

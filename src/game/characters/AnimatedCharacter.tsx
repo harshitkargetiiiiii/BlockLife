@@ -15,9 +15,9 @@ import { CharacterAnimationController } from './CharacterAnimationController'
 import {
   applyCharacterAppearance,
   applyCharacterVariants,
-  bodyBuildScale,
   createCustomizableMaterialInstances,
   disposeIsolatedMaterials,
+  effectiveBuildScale,
 } from './characterMaterials'
 import {
   characterRuntime,
@@ -46,6 +46,25 @@ export interface AnimatedCharacterProps {
   active?: () => boolean
   /** Primitive fallback — always available, wardrobe-colored. */
   fallback: ReactNode
+  /**
+   * Optional DISTINCT visual for the ERROR branch only — i.e. the model genuinely failed, as
+   * opposed to merely not having arrived yet. Defaults to `fallback`, so every caller that does
+   * not set it behaves exactly as before.
+   *
+   * The two branches must be separable because they have different costs and different meanings.
+   * The Suspense branch runs on EVERY healthy load, for as long as the fetch takes; whatever it
+   * renders is instantiated, uploaded and then thrown away on every boot and every sector
+   * remount. The error branch runs only when the file is unreachable or broken, and is allowed to
+   * be expensive because it is the last thing standing between the player and an empty scene.
+   *
+   * Issue #47 measured what conflating them costs: routing a named NPC's rich identity-rig
+   * fallback through BOTH branches mounted five extra `blocklife_person` clones on every healthy
+   * boot, and the GPU texture census at four district vantage points rose from 274–276 to
+   * 329–331 — +55 retained textures for a rig that the settled scene does not show. Splitting the
+   * branches keeps the cheap primitive as the loading visual (what every character has always
+   * done) and pays for the rich fallback only when it is actually needed.
+   */
+  errorFallback?: ReactNode
 }
 
 class ModelErrorBoundary extends Component<
@@ -185,8 +204,12 @@ function ModelInstance({
     info.activeActionCount = controller.activeActionCount
   })
 
-  // Body silhouette (issue #23): compose the scale-safe build onto the asset scale.
-  const build = bodyBuildScale(appearance)
+  // Body silhouette (issue #23): compose the scale-safe build onto the asset scale — but only
+  // for a body whose proportions this repo authors. An owner-approved 1:1 body renders at its own
+  // proportions (issue #47), because the build vector is NON-UNIFORM: 'broad' is [1.13, 0.99, 1.13]
+  // and 'stocky' [1.08, 0.93, 1.08], which both distort approved geometry and quietly change the
+  // body's height. The policy lives on the def and is resolved in exactly one place.
+  const build = effectiveBuildScale(def, appearance)
   return (
     <primitive
       object={instance.scene}
@@ -212,6 +235,7 @@ export function AnimatedCharacter({
   active,
   renderMode = 'auto',
   fallback,
+  errorFallback,
 }: AnimatedCharacterProps) {
   const info = useMemo(
     () => createCharacterInstanceInfo(instanceId, tier, def),
@@ -235,7 +259,9 @@ export function AnimatedCharacter({
   }
 
   return (
-    <ModelErrorBoundary info={info} fallback={fallback}>
+    // The ERROR branch may be richer than the LOADING branch (see `errorFallback`): a failed
+    // model is a lasting state worth spending on, an in-flight one is not.
+    <ModelErrorBoundary info={info} fallback={errorFallback ?? fallback}>
       <Suspense fallback={fallback}>
         <ModelInstance
           def={def}

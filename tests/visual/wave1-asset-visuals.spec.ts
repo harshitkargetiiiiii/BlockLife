@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
 import { boot, settleAndPause } from './visualHelpers'
-import { pressE, waitForActiveInteractable } from '../e2e/helpers'
+import { pressE, waitForActiveInteractable, waitForVehicleGrounded } from '../e2e/helpers'
 
 /**
  * Issue #40 Integration Wave 1 — required visual acceptance evidence.
@@ -148,6 +148,10 @@ for (const { id, slug, label, parkedView } of CLASSES) {
       // staged pose instead let a nearer plaza interactable win the "press E" target.
       await page.evaluate(() => window.GAME_TEST_API!.teleportPlayer([13, 1.2, 14]))
       await waitForActiveInteractable(page, 'vehicle_compact_car_01')
+      // Wait for the shell to LAND before driving it: `resetGame()` re-seats it at CAR_SPAWN's
+      // y = 0.8 and `VehicleController` preserves vertical velocity, so entering mid-fall
+      // makes the car — and the follow camera — drift for the whole shot (CONVENTIONS #40).
+      await waitForVehicleGrounded(page)
       await pressE(page)
       await page.waitForFunction(() => window.GAME_TEST_API!.getStats().mode === 'driving', undefined, {
         timeout: 10_000,

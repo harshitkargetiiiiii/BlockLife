@@ -205,7 +205,25 @@ clean fallback.
   [`NpcCharacter.tsx`](../src/game/characters/NpcCharacter.tsx)) — loads the GLB,
   drives the animation controller from motion state, and falls back to
   primitives if the asset is missing (`store.characterRenderMode:
-  'auto' | 'model' | 'primitive'`). Officer Kim is the proof-of-reuse rigged NPC.
+  'auto' | 'model' | 'primitive'`).
+- **Identity** ([`populationAppearance.ts`](../src/game/characters/populationAppearance.ts))
+  — the ONE registry turning a stable id into a multi-axis appearance. It drives
+  the wardrobe-capable `blocklife_person` rig, which the PLAYER always uses:
+  the save-backed wardrobe needs recolorable material slots, so a single-baked-
+  material body may never occupy the player slot (gated in `wave0Contract.test.ts`).
+- **Named-resident bodies** (issue #47 Wave 4,
+  `WAVE4_NAMED_BODIES`) — a named NPC may instead ride the ONE owner-approved
+  body that depicts that exact character. The mapping is a strict 1:1: total,
+  injective, absent from the player slot, and cross-checked against the intake
+  config's own per-character sources, so a body cannot be renamed onto another
+  NPC. Baked clothing is immutable, and the FALLBACK CHAIN is explicit and
+  three-deep — `approved body → blocklife_person + that NPC's registry identity →
+  the authored capsule` — because the pre-wave visual for these NPCs was the rig,
+  not the capsule. Each step is the same `AnimatedCharacter` acting as the
+  previous step's fallback (no second renderer or loader), the middle step mounts
+  ONLY on failure, and it is observable as `<npcId>#identity`. An NPC with no
+  approved body (Leo) keeps the two-step chain it already had.
+  See [WAVE 4](ASSET_INTEGRATION_WAVE_4.md).
 
 ---
 
@@ -380,6 +398,20 @@ of never blocking the scene.
   counts `glbLandmarksExpected / Active / Failed`; the test API's
   `assetsSettled()` waits until `Active + Failed >= Expected` so E2E only shoots
   after every landmark has committed or fallen back.
+- **Intake** ([`scripts/asset-intake/`](../scripts/asset-intake/)) — one shared,
+  deterministic pipeline (`lib.mjs`) behind a per-wave declarative config. It
+  opens every pristine source READ-ONLY, asserts its SHA-256 before reading,
+  normalizes material names and texture size, and proves the mesh digest, the
+  bounding box, the skeleton signature and the runtime-safety invariants
+  (no camera / light / unlit / draco / meshopt / KTX2, `metallic 0`,
+  `emissive [0,0,0]`, embedded textures only) survive the transform. `--check`
+  rebuilds into a temp directory outside the worktree and fails if a committed
+  byte differs, so `docs/asset-provenance/*.json` is independently verifiable.
+- **Projection is measured, not authored.** A body is fitted INSIDE the authored
+  envelope it lands in — `def.size` for a building, the prop type's
+  `propPlacement` visual box for a prop — and every scale is recomputed from the
+  committed bytes by that wave's contract test, so a hand-edited constant cannot
+  pass silently. See [WAVE 4](ASSET_INTEGRATION_WAVE_4.md) and CONVENTIONS #36.
 
 ---
 

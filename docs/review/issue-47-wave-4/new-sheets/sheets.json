@@ -1,0 +1,106 @@
+{
+ "title": "issue #47 Wave 4 — new baselines (fitted scale)",
+ "total": 75,
+ "sheets": [
+  {
+   "file": "new-01.jpg",
+   "images": [
+    "wave4-body-box-truck-east-chromium-darwin.png",
+    "wave4-body-box-truck-front-chromium-darwin.png",
+    "wave4-body-box-truck-rear-chromium-darwin.png",
+    "wave4-body-box-truck-three-quarter-chromium-darwin.png",
+    "wave4-body-box-truck-west-chromium-darwin.png",
+    "wave4-body-bruno-east-chromium-darwin.png",
+    "wave4-body-bruno-north-chromium-darwin.png",
+    "wave4-body-bruno-south-chromium-darwin.png",
+    "wave4-body-bruno-three-quarter-chromium-darwin.png",
+    "wave4-body-bruno-west-chromium-darwin.png",
+    "wave4-body-delivery-van-east-chromium-darwin.png",
+    "wave4-body-delivery-van-front-chromium-darwin.png",
+    "wave4-body-delivery-van-rear-chromium-darwin.png",
+    "wave4-body-delivery-van-three-quarter-chromium-darwin.png",
+    "wave4-body-delivery-van-west-chromium-darwin.png"
+   ]
+  },
+  {
+   "file": "new-02.jpg",
+   "images": [
+    "wave4-body-gate-tower-east-chromium-darwin.png",
+    "wave4-body-gate-tower-front-chromium-darwin.png",
+    "wave4-body-gate-tower-rear-chromium-darwin.png",
+    "wave4-body-gate-tower-three-quarter-chromium-darwin.png",
+    "wave4-body-gate-tower-west-chromium-darwin.png",
+    "wave4-body-hatchback-east-chromium-darwin.png",
+    "wave4-body-hatchback-front-chromium-darwin.png",
+    "wave4-body-hatchback-rear-chromium-darwin.png",
+    "wave4-body-hatchback-three-quarter-chromium-darwin.png",
+    "wave4-body-hatchback-west-chromium-darwin.png",
+    "wave4-body-kim-east-chromium-darwin.png",
+    "wave4-body-kim-north-chromium-darwin.png",
+    "wave4-body-kim-south-chromium-darwin.png",
+    "wave4-body-kim-three-quarter-chromium-darwin.png",
+    "wave4-body-kim-west-chromium-darwin.png"
+   ]
+  },
+  {
+   "file": "new-03.jpg",
+   "images": [
+    "wave4-body-maya-east-chromium-darwin.png",
+    "wave4-body-maya-north-chromium-darwin.png",
+    "wave4-body-maya-south-chromium-darwin.png",
+    "wave4-body-maya-three-quarter-chromium-darwin.png",
+    "wave4-body-maya-west-chromium-darwin.png",
+    "wave4-body-nisha-east-chromium-darwin.png",
+    "wave4-body-nisha-north-chromium-darwin.png",
+    "wave4-body-nisha-south-chromium-darwin.png",
+    "wave4-body-nisha-three-quarter-chromium-darwin.png",
+    "wave4-body-nisha-west-chromium-darwin.png",
+    "wave4-body-pickup-east-chromium-darwin.png",
+    "wave4-body-pickup-front-chromium-darwin.png",
+    "wave4-body-pickup-rear-chromium-darwin.png",
+    "wave4-body-pickup-three-quarter-chromium-darwin.png",
+    "wave4-body-pickup-west-chromium-darwin.png"
+   ]
+  },
+  {
+   "file": "new-04.jpg",
+   "images": [
+    "wave4-central-lot-variety-chromium-darwin.png",
+    "wave4-district-central-lot-chromium-darwin.png",
+    "wave4-district-freight-yard-chromium-darwin.png",
+    "wave4-district-gateway-chromium-darwin.png",
+    "wave4-district-industrial-yard-chromium-darwin.png",
+    "wave4-district-residential-north-chromium-darwin.png",
+    "wave4-district-residential-south-chromium-darwin.png",
+    "wave4-district-residential-west-chromium-darwin.png",
+    "wave4-fallback-parked-car-chromium-darwin.png",
+    "wave4-fallback-parked-truck-chromium-darwin.png",
+    "wave4-fallback-resident-capsule-chromium-darwin.png",
+    "wave4-fallback-resident-chromium-darwin.png",
+    "wave4-fallback-tower-chromium-darwin.png",
+    "wave4-parked-car-contact-chromium-darwin.png",
+    "wave4-parked-car-day-chromium-darwin.png"
+   ]
+  },
+  {
+   "file": "new-05.jpg",
+   "images": [
+    "wave4-parked-car-night-chromium-darwin.png",
+    "wave4-parked-car-rain-chromium-darwin.png",
+    "wave4-parked-truck-contact-chromium-darwin.png",
+    "wave4-player-beside-bruno-chromium-darwin.png",
+    "wave4-player-beside-kim-chromium-darwin.png",
+    "wave4-player-beside-maya-chromium-darwin.png",
+    "wave4-player-beside-nisha-chromium-darwin.png",
+    "wave4-player-beside-ravi-chromium-darwin.png",
+    "wave4-resident-day-chromium-darwin.png",
+    "wave4-resident-night-chromium-darwin.png",
+    "wave4-resident-rain-chromium-darwin.png",
+    "wave4-tower-day-chromium-darwin.png",
+    "wave4-tower-entrance-east-chromium-darwin.png",
+    "wave4-tower-night-chromium-darwin.png",
+    "wave4-tower-rain-chromium-darwin.png"
+   ]
+  }
+ ]
+}

@@ -78,6 +78,23 @@ if npm run build >"$LOG/hg-build.log" 2>&1; then
   else echo "  dist diagnostics: FAIL"; FAIL=1; tail -8 "$LOG/hg-distclean.log"; fi
 else echo "  build: FAIL"; FAIL=1; tail -10 "$LOG/hg-build.log"; fi
 
+hr; echo "[intake] deterministic asset intake — every wave rebuilds byte-identically (--check)"
+# The provenance files claim each shipped GLB came from a named, hashed, owner-approved source.
+# `--check` is what makes that claim verifiable rather than asserted: it re-runs the intake into a
+# temp dir OUTSIDE the worktree and fails if a committed byte differs. It needs the pristine
+# sprint tree, which lives outside the repo, so an absent intake root SKIPS rather than fails —
+# a missing source cannot prove a mismatch, and pretending otherwise would be a dishonest gate.
+INTAKE_ROOT="${BLOCKLIFE_INTAKE_ROOT:-$HOME/BlockLife-intake/asset-sprint-2026-08-31}"
+if [ -d "$INTAKE_ROOT" ]; then
+  for W in scripts/asset-intake/buildWave*.mjs; do
+    if node "$W" --check >"$LOG/hg-intake.log" 2>&1; then echo "  intake $(basename "$W"): PASS"
+    else echo "  intake $(basename "$W"): FAIL"; FAIL=1; tail -12 "$LOG/hg-intake.log"; fi
+  done
+else
+  echo "  intake: SKIPPED — pristine sprint tree not present at $INTAKE_ROOT"
+  echo "          (set BLOCKLIFE_INTAKE_ROOT to verify the committed GLB bytes against their sources)"
+fi
+
 hr; echo "[assets] asset budget + registry validation — an over-budget / missing / invalid GLB fails the gate (§12/§17)"
 if node scripts/assetReport.mjs public/assets/models >"$LOG/hg-assets.log" 2>&1; then
   ASSET_N=$(num "$LOG/hg-assets.log" '[0-9]+ assets'); echo "  assets: PASS (${ASSET_N:-?} assets, 0 over budget)"

@@ -134,6 +134,20 @@ export function bodyBuildScale(
   return BODY_BUILDS[appearance.bodyBuild ?? 'average'] ?? BODY_BUILDS.average
 }
 
+/** Identity build, i.e. "do not reshape this body". */
+export const AUTHORED_BUILD: readonly [number, number, number] = [1, 1, 1]
+
+/**
+ * The build vector actually applied to a body, honouring its `proportions` policy — the ONE place
+ * that decision is made, so the renderer and the contract gate cannot disagree about it.
+ */
+export function effectiveBuildScale(
+  def: { proportions?: 'registry' | 'authored' },
+  appearance: CharacterAppearance,
+): readonly [number, number, number] {
+  return def.proportions === 'authored' ? AUTHORED_BUILD : bodyBuildScale(appearance)
+}
+
 /** Disposes isolated (customizable) materials on unmount (no leak across remounts). */
 export function disposeIsolatedMaterials(slots: ResolvedSlots): void {
   disposeVariantMaterials(slots as VariantResolvedSlots, CUSTOMIZABLE_SLOTS)

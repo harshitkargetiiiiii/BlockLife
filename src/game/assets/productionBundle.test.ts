@@ -43,16 +43,20 @@ describe('production bundle boundary (issue #27 H0)', () => {
     expect(existsSync(join(ROOT, 'dev-review-assets', 'human_gold_calibration_01.glb'))).toBe(true)
   })
 
-  it('ships exactly the five approved character rigs under public/', () => {
+  it('ships exactly the nine approved character rigs under public/', () => {
     const rigs = readdirSync(join(PUBLIC_ASSETS, 'models', 'characters'))
       .filter((f) => f.endsWith('.glb'))
       .sort()
     expect(rigs).toEqual([
+      'blocklife_bruno_01.glb', // issue #47 Wave 4 — 1:1 named body for npc_bruno_01
       'blocklife_female_01.glb',
       'blocklife_kabir_01.glb', // issue #38 Wave 0 — owner-approved CANDIDATE (DEV review only)
+      'blocklife_kim_01.glb', // issue #47 Wave 4 — 1:1 named body for npc_kim_01
       'blocklife_male_01.glb',
+      'blocklife_maya_01.glb', // issue #47 Wave 4 — 1:1 named body for npc_maya_01
+      'blocklife_nisha_01.glb', // issue #47 Wave 4 — 1:1 named body for npc_nisha_01
       'blocklife_person.glb',
-      'blocklife_ravi_01.glb', // issue #38 Wave 0 — owner-approved CANDIDATE (DEV review only)
+      'blocklife_ravi_01.glb', // issue #38 Wave 0 body; issue #47 Wave 4 wired it to npc_ravi_01
     ])
   })
 })

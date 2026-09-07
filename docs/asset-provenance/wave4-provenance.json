@@ -1,0 +1,2069 @@
+{
+  "issue": 47,
+  "wave": 4,
+  "note": "Rebuild with: node scripts/asset-intake/buildWave4.mjs   |   verify with --check",
+  "maxTexture": 1024,
+  "textureFormat": "jpeg",
+  "textureQuality": 85,
+  "boundsEpsilon": 0.00005,
+  "scaleDecimals": 4,
+  "maxRenderedHeight": 15,
+  "propEnvelopes": {
+    "parked_car": {
+      "halfX": 1,
+      "halfZ": 2,
+      "maxY": 1.4
+    },
+    "parked_truck": {
+      "halfX": 1.15,
+      "halfZ": 2.3,
+      "maxY": 2.1
+    }
+  },
+  "projection": {
+    "characters": "No scale is applied: each rig is authored in metres with its feet at y = 0, and its measured height is asserted against the declared CHARACTER_ASSETS bounds. Rendering goes through the existing AnimatedCharacter path; the procedural blocklife_person stays the fallback.",
+    "vehicles": "Uniform scale s = floor(min((2*halfZ) / sizeX, (2*halfX) / sizeZ, maxY / sizeY) * 1e4) / 1e4, where (halfX, halfZ, maxY) is the AUTHORED VISUAL ENVELOPE for the prop type in src/game/world/propPlacement.ts and (sizeX, sizeY, sizeZ) are the measured local extents (each inflated by boundsEpsilon first). Every body carries a +PI/2 yaw, which puts its model-local X (length) on the placement’s local Z (longitudinal axis). Recomputed in src/game/assets/wave4Contract.test.ts.",
+    "buildings": "Uniform scale s = floor(min((w/2) / hx, (d/2) / hz, MAX_RENDERED_HEIGHT / sizeY) * 1e4) / 1e4, where (w, d) is the placement’s AUTHORED def.size footprint in src/game/world/cityLayout.ts and (hx, hz) are the measured local half-extents after the canonical-facing yaw. MAX_RENDERED_HEIGHT is the camera-engulf ceiling derived in src/game/camera/cameraGeometry.ts. Recomputed in src/game/assets/wave4Contract.test.ts."
+  },
+  "assets": [
+    {
+      "id": "blocklife_maya_01",
+      "label": "Maya Okafor — named resident body (issue #47 Wave 4)",
+      "kind": "character",
+      "npc": "npc_maya_01",
+      "output": "public/assets/models/characters/blocklife_maya_01.glb",
+      "outputSha256": "2b2de77624956433a3f7c65782bf3a315bf5f1ef8169a2b202017c415f8cdd73",
+      "outputBytes": 1053340,
+      "sources": [
+        {
+          "role": "Idle",
+          "path": "/Users/harshitkargeti/BlockLife-intake/asset-sprint-2026-08-31/humans-roster/humans/maya-okafor-rigged.glb",
+          "sha256": "664cc006c186a422e2767bef319a994d8fb5ed490514347e6ab05e810dd76c7a",
+          "bytes": 8657620,
+          "structure": {
+            "bytes": 8657620,
+            "triangles": 10411,
+            "meshes": 1,
+            "materials": [
+              {
+                "name": "Material_1",
+                "metallic": 0,
+                "roughness": 0.8,
+                "emissive": [
+                  0,
+                  0,
+                  0
+                ],
+                "emissiveTexture": false,
+                "specularExtension": false
+              }
+            ],
+            "textures": [
+              {
+                "name": "texture_0",
+                "mime": "image/png",
+                "width": 2048,
+                "height": 2048,
+                "bytes": 7907544
+              }
+            ],
+            "clips": [
+              {
+                "name": "Armature|clip0|baselayer",
+                "channels": 72,
+                "duration": 0.3
+              }
+            ],
+            "skin": {
+              "count": 24,
+              "sig": "c432d433d51d"
+            },
+            "cameras": 0,
+            "scenes": 1,
+            "lights": 0,
+            "bounds": {
+              "min": [
+                -0.0061,
+                0,
+                -0.0019
+              ],
+              "max": [
+                0.0061,
+                0.017,
+                0.0019
+              ],
+              "size": [
+                0.0123,
+                0.017,
+                0.0038
+              ]
+            },
+            "extensions": [
+              "KHR_materials_ior"
+            ]
+          }
+        },
+        {
+          "role": "Walk",
+          "path": "/Users/harshitkargeti/BlockLife-intake/asset-sprint-2026-08-31/humans-roster/humans/maya-okafor-walking.glb",
+          "sha256": "00f2fef5a021cb047dddb11ff1a336af3c107394804975570d6cea6564c70eed",
+          "bytes": 8670392,
+          "structure": {
+            "bytes": 8670392,
+            "triangles": 10411,
+            "meshes": 1,
+            "materials": [
+              {
+                "name": "Material_1",
+                "metallic": 0,
+                "roughness": 0.8,
+                "emissive": [
+                  0,
+                  0,
+                  0
+                ],
+                "emissiveTexture": false,
+                "specularExtension": false
+              }
+            ],
+            "textures": [
+              {
+                "name": "texture_0",
+                "mime": "image/png",
+                "width": 2048,
+                "height": 2048,
+                "bytes": 7907544
+              }
+            ],
+            "clips": [
+              {
+                "name": "Armature|walking_man|baselayer",
+                "channels": 72,
+                "duration": 1.067
+              }
+            ],
+            "skin": {
+              "count": 24,
+              "sig": "c432d433d51d"
+            },
+            "cameras": 0,
+            "scenes": 1,
+            "lights": 0,
+            "bounds": {
+              "min": [
+                -0.0061,
+                0,
+                -0.0019
+              ],
+              "max": [
+                0.0061,
+                0.017,
+                0.0019
+              ],
+              "size": [
+                0.0123,
+                0.017,
+                0.0038
+              ]
+            },
+            "extensions": [
+              "KHR_materials_ior"
+            ]
+          }
+        },
+        {
+          "role": "Run",
+          "path": "/Users/harshitkargeti/BlockLife-intake/asset-sprint-2026-08-31/humans-roster/humans/maya-okafor-running.glb",
+          "sha256": "9eba1366c778051f680fb92696e95cc04705625f9e35aaca1fc69abbf3edf450",
+          "bytes": 8665780,
+          "structure": {
+            "bytes": 8665780,
+            "triangles": 10411,
+            "meshes": 1,
+            "materials": [
+              {
+                "name": "Material_1",
+                "metallic": 0,
+                "roughness": 0.8,
+                "emissive": [
+                  0,
+                  0,
+                  0
+                ],
+                "emissiveTexture": false,
+                "specularExtension": false
+              }
+            ],
+            "textures": [
+              {
+                "name": "texture_0",
+                "mime": "image/png",
+                "width": 2048,
+                "height": 2048,
+                "bytes": 7907544
+              }
+            ],
+            "clips": [
+              {
+                "name": "Armature|running|baselayer",
+                "channels": 72,
+                "duration": 0.667
+              }
+            ],
+            "skin": {
+              "count": 24,
+              "sig": "c432d433d51d"
+            },
+            "cameras": 0,
+            "scenes": 1,
+            "lights": 0,
+            "bounds": {
+              "min": [
+                -0.0061,
+                0,
+                -0.0019
+              ],
+              "max": [
+                0.0061,
+                0.017,
+                0.0019
+              ],
+              "size": [
+                0.0123,
+                0.017,
+                0.0038
+              ]
+            },
+            "extensions": [
+              "KHR_materials_ior"
+            ]
+          }
+        }
+      ],
+      "operations": [
+        "assert every approved per-clip source SHA-256 + byte count before reading (read-only)",
+        "assert the three sources share one mesh digest and one 24-bone c432d433d51d skeleton",
+        "merge 3 per-clip GLBs -> 1 production GLB (clips grafted onto the base skeleton by bone name)",
+        "rename clips to canonical semantic roles Idle / Walk / Run",
+        "prune + dedup (drops the two duplicate meshes/skins/textures the merge introduced)",
+        "textureCompress resize <=1024 targetFormat=jpeg quality=85 filter=lanczos3",
+        "assert assembled skeleton signature + mesh digest identical to the source rig",
+        "assert grounded skinned bounds and the declared metre height, measured through three.js"
+      ],
+      "attribution": "Meshy AI — generated original asset (owner-approved 2026-08-31 sprint), assembled + texture-optimized in-repo",
+      "license": "Meshy AI generated asset (meshy.ai terms)",
+      "structure": {
+        "bytes": 1053340,
+        "triangles": 10411,
+        "meshes": 1,
+        "materials": [
+          {
+            "name": "Material_1",
+            "metallic": 0,
+            "roughness": 0.8,
+            "emissive": [
+              0,
+              0,
+              0
+            ],
+            "emissiveTexture": false,
+            "specularExtension": false
+          }
+        ],
+        "textures": [
+          {
+            "name": "texture_0",
+            "mime": "image/jpeg",
+            "width": 1024,
+            "height": 1024,
+            "bytes": 247806
+          }
+        ],
+        "clips": [
+          {
+            "name": "Idle",
+            "channels": 72,
+            "duration": 0.3
+          },
+          {
+            "name": "Walk",
+            "channels": 72,
+            "duration": 1.067
+          },
+          {
+            "name": "Run",
+            "channels": 72,
+            "duration": 0.667
+          }
+        ],
+        "skin": {
+          "count": 24,
+          "sig": "c432d433d51d"
+        },
+        "cameras": 0,
+        "scenes": 1,
+        "lights": 0,
+        "bounds": {
+          "min": [
+            -0.0061,
+            0,
+            -0.0019
+          ],
+          "max": [
+            0.0061,
+            0.017,
+            0.0019
+          ],
+          "size": [
+            0.0123,
+            0.017,
+            0.0038
+          ]
+        },
+        "extensions": [
+          "KHR_materials_ior"
+        ]
+      },
+      "rig": {
+        "bones": 24,
+        "hierarchySignature": "c432d433d51d",
+        "bindMatrices": 24,
+        "skinInfluences": {
+          "vertices": 12712,
+          "maxPerVertex": 4,
+          "zeroWeightVerts": 0,
+          "nanVerts": 0,
+          "histogram_0to4": [
+            0,
+            2613,
+            3649,
+            2467,
+            3983
+          ],
+          "distinctBonesUsed": 22
+        },
+        "groundedBounds": {
+          "min": [
+            -0.614,
+            0,
+            -0.191
+          ],
+          "max": [
+            0.614,
+            1.7,
+            0.191
+          ],
+          "size": [
+            1.227,
+            1.7,
+            0.383
+          ],
+          "baseAtGround": true
+        },
+        "declaredHeightMeters": 1.7,
+        "measuredHeightMeters": 1.7
+      }
+    },
+    {
+      "id": "blocklife_bruno_01",
+      "label": "Bruno Castillo — named resident body (issue #47 Wave 4)",
+      "kind": "character",
+      "npc": "npc_bruno_01",
+      "output": "public/assets/models/characters/blocklife_bruno_01.glb",
+      "outputSha256": "7abc583cf88e3def698b378477aba5dbd89603533756af694e10929b38adcdad",
+      "outputBytes": 1045816,
+      "sources": [
+        {
+          "role": "Idle",
+          "path": "/Users/harshitkargeti/BlockLife-intake/asset-sprint-2026-08-31/humans-roster/humans/bruno-castillo-rigged.glb",
+          "sha256": "6d08b8963bc0f508d636199fb2d26c22bc1ad6ccb37be41f887abc6dd8421c30",
+          "bytes": 9006676,
+          "structure": {
+            "bytes": 9006676,
+            "triangles": 10420,
+            "meshes": 1,
+            "materials": [
+              {
+                "name": "Material_1",
+                "metallic": 0,
+                "roughness": 0.8,
+                "emissive": [
+                  0,
+                  0,
+                  0
+                ],
+                "emissiveTexture": false,
+                "specularExtension": false
+              }
+            ],
+            "textures": [
+              {
+                "name": "texture_0",
+                "mime": "image/png",
+                "width": 2048,
+                "height": 2048,
+                "bytes": 8310742
+              }
+            ],
+            "clips": [
+              {
+                "name": "Armature|clip0|baselayer",
+                "channels": 72,
+                "duration": 0.3
+              }
+            ],
+            "skin": {
+              "count": 24,
+              "sig": "c432d433d51d"
+            },
+            "cameras": 0,
+            "scenes": 1,
+            "lights": 0,
+            "bounds": {
+              "min": [
+                -0.0052,
+                0,
+                -0.0028
+              ],
+              "max": [
+                0.0052,
+                0.0184,
+                0.0028
+              ],
+              "size": [
+                0.0104,
+                0.0184,
+                0.0056
+              ]
+            },
+            "extensions": [
+              "KHR_materials_ior"
+            ]
+          }
+        },
+        {
+          "role": "Walk",
+          "path": "/Users/harshitkargeti/BlockLife-intake/asset-sprint-2026-08-31/humans-roster/humans/bruno-castillo-walking.glb",
+          "sha256": "055bd17963bfacb31c72eaf4fad339d1faa37b28deb8b2ef92d828915a0b4103",
+          "bytes": 9019456,
+          "structure": {
+            "bytes": 9019456,
+            "triangles": 10420,
+            "meshes": 1,
+            "materials": [
+              {
+                "name": "Material_1",
+                "metallic": 0,
+                "roughness": 0.8,
+                "emissive": [
+                  0,
+                  0,
+                  0
+                ],
+                "emissiveTexture": false,
+                "specularExtension": false
+              }
+            ],
+            "textures": [
+              {
+                "name": "texture_0",
+                "mime": "image/png",
+                "width": 2048,
+                "height": 2048,
+                "bytes": 8310742
+              }
+            ],
+            "clips": [
+              {
+                "name": "Armature|walking_man|baselayer",
+                "channels": 72,
+                "duration": 1.067
+              }
+            ],
+            "skin": {
+              "count": 24,
+              "sig": "c432d433d51d"
+            },
+            "cameras": 0,
+            "scenes": 1,
+            "lights": 0,
+            "bounds": {
+              "min": [
+                -0.0052,
+                0,
+                -0.0028
+              ],
+              "max": [
+                0.0052,
+                0.0184,
+                0.0028
+              ],
+              "size": [
+                0.0104,
+                0.0184,
+                0.0056
+              ]
+            },
+            "extensions": [
+              "KHR_materials_ior"
+            ]
+          }
+        },
+        {
+          "role": "Run",
+          "path": "/Users/harshitkargeti/BlockLife-intake/asset-sprint-2026-08-31/humans-roster/humans/bruno-castillo-running.glb",
+          "sha256": "2848148253b03053ca4708952fa731a15c3eb2b3f4781dcfed5350f72c134116",
+          "bytes": 9014836,
+          "structure": {
+            "bytes": 9014836,
+            "triangles": 10420,
+            "meshes": 1,
+            "materials": [
+              {
+                "name": "Material_1",
+                "metallic": 0,
+                "roughness": 0.8,
+                "emissive": [
+                  0,
+                  0,
+                  0
+                ],
+                "emissiveTexture": false,
+                "specularExtension": false
+              }
+            ],
+            "textures": [
+              {
+                "name": "texture_0",
+                "mime": "image/png",
+                "width": 2048,
+                "height": 2048,
+                "bytes": 8310742
+              }
+            ],
+            "clips": [
+              {
+                "name": "Armature|running|baselayer",
+                "channels": 72,
+                "duration": 0.667
+              }
+            ],
+            "skin": {
+              "count": 24,
+              "sig": "c432d433d51d"
+            },
+            "cameras": 0,
+            "scenes": 1,
+            "lights": 0,
+            "bounds": {
+              "min": [
+                -0.0052,
+                0,
+                -0.0028
+              ],
+              "max": [
+                0.0052,
+                0.0184,
+                0.0028
+              ],
+              "size": [
+                0.0104,
+                0.0184,
+                0.0056
+              ]
+            },
+            "extensions": [
+              "KHR_materials_ior"
+            ]
+          }
+        }
+      ],
+      "operations": [
+        "assert every approved per-clip source SHA-256 + byte count before reading (read-only)",
+        "assert the three sources share one mesh digest and one 24-bone c432d433d51d skeleton",
+        "merge 3 per-clip GLBs -> 1 production GLB (clips grafted onto the base skeleton by bone name)",
+        "rename clips to canonical semantic roles Idle / Walk / Run",
+        "prune + dedup (drops the two duplicate meshes/skins/textures the merge introduced)",
+        "textureCompress resize <=1024 targetFormat=jpeg quality=85 filter=lanczos3",
+        "assert assembled skeleton signature + mesh digest identical to the source rig",
+        "assert grounded skinned bounds and the declared metre height, measured through three.js"
+      ],
+      "attribution": "Meshy AI — generated original asset (owner-approved 2026-08-31 sprint), assembled + texture-optimized in-repo",
+      "license": "Meshy AI generated asset (meshy.ai terms)",
+      "structure": {
+        "bytes": 1045816,
+        "triangles": 10420,
+        "meshes": 1,
+        "materials": [
+          {
+            "name": "Material_1",
+            "metallic": 0,
+            "roughness": 0.8,
+            "emissive": [
+              0,
+              0,
+              0
+            ],
+            "emissiveTexture": false,
+            "specularExtension": false
+          }
+        ],
+        "textures": [
+          {
+            "name": "texture_0",
+            "mime": "image/jpeg",
+            "width": 1024,
+            "height": 1024,
+            "bytes": 294627
+          }
+        ],
+        "clips": [
+          {
+            "name": "Idle",
+            "channels": 72,
+            "duration": 0.3
+          },
+          {
+            "name": "Walk",
+            "channels": 72,
+            "duration": 1.067
+          },
+          {
+            "name": "Run",
+            "channels": 72,
+            "duration": 0.667
+          }
+        ],
+        "skin": {
+          "count": 24,
+          "sig": "c432d433d51d"
+        },
+        "cameras": 0,
+        "scenes": 1,
+        "lights": 0,
+        "bounds": {
+          "min": [
+            -0.0052,
+            0,
+            -0.0028
+          ],
+          "max": [
+            0.0052,
+            0.0184,
+            0.0028
+          ],
+          "size": [
+            0.0104,
+            0.0184,
+            0.0056
+          ]
+        },
+        "extensions": [
+          "KHR_materials_ior"
+        ]
+      },
+      "rig": {
+        "bones": 24,
+        "hierarchySignature": "c432d433d51d",
+        "bindMatrices": 24,
+        "skinInfluences": {
+          "vertices": 11673,
+          "maxPerVertex": 4,
+          "zeroWeightVerts": 0,
+          "nanVerts": 0,
+          "histogram_0to4": [
+            0,
+            2968,
+            4299,
+            1394,
+            3012
+          ],
+          "distinctBonesUsed": 22
+        },
+        "groundedBounds": {
+          "min": [
+            -0.521,
+            0,
+            -0.28
+          ],
+          "max": [
+            0.521,
+            1.84,
+            0.28
+          ],
+          "size": [
+            1.042,
+            1.84,
+            0.56
+          ],
+          "baseAtGround": true
+        },
+        "declaredHeightMeters": 1.84,
+        "measuredHeightMeters": 1.84
+      }
+    },
+    {
+      "id": "blocklife_kim_01",
+      "label": "Officer Kim — named resident body (issue #47 Wave 4)",
+      "kind": "character",
+      "npc": "npc_kim_01",
+      "output": "public/assets/models/characters/blocklife_kim_01.glb",
+      "outputSha256": "8b2d162eec4c5518993f188a288122404ee7f953f52d3954200f9344e76a3aa8",
+      "outputBytes": 1085848,
+      "sources": [
+        {
+          "role": "Idle",
+          "path": "/Users/harshitkargeti/BlockLife-intake/asset-sprint-2026-08-31/humans-roster/humans/officer-kim-rigged.glb",
+          "sha256": "c5140273f4cc0a78483c659788002f8038d92ccc8a61b9da45137cf0cca3980c",
+          "bytes": 7965624,
+          "structure": {
+            "bytes": 7965624,
+            "triangles": 10406,
+            "meshes": 1,
+            "materials": [
+              {
+                "name": "Material_1",
+                "metallic": 0,
+                "roughness": 0.8,
+                "emissive": [
+                  0,
+                  0,
+                  0
+                ],
+                "emissiveTexture": false,
+                "specularExtension": false
+              }
+            ],
+            "textures": [
+              {
+                "name": "texture_0",
+                "mime": "image/png",
+                "width": 2048,
+                "height": 2048,
+                "bytes": 7171220
+              }
+            ],
+            "clips": [
+              {
+                "name": "Armature|clip0|baselayer",
+                "channels": 72,
+                "duration": 0.3
+              }
+            ],
+            "skin": {
+              "count": 24,
+              "sig": "c432d433d51d"
+            },
+            "cameras": 0,
+            "scenes": 1,
+            "lights": 0,
+            "bounds": {
+              "min": [
+                -0.0043,
+                0,
+                -0.002
+              ],
+              "max": [
+                0.0043,
+                0.0171,
+                0.002
+              ],
+              "size": [
+                0.0085,
+                0.0171,
+                0.0041
+              ]
+            },
+            "extensions": [
+              "KHR_materials_ior"
+            ]
+          }
+        },
+        {
+          "role": "Walk",
+          "path": "/Users/harshitkargeti/BlockLife-intake/asset-sprint-2026-08-31/humans-roster/humans/officer-kim-walking.glb",
+          "sha256": "bb1e36b6a2799e19d15d67e353317c5622681eff9ed200e36423d4fefc5e0987",
+          "bytes": 7978388,
+          "structure": {
+            "bytes": 7978388,
+            "triangles": 10406,
+            "meshes": 1,
+            "materials": [
+              {
+                "name": "Material_1",
+                "metallic": 0,
+                "roughness": 0.8,
+                "emissive": [
+                  0,
+                  0,
+                  0
+                ],
+                "emissiveTexture": false,
+                "specularExtension": false
+              }
+            ],
+            "textures": [
+              {
+                "name": "texture_0",
+                "mime": "image/png",
+                "width": 2048,
+                "height": 2048,
+                "bytes": 7171220
+              }
+            ],
+            "clips": [
+              {
+                "name": "Armature|walking_man|baselayer",
+                "channels": 72,
+                "duration": 1.067
+              }
+            ],
+            "skin": {
+              "count": 24,
+              "sig": "c432d433d51d"
+            },
+            "cameras": 0,
+            "scenes": 1,
+            "lights": 0,
+            "bounds": {
+              "min": [
+                -0.0043,
+                0,
+                -0.002
+              ],
+              "max": [
+                0.0043,
+                0.0171,
+                0.002
+              ],
+              "size": [
+                0.0085,
+                0.0171,
+                0.0041
+              ]
+            },
+            "extensions": [
+              "KHR_materials_ior"
+            ]
+          }
+        },
+        {
+          "role": "Run",
+          "path": "/Users/harshitkargeti/BlockLife-intake/asset-sprint-2026-08-31/humans-roster/humans/officer-kim-running.glb",
+          "sha256": "34b2731b6b090d3ade8d1dace286f8ef2c6680353ef3f3f0dea5520fb1503627",
+          "bytes": 7973780,
+          "structure": {
+            "bytes": 7973780,
+            "triangles": 10406,
+            "meshes": 1,
+            "materials": [
+              {
+                "name": "Material_1",
+                "metallic": 0,
+                "roughness": 0.8,
+                "emissive": [
+                  0,
+                  0,
+                  0
+                ],
+                "emissiveTexture": false,
+                "specularExtension": false
+              }
+            ],
+            "textures": [
+              {
+                "name": "texture_0",
+                "mime": "image/png",
+                "width": 2048,
+                "height": 2048,
+                "bytes": 7171220
+              }
+            ],
+            "clips": [
+              {
+                "name": "Armature|running|baselayer",
+                "channels": 72,
+                "duration": 0.667
+              }
+            ],
+            "skin": {
+              "count": 24,
+              "sig": "c432d433d51d"
+            },
+            "cameras": 0,
+            "scenes": 1,
+            "lights": 0,
+            "bounds": {
+              "min": [
+                -0.0043,
+                0,
+                -0.002
+              ],
+              "max": [
+                0.0043,
+                0.0171,
+                0.002
+              ],
+              "size": [
+                0.0085,
+                0.0171,
+                0.0041
+              ]
+            },
+            "extensions": [
+              "KHR_materials_ior"
+            ]
+          }
+        }
+      ],
+      "operations": [
+        "assert every approved per-clip source SHA-256 + byte count before reading (read-only)",
+        "assert the three sources share one mesh digest and one 24-bone c432d433d51d skeleton",
+        "merge 3 per-clip GLBs -> 1 production GLB (clips grafted onto the base skeleton by bone name)",
+        "rename clips to canonical semantic roles Idle / Walk / Run",
+        "prune + dedup (drops the two duplicate meshes/skins/textures the merge introduced)",
+        "textureCompress resize <=1024 targetFormat=jpeg quality=85 filter=lanczos3",
+        "assert assembled skeleton signature + mesh digest identical to the source rig",
+        "assert grounded skinned bounds and the declared metre height, measured through three.js"
+      ],
+      "attribution": "Meshy AI — generated original asset (owner-approved 2026-08-31 sprint), assembled + texture-optimized in-repo",
+      "license": "Meshy AI generated asset (meshy.ai terms)",
+      "structure": {
+        "bytes": 1085848,
+        "triangles": 10406,
+        "meshes": 1,
+        "materials": [
+          {
+            "name": "Material_1",
+            "metallic": 0,
+            "roughness": 0.8,
+            "emissive": [
+              0,
+              0,
+              0
+            ],
+            "emissiveTexture": false,
+            "specularExtension": false
+          }
+        ],
+        "textures": [
+          {
+            "name": "texture_0",
+            "mime": "image/jpeg",
+            "width": 1024,
+            "height": 1024,
+            "bytes": 235934
+          }
+        ],
+        "clips": [
+          {
+            "name": "Idle",
+            "channels": 72,
+            "duration": 0.3
+          },
+          {
+            "name": "Walk",
+            "channels": 72,
+            "duration": 1.067
+          },
+          {
+            "name": "Run",
+            "channels": 72,
+            "duration": 0.667
+          }
+        ],
+        "skin": {
+          "count": 24,
+          "sig": "c432d433d51d"
+        },
+        "cameras": 0,
+        "scenes": 1,
+        "lights": 0,
+        "bounds": {
+          "min": [
+            -0.0043,
+            0,
+            -0.002
+          ],
+          "max": [
+            0.0043,
+            0.0171,
+            0.002
+          ],
+          "size": [
+            0.0085,
+            0.0171,
+            0.0041
+          ]
+        },
+        "extensions": [
+          "KHR_materials_ior"
+        ]
+      },
+      "rig": {
+        "bones": 24,
+        "hierarchySignature": "c432d433d51d",
+        "bindMatrices": 24,
+        "skinInfluences": {
+          "vertices": 13569,
+          "maxPerVertex": 4,
+          "zeroWeightVerts": 0,
+          "nanVerts": 0,
+          "histogram_0to4": [
+            0,
+            2959,
+            3243,
+            996,
+            6371
+          ],
+          "distinctBonesUsed": 22
+        },
+        "groundedBounds": {
+          "min": [
+            -0.426,
+            0,
+            -0.204
+          ],
+          "max": [
+            0.426,
+            1.71,
+            0.204
+          ],
+          "size": [
+            0.851,
+            1.71,
+            0.407
+          ],
+          "baseAtGround": true
+        },
+        "declaredHeightMeters": 1.71,
+        "measuredHeightMeters": 1.71
+      }
+    },
+    {
+      "id": "blocklife_nisha_01",
+      "label": "Nisha Rao — named resident body (issue #47 Wave 4)",
+      "kind": "character",
+      "npc": "npc_nisha_01",
+      "output": "public/assets/models/characters/blocklife_nisha_01.glb",
+      "outputSha256": "da73025eadeea48016e51aee73bf661b2735151bacc7dc1ea270bd188581a8d3",
+      "outputBytes": 1032984,
+      "sources": [
+        {
+          "role": "Idle",
+          "path": "/Users/harshitkargeti/BlockLife-intake/asset-sprint-2026-08-31/humans-roster/humans/nisha-rao-rigged.glb",
+          "sha256": "20edd14e27472f2a3c991ec7ea0ef5643e88dab67f6cc80850018398d148bec0",
+          "bytes": 8780120,
+          "structure": {
+            "bytes": 8780120,
+            "triangles": 10395,
+            "meshes": 1,
+            "materials": [
+              {
+                "name": "Material_1",
+                "metallic": 0,
+                "roughness": 0.8,
+                "emissive": [
+                  0,
+                  0,
+                  0
+                ],
+                "emissiveTexture": false,
+                "specularExtension": false
+              }
+            ],
+            "textures": [
+              {
+                "name": "texture_0",
+                "mime": "image/png",
+                "width": 2048,
+                "height": 2048,
+                "bytes": 8045625
+              }
+            ],
+            "clips": [
+              {
+                "name": "Armature|clip0|baselayer",
+                "channels": 72,
+                "duration": 0.3
+              }
+            ],
+            "skin": {
+              "count": 24,
+              "sig": "c432d433d51d"
+            },
+            "cameras": 0,
+            "scenes": 1,
+            "lights": 0,
+            "bounds": {
+              "min": [
+                -0.0044,
+                0,
+                -0.0019
+              ],
+              "max": [
+                0.0044,
+                0.017,
+                0.0019
+              ],
+              "size": [
+                0.0088,
+                0.017,
+                0.0038
+              ]
+            },
+            "extensions": [
+              "KHR_materials_ior"
+            ]
+          }
+        },
+        {
+          "role": "Walk",
+          "path": "/Users/harshitkargeti/BlockLife-intake/asset-sprint-2026-08-31/humans-roster/humans/nisha-rao-walking.glb",
+          "sha256": "1fc6fa37997d72cb1028af71954f78af320a7290b786717a947aa8f5c63e6c71",
+          "bytes": 8792896,
+          "structure": {
+            "bytes": 8792896,
+            "triangles": 10395,
+            "meshes": 1,
+            "materials": [
+              {
+                "name": "Material_1",
+                "metallic": 0,
+                "roughness": 0.8,
+                "emissive": [
+                  0,
+                  0,
+                  0
+                ],
+                "emissiveTexture": false,
+                "specularExtension": false
+              }
+            ],
+            "textures": [
+              {
+                "name": "texture_0",
+                "mime": "image/png",
+                "width": 2048,
+                "height": 2048,
+                "bytes": 8045625
+              }
+            ],
+            "clips": [
+              {
+                "name": "Armature|walking_man|baselayer",
+                "channels": 72,
+                "duration": 1.067
+              }
+            ],
+            "skin": {
+              "count": 24,
+              "sig": "c432d433d51d"
+            },
+            "cameras": 0,
+            "scenes": 1,
+            "lights": 0,
+            "bounds": {
+              "min": [
+                -0.0044,
+                0,
+                -0.0019
+              ],
+              "max": [
+                0.0044,
+                0.017,
+                0.0019
+              ],
+              "size": [
+                0.0088,
+                0.017,
+                0.0038
+              ]
+            },
+            "extensions": [
+              "KHR_materials_ior"
+            ]
+          }
+        },
+        {
+          "role": "Run",
+          "path": "/Users/harshitkargeti/BlockLife-intake/asset-sprint-2026-08-31/humans-roster/humans/nisha-rao-running.glb",
+          "sha256": "0151c2610a5bdbb42cf2efb97095e63864fa22175e978e6470794be97754c8ed",
+          "bytes": 8788284,
+          "structure": {
+            "bytes": 8788284,
+            "triangles": 10395,
+            "meshes": 1,
+            "materials": [
+              {
+                "name": "Material_1",
+                "metallic": 0,
+                "roughness": 0.8,
+                "emissive": [
+                  0,
+                  0,
+                  0
+                ],
+                "emissiveTexture": false,
+                "specularExtension": false
+              }
+            ],
+            "textures": [
+              {
+                "name": "texture_0",
+                "mime": "image/png",
+                "width": 2048,
+                "height": 2048,
+                "bytes": 8045625
+              }
+            ],
+            "clips": [
+              {
+                "name": "Armature|running|baselayer",
+                "channels": 72,
+                "duration": 0.667
+              }
+            ],
+            "skin": {
+              "count": 24,
+              "sig": "c432d433d51d"
+            },
+            "cameras": 0,
+            "scenes": 1,
+            "lights": 0,
+            "bounds": {
+              "min": [
+                -0.0044,
+                0,
+                -0.0019
+              ],
+              "max": [
+                0.0044,
+                0.017,
+                0.0019
+              ],
+              "size": [
+                0.0088,
+                0.017,
+                0.0038
+              ]
+            },
+            "extensions": [
+              "KHR_materials_ior"
+            ]
+          }
+        }
+      ],
+      "operations": [
+        "assert every approved per-clip source SHA-256 + byte count before reading (read-only)",
+        "assert the three sources share one mesh digest and one 24-bone c432d433d51d skeleton",
+        "merge 3 per-clip GLBs -> 1 production GLB (clips grafted onto the base skeleton by bone name)",
+        "rename clips to canonical semantic roles Idle / Walk / Run",
+        "prune + dedup (drops the two duplicate meshes/skins/textures the merge introduced)",
+        "textureCompress resize <=1024 targetFormat=jpeg quality=85 filter=lanczos3",
+        "assert assembled skeleton signature + mesh digest identical to the source rig",
+        "assert grounded skinned bounds and the declared metre height, measured through three.js"
+      ],
+      "attribution": "Meshy AI — generated original asset (owner-approved 2026-08-31 sprint), assembled + texture-optimized in-repo",
+      "license": "Meshy AI generated asset (meshy.ai terms)",
+      "structure": {
+        "bytes": 1032984,
+        "triangles": 10395,
+        "meshes": 1,
+        "materials": [
+          {
+            "name": "Material_1",
+            "metallic": 0,
+            "roughness": 0.8,
+            "emissive": [
+              0,
+              0,
+              0
+            ],
+            "emissiveTexture": false,
+            "specularExtension": false
+          }
+        ],
+        "textures": [
+          {
+            "name": "texture_0",
+            "mime": "image/jpeg",
+            "width": 1024,
+            "height": 1024,
+            "bytes": 243012
+          }
+        ],
+        "clips": [
+          {
+            "name": "Idle",
+            "channels": 72,
+            "duration": 0.3
+          },
+          {
+            "name": "Walk",
+            "channels": 72,
+            "duration": 1.067
+          },
+          {
+            "name": "Run",
+            "channels": 72,
+            "duration": 0.667
+          }
+        ],
+        "skin": {
+          "count": 24,
+          "sig": "c432d433d51d"
+        },
+        "cameras": 0,
+        "scenes": 1,
+        "lights": 0,
+        "bounds": {
+          "min": [
+            -0.0044,
+            0,
+            -0.0019
+          ],
+          "max": [
+            0.0044,
+            0.017,
+            0.0019
+          ],
+          "size": [
+            0.0088,
+            0.017,
+            0.0038
+          ]
+        },
+        "extensions": [
+          "KHR_materials_ior"
+        ]
+      },
+      "rig": {
+        "bones": 24,
+        "hierarchySignature": "c432d433d51d",
+        "bindMatrices": 24,
+        "skinInfluences": {
+          "vertices": 12418,
+          "maxPerVertex": 4,
+          "zeroWeightVerts": 0,
+          "nanVerts": 0,
+          "histogram_0to4": [
+            0,
+            1604,
+            2655,
+            1983,
+            6176
+          ],
+          "distinctBonesUsed": 22
+        },
+        "groundedBounds": {
+          "min": [
+            -0.441,
+            0,
+            -0.188
+          ],
+          "max": [
+            0.441,
+            1.7,
+            0.188
+          ],
+          "size": [
+            0.882,
+            1.7,
+            0.376
+          ],
+          "baseAtGround": true
+        },
+        "declaredHeightMeters": 1.7,
+        "measuredHeightMeters": 1.7
+      }
+    },
+    {
+      "id": "vehicle_parked_hatchback_01",
+      "label": "Parked hatchback body (projected onto authored parked_car placements)",
+      "kind": "vehicle",
+      "propType": "parked_car",
+      "output": "public/assets/models/vehicles/parked_hatchback_01.glb",
+      "sources": [
+        {
+          "role": "source",
+          "path": "/Users/harshitkargeti/BlockLife-intake/asset-sprint-2026-08-31/vehicles-worker/final/blocklife_vehicle_hatchback.glb",
+          "sha256": "9154dad9e00ead70bf9e3afa4183cdb02b59048882fd241ddefde891792cc077",
+          "bytes": 5712788,
+          "structure": {
+            "bytes": 5712788,
+            "triangles": 14776,
+            "meshes": 1,
+            "materials": [
+              {
+                "name": "Material_0.002",
+                "metallic": 0,
+                "roughness": 0.5,
+                "emissive": [
+                  0,
+                  0,
+                  0
+                ],
+                "emissiveTexture": false,
+                "specularExtension": false
+              }
+            ],
+            "textures": [
+              {
+                "name": "Baked_BaseColor",
+                "mime": "image/png",
+                "width": 2048,
+                "height": 2048,
+                "bytes": 5063827
+              }
+            ],
+            "clips": [],
+            "skin": null,
+            "cameras": 0,
+            "scenes": 1,
+            "lights": 0,
+            "bounds": {
+              "min": [
+                -0.9506,
+                0,
+                -0.4048
+              ],
+              "max": [
+                0.948,
+                0.6538,
+                0.403
+              ],
+              "size": [
+                1.8985,
+                0.6538,
+                0.8078
+              ]
+            },
+            "extensions": []
+          }
+        }
+      ],
+      "groundOffsetY": 0,
+      "operations": [
+        "assert approved source SHA-256 9154dad9e00ead70bf9e3afa4183cdb02b59048882fd241ddefde891792cc077 + 5712788 bytes + 14776 triangles before reading (read-only)",
+        "normalize single material name -> \"baked_atlas\" (baked atlas — exposes NO recolorable slot)",
+        "origin already at the base — no vertical transform applied; rendered minimum y=0 asserted",
+        "dedup + prune",
+        "textureCompress resize <=1024 targetFormat=jpeg quality=85 filter=lanczos3",
+        "assert mesh digest unchanged (geometry, indices, topology, triangle count, proportions preserved)",
+        "assert bounds unchanged except the declared grounding offset on Y",
+        "assert runtime-safe: metallic 0, emissive [0,0,0], no unlit/lights/cameras, no draco/meshopt/KTX2, embedded textures only"
+      ],
+      "attribution": "Meshy AI — generated original asset (owner-approved 2026-08-31 sprint), texture-optimized in-repo",
+      "license": "Meshy AI generated asset (meshy.ai terms)",
+      "outputSha256": "75d7e8f9f486092ff702b4e4e93081db5386a9a6ae4e9bca29753b716824f498",
+      "outputBytes": 898268,
+      "structure": {
+        "bytes": 898268,
+        "triangles": 14776,
+        "meshes": 1,
+        "materials": [
+          {
+            "name": "baked_atlas",
+            "metallic": 0,
+            "roughness": 0.5,
+            "emissive": [
+              0,
+              0,
+              0
+            ],
+            "emissiveTexture": false,
+            "specularExtension": false
+          }
+        ],
+        "textures": [
+          {
+            "name": "Baked_BaseColor",
+            "mime": "image/jpeg",
+            "width": 1024,
+            "height": 1024,
+            "bytes": 249340
+          }
+        ],
+        "clips": [],
+        "skin": null,
+        "cameras": 0,
+        "scenes": 1,
+        "lights": 0,
+        "bounds": {
+          "min": [
+            -0.9506,
+            0,
+            -0.4048
+          ],
+          "max": [
+            0.948,
+            0.6538,
+            0.403
+          ],
+          "size": [
+            1.8985,
+            0.6538,
+            0.8078
+          ]
+        },
+        "extensions": []
+      }
+    },
+    {
+      "id": "vehicle_parked_pickup_01",
+      "label": "Parked pickup body (projected onto authored parked_car placements)",
+      "kind": "vehicle",
+      "propType": "parked_car",
+      "output": "public/assets/models/vehicles/parked_pickup_01.glb",
+      "sources": [
+        {
+          "role": "source",
+          "path": "/Users/harshitkargeti/BlockLife-intake/asset-sprint-2026-08-31/vehicles-worker/final/blocklife_vehicle_pickup_truck.glb",
+          "sha256": "ffb35718a769463170ddecec1aaff2213b03264e84c87609a943b284007a0e0b",
+          "bytes": 5990856,
+          "structure": {
+            "bytes": 5990856,
+            "triangles": 14107,
+            "meshes": 1,
+            "materials": [
+              {
+                "name": "Material_0.002",
+                "metallic": 0,
+                "roughness": 0.5,
+                "emissive": [
+                  0,
+                  0,
+                  0
+                ],
+                "emissiveTexture": false,
+                "specularExtension": false
+              }
+            ],
+            "textures": [
+              {
+                "name": "Baked_BaseColor",
+                "mime": "image/png",
+                "width": 2048,
+                "height": 2048,
+                "bytes": 5082769
+              }
+            ],
+            "clips": [],
+            "skin": null,
+            "cameras": 0,
+            "scenes": 1,
+            "lights": 0,
+            "bounds": {
+              "min": [
+                -0.9491,
+                0,
+                -0.4251
+              ],
+              "max": [
+                0.9484,
+                0.802,
+                0.423
+              ],
+              "size": [
+                1.8975,
+                0.802,
+                0.8481
+              ]
+            },
+            "extensions": []
+          }
+        }
+      ],
+      "groundOffsetY": 0,
+      "operations": [
+        "assert approved source SHA-256 ffb35718a769463170ddecec1aaff2213b03264e84c87609a943b284007a0e0b + 5990856 bytes + 14107 triangles before reading (read-only)",
+        "normalize single material name -> \"baked_atlas\" (baked atlas — exposes NO recolorable slot)",
+        "origin already at the base — no vertical transform applied; rendered minimum y=0 asserted",
+        "dedup + prune",
+        "textureCompress resize <=1024 targetFormat=jpeg quality=85 filter=lanczos3",
+        "assert mesh digest unchanged (geometry, indices, topology, triangle count, proportions preserved)",
+        "assert bounds unchanged except the declared grounding offset on Y",
+        "assert runtime-safe: metallic 0, emissive [0,0,0], no unlit/lights/cameras, no draco/meshopt/KTX2, embedded textures only"
+      ],
+      "attribution": "Meshy AI — generated original asset (owner-approved 2026-08-31 sprint), texture-optimized in-repo",
+      "license": "Meshy AI generated asset (meshy.ai terms)",
+      "outputSha256": "ddebc598850a77c8e088aa4fa9c5933848a85f1d32d2fc41f5e2bf7880977fec",
+      "outputBytes": 1195600,
+      "structure": {
+        "bytes": 1195600,
+        "triangles": 14107,
+        "meshes": 1,
+        "materials": [
+          {
+            "name": "baked_atlas",
+            "metallic": 0,
+            "roughness": 0.5,
+            "emissive": [
+              0,
+              0,
+              0
+            ],
+            "emissiveTexture": false,
+            "specularExtension": false
+          }
+        ],
+        "textures": [
+          {
+            "name": "Baked_BaseColor",
+            "mime": "image/jpeg",
+            "width": 1024,
+            "height": 1024,
+            "bytes": 287547
+          }
+        ],
+        "clips": [],
+        "skin": null,
+        "cameras": 0,
+        "scenes": 1,
+        "lights": 0,
+        "bounds": {
+          "min": [
+            -0.9491,
+            0,
+            -0.4251
+          ],
+          "max": [
+            0.9484,
+            0.802,
+            0.423
+          ],
+          "size": [
+            1.8975,
+            0.802,
+            0.8481
+          ]
+        },
+        "extensions": []
+      }
+    },
+    {
+      "id": "vehicle_parked_delivery_van_01",
+      "label": "Parked delivery-van body (projected onto authored parked_truck placements)",
+      "kind": "vehicle",
+      "propType": "parked_truck",
+      "output": "public/assets/models/vehicles/parked_delivery_van_01.glb",
+      "sources": [
+        {
+          "role": "source",
+          "path": "/Users/harshitkargeti/BlockLife-intake/asset-sprint-2026-08-31/vehicles-worker/final/blocklife_vehicle_delivery_van.glb",
+          "sha256": "a18001267a81e230aa8a6528fd6ddc0734f8eadaf08c22a1c5a49ee6032a2125",
+          "bytes": 6771484,
+          "structure": {
+            "bytes": 6771484,
+            "triangles": 13831,
+            "meshes": 1,
+            "materials": [
+              {
+                "name": "Material_0.002",
+                "metallic": 0,
+                "roughness": 0.5,
+                "emissive": [
+                  0,
+                  0,
+                  0
+                ],
+                "emissiveTexture": false,
+                "specularExtension": false
+              }
+            ],
+            "textures": [
+              {
+                "name": "Baked_BaseColor",
+                "mime": "image/png",
+                "width": 2048,
+                "height": 2048,
+                "bytes": 5847869
+              }
+            ],
+            "clips": [],
+            "skin": null,
+            "cameras": 0,
+            "scenes": 1,
+            "lights": 0,
+            "bounds": {
+              "min": [
+                -0.9484,
+                0,
+                -0.4444
+              ],
+              "max": [
+                0.9478,
+                0.9149,
+                0.4427
+              ],
+              "size": [
+                1.8962,
+                0.9149,
+                0.8871
+              ]
+            },
+            "extensions": []
+          }
+        }
+      ],
+      "groundOffsetY": 0,
+      "operations": [
+        "assert approved source SHA-256 a18001267a81e230aa8a6528fd6ddc0734f8eadaf08c22a1c5a49ee6032a2125 + 6771484 bytes + 13831 triangles before reading (read-only)",
+        "normalize single material name -> \"baked_atlas\" (baked atlas — exposes NO recolorable slot)",
+        "origin already at the base — no vertical transform applied; rendered minimum y=0 asserted",
+        "dedup + prune",
+        "textureCompress resize <=1024 targetFormat=jpeg quality=85 filter=lanczos3",
+        "assert mesh digest unchanged (geometry, indices, topology, triangle count, proportions preserved)",
+        "assert bounds unchanged except the declared grounding offset on Y",
+        "assert runtime-safe: metallic 0, emissive [0,0,0], no unlit/lights/cameras, no draco/meshopt/KTX2, embedded textures only"
+      ],
+      "attribution": "Meshy AI — generated original asset (owner-approved 2026-08-31 sprint), texture-optimized in-repo",
+      "license": "Meshy AI generated asset (meshy.ai terms)",
+      "outputSha256": "b5ab5fd7cd85fd5d557cf810325f035721e4aa00ec567d5f2c860e09e3485e98",
+      "outputBytes": 1315240,
+      "structure": {
+        "bytes": 1315240,
+        "triangles": 13831,
+        "meshes": 1,
+        "materials": [
+          {
+            "name": "baked_atlas",
+            "metallic": 0,
+            "roughness": 0.5,
+            "emissive": [
+              0,
+              0,
+              0
+            ],
+            "emissiveTexture": false,
+            "specularExtension": false
+          }
+        ],
+        "textures": [
+          {
+            "name": "Baked_BaseColor",
+            "mime": "image/jpeg",
+            "width": 1024,
+            "height": 1024,
+            "bytes": 391659
+          }
+        ],
+        "clips": [],
+        "skin": null,
+        "cameras": 0,
+        "scenes": 1,
+        "lights": 0,
+        "bounds": {
+          "min": [
+            -0.9484,
+            0,
+            -0.4444
+          ],
+          "max": [
+            0.9478,
+            0.9149,
+            0.4427
+          ],
+          "size": [
+            1.8962,
+            0.9149,
+            0.8871
+          ]
+        },
+        "extensions": []
+      }
+    },
+    {
+      "id": "vehicle_parked_box_truck_01",
+      "label": "Parked box-truck body (projected onto authored parked_truck placements)",
+      "kind": "vehicle",
+      "propType": "parked_truck",
+      "output": "public/assets/models/vehicles/parked_box_truck_01.glb",
+      "sources": [
+        {
+          "role": "source",
+          "path": "/Users/harshitkargeti/BlockLife-intake/asset-sprint-2026-08-31/vehicles-worker/final/blocklife_vehicle_box_truck.glb",
+          "sha256": "d459e027d0d43621dd87f6e4173332a661df03c655de215de02be271db65879f",
+          "bytes": 6772600,
+          "structure": {
+            "bytes": 6772600,
+            "triangles": 14653,
+            "meshes": 1,
+            "materials": [
+              {
+                "name": "Material_0.001",
+                "metallic": 0,
+                "roughness": 0.5,
+                "emissive": [
+                  0,
+                  0,
+                  0
+                ],
+                "emissiveTexture": false,
+                "specularExtension": false
+              }
+            ],
+            "textures": [
+              {
+                "name": "Baked_BaseColor",
+                "mime": "image/png",
+                "width": 2048,
+                "height": 2048,
+                "bytes": 5877308
+              }
+            ],
+            "clips": [],
+            "skin": null,
+            "cameras": 0,
+            "scenes": 1,
+            "lights": 0,
+            "bounds": {
+              "min": [
+                -0.95,
+                0,
+                -0.4301
+              ],
+              "max": [
+                0.9484,
+                0.9901,
+                0.4271
+              ],
+              "size": [
+                1.8984,
+                0.9901,
+                0.8573
+              ]
+            },
+            "extensions": []
+          }
+        }
+      ],
+      "groundOffsetY": 0,
+      "operations": [
+        "assert approved source SHA-256 d459e027d0d43621dd87f6e4173332a661df03c655de215de02be271db65879f + 6772600 bytes + 14653 triangles before reading (read-only)",
+        "normalize single material name -> \"baked_atlas\" (baked atlas — exposes NO recolorable slot)",
+        "origin already at the base — no vertical transform applied; rendered minimum y=0 asserted",
+        "dedup + prune",
+        "textureCompress resize <=1024 targetFormat=jpeg quality=85 filter=lanczos3",
+        "assert mesh digest unchanged (geometry, indices, topology, triangle count, proportions preserved)",
+        "assert bounds unchanged except the declared grounding offset on Y",
+        "assert runtime-safe: metallic 0, emissive [0,0,0], no unlit/lights/cameras, no draco/meshopt/KTX2, embedded textures only"
+      ],
+      "attribution": "Meshy AI — generated original asset (owner-approved 2026-08-31 sprint), texture-optimized in-repo",
+      "license": "Meshy AI generated asset (meshy.ai terms)",
+      "outputSha256": "215e6c08c9dcd0e139084644ba82c1f8642423cf52fd4f626b1c85742ae2b31e",
+      "outputBytes": 1183992,
+      "structure": {
+        "bytes": 1183992,
+        "triangles": 14653,
+        "meshes": 1,
+        "materials": [
+          {
+            "name": "baked_atlas",
+            "metallic": 0,
+            "roughness": 0.5,
+            "emissive": [
+              0,
+              0,
+              0
+            ],
+            "emissiveTexture": false,
+            "specularExtension": false
+          }
+        ],
+        "textures": [
+          {
+            "name": "Baked_BaseColor",
+            "mime": "image/jpeg",
+            "width": 1024,
+            "height": 1024,
+            "bytes": 288736
+          }
+        ],
+        "clips": [],
+        "skin": null,
+        "cameras": 0,
+        "scenes": 1,
+        "lights": 0,
+        "bounds": {
+          "min": [
+            -0.95,
+            0,
+            -0.4301
+          ],
+          "max": [
+            0.9484,
+            0.9901,
+            0.4271
+          ],
+          "size": [
+            1.8984,
+            0.9901,
+            0.8573
+          ]
+        },
+        "extensions": []
+      }
+    },
+    {
+      "id": "arch_apartment_02",
+      "label": "Second apartment style (projected onto the existing building_gate_tower_02 placement)",
+      "kind": "building",
+      "placements": [
+        "building_gate_tower_02"
+      ],
+      "output": "public/assets/models/city/arch_apartment_02.glb",
+      "sources": [
+        {
+          "role": "source",
+          "path": "/Users/harshitkargeti/BlockLife-intake/asset-sprint-2026-08-31/buildings-worker/glb/apartment_02.glb",
+          "sha256": "1fbf978b14c30d4ec41a3ffed6a3891091120cb56138340a76f1140a623cd7bf",
+          "bytes": 4859260,
+          "structure": {
+            "bytes": 4859260,
+            "triangles": 19800,
+            "meshes": 1,
+            "materials": [
+              {
+                "name": null,
+                "metallic": 0,
+                "roughness": 0.8,
+                "emissive": [
+                  0,
+                  0,
+                  0
+                ],
+                "emissiveTexture": false,
+                "specularExtension": false
+              }
+            ],
+            "textures": [
+              {
+                "name": null,
+                "mime": "image/jpeg",
+                "width": 2048,
+                "height": 2048,
+                "bytes": 3739857
+              }
+            ],
+            "clips": [],
+            "skin": null,
+            "cameras": 0,
+            "scenes": 1,
+            "lights": 0,
+            "bounds": {
+              "min": [
+                -4.744,
+                0,
+                -4.744
+              ],
+              "max": [
+                4.7201,
+                22,
+                4.7234
+              ],
+              "size": [
+                9.4642,
+                22,
+                9.4674
+              ]
+            },
+            "extensions": []
+          }
+        }
+      ],
+      "groundOffsetY": 0,
+      "operations": [
+        "assert approved source SHA-256 1fbf978b14c30d4ec41a3ffed6a3891091120cb56138340a76f1140a623cd7bf + 4859260 bytes + 19800 triangles before reading (read-only)",
+        "normalize single material name -> \"baked_atlas\" (baked atlas — exposes NO recolorable slot)",
+        "origin already at the base — no vertical transform applied; rendered minimum y=0 asserted",
+        "dedup + prune",
+        "textureCompress resize <=1024 targetFormat=jpeg quality=85 filter=lanczos3",
+        "assert mesh digest unchanged (geometry, indices, topology, triangle count, proportions preserved)",
+        "assert bounds unchanged except the declared grounding offset on Y",
+        "assert runtime-safe: metallic 0, emissive [0,0,0], no unlit/lights/cameras, no draco/meshopt/KTX2, embedded textures only"
+      ],
+      "attribution": "Meshy AI — generated original asset (owner-approved 2026-08-31 sprint), texture-optimized in-repo",
+      "license": "Meshy AI generated asset (meshy.ai terms)",
+      "outputSha256": "fa21f96dde29af347b1a227e752ee106cf51b06555c7d21fc046712c214110f3",
+      "outputBytes": 1413956,
+      "structure": {
+        "bytes": 1413956,
+        "triangles": 19800,
+        "meshes": 1,
+        "materials": [
+          {
+            "name": "baked_atlas",
+            "metallic": 0,
+            "roughness": 0.8,
+            "emissive": [
+              0,
+              0,
+              0
+            ],
+            "emissiveTexture": false,
+            "specularExtension": false
+          }
+        ],
+        "textures": [
+          {
+            "name": null,
+            "mime": "image/jpeg",
+            "width": 1024,
+            "height": 1024,
+            "bytes": 295012
+          }
+        ],
+        "clips": [],
+        "skin": null,
+        "cameras": 0,
+        "scenes": 1,
+        "lights": 0,
+        "bounds": {
+          "min": [
+            -4.744,
+            0,
+            -4.744
+          ],
+          "max": [
+            4.7201,
+            22,
+            4.7234
+          ],
+          "size": [
+            9.4642,
+            22,
+            9.4674
+          ]
+        },
+        "extensions": []
+      },
+      "facades": {
+        "rule": "per-side span / entrance-band inset / near-plane vertex density, measured in the bottom 30% of the body",
+        "bandTop": 6.6,
+        "bandVertices": 9084,
+        "south": {
+          "span": 9.4642,
+          "inset": 0,
+          "lowVerts": 974
+        },
+        "north": {
+          "span": 9.4642,
+          "inset": 0,
+          "lowVerts": 495
+        },
+        "east": {
+          "span": 9.4674,
+          "inset": 0,
+          "lowVerts": 531
+        },
+        "west": {
+          "span": 9.4674,
+          "inset": 0,
+          "lowVerts": 434
+        }
+      }
+    }
+  ]
+}

@@ -12,9 +12,13 @@ export const NPC_DEFS: NPCDef[] = [
     bodyColor: '#4a7fd4',
     headColor: '#e8b98a',
     walkSpeed: 1.6,
-    // Issue #23: rides the rich blocklife_person rig (real idle/walk/run) with a curated
-    // unique identity from the population appearance registry.
-    characterAssetId: 'blocklife_person',
+    // Issue #23 gave this NPC a curated identity in the population appearance registry; that
+    // identity still drives the procedural fallback below.
+    // Issue #47 Wave 4 (strict 1:1): the ONE owner-approved sprint body that depicts THIS
+    // character. Purely visual — the id, routine, dialogue, quest, social and save wiring are
+    // unchanged, and `blocklife_person` + this NPC's curated registry identity remain the
+    // fallback whenever the GLB is disabled, still loading or fails to load.
+    characterAssetId: 'blocklife_ravi_01',
     routine: [
       { from: 6, to: 12, mode: 'idle', points: [[-8.5, -5]] },
       { from: 12, to: 18, mode: 'idle', points: [[13.5, -6.5]] },
@@ -34,9 +38,13 @@ export const NPC_DEFS: NPCDef[] = [
     bodyColor: '#e0576f',
     headColor: '#c98a5e',
     walkSpeed: 1.5,
-    // Issue #23: rides the rich blocklife_person rig (real idle/walk/run) with a curated
-    // unique identity from the population appearance registry.
-    characterAssetId: 'blocklife_person',
+    // Issue #23 gave this NPC a curated identity in the population appearance registry; that
+    // identity still drives the procedural fallback below.
+    // Issue #47 Wave 4 (strict 1:1): the ONE owner-approved sprint body that depicts THIS
+    // character. Purely visual — the id, routine, dialogue, quest, social and save wiring are
+    // unchanged, and `blocklife_person` + this NPC's curated registry identity remain the
+    // fallback whenever the GLB is disabled, still loading or fails to load.
+    characterAssetId: 'blocklife_maya_01',
     routine: [
       // Beside the serving window, clear of the truck's collider footprint.
       { from: 6, to: 22, mode: 'idle', points: [[4.4, -4.4]] },
@@ -55,8 +63,13 @@ export const NPC_DEFS: NPCDef[] = [
     bodyColor: '#d4763a',
     headColor: '#8a5a3c',
     walkSpeed: 1.3,
-    // Issue #23: upgraded from a primitive to the rich blocklife_person rig + registry identity.
-    characterAssetId: 'blocklife_person',
+    // Issue #23 gave this NPC a curated identity in the population appearance registry; that
+    // identity still drives the procedural fallback below.
+    // Issue #47 Wave 4 (strict 1:1): the ONE owner-approved sprint body that depicts THIS
+    // character. Purely visual — the id, routine, dialogue, quest, social and save wiring are
+    // unchanged, and `blocklife_person` + this NPC's curated registry identity remain the
+    // fallback whenever the GLB is disabled, still loading or fails to load.
+    characterAssetId: 'blocklife_bruno_01',
     routine: [{ from: 0, to: 24, mode: 'patrol', points: [[11.5, -9], [17.5, -9]] }],
     ambientLines: [
       'One more rep!',
@@ -72,6 +85,12 @@ export const NPC_DEFS: NPCDef[] = [
     headColor: '#e8b98a',
     walkSpeed: 2.4,
     // Issue #23: upgraded from a primitive to the rich blocklife_person rig + registry identity.
+    // Issue #47 Wave 4 deliberately did NOT give Leo a sprint body. His approved 1:1 source
+    // (`leo-fernandes`) came back as a hard-hat, hi-vis CONSTRUCTION worker: it drops the
+    // delivery-bag accessory this role ships with and substitutes a different occupation's
+    // signifier entirely. Issue #47's wardrobe/identity lock says to keep the current body and
+    // report the source ineligible in exactly that case, and the strict 1:1 rule forbids giving
+    // him someone else's body — so Leo stays on the wardrobe-capable rig.
     characterAssetId: 'blocklife_person',
     routine: [
       {
@@ -119,8 +138,13 @@ export const NPC_DEFS: NPCDef[] = [
     bodyColor: '#3f5f8f',
     headColor: '#c98a5e',
     walkSpeed: 1.8,
-    // Issue #23: rigged with a curated population identity (like the whole named cast).
-    characterAssetId: 'blocklife_person',
+    // Issue #23 gave this NPC a curated identity in the population appearance registry; that
+    // identity still drives the procedural fallback below.
+    // Issue #47 Wave 4 (strict 1:1): the ONE owner-approved sprint body that depicts THIS
+    // character. Purely visual — the id, routine, dialogue, quest, social and save wiring are
+    // unchanged, and `blocklife_person` + this NPC's curated registry identity remain the
+    // fallback whenever the GLB is disabled, still loading or fails to load.
+    characterAssetId: 'blocklife_kim_01',
     routine: [
       {
         from: 0,
@@ -160,8 +184,13 @@ export const NPC_DEFS: NPCDef[] = [
     bodyColor: '#9a5fc0',
     headColor: '#8a5a3c',
     walkSpeed: 1.4,
-    // Issue #23: upgraded from a primitive to the rich blocklife_person rig + registry identity.
-    characterAssetId: 'blocklife_person',
+    // Issue #23 gave this NPC a curated identity in the population appearance registry; that
+    // identity still drives the procedural fallback below.
+    // Issue #47 Wave 4 (strict 1:1): the ONE owner-approved sprint body that depicts THIS
+    // character. Purely visual — the id, routine, dialogue, quest, social and save wiring are
+    // unchanged, and `blocklife_person` + this NPC's curated registry identity remain the
+    // fallback whenever the GLB is disabled, still loading or fails to load.
+    characterAssetId: 'blocklife_nisha_01',
     routine: [
       { from: 6, to: 12, mode: 'idle', points: [[-14, -8.5]] },
       {

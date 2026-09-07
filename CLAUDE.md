@@ -76,7 +76,70 @@ regression) and `scripts/crime-gate.sh`.
 compiles 0 files and always passes. Only `-b --force` really typechecks.
 
 ## Current state
-Latest: **Holistic Visual Quality & Baseline Integrity Pass v1** (issue #46) — one pass over the
+Latest: **Approved Asset Library Integration Wave 4** (issue #47) — citywide visual cohesion from the
+already-paid, owner-approved 2026-08-31 sprint at **0 paid calls**. **9 new source GLBs over 35
+existing authored placements** (ceilings: 12 / 36), `dist` **+9.758 MiB** of an 18 MiB budget.
+(1) **Five named residents ride their own 1:1 body** — Ravi (the Wave-0 file, reconciled into his slot
+rather than rebuilt), Maya, Bruno, Officer Kim, Nisha — through the EXISTING `AnimatedCharacter`
+path on the canonical 24-bone `c432d433d51d` rig. Each body is **FITTED to the rig it replaces**:
+the approved sources are authored at real human height (1.70–1.84 m) but `blocklife_person` — the
+player's rig and these NPCs' pre-wave body — measures **2.930 m**, so at `scale: 1` every resident
+shipped at ~58% of the player. The whole structural gate passed while that was true (canonical rig,
+valid skinning, grounded base, measured == declared height); it was caught by LOOKING at the
+`wave4-player-beside-*` shot and measured at a 1.674× silhouette ratio vs 1.665 predicted from the
+bytes. Each body now renders at exactly its pre-wave height (`scale = 2.93 / measured`); it keeps its OWN
+`bounds` (they describe the model) but adopts the rig's `anchors`, which are world offsets NOT
+multiplied by `scale`, so no label moves; the player stays at `scale: 1`, gated
+(CONVENTIONS #42). A Codex review of PR #49 then caught that `scale` is not the
+whole transform: `AnimatedCharacter` multiplies a NON-UNIFORM registry build (Kim `broad`
+[1.13, 0.99, 1.13], Bruno `stocky` [1.08, 0.93, 1.08]), which stretched the approved geometry in
+X/Z and made Bruno render **2.725 m**, not 2.930 m. The approved bodies now declare
+`proportions: 'authored'` while the rig — player, ambient crowd, AND the error fallback — keeps the
+registry build; one shared `effectiveBuildScale` helper decides, and the contract gates the REAL
+runtime vector (uniform on all three axes, `scale x build.y x measured`). The mapping is a `Record<npcId, assetId>`
+([`WAVE4_NAMED_BODIES`](src/game/characters/characterManifest.ts)) gated as total, **injective**,
+absent from the player slot, and **built from the sources of the character it names** (the contract
+cross-checks the runtime mapping against the intake config's own per-character source paths, so a
+body cannot be renamed onto another NPC). **Leo is REJECTED**: his approved source is a hard-hat
+CONSTRUCTION worker against a "Delivery guy" role with a bag accessory — a role contradiction, so he
+keeps the procedural body. The **player is untouched** (`blocklife_person`, all six recolorable
+slots, save-backed wardrobe unchanged) and baked clothing is immutable. The one place this wave
+had to add CODE is the **fallback chain**: a named NPC now falls back
+`approved body → blocklife_person + its registry identity → the authored capsule`, because the
+pre-wave visual for these NPCs was the RIG, not the capsule, and leaving the capsule underneath
+would have quietly downgraded the failure case. Each step is the same `AnimatedCharacter` as the
+previous step's fallback (no second renderer/loader/animation path) and it is observable as
+`<npcId>#identity`. The middle step is the ERROR fallback, split from the Suspense one: React
+renders a Suspense placeholder on every healthy load, and a first revision that conflated them
+mounted five extra rigs per boot — invisible in the settled registry, but +55 retained GPU
+textures (274–276 → 329–331). Split and gated at a 300-texture ceiling (CONVENTIONS #38). The wave also had to fix a
+visual-suite determinism hole it exposed: `resetGame()` drops the drivable shell from y = 0.8 and
+`VehicleController` PRESERVES vertical velocity, so a shot entering the car mid-fall left it
+climbing (0.302 → 0.717 over 6 s) and shifted the whole frame; `acquireDrivableCar` now waits for
+the car to land, which made every affected baseline match again with NO baseline update
+(CONVENTIONS #40). Wave 0's blanket
+"no baked body in any NPC def" gate is NARROWED, not deleted (CONVENTIONS #38/#39).
+(2) **Four parked-vehicle bodies over ALL 29** `parked_car`/`parked_truck` props — scenery, with no
+`VehicleDef`, collider, seat, tuning, ownership or save field, and `CarMesh`/`TruckMesh` still the
+fallback. Each is fitted INSIDE the type's **authored** `propPlacement` visual envelope (the
+envelope sizes the body, never the reverse — CONVENTIONS #36), which is also what made the family
+SUV ineligible at 2.42 m. The id→body mapping is a deterministic **spatial sweep**, not a hash: a
+hash put identical bodies 5.9 m apart, so the rule is gated on the property (no identical pair
+under 8 m; pool balanced within one placement — CONVENTIONS #37).
+(3) **One building body** — the approved second apartment style on `building_gate_tower_02`, with a
+canonical facing MEASURED from per-side entrance-band vertex density and confirmed by the rendered
+cardinals. Every other approved building was measured and rejected (`park_utility_01` has
+through-wall holes; `mixed_use`/`suburban_house`/`duplex` fail scale coherence; the specific facades
+have no matching authored role), and the four-lens traffic light stays HELD.
+Intake is one deterministic pipeline with `--check` byte-verification
+([`buildWave4.mjs`](scripts/asset-intake/buildWave4.mjs) →
+[`wave4-provenance.json`](docs/asset-provenance/wave4-provenance.json)); the contract gate
+recomputes every projection from `cityLayout`/`propPlacement` and the committed bytes
+([`wave4Contract.test.ts`](src/game/assets/wave4Contract.test.ts)). Full design, the measured
+eligibility tables and the complete rejection ledger:
+[`docs/ASSET_INTEGRATION_WAVE_4.md`](docs/ASSET_INTEGRATION_WAVE_4.md).
+
+Prior: **Holistic Visual Quality & Baseline Integrity Pass v1** (issue #46) — one pass over the
 whole city instead of another per-asset wave, turning each of Waves 0–3's one-off visual findings
 into standing coverage. (1) The camera-clearance limit is now **structural**:
 [`camera/cameraGeometry.ts`](src/game/camera/cameraGeometry.ts) owns `CAMERA_OFFSET` and DERIVES

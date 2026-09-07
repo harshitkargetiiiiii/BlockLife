@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
-import { boot, settleAndPause } from './visualHelpers'
+import { boot, settleAndPause, waitForVehicleGrounded } from './visualHelpers'
 
 /**
  * 3D Asset Pipeline & Visual Upgrade v1 (issue #21 §14) — dedicated showcase
@@ -145,6 +145,12 @@ test.describe('asset upgrade visuals (§21 §14)', () => {
         undefined,
         { timeout: 15_000 },
       )
+      // The car is respawned by `resetGame()` at CAR_SPAWN's y = 0.8 and FALLS to the ground.
+      // Entering it mid-fall leaves residual vertical velocity that the controller preserves
+      // every frame (`setLinvel({ x, y: vel.y, z })`), so the car — and the camera following it —
+      // drifts upward for the rest of the shot: measured 0.302 -> 0.717 over 6 s, which moves the
+      // WHOLE FRAME and made these four baselines differ on every run. Wait for it to land first.
+      await waitForVehicleGrounded(page)
       await page.keyboard.press('e')
       await page.waitForFunction(() => window.GAME_TEST_API!.getStats().mode === 'driving', undefined, {
         timeout: 15_000,

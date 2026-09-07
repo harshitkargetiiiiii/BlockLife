@@ -35,13 +35,15 @@ describe('asset manifest', () => {
     // Quaternius landmarks + issue #25 Stage A (the residential-house archetype + the
     // now-enabled job kiosk) + issue #42 Wave 2 (streetlight / hydrant / bin) + issue #44
     // Wave 3 (six building bodies over nine placements: the reconciled apartment and townhome
-    // entries plus the shop, the reusable house archetype, the garage and the gateway hotel).
+    // entries plus the shop, the reusable house archetype, the garage and the gateway hotel)
+    // + issue #47 Wave 4 (ONE building body on ONE placement: the gateway residential tower).
     expect(landmarkEnabled.map((e) => e.id).sort()).toEqual([
       'arch_house_01',
       'arch_residential_house_01',
       'building_apartment_01',
       'building_garage_01',
       'building_gate_hotel_01',
+      'building_gate_tower_02',
       'building_gym_01',
       'building_office_01',
       'building_shop_01',
@@ -58,20 +60,44 @@ describe('asset manifest', () => {
       'prop_streetlight_01',
       'prop_trash_bin_01',
     ])
-    // Issue #21 §4 three enabled character rigs (default + female + male humanoids), plus the
-    // two owner-approved issue #38 Wave 0 CANDIDATE rigs (Kabir, Ravi) — DEV review only, in
-    // no runtime slot: they are single-baked-material and cannot carry the wardrobe/identity axes.
+    // Issue #21 §4 three enabled character rigs (default + female + male humanoids), the
+    // owner-approved issue #38 Wave 0 rigs (Kabir — still a candidate in no runtime slot — and
+    // Ravi), and the four issue #47 Wave 4 named-resident bodies (Maya / Bruno / Kim / Nisha).
+    // Every one of the baked-material bodies is barred from the PLAYER slot; the five that ARE
+    // in a runtime slot are the strict 1:1 named-NPC mapping in WAVE4_NAMED_BODIES.
     expect(
       enabled
         .filter((e) => e.category === 'characters')
         .map((e) => e.id)
         .sort(),
     ).toEqual([
+      'blocklife_bruno_01',
       'blocklife_female_01',
       'blocklife_kabir_01',
+      'blocklife_kim_01',
       'blocklife_male_01',
+      'blocklife_maya_01',
+      'blocklife_nisha_01',
       'blocklife_person',
       'blocklife_ravi_01',
+    ])
+    // Issue #47 Wave 4 parked-vehicle bodies: `vehicles`-category rows that render as PROP
+    // scenery through LandmarkAsset, not as a vehicle class. They carry no VehicleDef, so they
+    // are pinned separately from the four ownable-class bodies.
+    expect(
+      enabled
+        .filter((e) => e.category === 'vehicles')
+        .map((e) => e.id)
+        .sort(),
+    ).toEqual([
+      'vehicle_compact_car_01',
+      'vehicle_parked_box_truck_01',
+      'vehicle_parked_delivery_van_01',
+      'vehicle_parked_hatchback_01',
+      'vehicle_parked_pickup_01',
+      'vehicle_scooter_01',
+      'vehicle_sports_car_01',
+      'vehicle_utility_van_01',
     ])
     // Every enabled GLB (landmarks + the character rig) points at a real file.
     for (const entry of enabled) {

@@ -6,6 +6,15 @@ import { gotoGame } from './helpers'
  * public test API + DOM against a real boot:
  *  - the whole named cast + a bounded rigged ambient crowd run on the ONE rig,
  *  - the rig exposes the new accessory identity axis,
+ *
+ * Issue #47 Wave 4 narrowed ONE claim here, deliberately (CONVENTIONS #39). Five named residents
+ * now render an owner-approved 1:1 body instead of the wardrobe rig, and those bodies are a single
+ * BAKED atlas — windows of identity like shirt/hair/accessory are painted into one texture, so they
+ * expose no recolorable slot at all. The accessory axis is unchanged on the rig itself (the player
+ * and the ambient crowd still resolve all six slots, asserted below), and each moved NPC is held to
+ * a STRICTER statement than the old `toContain('accessory')`: it must render its OWN 1:1 body and
+ * expose EXACTLY no wardrobe slot. Their registry identity is not lost — it still drives the
+ * fallback rig, which `tests/e2e/asset-integration-wave-4.spec.ts` proves by failing the body.
  *  - the skinned-character population stays inside its hard cap (no hidden perf
  *    regression from routing the crowd through the pipeline),
  *  - the dialogue panel shows the speaker's registry identity + relationship.
@@ -47,6 +56,16 @@ test.describe('character identity & population (issue #23)', () => {
 
   test('every named NPC renders the model with a distinct registry identity', async ({ page }) => {
     await bootSettled(page)
+    // NPC -> the owner-approved 1:1 body it renders since issue #47 Wave 4. Leo is absent on
+    // purpose: his approved source is a construction worker against a delivery role, so he was
+    // rejected and keeps the wardrobe rig — which is why he still carries the full axis below.
+    const WAVE4_BODIES: Record<string, string> = {
+      npc_ravi_01: 'blocklife_ravi_01',
+      npc_maya_01: 'blocklife_maya_01',
+      npc_kim_01: 'blocklife_kim_01',
+      npc_bruno_01: 'blocklife_bruno_01',
+      npc_nisha_01: 'blocklife_nisha_01',
+    }
     const ids = ['npc_ravi_01', 'npc_maya_01', 'npc_kim_01', 'npc_bruno_01', 'npc_leo_01', 'npc_nisha_01']
     for (const id of ids) {
       await page.waitForFunction(
@@ -56,9 +75,22 @@ test.describe('character identity & population (issue #23)', () => {
       )
       const state = await page.evaluate((nid) => window.GAME_TEST_API!.getCharacterState(nid)!, id)
       expect(state.activeVisual, `${id} on the model`).toBe('model')
-      // The new accessory axis resolves on the shared rig.
-      expect(state.resolvedSlots, `${id} accessory slot`).toContain('accessory')
+      const body = WAVE4_BODIES[id]
+      if (body) {
+        // Stricter than the original claim: the exact body, and EXACTLY no wardrobe slot.
+        expect(state.assetId, `${id} renders its own 1:1 approved body`).toBe(body)
+        expect(state.resolvedSlots, `${id} baked body exposes no wardrobe slot`).toEqual([])
+      } else {
+        // Still on the wardrobe rig: the accessory axis claim is unchanged and unweakened.
+        expect(state.assetId, `${id} stays on the wardrobe rig`).toBe('blocklife_person')
+        expect(state.resolvedSlots, `${id} accessory slot`).toContain('accessory')
+      }
     }
+    // The axis itself is intact on the rig, for every NPC that still uses it.
+    const leo = await page.evaluate(() => window.GAME_TEST_API!.getCharacterState('npc_leo_01')!)
+    expect(leo.resolvedSlots).toEqual(
+      expect.arrayContaining(['shirt', 'pants', 'hair', 'skin', 'shoes', 'accessory']),
+    )
   })
 
   test('an ambient core citizen is promoted to the rigged model', async ({ page }) => {

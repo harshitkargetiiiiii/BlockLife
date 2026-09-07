@@ -80,6 +80,20 @@ export interface CharacterAssetDefinition {
    * static frame instead of looping the walk cycle in place while standing.
    */
   staticIdle?: boolean
+  /**
+   * Whether the population registry's `bodyBuild` silhouette may scale this body.
+   *
+   * `'registry'` (the default, and the only pre-issue-#47 behaviour) multiplies the NON-UNIFORM
+   * build vector onto `scale` — that is how issue #23 gives the shared rig visibly distinct
+   * silhouettes, and it is right for a rig whose proportions the repo authors.
+   *
+   * `'authored'` renders the body at its own proportions, uniformly. An owner-approved 1:1 body
+   * is a fixed piece of geometry depicting a specific person; stretching it 1.13x in X/Z to make
+   * it "broad" distorts the approved art and silently changes its height too (a `stocky` build
+   * multiplies Y by 0.93). The registry appearance is NOT discarded — it still drives that NPC's
+   * `blocklife_person` error fallback, which is a rig and takes the build as it always did.
+   */
+  proportions?: 'registry' | 'authored'
   bounds: CharacterBounds
   anchors: CharacterAnchors
   fallback: { primitiveStyle: string }
