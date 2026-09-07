@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import ReactThreeTestRenderer from '@react-three/test-renderer'
 import * as THREE from 'three'
 import { VehicleAsset } from './VehicleAsset'
+import { clearPaintMaskCache, primePaintMask } from './maskedPaint'
 import { ASSET_MANIFEST_BY_ID, type AssetManifestEntry } from './assetManifest'
 import { VEHICLE_DEFS } from '../vehicles/vehicleRegistry'
 import { VehicleVisual } from '../vehicles/VehicleVisual'
@@ -14,24 +15,16 @@ vi.mock('@react-three/drei', async (importOriginal) => ({
 }))
 
 /**
- * The paint mask (issue #50) is a real network load, exactly like the GLB above, so it is stubbed
- * exactly like the GLB above — otherwise every test driving the REAL sports manifest entry would
- * suspend forever on a URL jsdom cannot fetch, and the fallback assertions would pass for the wrong
- * reason. Only `useLoader` is replaced; the rest of the fiber module (which the test renderer
- * itself uses) is the real one.
+ * The contribution map (issue #50) is a real network image, which jsdom cannot fetch. It is SEEDED
+ * into the loader's own cache rather than mocked away, so these tests still exercise the real
+ * `usePaintMask` hook, the real material construction and the real readiness gate — including the
+ * failure branch, driven by seeding a rejected promise.
  */
-const useLoaderMock = vi.hoisted(() => {
-  // ONE object for every call, as R3F's loader cache returns. Identity is the point: a mock that
-  // minted a new texture per render would change the instance memo's key every render and rebuild
-  // the materials behind the test's back. It is the FACTORY implementation rather than one applied
-  // later, because `mockReset`/`restoreAllMocks` restores exactly this.
-  const shared = {}
-  return vi.fn(() => shared)
-})
-vi.mock('@react-three/fiber', async (importOriginal) => ({
-  ...(await importOriginal<Record<string, unknown>>()),
-  useLoader: useLoaderMock,
-}))
+const MASK_URL = '/assets/models/vehicles/sports_car_01_paint_contribution.png'
+function seedMask(result: Promise<THREE.Texture>) {
+  clearPaintMaskCache()
+  primePaintMask(MASK_URL, result)
+}
 
 function vehicleEntry(overrides: Partial<AssetManifestEntry>): AssetManifestEntry {
   return {
@@ -57,7 +50,7 @@ function Fallback() {
 
 afterEach(() => {
   useGLTFMock.mockReset()
-  useLoaderMock.mockReset()
+  clearPaintMaskCache()
   vi.restoreAllMocks()
 })
 
@@ -338,6 +331,7 @@ describe('issue #50 — masked paint and wheel styles on the derived sports body
   }
 
   it('paints the body without a material slot, and leaves the wheel material a separate target', async () => {
+    seedMask(Promise.resolve(new THREE.Texture()))
     useGLTFMock.mockImplementation(() => ({ scene: derivedScene() }))
     const renderer = await ReactThreeTestRenderer.create(
       <VehicleAsset assetId={SPORTS} paint="#2c2c33" wheelHub="#c9ccd1" entry={sportsEntry()}>
@@ -367,6 +361,7 @@ describe('issue #50 — masked paint and wheel styles on the derived sports body
     //
     // So the mock returns ONE scene object to both instances, exactly as `useGLTF` does. A mock
     // that builds a fresh scene per call cannot model that at all: it would pass with no cloning.
+    seedMask(Promise.resolve(new THREE.Texture()))
     const shared = derivedScene()
     const sourceMaterials = new Map<string, THREE.MeshStandardMaterial>()
     shared.traverse((o) => {
@@ -403,6 +398,7 @@ describe('issue #50 — masked paint and wheel styles on the derived sports body
   })
 
   it('applies a wheel style ABSOLUTELY — repeated changes do not compound', async () => {
+    seedMask(Promise.resolve(new THREE.Texture()))
     useGLTFMock.mockImplementation(() => ({ scene: derivedScene() }))
     const renderer = await ReactThreeTestRenderer.create(
       <VehicleAsset assetId={SPORTS} paint="#2c2c33" wheelScale={1} entry={sportsEntry()}><Fallback /></VehicleAsset>,
@@ -441,24 +437,73 @@ describe('issue #50 — masked paint and wheel styles on the derived sports body
     await renderer.unmount()
   })
 
-  it('still falls back to the complete CarMesh when the mask cannot load', async () => {
-    // The mask is part of the GLB branch, so its failure has to behave like the body's: a whole
-    // procedural car, not a Meshy body with no paint and not a wheelless one.
+  it('falls back to the COMPLETE CarMesh when the contribution map cannot load', async () => {
+    // A required companion asset that failed is an asset failure. It is raised inside the vehicle's
+    // own error boundary, so the fallback, the warning and the `glbFailed` accounting are identical
+    // to a failed model — an unpainted GLB reported as finished would be worse than a whole
+    // procedural car, because the frame would show the AUTHORED colour while readiness claimed the
+    // saved one was up.
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     vi.spyOn(console, 'error').mockImplementation(() => {})
+    seedMask(Promise.reject(new Error('404 sports_car_01_paint_contribution.png')))
     useGLTFMock.mockImplementation(() => ({ scene: derivedScene() }))
-    useLoaderMock.mockImplementation(() => {
-      throw new Error('404 sports_car_01_paint_mask.png not found')
-    })
+    const failed0 = registry.glbLandmarksFailed
     const renderer = await ReactThreeTestRenderer.create(
       <VehicleAsset assetId={SPORTS} paint="#2c2c33" entry={sportsEntry()}><Fallback /></VehicleAsset>,
     )
     expect(renderer.scene.findAll((n) => n.props.name === 'carmesh-fallback')).toHaveLength(1)
+    expect(renderer.scene.findAll((n) => (n.instance as THREE.Object3D)?.name === 'sports-root')).toHaveLength(0)
     expect(warn).toHaveBeenCalledWith(expect.stringContaining(SPORTS), expect.any(Error))
+    expect(registry.glbLandmarksFailed, 'counted as a failed asset').toBe(failed0 + 1)
+    await renderer.unmount()
+    expect(registry.glbLandmarksFailed, 'and released on unmount').toBe(failed0)
+  })
+
+  it('does NOT satisfy readiness while the contribution map is still in flight', async () => {
+    // The body is on screen during this window wearing its authored paint. Marking the branch
+    // active here is what would let a visual gate photograph the wrong colour.
+    let resolveMask: (t: THREE.Texture) => void = () => {}
+    seedMask(new Promise<THREE.Texture>((resolve) => { resolveMask = resolve }))
+    useGLTFMock.mockImplementation(() => ({ scene: derivedScene() }))
+    const active0 = registry.glbLandmarksActive
+    const renderer = await ReactThreeTestRenderer.create(
+      <VehicleAsset assetId={SPORTS} paint="#2c2c33" entry={sportsEntry()}><Fallback /></VehicleAsset>,
+    )
+    expect(renderer.scene.findAll((n) => (n.instance as THREE.Object3D)?.name === 'sports-root'), 'body already drawn')
+      .toHaveLength(1)
+    expect(registry.glbLandmarksActive, 'but not yet counted as the thing on screen').toBe(active0)
+    await ReactThreeTestRenderer.act(async () => {
+      resolveMask(new THREE.Texture())
+      await Promise.resolve()
+    })
+    expect(registry.glbLandmarksActive, 'active only once the paint is actually on it').toBe(active0 + 1)
+    await renderer.unmount()
+    expect(registry.glbLandmarksActive).toBe(active0)
+  })
+
+  it('never hands a new body the previous body\'s map', async () => {
+    // React keeps the old state through the render in which the URL changes, so a state that was
+    // not keyed by URL would report the OLD texture as READY for the NEW entry for one render.
+    const other = { ...sportsEntry(), id: 'vehicle_other_01', paintMask: { ...sportsEntry().paintMask!, path: 'assets/models/vehicles/other_paint.png' } }
+    seedMask(Promise.resolve(new THREE.Texture()))
+    useGLTFMock.mockImplementation(() => ({ scene: derivedScene() }))
+    const renderer = await ReactThreeTestRenderer.create(
+      <VehicleAsset assetId={SPORTS} paint="#2c2c33" entry={sportsEntry()}><Fallback /></VehicleAsset>,
+    )
+    expect(materialsNamed(renderer, 'paint_body'), 'first entry is painted').toHaveLength(1)
+    // The second entry's map never resolves, so it must be PENDING — not "ready" with the first
+    // entry's texture, and not counted as on screen.
+    primePaintMask('/assets/models/vehicles/other_paint.png', new Promise<THREE.Texture>(() => {}))
+    const active0 = registry.glbLandmarksActive
+    await renderer.update(
+      <VehicleAsset assetId={other.id} paint="#2c2c33" entry={other}><Fallback /></VehicleAsset>,
+    )
+    expect(registry.glbLandmarksActive, 'the new entry is not active on the old map').toBeLessThanOrEqual(active0)
     await renderer.unmount()
   })
 
   it('releases the branch and the counters symmetrically, mask or no mask', async () => {
+    seedMask(Promise.resolve(new THREE.Texture()))
     useGLTFMock.mockImplementation(() => ({ scene: derivedScene() }))
     const expected0 = registry.glbLandmarksExpected
     const active0 = registry.glbLandmarksActive

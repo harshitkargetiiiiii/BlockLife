@@ -56,6 +56,7 @@
  * duplicate wheel set, and not a substitution of the procedural box. The Meshy body is the thing on
  * screen in every branch this touches.
  */
+import { useEffect, useState } from 'react'
 import * as THREE from 'three'
 
 /** Rec. 709 luma — the same weights `segmentation.mjs` uses when it measures the atlas. */
@@ -218,4 +219,100 @@ export function wheelNodeTransform(radius: number, radiusScale: number, maxScale
   const asked = radiusScale > 0 ? radiusScale : 1
   const s = Math.min(asked, maxScale)
   return { scale: [s, s, 1], liftY: radius * (s - 1), clamped: s < asked }
+}
+
+/**
+ * Load the contribution map ONCE per URL, outside React's Suspense.
+ *
+ * Deliberately not `useLoader`/`useGLTF`. Measured on this branch (issue #50 §7, probe
+ * `stage-probe2.log`): a vehicle boundary that suspends TWICE in sequence — first on this texture,
+ * then on the model — gets its first suspension retried and its SECOND one dropped. The GLB's bytes
+ * arrived complete at 21.8 s and `useGLTF` did not return until 48.3 s, when an unrelated
+ * re-render of the subtree happened to resume it; `pending` went to 0 in the same instant. The
+ * texture was innocent: it resolved normally and the model's request followed 1 ms later.
+ *
+ * So the model stays the boundary's ONE suspending resource, exactly as before this issue, and the
+ * map arrives through a state update instead — which React is obliged to re-render for. It also
+ * makes the failure mode strictly better: a map that cannot load leaves the body on screen with its
+ * authored paint, rather than taking the whole vehicle down to the procedural fallback.
+ *
+ * This does NOT claim to fix the underlying lost-retry behaviour, which is visible on master with a
+ * single resource (`vehicle_compact_car_01`). It removes the second exposure this issue would
+ * otherwise have added.
+ */
+const paintMaskCache = new Map<string, Promise<THREE.Texture>>()
+
+export function loadPaintMask(url: string): Promise<THREE.Texture> {
+  let pending = paintMaskCache.get(url)
+  if (!pending) {
+    pending = new Promise<THREE.Texture>((resolve, reject) => {
+      new THREE.TextureLoader().load(url, (texture) => resolve(configurePaintMask(texture)), undefined, reject)
+    })
+    paintMaskCache.set(url, pending)
+  }
+  return pending
+}
+
+/** Test/tooling seam: forget cached maps so a spec can drive a fresh load. */
+export function clearPaintMaskCache(): void {
+  paintMaskCache.clear()
+}
+
+/**
+ * Test/tooling seam: seed the cache so a unit test exercises the REAL hook, material construction
+ * and readiness path without a network image jsdom cannot fetch. Passing a rejected promise is how
+ * a test drives the failure branch.
+ */
+export function primePaintMask(url: string, result: Promise<THREE.Texture>): void {
+  paintMaskCache.set(url, result)
+}
+
+export type PaintMaskStatus = 'pending' | 'ready' | 'error'
+
+export interface PaintMaskState {
+  status: PaintMaskStatus
+  texture: THREE.Texture | null
+  /** The URL this state describes. A caller must ignore state belonging to a different URL. */
+  url: string | null
+  error: unknown
+}
+
+const PENDING: PaintMaskState = { status: 'pending', texture: null, url: null, error: null }
+
+/**
+ * Non-suspending companion-texture load, with three DISTINCT outcomes.
+ *
+ * `pending` and `error` are deliberately not collapsed. A failed required map is a failed asset:
+ * the caller throws it inside the vehicle's existing error boundary, which restores the complete
+ * procedural car and the `glbFailed` accounting exactly as a failed model does. Reporting it as
+ * "settled" instead would put an UNPAINTED body on screen and call it the finished article — the
+ * body would still be wearing its authored colour while readiness said the saved paint was up.
+ *
+ * The state is keyed by URL. React keeps the previous state through the render in which `url`
+ * changes (the effect that resets it runs after), so without this key one render of a NEW entry
+ * would be handed the OLD entry's texture and its `ready` status.
+ */
+export function usePaintMask(url: string | null): PaintMaskState {
+  const [state, setState] = useState<PaintMaskState>(PENDING)
+  useEffect(() => {
+    if (!url) {
+      setState(PENDING)
+      return
+    }
+    let cancelled = false
+    setState(PENDING)
+    loadPaintMask(url).then(
+      (texture) => {
+        if (!cancelled) setState({ status: 'ready', texture, url, error: null })
+      },
+      (error) => {
+        if (!cancelled) setState({ status: 'error', texture: null, url, error })
+      },
+    )
+    return () => {
+      cancelled = true
+    }
+  }, [url])
+  if (url === null) return PENDING
+  return state.url === url ? state : PENDING
 }

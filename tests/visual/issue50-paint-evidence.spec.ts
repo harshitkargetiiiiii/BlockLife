@@ -360,6 +360,49 @@ test.describe('issue #50 — saved paint and wheels are visible on the approved 
     expect(changed(before, after).changed, 'a style round trip is not cumulative').toBeLessThan(120)
   })
 
+  /**
+   * The body must reach readiness ON ITS OWN, in EITHER completion order.
+   *
+   * This body loads two resources — the model and its contribution map — and they are requested in
+   * parallel, so which one finishes first is a race. Moving the map to a state update could
+   * accidentally wake a boundary whose model was ALREADY loaded when the map arrived, while leaving
+   * the opposite order (map first, model later) still stuck. That is a race to test, not a
+   * diagnosis to assume, so each order is forced with a bounded route delay.
+   *
+   * No nudge, no store mutation, no extra sleep, no raised deadline: the only thing waited on is
+   * the scene-ready predicate every other visual spec uses.
+   */
+  for (const [name, slow, delayMs] of [
+    ['the contribution map arrives FIRST', '**/sports_car_01.glb', 4000],
+    ['the model arrives FIRST', '**/sports_car_01_paint_contribution.png', 4000],
+  ] as const) {
+    test(`the sports body reaches readiness unaided when ${name}`, async ({ page }) => {
+      const seen: string[] = []
+      page.on('requestfinished', (r) => {
+        if (r.url().includes('sports_car_01')) seen.push(r.url().split('/').pop()!)
+      })
+      // Installed before navigation so it applies to the very first request of either resource.
+      await page.route(slow, async (route) => {
+        await new Promise((resolve) => setTimeout(resolve, delayMs))
+        await route.continue()
+      })
+      await boot(page)
+      await arrange(page, VIEWER, STAGE_ZOOM)
+      await api(page, 'vehicleGrant', 'veh_sports', { location: 'active' })
+      // The assertion IS this wait: nothing else touches the page between the grant and it.
+      await waitForSceneSettled(page, { requireGlb: ['vehicle_sports_car_01'], timeout: 30_000 })
+      const readiness = (await api(page, 'getAssetReadiness')) as { glbActive: string[]; glbPending: unknown[] }
+      expect(readiness.glbActive, 'the body is the thing on screen').toContain('vehicle_sports_car_01')
+      expect(readiness.glbPending, 'and nothing is left in flight').toEqual([])
+      // Both resources really were fetched, and in the order this case forced.
+      expect(seen.filter((n) => n.endsWith('.glb'))).toHaveLength(1)
+      expect(seen.filter((n) => n.endsWith('.png'))).toHaveLength(1)
+      expect(seen[0], `${name}: observed order ${JSON.stringify(seen)}`).toBe(
+        slow.endsWith('.glb') ? 'sports_car_01_paint_contribution.png' : 'sports_car_01.glb',
+      )
+    })
+  }
+
   test('the player and their wardrobe are untouched by any of this', async ({ page }) => {
     await boot(page)
     const before = { appearance: await api(page, 'getAppearance'), unlocks: await api(page, 'getWardrobeUnlocks') }

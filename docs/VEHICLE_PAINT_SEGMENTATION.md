@@ -39,10 +39,10 @@ lamps — in the applied `#2c2c33`, next to a `CarShell` (a box plus a light-gre
 same frame for comparison. The baseline recorded the old GLB wearing its paint, never a fallback.
 There is therefore no counter/visibility contradiction, and no activation patch was invented.
 
-**Still genuinely open, and NOT claimed fixed here:** the `arrived-never-committed` readiness stall
-reported in CI for `vehicle_compact_car_01` (bytes arrive, `useGLTF` never returns, all four stage
-marks missing). It reproduced locally on this branch for `vehicle_sports_car_01`
-(`expected 320 / active 319 / pending 1`, quiet for 37 s). See §7.
+**Separately tracked:** master's `vehicle_compact_car_01` readiness observation in CI (bytes arrive,
+`useGLTF` never returns, all four stage marks missing). A stall of a similar shape was measured on
+this branch and is written up in §7 — but no shared cause has been established between them, and
+none is claimed.
 
 ---
 
@@ -155,16 +155,68 @@ is outside the classified set — does not.
   from the provenance the build emitted, and the "cannot rebind a default slot" guard is applied to
   EVERY material rather than only the first.
 
-## 7. Open, and not claimed fixed
+## 7. The loading stall: what was measured, and what changed
 
-- **`arrived-never-committed` readiness stall.** Reported in CI for `vehicle_compact_car_01`;
-  reproduced on this branch for `vehicle_sports_car_01` in the evidence spec
-  (`expected 320 / active 319 / failed 0 / pending 1`, mount graph quiet for 37 s). It is NOT the
-  `painted-sports` baseline phenomenon (§1), and it is not attributed here — the contribution map
-  adds a second suspending resource to the vehicle boundary and its share of this has not been
-  isolated. Determining whether the GLB or the map is the pending one is the next bounded step.
+The first version of this work loaded the contribution map through `useLoader`, inside the same
+Suspense boundary as the model. That produced a readiness stall, and a bounded diagnostic
+(`markAssetStage` gained `mask-render` / `mask-returned`; Playwright `requestfinished` +
+response-body reads, because the `performance` resource buffer overflows at 320 assets) separated
+the stages. **One observed run**, timestamps relative to test start:
+
+| t | observation |
+| ---: | - |
+| 17.9 s | `mask-render` — React reached the component; it suspends on the map |
+| 18.6 s | contribution PNG complete on the wire, 688,674 B, SHA-256 `55dd1900…` |
+| 20.8 s | `mask-render` + `mask-returned` — the boundary retried and the map hook returned |
+| 20.8 s | `sports_car_01.glb` requested (1 ms later) |
+| 21.8 s | the GLB's body complete on the wire, 921,412 B |
+| 21.8–48.2 s | **nothing** — `hook-returned` absent, `pending 1 / active 0 / failed 0` |
+| 48.3 s | an unrelated state change re-renders the subtree; `hook-returned`, `clone-built`, `react-commit`, `active-effect` all fire in the same instant and `pending` goes to `[]` |
+
+Separately, an independent `new Image()` decode of the same PNG in the same page succeeded in
+778–1059 ms at 1024×1024, and there were zero page errors. So in that run the bytes were complete,
+the browser could decode them, and the suspended boundary resumed only when something else
+re-rendered it.
+
+**What that is and is not.** It is evidence of a completion/retry problem **in the observed run**.
+It is not proof that only a second suspension can fail, it does not exonerate the earlier
+texture-stage stall, and it does **not** establish a shared cause with master's
+`vehicle_compact_car_01` observation (run 34159853538) — that one has a single resource and is
+tracked separately.
+
+**What changed here.** The map no longer suspends. `usePaintMask` loads it through a module-cached
+`THREE.TextureLoader` promise started in `VehicleAsset` — the component that never suspends — so the
+map and the model are requested in parallel and the boundary keeps exactly **one** suspending
+resource, as it had before this issue. This removes the second exposure this issue would otherwise
+have added; it does not claim to fix the underlying behaviour.
+
+The error contract is unchanged, which took a correction to get right. The hook returns three
+distinct states and the map is a **required** asset:
+
+- `pending` — the body is drawn in its authored paint, and readiness does **not** count it. Marking
+  the branch active here would let a visual gate photograph the authored colour and call it the
+  saved one.
+- `error` — rethrown **inside** the existing vehicle error boundary, so a failed map behaves exactly
+  like a failed model: complete procedural `CarMesh`, the DEV warning, and the `glbFailed` census.
+  An unpainted GLB reported as finished would be worse than a whole procedural car.
+- `ready` — the only state that marks the branch active.
+
+The state is keyed by URL, because React keeps the previous state through the render in which the
+URL changes; without that key one render of a new entry would be handed the old entry's texture and
+its `ready` status.
+
+**Both completion orders are gated in the browser**, with a bounded route delay forcing each and no
+nudge, store mutation, extra sleep or raised deadline — because moving only the map to a state
+update could have woken a boundary whose model happened to be ready already, while leaving the
+opposite order stuck. Both pass (`tests/visual/issue50-paint-evidence.spec.ts`).
+
+## 8. Still open
+
+- **Hub styling contrast.** The classifier selects 1.75–3.42% of each wheel's UV texels, so a
+  uniform-value unit test cannot establish that a hub style is *visible*. One Standard vs Sport
+  Alloy render is owed and has not been run.
 - **`painted-sports` and `wheels-offroad` baselines** are untouched, as are all others. They still
   record the pre-Wave-1 body; adjudicating them belongs to review, with the evidence below.
-- **`docs/review/issue-50/evidence/`** holds the rendered frames: default/charcoal/blue/paper
-  repaints of one instance in one frozen pose, an inspection close-up, two contrasting owned sports
-  cars in ONE frame, and the three-quarter wheel standard/off-road/round-trip sequence.
+- **`docs/review/issue-50/evidence/`** holds the rendered frames: default/charcoal/blue repaints of
+  one instance in one frozen pose, an inspection close-up, two contrasting owned sports cars in ONE
+  frame, and the three-quarter wheel standard/off-road/round-trip sequence.

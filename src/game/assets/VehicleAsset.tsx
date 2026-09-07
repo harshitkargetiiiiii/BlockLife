@@ -28,12 +28,11 @@
 import { Component, Suspense, useEffect, useLayoutEffect, useMemo, type ReactNode } from 'react'
 import * as THREE from 'three'
 import { useGLTF } from '@react-three/drei'
-import { useLoader } from '@react-three/fiber'
 import type { AssetManifestEntry } from './assetManifest'
 import { getManifestEntry, markGlbBranch, noteGlbExpected, releaseGlbBranch, reportAssetLoadFailure, resolveGlbUrl, shouldLoadGlb } from './modelRegistry'
 import { applyVariant, createVariantInstances, disposeVariantMaterials, type MaterialSlotMap, type MaterialVariant } from './assetVariants'
 import { markAssetStage } from './assetStallProbe'
-import { configurePaintMask, createMaskedPaintMaterial, setMaskedPaintColor, wheelNodeTransform, type MaskedPaintMaterial } from './maskedPaint'
+import { createMaskedPaintMaterial, setMaskedPaintColor, usePaintMask, wheelNodeTransform, type MaskedPaintMaterial, type PaintMaskState } from './maskedPaint'
 import { noteGlbLandmarkChange, registry } from '../world/runtimeRegistry'
 
 const PAINT_SLOT = 'paint'
@@ -117,22 +116,44 @@ function VehicleGlb({
   paint,
   wheelHub,
   wheelScale,
-  paintMask,
+  paintMaskState = null,
 }: {
   entry: AssetManifestEntry
   paint: string
   wheelHub?: string
   /** Wheel-style radius multiplier — only meaningful for a body with derived wheel pivots. */
   wheelScale?: number
-  /** The derived mask, when this entry declares one and it has loaded (issue #50). */
-  paintMask?: THREE.Texture
+  /**
+   * The derived contribution map's load state (issue #50), or null for a body that declares none.
+   *
+   * Three outcomes, kept apart on purpose. `pending` renders the body in its authored paint but
+   * does NOT satisfy readiness. `error` is a failed REQUIRED asset and is rethrown here, inside the
+   * boundary, so the complete procedural car and the `glbFailed` accounting behave exactly as they
+   * do for a failed model. Only `ready` marks the branch active.
+   */
+  paintMaskState?: PaintMaskState | null
 }) {
+  // A required companion map that FAILED is an asset failure, raised where the boundary can see
+  // it. Raised before the model hook so the two failures are indistinguishable to everything
+  // downstream — same fallback, same counters, same branch.
+  if (paintMaskState?.status === 'error') {
+    throw paintMaskState.error instanceof Error
+      ? paintMaskState.error
+      : new Error(`paint contribution map failed for ${entry.id}`)
+  }
+  const paintMask = paintMaskState?.status === 'ready' ? (paintMaskState.texture ?? undefined) : undefined
+  const maskReady = !paintMaskState || paintMaskState.status === 'ready'
   const gltf = useGLTF(resolveGlbUrl(entry))
   // Issue #47 shard 8 probe (DEV only, one asset). Reaching this line means parse, decode and
   // Suspense-resume have ALL succeeded; its ABSENCE leaves those three undistinguished.
   if (import.meta.env.DEV) markAssetStage(entry.id, 'hook-returned')
 
   useEffect(() => {
+    // For a body with a companion map, "on screen" means on screen WEARING ITS PAINT. Marking the
+    // branch active a frame earlier would let a visual gate photograph the authored colour and call
+    // it the saved one. A map that FAILED never reaches here at all — it threw above, and the
+    // boundary counts it as a failed asset — so readiness cannot hang on one either.
+    if (!maskReady) return
     if (import.meta.env.DEV) markAssetStage(entry.id, 'active-effect')
     registry.glbLandmarksActive++
     noteGlbLandmarkChange()
@@ -142,7 +163,7 @@ function VehicleGlb({
       noteGlbLandmarkChange()
       releaseGlbBranch(entry.id, 'active')
     }
-  }, [entry.id])
+  }, [entry.id, maskReady])
 
   // One-time per instance: clone (so many painted shells share one file),
   // shadow flags, isolate the recolorable slots. Never re-traversed per frame.
@@ -254,19 +275,13 @@ function VehicleGlb({
  * enabled; otherwise (no entry, disabled, still loading, load error) the CarMesh
  * fallback renders. Gameplay/physics never depend on which branch is active.
  */
-function MaskedVehicleGlb(props: { entry: AssetManifestEntry; paint: string; wheelHub?: string; wheelScale?: number }) {
-  // Loaded through R3F's OWN loader cache and this component's existing Suspense/error boundary,
-  // so the mask is not a second readiness concept: one instance per file, the settle gate and the
-  // branch census are untouched, and a mask that cannot load falls back to CarMesh exactly as a
-  // body that cannot load does — rather than silently rendering an unpaintable car.
-  const raw = useLoader(THREE.TextureLoader, `${import.meta.env.BASE_URL}${props.entry.paintMask!.path}`)
-  const mask = useMemo(() => configurePaintMask(raw), [raw])
-  return <VehicleGlb {...props} paintMask={mask} />
-}
-
 export function VehicleAsset({ assetId, paint, wheelHub, wheelScale, children, glbSiblings, entry: entryOverride }: VehicleAssetProps) {
   const entry = entryOverride ?? (assetId ? getManifestEntry(assetId) : undefined)
   const useGlb = shouldLoadGlb(entry)
+  // Started HERE, in the component that never suspends, so the map and the model load in parallel
+  // and the boundary below keeps exactly ONE suspending resource — see `usePaintMask` for the
+  // measurement that made that matter.
+  const mask = usePaintMask(useGlb && entry?.paintMask ? `${import.meta.env.BASE_URL}${entry.paintMask.path}` : null)
 
   useEffect(() => {
     if (!useGlb) return
@@ -289,11 +304,13 @@ export function VehicleAsset({ assetId, paint, wheelHub, wheelScale, children, g
   return (
     <VehicleErrorBoundary key={entry.id} assetId={entry.id} fallback={children}>
       <Suspense fallback={children}>
-        {entry.paintMask ? (
-          <MaskedVehicleGlb entry={entry} paint={paint} wheelHub={wheelHub} wheelScale={wheelScale} />
-        ) : (
-          <VehicleGlb entry={entry} paint={paint} wheelHub={wheelHub} wheelScale={wheelScale} />
-        )}
+        <VehicleGlb
+          entry={entry}
+          paint={paint}
+          wheelHub={wheelHub}
+          wheelScale={wheelScale}
+          paintMaskState={entry.paintMask ? mask : null}
+        />
         {glbSiblings}
       </Suspense>
     </VehicleErrorBoundary>
