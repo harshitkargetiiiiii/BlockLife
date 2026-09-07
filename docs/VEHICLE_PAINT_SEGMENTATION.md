@@ -13,11 +13,14 @@ whose outputs `--check` reproduces byte-for-byte.
 
 ---
 
-## 1. The correction that came first: PR #49's "stuck fallback" does not exist
+## 1. The correction that came first: the old sports baseline is not fallback evidence
 
 Issue #50 opened partly on PR #49's report that an owned vehicle sat on its procedural fallback
-until unrelated asset activity forced a render, evidenced by the `painted-sports` baseline. That
-attribution is **wrong**, and this branch does not act on it.
+until unrelated asset activity forced a render, evidenced by the `painted-sports` baseline. **That
+particular evidence does not support that conclusion** — the frame it points at is not a fallback —
+so this branch does not act on it. That is a statement about this one baseline, not a claim that no
+stuck-fallback behaviour exists anywhere: a readiness stall of exactly that shape WAS measured here,
+and is written up in §7.
 
 | | |
 | - | - |
@@ -36,8 +39,9 @@ files confirms why the frame changed:
 OLD body was fully recolorable through the existing variant path. Cropping the parked car out of
 the committed baseline shows a **detailed coupe** — windscreen, side glass, wheel arches, mirrors,
 lamps — in the applied `#2c2c33`, next to a `CarShell` (a box plus a light-grey cabin box) in the
-same frame for comparison. The baseline recorded the old GLB wearing its paint, never a fallback.
-There is therefore no counter/visibility contradiction, and no activation patch was invented.
+same frame for comparison. That baseline recorded the old GLB wearing its paint, not a procedural
+fallback, so it is not evidence of a counter/visibility contradiction — and no activation patch was
+invented on the strength of it.
 
 **Separately tracked:** master's `vehicle_compact_car_01` readiness observation in CI (bytes arrive,
 `useGLTF` never returns, all four stage marks missing). A stall of a similar shape was measured on
@@ -163,9 +167,11 @@ a claim that every wheel texel is a recolorable rim.
 - The player, `blocklife_person`, all six wardrobe slots and wardrobe/save behaviour: untouched.
 - Ownership, physics, colliders, tuning, economy, traffic, population and save: untouched. Paint
   and wheel selection remain exactly the values they were; only their appearance changes.
-- The procedural `CarShell` fallback and the whole branch/settle/error-boundary contract: unchanged,
-  and the contribution map lives inside the SAME Suspense and error boundary as the body, so a
-  failure falls back to a complete procedural car rather than to a half-painted one.
+- The procedural `CarShell` fallback and the whole branch/settle/error-boundary contract: unchanged.
+  The contribution map is loaded OUTSIDE Suspense (§7) — it is not a second suspending resource —
+  but it remains a REQUIRED asset: its ERROR is raised inside the same vehicle error boundary as the
+  body, so a failed map falls back to a complete procedural car rather than to a half-painted one,
+  and is counted in `glbFailed` exactly as a failed model is.
 - Wave 1's contract assertions are **narrowed, not deleted**: mesh and material counts are now read
   from the provenance the build emitted, and the "cannot rebind a default slot" guard is applied to
   EVERY material rather than only the first.
@@ -220,19 +226,26 @@ The state is keyed by URL, because React keeps the previous state through the re
 URL changes; without that key one render of a new entry would be handed the old entry's texture and
 its `ready` status.
 
-**Both completion orders are gated in the browser**, with a bounded route delay forcing each and no
-nudge, store mutation, extra sleep or raised deadline — because moving only the map to a state
-update could have woken a boundary whose model happened to be ready already, while leaving the
-opposite order stuck. Both pass (`tests/visual/issue50-paint-evidence.spec.ts`).
+**Both completion orders are gated in the browser**, because moving only the map to a state update
+could have woken a boundary whose model happened to be ready already while leaving the opposite
+order stuck. The setup, stated exactly: each case installs ONE `page.route` handler that delays the
+chosen resource by **4 s**, then waits on the same scene-ready predicate every other visual spec
+uses with a **30 s** window — longer than the 25 s the paint cases use, chosen to clear that
+deliberate delay. Nothing else touches the page between the grant and the wait: no nudge, no store
+mutation, no arbitrary sleep, and no per-test deadline change. Both pass
+(`tests/visual/issue50-paint-evidence.spec.ts`).
 
 ## 8. Still open
 
-- **`painted-sports` and `wheels-offroad` baselines** are untouched, as are all others. They still
-  record the pre-Wave-1 body, so they differ on master too and their difference here says nothing
-  about this change. Both were run with NO update and their expected/actual/diff triples collected
-  for the reviewer at `docs/review/issue-50/legacy-baseline-adjudication/` (24,449 px and 26,874 px,
-  ratio 0.03 each). Whether to re-record them, and against which body, is deliberately not decided
-  in this PR.
+- **Two legacy baselines were migrated, under narrow review approval, and nothing else was.**
+  `painted-sports` and `wheels-offroad` recorded the PRE-Wave-1 body — the baseline last changed
+  `ba68922` (2026-08-20), the GLB was replaced `27aa628` (2026-09-01) — so they differed on master
+  too and could not be reproduced by any run after that swap. They were first run with NO update
+  (24,449 px and 26,874 px, ratio 0.03) and all six expected/actual/diff images were reviewed
+  individually before the decision; the exact two inspected captures then replaced the exact two old
+  references by hash, with no bulk update command and no tolerance change. Full record, including
+  what is and is NOT proven by these wide views:
+  `docs/review/issue-50/legacy-baseline-adjudication/`.
 - **`docs/review/issue-50/evidence/`** holds the rendered frames: default/charcoal/blue repaints of
   one instance in one frozen pose, an inspection close-up, two contrasting owned sports cars in ONE
   frame, the three-quarter wheel standard/off-road/round-trip sequence, and the Standard vs Sport

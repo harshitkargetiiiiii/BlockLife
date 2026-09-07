@@ -1,13 +1,14 @@
-# The two legacy vehicle baselines — collected for adjudication, NOT updated
+# The two legacy vehicle baselines — reviewed image by image, then migrated
 
 `tests/visual/vehicle-visuals.spec.ts`, exact titles `a custom-painted sports car parked` and
 `a sports car with off-road wheels fitted`. Collected on this branch so the decision can be made on
 the actual images rather than on a description of them.
 
-**No baseline was updated.** `git status -- 'tests/visual/*-snapshots/*'` is empty; the committed
-bytes of both goldens are untouched, and nothing in this directory is a snapshot.
+These six images were inspected individually — expected, actual and diff for each test — and on
+that basis exactly two reference PNGs were approved for replacement. Nothing in this directory is
+itself a snapshot; it is the record the decision was made from.
 
-## The run
+## Run 1 — collected with NO update, for the decision
 
 ```
 npx playwright test tests/visual/vehicle-visuals.spec.ts \
@@ -22,7 +23,7 @@ npx playwright test tests/visual/vehicle-visuals.spec.ts \
 | `painted-sports` | 24,449 px (ratio 0.03) |
 | `wheels-offroad` | 26,874 px (ratio 0.03) |
 
-## Why they differ, and why that is expected
+## Why they differed, and why the difference was accepted
 
 Both goldens **predate the model they photograph**. `painted-sports-chromium-darwin.png` last
 changed in `ba68922` (2026-08-20, #24); `public/assets/models/vehicles/sports_car_01.glb` was
@@ -30,9 +31,42 @@ replaced in `27aa628` (2026-09-01, Wave 1 #41). The body in the `expected` image
 single untextured `paint` material, which the existing variant path recolored — so no run after
 `27aa628` can reproduce them. See §1 of `docs/VEHICLE_PAINT_SEGMENTATION.md`.
 
-They are therefore expected to differ on master too, and their difference here is **not** evidence
-about this branch's change. Whether to re-record them, and against which body, is the reviewer's
-call — it is deliberately not taken in this PR.
+They therefore differ on master too, and their difference is **not** evidence about this branch's
+change.
+
+What the new captures show, and what they do not:
+
+- the approved Meshy coupe wearing the **actual saved paint** (charcoal / terracotta), dark windows,
+  one wheel set, and no whole-atlas tint;
+- the already-approved Wave 4 / Wave 2 scenery around it (red hatchbacks, white pickup, the vintage
+  lamp) — these two full-scene references had been held back from earlier waves and are reconciled
+  to merged content here;
+- roads, building layout, camera framing, player appearance/wardrobe and UI layout unchanged;
+- the off-road frame is the documented sports-body **1.04 cap, not 1.18**. These wide views do NOT
+  by themselves prove wheel size — that rests on the fixed-frame round trip (byte-exact, with a
+  negative control), the near-wheel evidence, and the all-four-wheel geometry clearance test;
+- incidental HUD differences are visible and are NOT art changes: old 13:08/13:09 and hunger 21
+  against new 13:33/13:37 and hunger 22/23. The legacy setup lets the clock run until freeze; this
+  PR introduces no new time or needs behaviour. Screenshot tolerances are unchanged.
+
+## Run 2 — the migrated references, still with NO update
+
+```
+(same command, unique output dir)
+→ Running 2 tests using 1 worker
+→ 2 passed   (exit 0)
+```
+
+Exactly two files changed under any `*-snapshots/` directory, both verified by hash before and
+after the copy:
+
+| reference | old SHA-256 | new SHA-256 |
+| - | - | - |
+| `painted-sports-chromium-darwin.png` | `d1773cc4…` | `bef0f846…` |
+| `wheels-offroad-chromium-darwin.png` | `651627d8…` | `d50e0f6b…` |
+
+The first run's honest result — 2 executed, 2 failed, exit 1 — is preserved above; it was a
+screenshot difference, not an activation failure.
 
 ## Files (SHA-256, bytes)
 
