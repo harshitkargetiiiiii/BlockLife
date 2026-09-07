@@ -1,10 +1,15 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { act, renderHook } from '@testing-library/react'
 import * as THREE from 'three'
 import {
+  clearPaintMaskCache,
   configurePaintMask,
   createMaskedPaintMaterial,
+  loadPaintMask,
+  primePaintMask,
   referencePaintLuma,
   setMaskedPaintColor,
+  usePaintMask,
   wheelNodeTransform,
 } from './maskedPaint'
 import { ASSET_MANIFEST_BY_ID } from './assetManifest'
@@ -273,5 +278,133 @@ describe('issue #50 — the manifest declaration describes the body it is aimed 
   it('is the ONLY entry claiming a derived mask — this does not silently change other bodies', () => {
     const withMask = [...ASSET_MANIFEST_BY_ID.values()].filter((e) => e.paintMask)
     expect(withMask.map((e) => e.id)).toEqual(['vehicle_sports_car_01'])
+  })
+})
+
+/**
+ * Issue #50 — the companion map's load LIFECYCLE.
+ *
+ * The map is loaded outside Suspense, so the things Suspense used to handle have to be handled
+ * here instead: one request per URL however many instances want it, no state written after the
+ * consumer is gone, and a URL change never reported as ready on the previous URL's result.
+ */
+describe('issue #50 — usePaintMask lifecycle', () => {
+  afterEach(() => {
+    clearPaintMaskCache()
+    vi.restoreAllMocks()
+  })
+
+  it('deduplicates by URL — many instances, ONE load', () => {
+    const url = '/a.png'
+    const first = loadPaintMask(url)
+    const second = loadPaintMask(url)
+    expect(second, 'the same promise, not a second request').toBe(first)
+    expect(loadPaintMask('/b.png'), 'a different URL is a different load').not.toBe(first)
+  })
+
+  it('reports pending, then ready, for the URL it was asked for', async () => {
+    let resolve: (t: THREE.Texture) => void = () => {}
+    const texture = new THREE.Texture()
+    primePaintMask('/a.png', new Promise<THREE.Texture>((r) => { resolve = r }))
+    const { result } = renderHook(() => usePaintMask('/a.png'))
+    expect(result.current.status).toBe('pending')
+    expect(result.current.texture).toBeNull()
+    await act(async () => {
+      resolve(texture)
+    })
+    expect(result.current).toEqual({ status: 'ready', texture, url: '/a.png', error: null })
+  })
+
+  it('reports error, keeping the reason, so the caller can raise it', async () => {
+    const boom = new Error('404')
+    primePaintMask('/a.png', Promise.reject(boom))
+    const { result } = renderHook(() => usePaintMask('/a.png'))
+    await act(async () => {
+      await Promise.resolve()
+    })
+    expect(result.current.status).toBe('error')
+    expect(result.current.error).toBe(boom)
+    expect(result.current.texture).toBeNull()
+  })
+
+  it('goes pending on the SAME render the URL changes, not one render later', async () => {
+    const first = new THREE.Texture()
+    primePaintMask('/a.png', Promise.resolve(first))
+    primePaintMask('/b.png', new Promise<THREE.Texture>(() => {}))
+    const { result, rerender } = renderHook(({ url }: { url: string }) => usePaintMask(url), {
+      initialProps: { url: '/a.png' },
+    })
+    await act(async () => {
+      await Promise.resolve()
+    })
+    expect(result.current.status).toBe('ready')
+    // React keeps the previous state through this render; the URL key is what stops it being
+    // handed to the new asset as if it were its own.
+    rerender({ url: '/b.png' })
+    expect(result.current.status, 'immediately pending for the new URL').toBe('pending')
+    expect(result.current.texture).toBeNull()
+  })
+
+  it('logs nothing when a load completes after unmount', async () => {
+    // Claim kept exactly as strong as the assertion: this proves nothing was LOGGED, not that the
+    // setter was never called. The cancellation flag is what stops the write; this catches the
+    // symptom React would report if it were removed.
+    const errors: unknown[] = []
+    vi.spyOn(console, 'error').mockImplementation((...args) => errors.push(args))
+    let resolve: (t: THREE.Texture) => void = () => {}
+    primePaintMask('/a.png', new Promise<THREE.Texture>((r) => { resolve = r }))
+    const { unmount } = renderHook(() => usePaintMask('/a.png'))
+    unmount()
+    await act(async () => {
+      resolve(new THREE.Texture())
+      await Promise.resolve()
+    })
+    expect(errors, 'nothing logged after unmount').toEqual([])
+  })
+
+  it('an abandoned load finishing LATE cannot displace the one that already won', async () => {
+    // The order that actually matters: B becomes ready, and only then does the abandoned A finish.
+    // A cancellation flag that was scoped wrongly would let A's texture overwrite B's.
+    let resolveA: (t: THREE.Texture) => void = () => {}
+    const stale = new THREE.Texture()
+    const fresh = new THREE.Texture()
+    primePaintMask('/a.png', new Promise<THREE.Texture>((r) => { resolveA = r }))
+    primePaintMask('/b.png', Promise.resolve(fresh))
+    const { result, rerender } = renderHook(({ url }: { url: string }) => usePaintMask(url), {
+      initialProps: { url: '/a.png' },
+    })
+    rerender({ url: '/b.png' })
+    await act(async () => {
+      await Promise.resolve()
+    })
+    expect(result.current, 'B won').toEqual({ status: 'ready', texture: fresh, url: '/b.png', error: null })
+    await act(async () => {
+      resolveA(stale)
+      await Promise.resolve()
+    })
+    expect(result.current.texture, 'and A finishing late does not displace it').toBe(fresh)
+    expect(result.current.url).toBe('/b.png')
+  })
+
+  it('does not apply a late completion of the PREVIOUS url after a switch', async () => {
+    let resolveOld: (t: THREE.Texture) => void = () => {}
+    const stale = new THREE.Texture()
+    primePaintMask('/a.png', new Promise<THREE.Texture>((r) => { resolveOld = r }))
+    primePaintMask('/b.png', new Promise<THREE.Texture>(() => {}))
+    const { result, rerender } = renderHook(({ url }: { url: string }) => usePaintMask(url), {
+      initialProps: { url: '/a.png' },
+    })
+    rerender({ url: '/b.png' })
+    await act(async () => {
+      resolveOld(stale)
+      await Promise.resolve()
+    })
+    expect(result.current.status, 'the abandoned load cannot make the new one ready').toBe('pending')
+    expect(result.current.texture).toBeNull()
+  })
+
+  it('treats "no map declared" as pending-with-no-url, never as ready', () => {
+    const { result } = renderHook(() => usePaintMask(null))
+    expect(result.current).toEqual({ status: 'pending', texture: null, url: null, error: null })
   })
 })

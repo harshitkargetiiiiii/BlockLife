@@ -125,11 +125,11 @@ interface Rect { x: number; y: number; width: number; height: number }
 const CAR: Rect = { x: 752, y: 132, width: 190, height: 215 }
 const STAGE_ZOOM = 2.0
 /**
- * The FRONT near wheel and the tarmac under it, in the three-quarter staging below — not both
- * wheels, and it proves nothing about the far side. Read off the committed
+ * The FRONT near wheel and the tarmac under it, in the three-quarter staging below — ONE wheel. It
+ * proves nothing about the other three, and whole-car fit across all four is settled on geometry by
+ * `src/game/assets/wheelClearance.test.ts`, not here. Read off the committed
  * `08-wheels-standard-full.png` rather than guessed: an earlier crop ended at x = 890 while the car
- * started at x = 915, so it measured the empty plaza and would have "passed" on anything. Whole-car
- * fit across all four wheels is settled by `src/game/assets/wheelClearance.test.ts`, on geometry.
+ * started at x = 915, so it measured the empty plaza and would have "passed" on anything.
  */
 const WHEELS: Rect = { x: 820, y: 232, width: 190, height: 100 }
 
@@ -209,15 +209,35 @@ function sub(f: Frame, r: Rect): Frame {
 const GLASS: Rect = { x: 52, y: 82, width: 48, height: 24 }
 const REAR_WINDOW: Rect = { x: 52, y: 16, width: 40, height: 12 }
 
-/** How many pixels moved at all — the panels, which SHOULD move. */
+/** How many pixels moved at all, and WHERE — the box is what says a change is confined. */
 function changed(before: Frame, after: Frame, tolerance = 12) {
   let n = 0
+  let minX = Infinity
+  let minY = Infinity
+  let maxX = -Infinity
+  let maxY = -Infinity
   for (let i = 0; i < before.width * before.height; i++) {
     const [ar, ag, ab] = pixel(before, i)
     const [br, bg, bb] = pixel(after, i)
-    if (Math.max(Math.abs(ar - br), Math.abs(ag - bg), Math.abs(ab - bb)) > tolerance) n++
+    if (Math.max(Math.abs(ar - br), Math.abs(ag - bg), Math.abs(ab - bb)) <= tolerance) continue
+    n++
+    const x = i % before.width
+    const y = Math.floor(i / before.width)
+    if (x < minX) minX = x
+    if (x > maxX) maxX = x
+    if (y < minY) minY = y
+    if (y > maxY) maxY = y
   }
-  return { changed: n, pixels: before.width * before.height }
+  return {
+    changed: n,
+    pixels: before.width * before.height,
+    box: n === 0 ? null : { x: minX, y: minY, width: maxX - minX + 1, height: maxY - minY + 1 },
+  }
+}
+
+/** Byte-exact frame equality. Nothing rendered differently at all. */
+function identical(a: Frame, b: Frame): boolean {
+  return a.width === b.width && a.height === b.height && a.data.equals(b.data)
 }
 
 const PALETTE = { paper: '#d7e6ee', terracotta: '#c25b52', blue: '#5b7fc2', green: '#4c956c', amber: '#e2b04a', charcoal: '#2c2c33' }
@@ -338,10 +358,10 @@ test.describe('issue #50 — saved paint and wheels are visible on the approved 
 
     // The ROI is the two wheels and the tarmac under them, read off `08-wheels-standard-full.png`.
     // A 1.18x radius on a wheel this size is tens of pixels, so the change must be real but small.
-    // MEASURED at the clamp, not at the advertised size. This body's arches clear 1.04 and collide
-    // at 1.05 (`wheelClearance.test.ts`), so the off-road style renders at 1.04 and moves 112 px in
-    // this ROI — a real, visible change, and a small one. Asserting a number that only 1.18 could
-    // reach would be asserting a defect.
+    // MEASURED at the clamp the runtime actually applies — 1.04 — not at the 1.18 the style asks
+    // for. This body's arches clear 1.04 and collide at 1.05 (`wheelClearance.test.ts`), so the
+    // off-road wheel renders 4% larger and moves 112 px in this one-wheel ROI: a real, visible
+    // change, and a small one. Asserting a number only 1.18 could reach would be asserting a defect.
     const moved = changed(standard, offroad)
     expect(moved.changed, 'the clamped off-road wheel is measurably larger').toBeGreaterThan(40)
     expect(moved.changed / moved.pixels, 'and it is a WHEEL change, not a whole-body one').toBeLessThan(0.35)
@@ -353,11 +373,19 @@ test.describe('issue #50 — saved paint and wheels are visible on the approved 
     const id = await stageSports(page, 2.4, yaw)
     const before = await decode(await shoot(page, '10-roundtrip-standard-before', WHEELS))
     await recustomize(page, id, () => api(page, 'vehicleSetWheels', id, 'wheels_offroad'), { wheels: 'wheels_offroad' }, yaw)
+    const offroad = await decode(await shoot(page, '10-roundtrip-offroad', WHEELS))
     await recustomize(page, id, () => api(page, 'vehicleSetWheels', id, 'wheels_standard'), { wheels: 'wheels_standard' }, yaw)
     const after = await decode(await shoot(page, '10-roundtrip-standard-after', WHEELS))
-    // The wheel transform is SET, never multiplied, so two style changes must leave the same pose
-    // as none. A cumulative bug would show as a wheel that has grown 1.18x and stayed.
-    expect(changed(before, after).changed, 'a style round trip is not cumulative').toBeLessThan(120)
+
+    // EXACT. The clock is stopped and the pose is pinned, so a correct round trip renders the
+    // identical frame — and it does: these two crops hash the same. A tolerance would have been
+    // worse than useless here, because the whole off-road change is only 112 px: any threshold
+    // loose enough to absorb noise is also loose enough to accept a wheel left at off-road size.
+    expect(identical(before, after), 'a style round trip renders the identical frame').toBe(true)
+
+    // Negative control: the comparison CAN tell the broken state apart. Without this, "identical"
+    // could be passing because both captures are of something that never changes.
+    expect(identical(before, offroad), 'and it is not blind — off-road is a different frame').toBe(false)
   })
 
   /**
@@ -369,8 +397,11 @@ test.describe('issue #50 — saved paint and wheels are visible on the approved 
    * the opposite order (map first, model later) still stuck. That is a race to test, not a
    * diagnosis to assume, so each order is forced with a bounded route delay.
    *
-   * No nudge, no store mutation, no extra sleep, no raised deadline: the only thing waited on is
-   * the scene-ready predicate every other visual spec uses.
+   * Bounded setup, stated exactly: each case installs ONE `page.route` handler that delays the
+   * chosen resource by 4 s, and then waits on the same scene-ready predicate every other visual
+   * spec uses with a 30 s window — chosen to clear that deliberate 4 s delay, and longer than the
+   * 25 s the paint cases use. Nothing else touches the page between the grant and the wait: no
+   * nudge, no store mutation, no arbitrary sleep, and no per-test deadline change.
    */
   for (const [name, slow, delayMs] of [
     ['the contribution map arrives FIRST', '**/sports_car_01.glb', 4000],
@@ -402,6 +433,61 @@ test.describe('issue #50 — saved paint and wheels are visible on the approved 
       )
     })
   }
+
+  test('Standard vs Sport Alloy: the hub recolors, the tyre and body do not', async ({ page }) => {
+    // The still-owed proof that a wheel STYLE is visible as more than a size. Both styles carry
+    // `radiusScale: 1.0`, so the geometry is identical between the two frames and every changed
+    // pixel is the hub colour — a controlled contrast, not a size change in disguise.
+    // Hub colours: standard `#26262c` (near-black) vs Sport Alloy `#c9ccd1` (light).
+    await boot(page)
+    const yaw = 0
+    const id = await stageSports(page, 2.4, yaw)
+    await recustomize(page, id, () => api(page, 'vehicleSetWheels', id, 'wheels_standard'), { wheels: 'wheels_standard' }, yaw)
+    await shoot(page, '12-hub-standard-full')
+    const standard = await decode(await shoot(page, '12-hub-standard', WHEELS))
+
+    await recustomize(page, id, () => api(page, 'vehicleSetWheels', id, 'wheels_sport'), { wheels: 'wheels_sport' }, yaw)
+    await shoot(page, '13-hub-sport-alloy-full')
+    const sport = await decode(await shoot(page, '13-hub-sport-alloy', WHEELS))
+
+    const diff = changed(standard, sport)
+    expect(diff.changed, 'the hub colour is visible on the rendered wheel').toBeGreaterThan(100)
+    // ...and it is the WHEEL that changed: the whole difference fits in one wheel-sized box.
+    expect(diff.box, 'a change with a location').not.toBeNull()
+    expect(diff.box!.width, `change box ${JSON.stringify(diff.box)}`).toBeLessThanOrEqual(60)
+    expect(diff.box!.height, `change box ${JSON.stringify(diff.box)}`).toBeLessThanOrEqual(60)
+
+    // The direction is the alloy's: near-black spokes become light. Measured 16.7 -> 47.4 mean
+    // max-channel over the changed set. A drift or a shadow would not move it one way like this.
+    const meanMax = (frame: Frame, mask: Frame, other: Frame) => {
+      let sum = 0
+      let n = 0
+      for (let i = 0; i < mask.width * mask.height; i++) {
+        const [ar, ag, ab] = pixel(mask, i)
+        const [br, bg, bb] = pixel(other, i)
+        if (Math.max(Math.abs(ar - br), Math.abs(ag - bg), Math.abs(ab - bb)) <= 12) continue
+        const [r, g, b] = pixel(frame, i)
+        sum += Math.max(r, g, b)
+        n++
+      }
+      return n === 0 ? 0 : sum / n
+    }
+    const before = meanMax(standard, standard, sport)
+    const after = meanMax(sport, standard, sport)
+    expect(after - before, `mean max-channel ${before.toFixed(1)} -> ${after.toFixed(1)}`).toBeGreaterThan(20)
+
+    // The TYRE does not follow the hub. A FIXED patch, located by eye on the magnified crop as
+    // rubber on the near wheel's outer wall — deliberately not selected by "dark and unchanged in
+    // both frames", which would pick a region by the very property under test and could never fail.
+    // It is one near-wheel sample, not proof about all four tyres.
+    const TYRE = { x: 48, y: 52, width: 6, height: 6 }
+    expect(changed(sub(standard, TYRE), sub(sport, TYRE)).changed, 'the tyre is not the hub').toBe(0)
+    // ...and neither is the bodywork. Also a FIXED, visually located region, well clear of the
+    // arch — an earlier 120x60 "body" rectangle actually contained most of the wheel, so its 183
+    // changed pixels were a setup error rather than paint reaching the panels.
+    const BODY = { x: 5, y: 5, width: 45, height: 35 }
+    expect(changed(sub(standard, BODY), sub(sport, BODY)).changed, 'the body is not a wheel').toBe(0)
+  })
 
   test('the player and their wardrobe are untouched by any of this', async ({ page }) => {
     await boot(page)

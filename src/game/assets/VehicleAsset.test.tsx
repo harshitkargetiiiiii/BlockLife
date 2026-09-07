@@ -484,22 +484,34 @@ describe('issue #50 — masked paint and wheel styles on the derived sports body
   it('never hands a new body the previous body\'s map', async () => {
     // React keeps the old state through the render in which the URL changes, so a state that was
     // not keyed by URL would report the OLD texture as READY for the NEW entry for one render.
-    const other = { ...sportsEntry(), id: 'vehicle_other_01', paintMask: { ...sportsEntry().paintMask!, path: 'assets/models/vehicles/other_paint.png' } }
+    //
+    // The counts are taken from a baseline captured BEFORE the first mount, and both sides are
+    // exact. `<= the previous value` would have passed for the broken case too: the old entry's one
+    // active count is released on switch, so an incorrectly-active new entry lands on exactly the
+    // same number.
+    const other = {
+      ...sportsEntry(),
+      id: 'vehicle_other_01',
+      paintMask: { ...sportsEntry().paintMask!, path: 'assets/models/vehicles/other_paint.png' },
+    }
+    const baseline = registry.glbLandmarksActive
     seedMask(Promise.resolve(new THREE.Texture()))
     useGLTFMock.mockImplementation(() => ({ scene: derivedScene() }))
     const renderer = await ReactThreeTestRenderer.create(
       <VehicleAsset assetId={SPORTS} paint="#2c2c33" entry={sportsEntry()}><Fallback /></VehicleAsset>,
     )
     expect(materialsNamed(renderer, 'paint_body'), 'first entry is painted').toHaveLength(1)
-    // The second entry's map never resolves, so it must be PENDING — not "ready" with the first
-    // entry's texture, and not counted as on screen.
+    expect(registry.glbLandmarksActive, 'first entry active with ITS map').toBe(baseline + 1)
+
+    // The second entry's map never resolves, so the new body must be PENDING — not "ready" with the
+    // first entry's texture, and not counted as on screen.
     primePaintMask('/assets/models/vehicles/other_paint.png', new Promise<THREE.Texture>(() => {}))
-    const active0 = registry.glbLandmarksActive
     await renderer.update(
       <VehicleAsset assetId={other.id} paint="#2c2c33" entry={other}><Fallback /></VehicleAsset>,
     )
-    expect(registry.glbLandmarksActive, 'the new entry is not active on the old map').toBeLessThanOrEqual(active0)
+    expect(registry.glbLandmarksActive, 'the new entry is NOT active on the old map').toBe(baseline)
     await renderer.unmount()
+    expect(registry.glbLandmarksActive, 'and nothing leaks on unmount').toBe(baseline)
   })
 
   it('releases the branch and the counters symmetrically, mask or no mask', async () => {

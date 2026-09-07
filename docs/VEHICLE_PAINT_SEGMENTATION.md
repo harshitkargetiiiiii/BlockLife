@@ -137,9 +137,24 @@ advertised size instead would put hundreds of wheel triangles inside the bodywor
 defect, not a customization. Making 1.18 genuinely fit would mean re-authoring the arches, which is
 outside this issue.
 
-The wheel **hub colour** is a separate axis and does apply: `paint_wheel` takes the style's hub
-colour through the same contribution replacement, so the painted rim recolors while the tyre — which
-is outside the classified set — does not.
+The wheel **hub colour** is a separate axis and does apply. `paint_wheel` takes the style's hub
+colour through the same contribution replacement, and this is measured on rendered pixels rather
+than on uniforms — Standard (`#26262c`) against Sport Alloy (`#c9ccd1`), both `radiusScale: 1.0`, so
+the geometry is identical between the two frames and every changed pixel is the hub colour:
+
+| | |
+| - | - |
+| changed pixels in the one-wheel ROI | **218** of 19,000 |
+| bounding box of the change | 36 x 39 px — one wheel, nothing else |
+| mean max-channel over the changed set | **16.7 -> 47.4** (near-black spokes to light alloy) |
+| tyre patch (6x6, all-dark in both frames, inside the change box) | **0 changed** |
+| bodywork clear of the arch (45x35) | **0 changed** |
+
+Stated precisely: what recolors is the **rim and spokes**, not the whole wheel. The classifier
+selects only 1.75–3.42% of each wheel's UV texels, and the rendered consequence is exactly that —
+the spokes lighten, the rubber stays rubber. That is the intended behaviour and it is visible
+(`docs/review/issue-50/evidence/12-hub-standard*.png` vs `13-hub-sport-alloy*.png`), but it is not
+a claim that every wheel texel is a recolorable rim.
 
 ## 6. What is preserved
 
@@ -212,11 +227,13 @@ opposite order stuck. Both pass (`tests/visual/issue50-paint-evidence.spec.ts`).
 
 ## 8. Still open
 
-- **Hub styling contrast.** The classifier selects 1.75–3.42% of each wheel's UV texels, so a
-  uniform-value unit test cannot establish that a hub style is *visible*. One Standard vs Sport
-  Alloy render is owed and has not been run.
 - **`painted-sports` and `wheels-offroad` baselines** are untouched, as are all others. They still
-  record the pre-Wave-1 body; adjudicating them belongs to review, with the evidence below.
+  record the pre-Wave-1 body, so they differ on master too and their difference here says nothing
+  about this change. Both were run with NO update and their expected/actual/diff triples collected
+  for the reviewer at `docs/review/issue-50/legacy-baseline-adjudication/` (24,449 px and 26,874 px,
+  ratio 0.03 each). Whether to re-record them, and against which body, is deliberately not decided
+  in this PR.
 - **`docs/review/issue-50/evidence/`** holds the rendered frames: default/charcoal/blue repaints of
   one instance in one frozen pose, an inspection close-up, two contrasting owned sports cars in ONE
-  frame, and the three-quarter wheel standard/off-road/round-trip sequence.
+  frame, the three-quarter wheel standard/off-road/round-trip sequence, and the Standard vs Sport
+  Alloy hub contrast.

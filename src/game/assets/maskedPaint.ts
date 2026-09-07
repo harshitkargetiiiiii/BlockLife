@@ -224,21 +224,27 @@ export function wheelNodeTransform(radius: number, radiusScale: number, maxScale
 /**
  * Load the contribution map ONCE per URL, outside React's Suspense.
  *
- * Deliberately not `useLoader`/`useGLTF`. Measured on this branch (issue #50 §7, probe
- * `stage-probe2.log`): a vehicle boundary that suspends TWICE in sequence — first on this texture,
- * then on the model — gets its first suspension retried and its SECOND one dropped. The GLB's bytes
- * arrived complete at 21.8 s and `useGLTF` did not return until 48.3 s, when an unrelated
- * re-render of the subtree happened to resume it; `pending` went to 0 in the same instant. The
- * texture was innocent: it resolved normally and the model's request followed 1 ms later.
+ * Deliberately not `useLoader`/`useGLTF`, on the strength of ONE measured sequence — probe
+ * `stage-probe2.log`, written up in docs/VEHICLE_PAINT_SEGMENTATION.md §7. In THAT run, with the
+ * map loaded through Suspense as well, the map completed at 18.6 s, its suspension WAS retried and
+ * the hook returned at 20.8 s, the model was requested 1 ms later and its bytes were complete at
+ * 21.8 s — and then nothing until 48.3 s, when an unrelated state change re-rendered the subtree
+ * and every remaining stage fired at once.
  *
- * So the model stays the boundary's ONE suspending resource, exactly as before this issue, and the
- * map arrives through a state update instead — which React is obliged to re-render for. It also
- * makes the failure mode strictly better: a map that cannot load leaves the body on screen with its
- * authored paint, rather than taking the whole vehicle down to the procedural fallback.
+ * What that single observation supports, and no more: in that run the boundary's LAST suspension
+ * did not resume on its own. It is not a general law that first suspensions are retried and second
+ * ones are not, it does not clear this texture in every run, and it is not evidence that master's
+ * single-resource `vehicle_compact_car_01` observation has the same cause. That one is tracked
+ * separately and nothing here is claimed to fix it.
  *
- * This does NOT claim to fix the underlying lost-retry behaviour, which is visible on master with a
- * single resource (`vehicle_compact_car_01`). It removes the second exposure this issue would
- * otherwise have added.
+ * What this change does is narrow: the model stays the boundary's ONE suspending resource, exactly
+ * as before this issue, so the issue adds no second exposure. The map arrives through a state
+ * update instead, which React is obliged to re-render for.
+ *
+ * The map remains a REQUIRED asset. A load that FAILS is raised inside the vehicle's error boundary
+ * by the consumer, giving the complete procedural fallback and the `glbFailed` census exactly as a
+ * failed model does — an unpainted body reported as finished would be worse, because the frame
+ * would show the authored colour while readiness claimed the saved one was up.
  */
 const paintMaskCache = new Map<string, Promise<THREE.Texture>>()
 
