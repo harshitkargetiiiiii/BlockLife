@@ -24,6 +24,7 @@ import { fileURLToPath } from 'node:url'
 import {
   assertSource, buildStatic, describe, fileSha, KB, makeCheckDir,
 } from './lib.mjs'
+import { segmentPaintedVehicle } from './segmentation.mjs'
 import {
   VEHICLES, MAX_TEXTURE, TEXTURE_FORMAT, TEXTURE_QUALITY, PROVENANCE_OUT, FOOTPRINT_FILL,
 } from './wave1.config.mjs'
@@ -61,6 +62,20 @@ for (const def of VEHICLES) {
     attribution: def.attribution, license: def.license,
   }
   const outPath = await buildStatic(def, outDir, opts)
+  // Issue #50: a DERIVED segmentation step, deliberately AFTER buildStatic rather than inside it.
+  // buildStatic's contract is that geometry is byte-identical to the approved source; keeping the
+  // split outside it means that guarantee still holds for the document this reads, and the split's
+  // own invariants (same triangles, same vertex positions once composed) are asserted separately.
+  if (def.segmentation) {
+    record.segmentation = await segmentPaintedVehicle(outPath, outDir, def.segmentation)
+    record.operations.push(
+      `issue #50: split into ${record.segmentation.parts.length} position-connected parts (body + ${record.segmentation.wheels.length} wheels, each with its own node pivot); vertices copied verbatim, no weld, no UV rewrite`,
+      `issue #50: derive paint mask -> ${def.segmentation.maskOut} (${record.segmentation.paintMask.bytes} bytes) so a recolor cannot reach glass, lamps, tyres or trim`,
+      'issue #50: assert triangle count, referenced-vertex count and every composed vertex position unchanged',
+    )
+    record.segmentation.maskSha256 = fileSha(join(outDir, def.segmentation.maskOut))
+    record.segmentation.maskOutput = def.segmentation.maskOut
+  }
   record.outputSha256 = fileSha(outPath)
   record.outputBytes = statSync(outPath).size
   record.structure = await describe(outPath)
@@ -75,6 +90,18 @@ if (CHECK) {
     const have = fileSha(committed)
     if (have !== r.outputSha256) { console.error(`✗ ${r.output}\n    committed ${have}\n    rebuilt   ${r.outputSha256}`); bad++ }
     else console.log(`✓ ${r.output} reproduces byte-identically (${have.slice(0, 16)}…)`)
+    // Issue #50: the derived paint mask is a shipped output too, so --check has to prove its bytes
+    // came from this pipeline as well — otherwise the one file the recolor depends on would be the
+    // only unverified thing in the wave.
+    if (r.segmentation) {
+      const maskPath = join(ROOT, r.segmentation.maskOutput)
+      if (!existsSync(maskPath)) { console.error(`✗ missing committed output ${r.segmentation.maskOutput}`); bad++ }
+      else {
+        const haveMask = fileSha(maskPath)
+        if (haveMask !== r.segmentation.maskSha256) { console.error(`✗ ${r.segmentation.maskOutput}\n    committed ${haveMask}\n    rebuilt   ${r.segmentation.maskSha256}`); bad++ }
+        else console.log(`✓ ${r.segmentation.maskOutput} reproduces byte-identically (${haveMask.slice(0, 16)}…)`)
+      }
+    }
   }
   process.exit(bad ? 1 : 0)
 }
@@ -82,6 +109,7 @@ if (CHECK) {
 mkdirSync(join(ROOT, dirname(PROVENANCE_OUT)), { recursive: true })
 writeFileSync(join(ROOT, PROVENANCE_OUT), JSON.stringify({
   issue: 40, wave: 1,
+  derivedBy: { issue: 50, note: 'The sports coupe carries an additional DERIVED segmentation step (scripts/asset-intake/segmentation.mjs) so saved paint and wheel selections are visible on the approved body. The approved source is unchanged and still read-only.' },
   note: 'Rebuild with: node scripts/asset-intake/buildWave1.mjs   |   verify with --check',
   maxTexture: MAX_TEXTURE, textureFormat: TEXTURE_FORMAT, textureQuality: TEXTURE_QUALITY,
   footprintFill: FOOTPRINT_FILL,

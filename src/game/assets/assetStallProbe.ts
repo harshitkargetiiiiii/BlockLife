@@ -22,8 +22,14 @@
  * the build gate the same way `GAME_TEST_API` is.
  */
 
-/** The one asset under investigation. Deliberately not configurable. */
-export const STALL_PROBE_ASSET_ID = 'vehicle_compact_car_01'
+/**
+ * The assets under investigation. Deliberately a fixed list, not configurable.
+ *
+ * `vehicle_compact_car_01` is issue #47's shard-8 subject. `vehicle_sports_car_01` was added for
+ * issue #50: it is the body whose readiness stalls locally, and the only one that loads a second
+ * resource (its derived paint contribution map) before the model.
+ */
+export const STALL_PROBE_ASSET_IDS: readonly string[] = ['vehicle_compact_car_01', 'vehicle_sports_car_01']
 
 /**
  * Render/commit milestones, in the order React reaches them.
@@ -32,12 +38,23 @@ export const STALL_PROBE_ASSET_ID = 'vehicle_compact_car_01'
  * succeeded — which is exactly why its absence leaves those three undistinguished.
  */
 export type AssetStage =
+  /**
+   * Issue #50. The two stages BEFORE the model, for a body that loads a companion texture first.
+   * `mask-render` is written on every render attempt of the component that requests it — including
+   * the attempt that suspends — so its presence proves React reached the component at all.
+   * `mask-returned` is written only once that loader hook has actually returned a texture, which is
+   * the first moment the model's own request can be issued. A gap between the two isolates the
+   * texture path; their absence isolates something before it.
+   */
+  | 'mask-render'
+  | 'mask-returned'
   | 'hook-returned'
   | 'clone-built'
   | 'react-commit'
   | 'active-effect'
 
 export interface AssetStageMark {
+  assetId: string
   stage: AssetStage
   /**
    * Wall-clock `Date.now()` when the stage was reached.
@@ -54,8 +71,10 @@ const marks: AssetStageMark[] = []
 
 /** Record that `assetId` reached `stage`. No-op for every other asset. DEV call sites only. */
 export function markAssetStage(assetId: string, stage: AssetStage): void {
-  if (assetId !== STALL_PROBE_ASSET_ID) return
-  marks.push({ stage, epochMs: Date.now() })
+  if (!STALL_PROBE_ASSET_IDS.includes(assetId)) return
+  // The id is recorded now that more than one asset is probed; without it two bodies' timelines
+  // would interleave into one indistinguishable list.
+  marks.push({ assetId, stage, epochMs: Date.now() })
 }
 
 /** Read-only snapshot for the DEV test API. Never consulted by the render or readiness path. */
