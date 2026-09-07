@@ -1,6 +1,10 @@
 {
   "issue": 40,
   "wave": 1,
+  "derivedBy": {
+    "issue": 50,
+    "note": "The sports coupe carries an additional DERIVED segmentation step (scripts/asset-intake/segmentation.mjs) so saved paint and wheel selections are visible on the approved body. The approved source is unchanged and still read-only."
+  },
   "note": "Rebuild with: node scripts/asset-intake/buildWave1.mjs   |   verify with --check",
   "maxTexture": 1024,
   "textureFormat": "jpeg",
@@ -340,19 +344,187 @@
         "dedup + prune",
         "textureCompress resize <=1024 targetFormat=jpeg quality=85 filter=lanczos3",
         "assert mesh digest + bounds unchanged (geometry, indices, origin, wheel count preserved)",
-        "assert runtime-safe: metallic 0, emissive [0,0,0], no unlit/lights/cameras, embedded textures only"
+        "assert runtime-safe: metallic 0, emissive [0,0,0], no unlit/lights/cameras, embedded textures only",
+        "issue #50: split into 5 position-connected parts (body + 4 wheels, each with its own node pivot); vertices copied verbatim, no weld, no UV rewrite",
+        "issue #50: derive paint mask -> public/assets/models/vehicles/sports_car_01_paint_contribution.png (688674 bytes) so a recolor cannot reach glass, lamps, tyres or trim",
+        "issue #50: assert triangle count, referenced-vertex count and every composed vertex position unchanged"
       ],
       "attribution": "Meshy AI — generated original asset (owner-approved 2026-08-31 sprint), texture-optimized in-repo",
       "license": "Meshy AI generated asset (meshy.ai terms)",
-      "outputSha256": "e01f1e8191b34df721bafbf564966e205b467f6612208f49278a72eeca760dc9",
-      "outputBytes": 918088,
+      "segmentation": {
+        "components": 5,
+        "uvOrientation": {
+          "rule": "row = v * height (glTF upper-left origin, texture flipY=false)",
+          "meanEdgeDeltaRgb": {
+            "vRows": 43.365,
+            "flippedRows": 115.64
+          }
+        },
+        "parts": [
+          {
+            "name": "body",
+            "triangles": 9392,
+            "vertices": 12070,
+            "translation": [
+              0,
+              0,
+              0
+            ]
+          },
+          {
+            "name": "wheel_xneg_zneg",
+            "triangles": 1362,
+            "vertices": 1470,
+            "translation": [
+              -0.53684002161026,
+              0.14089497923851013,
+              -0.36070698499679565
+            ]
+          },
+          {
+            "name": "wheel_xneg_zpos",
+            "triangles": 1364,
+            "vertices": 1524,
+            "translation": [
+              -0.5367585122585297,
+              0.1408320516347885,
+              0.3593030124902725
+            ]
+          },
+          {
+            "name": "wheel_xpos_zneg",
+            "triangles": 1355,
+            "vertices": 1435,
+            "translation": [
+              0.5395450294017792,
+              0.14078450202941895,
+              -0.3609060198068619
+            ]
+          },
+          {
+            "name": "wheel_xpos_zpos",
+            "triangles": 1356,
+            "vertices": 1472,
+            "translation": [
+              0.5395985096693039,
+              0.14124752581119537,
+              0.35931652784347534
+            ]
+          }
+        ],
+        "materials": [
+          "paint_body",
+          "paint_wheel"
+        ],
+        "wheels": [
+          {
+            "name": "wheel_xneg_zneg",
+            "centre": [
+              -0.53684,
+              0.140895,
+              -0.360707
+            ],
+            "radius": 0.140895
+          },
+          {
+            "name": "wheel_xneg_zpos",
+            "centre": [
+              -0.536759,
+              0.140832,
+              0.359303
+            ],
+            "radius": 0.140832
+          },
+          {
+            "name": "wheel_xpos_zneg",
+            "centre": [
+              0.539545,
+              0.140785,
+              -0.360906
+            ],
+            "radius": 0.140785
+          },
+          {
+            "name": "wheel_xpos_zpos",
+            "centre": [
+              0.539599,
+              0.141248,
+              0.359317
+            ],
+            "radius": 0.141248
+          }
+        ],
+        "paintMask": {
+          "output": "public/assets/models/vehicles/sports_car_01_paint_contribution.png",
+          "size": [
+            1024,
+            1024
+          ],
+          "bytes": 688674,
+          "cluster": {
+            "hue": 49,
+            "hueTolerance": 12,
+            "minSaturation": 0.55,
+            "minValue": 20
+          },
+          "referenceColor": "#fdd302",
+          "componentTexels": {
+            "parts": [
+              414470,
+              46556,
+              48540,
+              27054,
+              25990
+            ],
+            "padding": 485966
+          },
+          "measured": {
+            "texels": 323888,
+            "nonZeroTexels": 323888,
+            "share": 0.308884,
+            "meanRgb": [
+              220.7,
+              183.91,
+              10.5
+            ],
+            "modeRgb": [
+              253.04,
+              211.31,
+              2.23
+            ],
+            "modeShare": 0.4307,
+            "linearLuma": [
+              0.0044,
+              0.853
+            ],
+            "referenceLinearLuma": 0.6764,
+            "maxShade": 1.2611
+          }
+        },
+        "maskSha256": "55dd1900c6b61b671679372a0846a57bd494e43715792a3bb4855a3eb9e31ce0",
+        "maskOutput": "public/assets/models/vehicles/sports_car_01_paint_contribution.png"
+      },
+      "outputSha256": "8a6a74052c7b7aa64613e91b14ab0b47764dc82f4b6c571930d3997d281bd1c8",
+      "outputBytes": 921412,
       "structure": {
-        "bytes": 918088,
+        "bytes": 921412,
         "triangles": 14829,
-        "meshes": 1,
+        "meshes": 5,
         "materials": [
           {
-            "name": "baked_atlas",
+            "name": "paint_body",
+            "metallic": 0,
+            "roughness": 0.5,
+            "emissive": [
+              0,
+              0,
+              0
+            ],
+            "emissiveTexture": false,
+            "specularExtension": false
+          },
+          {
+            "name": "paint_wheel",
             "metallic": 0,
             "roughness": 0.5,
             "emissive": [

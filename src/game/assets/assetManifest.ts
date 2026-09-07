@@ -76,6 +76,58 @@ export interface AssetManifestEntry {
   /** Optional visual bounds (world units) for tooling/labels; render reads the GLB. */
   bounds?: { width: number; height: number; depth: number }
   /**
+   * Derived paint segmentation for a BAKED-ATLAS body (issue #50).
+   *
+   * Wave 1's bodies carry panels, glass, lamps, tyres and trim in ONE texture, so `materialSlots`
+   * cannot express "recolor the paint" — declaring a slot there recolors the whole car, which is
+   * why the sports entry below declares an explicitly EMPTY slot map. This field is the answer that
+   * does work: the intake pipeline derives, offline and deterministically, a paint CONTRIBUTION MAP
+   * over that same atlas plus a split of the single mesh into a body and four wheel pivots
+   * (`scripts/asset-intake/segmentation.mjs`). The renderer subtracts the authored paint's own
+   * contribution from the sample and adds the chosen colour at the same brightness, which is exact
+   * at a filtered boundary as well as inside a panel — see `src/game/assets/maskedPaint.ts` for the
+   * two simpler encodings that were tried first and measurably failed.
+   *
+   * Presentation only. No gameplay, physics, footprint, ownership, save or customization VALUE
+   * changes with it; it decides what the same stored paint and wheel selection LOOK like.
+   */
+  paintMask?: {
+    /**
+     * Path under public/ of the derived PAINT CONTRIBUTION MAP, next to the body it belongs to:
+     * the authored paint's own colour where a texel is painted panel, zero elsewhere.
+     */
+    path: string
+    /** Material whose masked texels take the vehicle's paint colour. */
+    bodyMaterial: string
+    /** Material whose masked texels take the wheel style's hub colour. */
+    wheelMaterial: string
+    /**
+     * The authored paint colour the mask was measured against — the shading reference, so a
+     * recolored panel keeps the atlas's own creases and ambient darkening instead of going flat.
+     */
+    referenceColor: string
+    /**
+     * The wheel pivot nodes the split produced, with each wheel's rolling radius (its centre
+     * height, because the wheel touches the ground in local space). A wheel style's `radiusScale`
+     * scales the node in its radial plane and lifts it by `radius * (scale - 1)` so the contact
+     * patch stays on the road.
+     */
+    wheelNodes: readonly { name: string; radius: number }[]
+    /**
+     * The largest radial scale this body's AUTHORED wheel arches actually clear.
+     *
+     * A wheel style is a gameplay value shared by every class; the arch it has to fit inside is
+     * this model's own geometry. Measured by triangle/triangle intersection against the body at
+     * this body's real transform, not inferred from ground contact — a wheel can sit perfectly on
+     * the road and still be driven through the wing above it.
+     *
+     * `wheelNodeTransform` clamps to this. That is a REDUCTION of the advertised style, recorded
+     * rather than hidden: see docs/VEHICLE_PAINT_SEGMENTATION.md for what it means for
+     * `wheels_offroad` on this class, and the clearance test that keeps it honest.
+     */
+    maxWheelRadiusScale: number
+  }
+  /**
    * Top of the rendered GLB body, in world units above this landmark's own origin — i.e. the
    * measured model bounds put through `rotation` → `scale` → `positionOffset` (issue #46 §3).
    *
@@ -709,11 +761,39 @@ export const ASSET_MANIFEST: AssetManifestEntry[] = [
     // Issue #40: this body is ONE BAKED ATLAS — windows, lights, tyres and trim live in the same
     // texture as the panels — so it exposes NO clean recolorable body slot. An explicitly EMPTY
     // map means "retain the source paint": the variant system isolates nothing and tints nothing,
-    // instead of recoloring the whole atlas and falsely claiming per-panel paint. Customization
-    // and save state are untouched — the selected paint is still stored, still shown in the
-    // Garage, and still tints the procedural fallback shell. Re-authoring the body with real
-    // material segmentation is what unlocks a real `paint` slot here.
+    // instead of recoloring the whole atlas and falsely claiming per-panel paint.
+    //
+    // Issue #50 KEEPS that empty map — a whole-material tint is still the wrong answer and must stay
+    // unavailable — and adds `paintMask` below, which is the right one: the same atlas, with a
+    // DERIVED per-texel mask that confines the recolor to the panels, and a derived split that gives
+    // the four wheels real pivots. Wave 1 said "re-authoring the body with real material
+    // segmentation is what unlocks a real `paint` slot here"; the segmentation is now derived
+    // offline from the approved body itself, with no re-author and no paid call.
     materialSlots: {},
+    paintMask: {
+      path: 'assets/models/vehicles/sports_car_01_paint_contribution.png',
+      bodyMaterial: 'paint_body',
+      wheelMaterial: 'paint_wheel',
+      // The DOMINANT painted colour of the atlas — the flat panel yellow, measured by the intake
+      // step as the mode of the matched cluster (253.04, 211.31, 2.23) and recorded in
+      // docs/asset-provenance/wave1-provenance.json. The renderer divides the CONTRIBUTION's luma
+      // by this one's, so it must be the UNSHADED colour: the cluster's MEAN (220.7, 183.9, 10.5)
+      // is pulled down by every crease and shadow and would brighten the whole car. A contract
+      // test asserts this string still equals what the pipeline measured.
+      referenceColor: '#fdd302',
+      // Centre height == rolling radius: the wheels sit on y = 0 in the model's local space.
+      wheelNodes: [
+        { name: 'wheel_xneg_zneg', radius: 0.140895 },
+        { name: 'wheel_xneg_zpos', radius: 0.140832 },
+        { name: 'wheel_xpos_zneg', radius: 0.140785 },
+        { name: 'wheel_xpos_zpos', radius: 0.141248 },
+      ],
+      // Measured, not chosen: 1.04 is the largest radial scale at which NONE of the four wheels
+      // intersects the body. 1.05 already produces 217 intersecting triangle pairs and the
+      // advertised off-road 1.18 produces 806 — the tyre passes straight through the wing. The
+      // clearance test recomputes both halves of that from the shipped bytes.
+      maxWheelRadiusScale: 1.04,
+    },
     attribution: 'Meshy AI — generated original asset (owner-approved 2026-08-31 sprint), texture-optimized in-repo',
     license: 'Meshy AI generated asset (meshy.ai terms)',
     bounds: { width: 1.765, height: 1.154, depth: 3.88 },

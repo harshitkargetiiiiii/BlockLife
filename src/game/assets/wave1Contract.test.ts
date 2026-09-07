@@ -231,8 +231,24 @@ describe('issue #40 Wave 1 — production vehicle GLB contract (real bytes)', ()
     for (const { assetId, file } of WAVE1) {
       const { json } = readGlb(file)
       const record = recordFor(file)
-      expect(json.meshes, `${assetId} mesh count`).toHaveLength(1)
-      expect(json.materials, `${assetId} material count`).toHaveLength(1)
+      // Issue #50 NARROWS this from "always one mesh" to "exactly the parts the provenance
+      // records", because one body now ships a DERIVED split (body + four wheel pivots) so a wheel
+      // style can change its size. The invariant that mattered is the one below and is untouched:
+      // the triangle count is still exactly the approved source's, so a split cannot hide a
+      // reshaped body. `record.segmentation` is written by the pipeline that performed the split,
+      // and is absent for every body that was not split.
+      const segmentation = record.segmentation
+      const parts = segmentation?.parts
+      expect(json.meshes, `${assetId} mesh count`).toHaveLength(parts ? parts.length : 1)
+      expect(json.materials, `${assetId} material count`).toHaveLength(segmentation ? segmentation.materials.length : 1)
+      if (parts) {
+        expect(json.meshes.map((m: { name: string }) => m.name).sort(), `${assetId} part names`)
+          .toEqual(parts.map((p: { name: string }) => p.name).sort())
+        expect(
+          parts.reduce((n: number, p: { triangles: number }) => n + p.triangles, 0),
+          `${assetId} split preserves every triangle`,
+        ).toBe(record.sources[0].structure.triangles)
+      }
       // Triangles are unchanged from the approved source — intake reduces textures, not geometry.
       expect(triangles(file), `${assetId} triangles`).toBe(record.sources[0].structure.triangles)
       expect(triangles(file), `${assetId} triangle budget`).toBeLessThanOrEqual(VEHICLE_TRI_BUDGET)
@@ -270,7 +286,12 @@ describe('issue #40 Wave 1 — production vehicle GLB contract (real bytes)', ()
         expect(m.extensions?.KHR_materials_specular, `${file} material ${m.name} specular boost`).toBeUndefined()
         // The material must NOT be named anything the §3 variant system would bind as a body
         // slot — that is what made the selected paint tint the whole atlas, windows included.
-        expect(m.name, `${file} material name`).toBe('baked_atlas')
+        // Issue #50: a body with a DERIVED segmentation carries the two names its manifest entry
+        // declares instead of the single `baked_atlas`. Still checked against the entry, not
+        // against a hardcoded list, and the rebind guard below is what actually protects the
+        // atlas — these names are not slot candidates either.
+        const seg = recordFor(file).segmentation
+        expect(seg ? seg.materials : ['baked_atlas'], `${file} material name`).toContain(m.name)
       }
       for (const img of json.images ?? []) {
         expect(img.uri, `${file} external texture URL`).toBeUndefined() // embedded only, no network fetch
@@ -312,10 +333,83 @@ describe('issue #40 Wave 1 — production vehicle GLB contract (real bytes)', ()
       const entry = ASSET_MANIFEST_BY_ID.get(assetId)!
       expect(Object.keys(entry.materialSlots ?? { paint: [] }), `${assetId} declares no slots`).toEqual([])
       const { json } = readGlb(file)
-      expect(json.materials, `${assetId} is a single-material body`).toHaveLength(1)
-      expect(REBINDABLE, `${assetId} material name cannot rebind a default slot`)
-        .not.toContain(json.materials[0].name)
+      const seg = recordFor(file).segmentation
+      // Issue #50: a derived split ships more than one material, so the count is read from the
+      // provenance rather than pinned at 1 — but the guard that matters is checked on EVERY
+      // material, not just the first, which is strictly stronger than what this asserted before.
+      expect(json.materials, `${assetId} material count`).toHaveLength(seg ? seg.materials.length : 1)
+      for (const m of json.materials) {
+        expect(REBINDABLE, `${assetId} material "${m.name}" cannot rebind a default slot`).not.toContain(m.name)
+      }
     }
+  })
+
+  /**
+   * Issue #50 — the manifest's derived-mask declaration must describe the file the pipeline
+   * actually wrote. Every number here is READ from the provenance the build emitted and from the
+   * committed bytes; nothing is transcribed, so a rebuild that changed the segmentation without
+   * updating the manifest fails here rather than rendering a silently wrong recolor.
+   */
+  describe('the derived paint segmentation matches the body it is declared on', () => {
+    const entry = ASSET_MANIFEST_BY_ID.get('vehicle_sports_car_01')!
+    const record = provenance.assets.find((a: { id: string }) => a.id === 'vehicle_sports_car_01')!
+    // Non-null asserted once, and the assertion that justifies it is the first test below.
+    const seg = record.segmentation!
+
+    it('the pipeline recorded a segmentation for exactly the entry that declares one', () => {
+      expect(record.segmentation, 'the sports body was segmented').toBeTruthy()
+      for (const asset of provenance.assets) {
+        const declared = Boolean(ASSET_MANIFEST_BY_ID.get(asset.id)?.paintMask)
+        expect(Boolean(asset.segmentation), `${asset.id}: manifest and pipeline agree`).toBe(declared)
+      }
+    })
+
+    it('declares the materials and wheel pivots the split produced', () => {
+      expect([entry.paintMask!.bodyMaterial, entry.paintMask!.wheelMaterial]).toEqual(seg.materials)
+      const wheels = seg.wheels as { name: string; radius: number }[]
+      expect(entry.paintMask!.wheelNodes.map((w) => w.name).sort()).toEqual(wheels.map((w) => w.name).sort())
+      for (const declared of entry.paintMask!.wheelNodes) {
+        const built = wheels.find((w) => w.name === declared.name)!
+        // The radius drives the ground-contact lift; a stale value would float or sink the wheel.
+        expect(declared.radius, `${declared.name} radius`).toBeCloseTo(built.radius, 6)
+      }
+      // The parts the pipeline wrote are the body plus exactly those wheels — nothing else.
+      expect((seg.parts as { name: string }[]).map((p) => p.name).sort())
+        .toEqual(['body', ...wheels.map((w) => w.name)].sort())
+    })
+
+    it('declares the shading reference the pipeline MEASURED, not a transcribed guess', () => {
+      expect(entry.paintMask!.referenceColor).toBe(seg.paintMask.referenceColor)
+      // ...and that reference is the cluster's mode, which is brighter than its mean. Getting this
+      // backwards is invisible in a unit test of the shader and obvious on screen.
+      const mode = seg.paintMask.measured.modeRgb as number[]
+      const mean = seg.paintMask.measured.meanRgb as number[]
+      expect(mode[0]).toBeGreaterThan(mean[0])
+      const hex = `#${mode.map((v: number) => Math.round(v).toString(16).padStart(2, '0')).join('')}`
+      expect(entry.paintMask!.referenceColor).toBe(hex)
+    })
+
+    it('ships the contribution map the entry points at, as a pure restriction of the atlas', () => {
+      const path = `public/${entry.paintMask!.path}`
+      const bytes = readFileSync(path)
+      expect(createHash('sha256').update(bytes).digest('hex'), `${path} hash`).toBe(seg.maskSha256)
+      // PNG IHDR: the map must be the same resolution as the atlas it is subtracted from, or it
+      // samples the wrong texels everywhere.
+      expect(bytes.subarray(0, 8).toString('hex'), 'is a PNG').toBe('89504e470d0a1a0a')
+      // Colour type 2 = truecolour RGB: the map holds the authored paint's own colour, not a mask.
+      expect(bytes.readUInt8(25), 'contribution map is RGB').toBe(2)
+      expect([bytes.readUInt32BE(16), bytes.readUInt32BE(20)]).toEqual(seg.paintMask.size)
+      expect(textureDims(record.output)[0], 'atlas dimensions').toEqual({
+        w: seg.paintMask.size[0],
+        h: seg.paintMask.size[1],
+      })
+      // The invariant the build asserts: the map is a pure RESTRICTION of the atlas — nothing is
+      // synthesized, averaged or grown, so the renderer's subtraction removes exactly what the
+      // authored image put there and nothing else.
+      expect(seg.paintMask.measured.nonZeroTexels, 'every stored texel is a classified one')
+        .toBe(seg.paintMask.measured.texels)
+      expect(seg.paintMask.measured.texels, 'the classifier selected a real region').toBeGreaterThan(100_000)
+    })
   })
 
   it('the Wave 0 sedan keeps the paint slot it shipped with — this wave changes only Wave 1', () => {
