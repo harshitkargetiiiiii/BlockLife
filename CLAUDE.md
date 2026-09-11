@@ -76,7 +76,26 @@ regression) and `scripts/crime-gate.sh`.
 compiles 0 files and always passes. Only `-b --force` really typechecks.
 
 ## Current state
-Latest: **Approved Asset Library Integration Wave 4** (issue #47) — citywide visual cohesion from the
+Latest: **Ravi's natural Idle, promoted through the intake pipeline** (issue #27) — one clip, one
+character, 0 paid calls. Ravi's Wave-0 Idle was a single static key with the elbows bent **114°**,
+which held his arms out in front of him; it is now a **4 s breathing loop** (arms down, soft elbows,
+palms to the thighs, head level, feet planted). The reviewed GLB was NOT copied in: a new `derive`
+step in [`wave0.config.mjs`](scripts/asset-intake/wave0.config.mjs) runs
+[`raviIdle.mjs`](scripts/asset-intake/raviIdle.mjs) on the merge's own output, asserting the
+unmodified merge hash `f9ac3d5b…` BEFORE deriving and the independently reviewed `7deab5d7…` after,
+so `buildWave0.mjs --check` still re-proves sources → merge → derivation and the other four Wave-0
+outputs stay byte-identical (CONVENTIONS #43). Only rotation is authored — every translation/scale
+track holds its original key, so nothing below the hips moves — and
+[`raviIdleContract.test.ts`](src/game/assets/raviIdleContract.test.ts) pins geometry, all 74 node
+rest transforms, skin/inverse binds, materials (`KHR_materials_ior` included), texture bytes and the
+Walk/Run samplers **from the pre-change bytes**, so "only Idle changed" is asserted, not claimed. The
+`RIG_FIT` hash pin moved after re-measuring the derived file (still 1.76 m, so `scale` 1.6648,
+bounds and anchors are untouched). Player, wardrobe, the other four residents, Walk/Run and all
+gameplay are unchanged; flat splayed hands (the rig has no finger bones) and the raised-arm Walk/Run
+silhouette remain disclosed limitations. See
+[`docs/RAVI_IDLE_PROMOTION.md`](docs/RAVI_IDLE_PROMOTION.md).
+
+Prior: **Approved Asset Library Integration Wave 4** (issue #47) — citywide visual cohesion from the
 already-paid, owner-approved 2026-08-31 sprint at **0 paid calls**. **9 new source GLBs over 35
 existing authored placements** (ceilings: 12 / 36), `dist` **+9.758 MiB** of an 18 MiB budget.
 (1) **Five named residents ride their own 1:1 body** — Ravi (the Wave-0 file, reconciled into his slot

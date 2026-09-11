@@ -59,6 +59,24 @@
             },
             "cameras": 0,
             "scenes": 1,
+            "lights": 0,
+            "bounds": {
+              "min": [
+                -0.0056,
+                0,
+                -0.0016
+              ],
+              "max": [
+                0.0056,
+                0.0175,
+                0.0016
+              ],
+              "size": [
+                0.0112,
+                0.0175,
+                0.0032
+              ]
+            },
             "extensions": [
               "KHR_materials_ior"
             ]
@@ -109,6 +127,24 @@
             },
             "cameras": 0,
             "scenes": 1,
+            "lights": 0,
+            "bounds": {
+              "min": [
+                -0.0056,
+                0,
+                -0.0016
+              ],
+              "max": [
+                0.0056,
+                0.0175,
+                0.0016
+              ],
+              "size": [
+                0.0112,
+                0.0175,
+                0.0032
+              ]
+            },
             "extensions": [
               "KHR_materials_ior"
             ]
@@ -159,12 +195,31 @@
             },
             "cameras": 0,
             "scenes": 1,
+            "lights": 0,
+            "bounds": {
+              "min": [
+                -0.0056,
+                0,
+                -0.0016
+              ],
+              "max": [
+                0.0056,
+                0.0175,
+                0.0016
+              ],
+              "size": [
+                0.0112,
+                0.0175,
+                0.0032
+              ]
+            },
             "extensions": [
               "KHR_materials_ior"
             ]
           }
         }
       ],
+      "derived": null,
       "operations": [
         "merge 3 per-clip GLBs -> 1 production GLB (clips grafted onto the base skeleton by bone name)",
         "rename clips to canonical semantic roles Idle / Walk / Run",
@@ -223,6 +278,24 @@
         },
         "cameras": 0,
         "scenes": 1,
+        "lights": 0,
+        "bounds": {
+          "min": [
+            -0.0056,
+            0,
+            -0.0016
+          ],
+          "max": [
+            0.0056,
+            0.0175,
+            0.0016
+          ],
+          "size": [
+            0.0112,
+            0.0175,
+            0.0032
+          ]
+        },
         "extensions": [
           "KHR_materials_ior"
         ]
@@ -230,11 +303,11 @@
     },
     {
       "id": "blocklife_ravi_01",
-      "label": "Ravi Sharma (candidate / DEV review only)",
+      "label": "Ravi Sharma (Wave 4 named body for npc_ravi_01)",
       "kind": "character",
       "output": "public/assets/models/characters/blocklife_ravi_01.glb",
-      "outputSha256": "f9ac3d5b8606c34007de89bfed05a764cfd2a4b843bb000e44fd0713488d6fe4",
-      "outputBytes": 1032400,
+      "outputSha256": "7deab5d70a127e42a2433648906e9cdd6cfdf7415723e5f6d1e13a87e06c56a7",
+      "outputBytes": 1054852,
       "sources": [
         {
           "role": "Idle",
@@ -281,6 +354,24 @@
             },
             "cameras": 0,
             "scenes": 1,
+            "lights": 0,
+            "bounds": {
+              "min": [
+                -0.0045,
+                0,
+                -0.0025
+              ],
+              "max": [
+                0.0045,
+                0.0176,
+                0.0025
+              ],
+              "size": [
+                0.0091,
+                0.0176,
+                0.0049
+              ]
+            },
             "extensions": [
               "KHR_materials_ior"
             ]
@@ -331,6 +422,24 @@
             },
             "cameras": 0,
             "scenes": 1,
+            "lights": 0,
+            "bounds": {
+              "min": [
+                -0.0045,
+                0,
+                -0.0025
+              ],
+              "max": [
+                0.0045,
+                0.0176,
+                0.0025
+              ],
+              "size": [
+                0.0091,
+                0.0176,
+                0.0049
+              ]
+            },
             "extensions": [
               "KHR_materials_ior"
             ]
@@ -381,22 +490,98 @@
             },
             "cameras": 0,
             "scenes": 1,
+            "lights": 0,
+            "bounds": {
+              "min": [
+                -0.0045,
+                0,
+                -0.0025
+              ],
+              "max": [
+                0.0045,
+                0.0176,
+                0.0025
+              ],
+              "size": [
+                0.0091,
+                0.0176,
+                0.0049
+              ]
+            },
             "extensions": [
               "KHR_materials_ior"
             ]
           }
         }
       ],
+      "derived": {
+        "id": "ravi_idle_v2",
+        "label": "Natural idle — arms down, 4 s breathing loop (issue #27)",
+        "module": "./raviIdle.mjs",
+        "export": "bakeRaviIdle",
+        "baseSha256": "f9ac3d5b8606c34007de89bfed05a764cfd2a4b843bb000e44fd0713488d6fe4",
+        "outputSha256": "7deab5d70a127e42a2433648906e9cdd6cfdf7415723e5f6d1e13a87e06c56a7",
+        "operations": [
+          "rewrite ONLY the \"Idle\" clip: 72 channels, 33 keys over 4.000 s, LINEAR",
+          "arms re-aimed by world-space rotation (elbow bend 114.3/114.8 deg -> 11.5/11.5, 0.000000 m length drift)",
+          "wrist roll solved numerically so the palm faces the thigh",
+          "translation/scale tracks hold the ORIGINAL Idle key, so no lower-body joint moves",
+          "Walk/Run samplers, geometry, skin, rest transforms, materials and textures untouched"
+        ],
+        "review": "BlockLife-intake/ravi-idle-pilot-2026-09-09.wpiibR (authoring + structural review), BlockLife-intake/ravi-ingame-validation-2026-09-09.o371fa (in-game/controller validation)",
+        "measured": {
+          "clip": {
+            "name": "Idle",
+            "durationSeconds": 4,
+            "keys": 33,
+            "channelsRewritten": 72
+          },
+          "maxLoopEndpointDelta": 1.3877787807814457e-17,
+          "arms": {
+            "left": {
+              "wristRollDeg": 127,
+              "palmErrorDegAfter": 9.7,
+              "palmNormalAfter": [
+                -0.972,
+                -0.167,
+                0.167
+              ],
+              "elbowBendBeforeDeg": 114.3,
+              "elbowBendAfterDeg": 11.5,
+              "wristWorldYBefore": 1.3092,
+              "wristWorldYAfter": 0.9143,
+              "segmentLenDriftUpper": 0,
+              "segmentLenDriftFore": 0
+            },
+            "right": {
+              "wristRollDeg": -124,
+              "palmErrorDegAfter": 8.4,
+              "palmNormalAfter": [
+                0.974,
+                -0.143,
+                0.176
+              ],
+              "elbowBendBeforeDeg": 114.8,
+              "elbowBendAfterDeg": 11.5,
+              "wristWorldYBefore": 1.307,
+              "wristWorldYAfter": 0.9125,
+              "segmentLenDriftUpper": 0,
+              "segmentLenDriftFore": 0
+            }
+          }
+        }
+      },
       "operations": [
         "merge 3 per-clip GLBs -> 1 production GLB (clips grafted onto the base skeleton by bone name)",
         "rename clips to canonical semantic roles Idle / Walk / Run",
         "prune + dedup (drops the two duplicate meshes/skins/textures the merge introduced)",
-        "textureCompress resize <=1024 targetFormat=jpeg quality=85 filter=lanczos3"
+        "textureCompress resize <=1024 targetFormat=jpeg quality=85 filter=lanczos3",
+        "derive ravi_idle_v2: Natural idle — arms down, 4 s breathing loop (issue #27) (see \"derived\" below for the full recipe and both pinned hashes)"
       ],
       "attribution": "Meshy AI — generated original asset (owner-approved 2026-08-31 sprint), assembled + texture-optimized in-repo",
       "license": "Meshy AI generated asset (meshy.ai terms)",
       "structure": {
-        "bytes": 1032400,
+        "bytes": 1054852,
         "triangles": 10447,
         "meshes": 1,
         "materials": [
@@ -426,7 +611,7 @@
           {
             "name": "Idle",
             "channels": 72,
-            "duration": 0.3
+            "duration": 4
           },
           {
             "name": "Walk",
@@ -445,6 +630,24 @@
         },
         "cameras": 0,
         "scenes": 1,
+        "lights": 0,
+        "bounds": {
+          "min": [
+            -0.0045,
+            0,
+            -0.0025
+          ],
+          "max": [
+            0.0045,
+            0.0176,
+            0.0025
+          ],
+          "size": [
+            0.0091,
+            0.0176,
+            0.0049
+          ]
+        },
         "extensions": [
           "KHR_materials_ior"
         ]
@@ -492,6 +695,24 @@
             "skin": null,
             "cameras": 0,
             "scenes": 1,
+            "lights": 0,
+            "bounds": {
+              "min": [
+                -0.9492,
+                0,
+                -0.4665
+              ],
+              "max": [
+                0.9472,
+                0.8432,
+                0.4656
+              ],
+              "size": [
+                1.8963,
+                0.8432,
+                0.932
+              ]
+            },
             "extensions": []
           }
         }
@@ -536,6 +757,24 @@
         "skin": null,
         "cameras": 0,
         "scenes": 1,
+        "lights": 0,
+        "bounds": {
+          "min": [
+            -0.9492,
+            0,
+            -0.4665
+          ],
+          "max": [
+            0.9472,
+            0.8432,
+            0.4656
+          ],
+          "size": [
+            1.8963,
+            0.8432,
+            0.932
+          ]
+        },
         "extensions": []
       }
     },
@@ -581,6 +820,24 @@
             "skin": null,
             "cameras": 0,
             "scenes": 1,
+            "lights": 0,
+            "bounds": {
+              "min": [
+                -2.6268,
+                0,
+                -2.6736
+              ],
+              "max": [
+                2.6171,
+                9.9992,
+                2.6643
+              ],
+              "size": [
+                5.244,
+                9.9992,
+                5.3379
+              ]
+            },
             "extensions": []
           }
         }
@@ -625,6 +882,24 @@
         "skin": null,
         "cameras": 0,
         "scenes": 1,
+        "lights": 0,
+        "bounds": {
+          "min": [
+            -2.6268,
+            0,
+            -2.6736
+          ],
+          "max": [
+            2.6171,
+            9.9992,
+            2.6643
+          ],
+          "size": [
+            5.244,
+            9.9992,
+            5.3379
+          ]
+        },
         "extensions": []
       }
     },
@@ -670,6 +945,24 @@
             "skin": null,
             "cameras": 0,
             "scenes": 1,
+            "lights": 0,
+            "bounds": {
+              "min": [
+                -0.9505,
+                0,
+                -0.4154
+              ],
+              "max": [
+                0.9483,
+                0.9913,
+                0.4129
+              ],
+              "size": [
+                1.8988,
+                0.9913,
+                0.8283
+              ]
+            },
             "extensions": []
           }
         }
@@ -714,6 +1007,24 @@
         "skin": null,
         "cameras": 0,
         "scenes": 1,
+        "lights": 0,
+        "bounds": {
+          "min": [
+            -0.9505,
+            0,
+            -0.4154
+          ],
+          "max": [
+            0.9483,
+            0.9913,
+            0.4129
+          ],
+          "size": [
+            1.8988,
+            0.9913,
+            0.8283
+          ]
+        },
         "extensions": []
       }
     }

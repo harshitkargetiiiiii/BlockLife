@@ -307,7 +307,9 @@ export const RIG_HEIGHT_METERS = 2.93
 export const RIG_FIT_TOLERANCE_METERS = 0.001
 export const RIG_FIT = {
   blocklife_person: { heightMeters: 2.93, sha256: '7907894ffbac5b39f793cddc5c94ffc31f1b2c623932dd849ad23e9e320b8c1e' },
-  blocklife_ravi_01: { heightMeters: 1.76, sha256: 'f9ac3d5b8606c34007de89bfed05a764cfd2a4b843bb000e44fd0713488d6fe4' },
+  // Re-measured from the issue #27 derived bytes: still 1.76 m base-at-ground, so scale 1.6648 and
+  // every bound/anchor are unchanged — only the pinned hash moves.
+  blocklife_ravi_01: { heightMeters: 1.76, sha256: '7deab5d70a127e42a2433648906e9cdd6cfdf7415723e5f6d1e13a87e06c56a7' },
   blocklife_maya_01: { heightMeters: 1.7, sha256: '2b2de77624956433a3f7c65782bf3a315bf5f1ef8169a2b202017c415f8cdd73' },
   blocklife_bruno_01: { heightMeters: 1.84, sha256: '7abc583cf88e3def698b378477aba5dbd89603533756af694e10929b38adcdad' },
   blocklife_kim_01: { heightMeters: 1.71, sha256: '8b2d162eec4c5518993f188a288122404ee7f953f52d3954200f9344e76a3aa8' },
