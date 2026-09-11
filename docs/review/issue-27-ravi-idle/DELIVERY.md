@@ -59,13 +59,20 @@ One owned Vite server and one owned browser, two sequential contexts on the same
 `animState: idle` and `speed: 0` for the entire capture (position range 0.0000 on both axes). At
 13:00 he walks 5.8 m in the same window, which is why hour 9 is the one used.
 
-**Two uninterrupted cycles, measured (not frozen, not modulo).** A 150 s screencast capture, world
-running, `timeScale 0` only to stop the sun drifting. In a late 40 s window the candidate's rendered
-pose oscillates between 0 and 3,829 changed pixels (of 13,680 in Ravi's torso/arm region) and
-returns to its starting configuration **four consecutive times, about every 10 s**. The control —
-the old single-key Idle — spans 0–329 px in the same window, an order of magnitude smaller, with an
-unrelated ~5.3 s background periodicity. An independent lag scan puts the candidate's period at
-**11.5 s**.
+**Repeated, uninterrupted visible motion — measured live, not frozen and not modulo.** A 150 s
+screencast capture, world running, `timeScale 0` only to stop the sun drifting. In a late 40 s window
+the candidate's rendered pose oscillates between 0 and 3,829 changed pixels (of 13,680 in Ravi's
+torso/arm region) and returns to a near-identical configuration **four consecutive times, about every
+10 s**. The control — the old single-key Idle — spans 0–329 px in the same window, an order of
+magnitude smaller, with an unrelated ~5.3 s background periodicity. An independent lag scan puts the
+candidate's repeat interval at **11.5 s**.
+
+**What this is** (Codex review, point 2): evidence that the shipped clip produces repeated, cyclic,
+visible motion on the real named-NPC path, with a stable wall-clock interval, where the clip it
+replaced produced almost none. **What it is not**: a measurement of controller clip time. Image
+periodicity cannot show that the mixer's action time advances at the authored rate, and no claim of
+clip-time tracking is made here. The same missing DEV observability noted under the crossfades is
+what such a claim would need.
 
 **Wall time is not clip time here, and the unchanged clips prove it is the environment.** The
 authored loop is 4.000 s but renders with a ~10–11.5 s wall period in this headless browser. The
@@ -75,48 +82,101 @@ against 0.78 s at rate 0.85 (2.7×), and Idle's is 2.88×. All three clips are s
 order, so the stretch belongs to the headless render/simulation rate, not to the derived clip. No
 claim is made here about the frame rate a player sees.
 
-**Mid-crossfade, not end states.** Frames captured *through* each transition, compared against both
-settled endpoints, counting frames that differ from **both** by more than 10 % of the
-endpoint-to-endpoint distance:
+**Frames captured through each transition** — not the settled end states. Each frame is compared
+against both settled endpoints; the count is of frames differing from **both** by more than 10 % of
+the endpoint-to-endpoint distance:
 
 | transition | candidate | control | endpoint distance |
 | - | - | - | ---: |
-| idle → walk | **51 of 51** intermediate | 31 of 52 | 8,955 px |
-| walk → run | **51 of 51** | 52 of 52 | 7,867 px |
-| run → idle | **53 of 53** | 36 of 52 | 10,026 px |
+| idle → walk | 51 of 51 | 31 of 52 | 8,955 px |
+| walk → run | 51 of 51 | 52 of 52 | 7,867 px |
+| run → idle | 53 of 53 | 36 of 52 | 10,026 px |
 
-The blend is real in both — the controller interpolates, it does not snap. `forceCharacterAnimation`
-is global and DEV-only: this shows the controller *blending between gaits*, not Ravi's own AI
-reaching them.
+**What this does and does not establish** (Codex review, point 2). It establishes that the transition
+is not a single-frame snap to the settled target pose: the renderer puts a run of distinct
+configurations on screen in between, in the candidate and the control alike. It does **not** prove
+interpolation. An instantaneous switch followed by the new clip advancing through its own phases
+would satisfy the same predicate, and this measurement cannot tell the two apart. The earlier
+wording ("the controller blends rather than snaps") overstated it and is withdrawn.
 
-## 5. Visual suite — what ran, what failed, and to whom it belongs
+Proving a blend needs the mixer's own action weights and times during the transition. The shipped
+DEV API exposes `animState`, `previousAnimState`, `playbackRate` and `speed` — no per-action weight
+or time — so that evidence would require adding DEV-only observability to
+`CharacterAnimationController` / `gameTestApi`, which is a source change outside this asset-promotion
+scope. Recorded as an open item, not claimed.
+
+`forceCharacterAnimation` is global and DEV-only: these transitions are the controller being driven,
+not Ravi's own AI reaching those states.
+
+## 5. Visual suite — exact overlap, and what is attributed
 
 The full visual suite ran once on this branch for discovery: **357 passed, 10 failed (2.6 h)**. Every
-Ravi-framing shot passed (`wave0-candidate-ravi-close`, `wave0-candidate-ravi-wide`,
-`wave4-player-beside-ravi`, `asset-humanoids-both`, `asset-character-lineup`, `dialogue-ravi`).
+Ravi-framing shot passed. Those three spec files were then re-run **at the merge base `d81d73d`** on
+the same machine against the same baselines: **23 passed, 8 failed**.
 
-The 10 failures are all driving / vehicle / player-avatar shots. They were then re-run **at the
-merge base `d81d73d`**, same baselines, same machine: those three spec files fail **8 of 31** there
-too, in the same families, with the membership shuffling between runs (`scooter` on the branch,
-`van` at base). Diff images show whole-frame offsets and a different game clock, i.e. the documented
-car-settling / timing family, not a pose change. **Attribution: pre-existing and flaky on this
-machine, not caused by this branch.** Logs: `out/visual-discovery.log`, `out/visual-base-ab.log` in
-the intake folder.
+Set membership, named rather than counted (Codex review, point 1):
 
-**No baseline was updated or regenerated in this branch.**
+| test | branch | base |
+| - | :-: | :-: |
+| asset-upgrade · player rendered as a Meshy humanoid | fail | fail |
+| asset-upgrade · compact class GLB driven | fail | fail |
+| asset-upgrade · sports class GLB driven | fail | fail |
+| occlusion · driven car behind the gym | fail | fail |
+| vehicle · driving an owned veh_scooter | fail | fail |
+| vehicle · a custom-painted sports car parked | fail | fail |
+| vehicle · a sports car with off-road wheels fitted | fail | fail |
+| asset-upgrade · **scooter** class GLB driven | fail | pass |
+| vehicle · driving an owned **veh_van** | fail | pass |
+| vehicle · driving an owned **veh_sports** | fail | pass |
+| asset-upgrade · **van** class GLB driven | pass | fail |
 
-## 6. Pending — needs a decision, not code
+**7 overlap, 3 branch-only, 1 base-only.** The 7 overlapping failures reproduce at the merge base and
+are pre-existing. The 4 unmatched cases were then probed directly instead of being assumed
+(`out/flake-probe.md`): those exact four tests were run **twice on the identical branch commit**, no
+code change, no baseline written —
 
-1. **Three Ravi baselines are now stale but still passing.** `wave0-candidate-ravi-close/-wide` and
-   `wave4-player-beside-ravi` record the pre-change arms-out pose; the game now renders arms-down,
-   and the shots pass only because the per-shot tolerance (2–3 % of the frame) absorbs a pose change
-   at that scale. Regenerating exactly those three, viewing each PNG and re-running twice with
-   `--no-update` is the right follow-up; it was not done here because a baseline write needs explicit
-   approval. Nothing else should be touched.
-2. **The driving/vehicle visual family is unstable on this machine** (8–10 failures at base and on
-   the branch). Out of scope for this issue; worth its own look.
+- **repeat 1: 3 failed, 1 passed. repeat 2: all 4 passed.**
+- One repeat-1 failure carried `readiness … "pending":1, glbPending:[{"id":"vehicle_utility_van_01"}]`
+  — the screenshot was taken while a vehicle GLB was still loading.
+
+So the outcome of these shots varies between runs of one unchanged commit, and at least one failure
+is a load race at screenshot time. That is what attributes them: **nondeterminism in this
+driving/vehicle shot family on this machine**, which also explains why branch (10) and base (8) drew
+different members.
+
+**What is not claimed:** that every one of the 10 branch failures was individually proved harmless.
+Three were branch-only in the full run; they were reproduced as flaky rather than traced to a cause,
+and one base-only case failed on the branch during the probe, so the family is unstable in both
+directions. A per-shot root cause (the car-settling / readiness race of CONVENTIONS #40) is
+**suspected, not established** here, and is out of this issue's scope. No failing shot frames Ravi.
+
+### Baselines updated — three, deliberately
+
+Authorized after review. Regenerated, each PNG **viewed**, then the three shots re-run **twice with
+no updates** — 3 passed, 3 passed:
+
+| baseline | what the new image shows |
+| - | - |
+| `wave0-candidate-ravi-close` | arms hanging at the sides, hands by the thighs, both feet planted and visible; blue shirt / dark jeans / white shoes and the neighbouring citizen unchanged |
+| `wave0-candidate-ravi-wide` | same body at gameplay distance; Maya, the snack truck and the rest of the frame unchanged |
+| `wave4-player-beside-ravi` | Ravi arms-down beside the **unchanged** `blocklife_person` player; quest marker still over the top of his face, as before |
+
+`git status` shows exactly those three files modified. No other baseline was regenerated, no
+tolerance was widened, and the full suite was not re-run.
+
+## 6. Open items
+
+1. **Direct blend evidence is not available without a source change.** Proving interpolation (rather
+   than a switch followed by phase advance) needs per-action weights and times from the mixer during
+   a transition; the DEV API exposes neither. Adding bounded DEV-only observability to
+   `CharacterAnimationController` / `gameTestApi` would settle it and is outside this
+   asset-promotion scope.
+2. **The driving/vehicle visual family is unstable on this machine** — failures move between runs of
+   one commit, with a GLB still pending at screenshot time in at least one. Out of scope here; worth
+   its own issue.
 3. Full E2E was not run on this branch. Nothing here changes runtime code — the only source-tree
-   changes outside the asset are the intake recipe, its config entry, the contract test and docs.
+   changes outside the asset are the intake recipe, its config entry, the contract test, three
+   reviewed baselines and docs.
 
 ## 7. Limitations carried forward
 
