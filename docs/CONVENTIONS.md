@@ -740,6 +740,51 @@ Three traps worth naming:
   that an NPC is 2.93 m; it is that swapping its body must not change its size, because the crowd,
   the camera framing and everything anchored to it were tuned against the old one.
 
+### 43. A derived asset is DERIVED IN THE PIPELINE, never dropped in as a file
+
+Issue #27 improved one clip inside an approved body: Ravi's Idle was a single static key with the
+elbows bent 114°, which held his arms out in front of him. The work — authoring, structural
+verification and in-game validation — happened outside the repository, and it ended with a GLB whose
+sha256 was reviewed and pinned. The obvious next step is to copy that file into `public/`.
+
+**Don't.** `scripts/asset-intake/buildWave0.mjs --check` proves the committed bytes really came from
+the recorded pristine sources by rebuilding them. Copying a hand-carried GLB over the output makes
+that check fail — and "fixing" it by re-recording the new hash as if the sources produced it is
+worse: the provenance would then claim a lineage that never ran. Either way the asset stops being
+reproducible, which is the whole contract.
+
+Derive it in the pipeline instead, on the merge's own output:
+
+```js
+derive: {                                  // wave0.config.mjs, on the character it belongs to
+  module: './raviIdle.mjs', export: 'bakeRaviIdle',
+  baseSha256: 'f9ac3d5b…',                 // the unmodified merge output — asserted BEFORE deriving
+  outputSha256: '7deab5d7…',               // the independently reviewed result — asserted after
+}
+```
+
+Both ends are pinned, so the recipe can never be applied to bytes it was not reviewed against, and
+its result can never drift. `--check` then re-proves the whole chain — sources → merge → derivation
+— on every run, and every unrelated output in the wave stays byte-identical (a one-line `git status`
+check after a rebuild is the cheapest proof that a derivation was scoped to one asset).
+
+Two things that make this work in practice:
+
+- **Port the recipe verbatim, then verify by hash, not by eye.** The external script and the in-repo
+  module must produce the SAME bytes; if they do not, the thing reviewed is not the thing shipping.
+  Run the ported module first and compare against the reviewed sha256 *before* wiring it into the
+  build.
+- **Pin the preservation digests from the PRE-CHANGE bytes.** A contract test that hashes only the
+  new file proves nothing about what survived. `src/game/assets/raviIdleContract.test.ts` pins
+  geometry, node rest transforms, skin/inverse binds, materials (`KHR_materials_ior` included),
+  texture bytes and the Walk/Run samplers as they were at the base commit, so "only Idle changed" is
+  asserted, not asserted-about.
+
+And remember the second pin: `wave4.config.mjs` `RIG_FIT` ties each body's measured height to the
+sha256 of the file it was measured from (#42). A derivation changes that sha, so re-measure the
+derived file and move the pin deliberately — Ravi still measures 1.76 m base-at-ground, so `scale`
+1.6648 and every bound/anchor stayed exactly where they were.
+
 ## The verification workflow (honest gates)
 
 For any non-trivial change, run in this order and **read the counts, not a
