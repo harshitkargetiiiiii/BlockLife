@@ -26,23 +26,56 @@ No actor Y offset, collider, step or suspension logic was added.
 
 ## What this does and does not change
 
-- **Height mismatch:** it removes 9 cm of the mismatch. At the recorded origin roughly the top 0.089 m of a 0.12 m shoe is now above the pavement (arithmetic, not a render result). The lower ~0.03 m still lies behind the 0.03 layer, as it already did on Gateway and compiled sidewalks.
+- **Height mismatch (arithmetic, not a measurement):** it removes 9 cm of the mismatch. At the recorded origin roughly the top 0.089 m of a 0.12 m shoe is now above the pavement. The lower ~0.03 m still lies behind the 0.03 layer, as it already did on Gateway and compiled sidewalks. The measured native values are under [Status](#status).
 - **Curb rise:** the visible road-to-sidewalk rise drops from 10 cm to **1 cm**. Curb readability and edge shadows at the ordinary camera are not proven by this change.
 - **Why not raise support instead:** a raised-sidewalk policy (support at 0.12) would need support sampling for kinematic people and cars, step traversal for the player capsule and car body, door and prop bases, and streaming floor seams. It is deliberately **not** attempted here.
 
 ## Gates
 
-**`src/game/world/surfaceContact.test.tsx`** renders the real `Roads`, `Districts` and a compiled sector, and checks:
+**`src/game/world/surfaceContact.test.tsx`** (5 tests) renders the real `Roads`, `Districts` and a compiled sector, and checks:
 - **Named heights:** the slab top (not the centre) is 0.03.
 - **Slabs:** all 30 have tops 0.03, bottoms −0.09, thickness 0.12 and shadow flags, with X/Z footprints equal to the **pre-change** capture.
 - **Decals:** all 8 ramps and 3 stripes are at their exact positions and tiers.
-- **Complete render trees:** mapping only those 41 heights back to their old values reproduces the pre-change mesh-dump digests of `Roads` (92 meshes) and `Districts` (201 meshes), captured at `c6d369bc` before this change.
+- **Complete render trees:** before mapping anything back, each of exactly **41** affected meshes (10 in `Roads`, 31 in `Districts`) has its new local Y, world translation Y and world-box min/max Y asserted. Mapping only those heights back to their old values then reproduces the pre-change mesh-dump digests of `Roads` (92 meshes) and `Districts` (201 meshes), captured at `c6d369bc` before this change.
 - **Reported point:** the recorded origin lies on exactly the west inner strip.
 - **Support:** the city ground collider still has its top at 0, and no sidewalk collider exists. These two are source-text checks.
 - **Reference layer:** compiled sidewalk and plaza planes are still at 0.03, and the Gateway sidewalk planes at 0.03 (source text).
 
 ## Status
 
-Source and CPU tests only; **no in-game evidence yet.**
-- **Needs native judgement:** shoe visibility, curb readability, paint, shadow, prop and door contact, vehicle wheels, save/load and streaming contact.
-- **A negative result is valid:** it must not be answered with character offsets, collision changes or weaker assertions.
+A bounded candidate with measured native evidence. **Not visual acceptance; issue #58 is not closed.**
+
+**CPU** (the executed source, WIP commit `2dfeed3c`): `tsc -b --force`, oxlint and build exit 0; `vitest run` **195 files / 1788 tests passed**, including the 5 new tests; dist `GAME_TEST_API` 0; `checkDistClean` clean; asset report 0 over budget.
+
+**Native evidence** (one sequential run per mode, same harness `surface-contact-run.v2.mjs` `0980f2a8…`, Apple M5 Pro Metal, headed Chromium 149; no retry):
+- **Baseline:** the unmodified renderer, clean detached `c6d369bc`. **7 s, 2 PNGs, 8 of 8 recording checks true.** No pass is claimed for it. Raw evidence sha256 `14c0194d…`.
+- **Candidate:** WIP `2dfeed3c`. **45 s, 7 PNGs, 15 of 17 checks true.** Raw evidence sha256 `40069543…`.
+- **Both runs:** 0 page, console or request errors, and all owned processes exited.
+
+**Measured at the recorded point** (live-scene geometry, not rendered visibility; same camera in both modes, but a different simulation phase, so not pixel-identical):
+
+| view | mode | sidewalk top under the shoe | shoe top above it | shoe base behind the top |
+|---|---|---:|---:|---:|
+| ordinary camera | baseline | 0.12 | 0.006 m | 0.114 m |
+| ordinary camera | candidate | 0.03 | 0.097 m | 0.023 m |
+| planted-foot review | baseline | 0.12 | −0.009 m | 0.129 m |
+| planted-foot review | candidate | 0.03 | 0.081 m | 0.039 m |
+
+- **Support:** unchanged; the player group Y is −0.0011 in every sample.
+- **Planted-foot view:** in the baseline the shoes are not distinguishable inside the 0.12 slab; in the candidate they are visible on the pavement.
+- **Walking:** 18 samples from plaza (0.02) across the inner sidewalk (0.03) into the road (0.02): support stayed at 0, and the shoe top stayed above the surface.
+- **Save/load:** restored the exact position with the same contact.
+
+**Open limits:**
+- **Ordinary camera at the recorded point:** the player is behind the occlusion-faded apartment tower in both modes, so shoe visibility cannot be judged from that view.
+- **Remaining immersion:** 0.023–0.039 m of the shoe base remains behind the 0.03 layer.
+- **Curb:** the 1 cm curb reads mainly by colour; its readability is not accepted.
+- **Leo (kinematic NPC):** measured over a sidewalk (shoe top 0.157 m above), but the harness placed the player inside the Mini Mart footprint beside him, so his contact is **not visually judgeable**.
+- **Compiled reference check: false, retained.** The top surface under the shoe was the existing 0.032 seam/curb-strip detail layer above the 0.03 sidewalk plane; the check did not allow for it.
+- **Not observed:**
+  - sector leave/remount (the legacy sidewalks are in the pinned `s0_0`);
+  - a vehicle driving across the curb, and wheel contact (only a stationary granted car was recorded);
+  - door or prop interaction beyond the approach photo.
+- **Not run:** E2E and visual suites; no baseline image was updated.
+
+A negative or unobserved result must not be answered with character offsets, collision changes or weaker assertions.
