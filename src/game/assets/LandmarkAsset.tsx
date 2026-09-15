@@ -222,8 +222,8 @@ export function LandmarkAsset({
       noteGlbExpected(assetId, -1)
       noteGlbLandmarkChange()
       // The branch claims are released by whoever took them — the model effect for 'active',
-      // the error boundary for 'failed' — so one of four house instances unmounting no longer
-      // clears the branch for the three still on screen (issue #46 §4).
+      // the error boundary for 'failed' — so one house instance unmounting no longer clears the
+      // branch for the others still on screen (issue #46 §4).
     }
   }, [useGlb, assetId])
 

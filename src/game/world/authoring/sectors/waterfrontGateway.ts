@@ -106,6 +106,8 @@ export const WATERFRONT_GATEWAY_SPEC: SectorAuthoringSpec = {
       label: 'Bay Supply',
       labelColor: '#fff3c9',
       details: true,
+      // Issue #61: the shipped Wave 3 shop body at its existing uniform fit — visual only, facing-only.
+      visual: { assetId: 'building_shop_01', referenceSize: [6, 5, 6], canonicalFacing: 'south', maxScaleDeviation: 0 },
     },
   ],
   linePropZones: [

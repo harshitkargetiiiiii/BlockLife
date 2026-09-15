@@ -75,25 +75,33 @@ export const WINDOW_OVERLAYS: WindowOverlayDef[] = [
     seed: 22,
     litRatio: 0.55,
   },
-  // Nook Offices — issue #38 Wave 0 office @ uniform 0.9501.
-  // Re-authored for the replacement model's measured footprint; the old Building_Large_2
-  // @ 0.34 distances (2.89 east / 3.56 south) left these planes floating ~0.40 m and
-  // ~1.03 m OUTSIDE the new facades (issue #38 Codex review, finding 5).
+  // Nook Offices — issue #38 Wave 0 office @ uniform 0.9501; issue #63 also projects this row onto
+  // Main St Offices and North Exchange, whose projection groups carry these grids unchanged.
   //
-  // Measured model 5.2440 × 9.9992 × 5.3379, centred in plan, so at 0.9501 the walls sit
-  // at x = ±2.487..2.496 and z = ±2.532..2.540 under a 9.500 roof. Each plane sits a
-  // ~0.02 m epsilon proud of its wall to avoid z-fighting, and every window — including
-  // its half-width and the top row — stays inside the facade. wave0Contract.test.ts
-  // asserts that containment against the same measured numbers.
+  // Issue #64: these are measured PANE grids, not facade grids. The earlier 4 × 4 / 4 × 3 grids at
+  // 2.51 / 2.55 sat just outside the whole-building bounding box, but the glazing is RECESSED
+  // behind the piers, so their planes floated 0.03–0.46 m in front of the real surface and their
+  // rows crossed the sign band, sills and parapet. Here, in calibrated model metres (the
+  // model's own 0.9501 already applied, origin centred in plan), from the shipped bytes:
+  // - east glass is planar at x ≈ 2.099–2.111, the big south window at z ≈ 2.092–2.094;
+  // - each face's lower glazed floor is two pane rows (y ≈ 3.85–4.33 and 4.39–4.94) between
+  //   raised mullions/transoms. The east face has three equal columns; the south face's big
+  //   window has two lights (its narrow left light breaks the uniform spacing, so it stays dark);
+  // - every rectangle is inset >= 5 cm inside one pane, and its plane sits 19–32 mm proud of the
+  //   outermost surface at each sampled point (an 11 × 11 lattice over the rectangle, centre and
+  //   corners included), below the frame, so jambs clip it at an angle.
+  // The upper floor's glass carries baked vertical bars and muntins in the atlas, so glow there
+  // would wash over window detailing; it is deliberately left dark. wave0Contract.test.ts pins
+  // the pane table and re-measures every cell's sampled surface clearance against the GLB triangles.
   {
     buildingAssetId: 'building_office_01',
     facade: 'east',
-    facadeDistance: 2.51,
-    rows: 4,
-    columns: 4,
-    spacing: [1.3, 1.7],
-    start: [-1.95, 3.0],
-    windowSize: [0.72, 0.95],
+    facadeDistance: 2.13,
+    rows: 2,
+    columns: 3,
+    spacing: [1.05, 0.58],
+    start: [-1.045, 4.09],
+    windowSize: [0.74, 0.34],
     emissiveIntensity: 1,
     seed: 31,
     litRatio: 0.6,
@@ -101,12 +109,12 @@ export const WINDOW_OVERLAYS: WindowOverlayDef[] = [
   {
     buildingAssetId: 'building_office_01',
     facade: 'south',
-    facadeDistance: 2.55,
-    rows: 4,
-    columns: 3,
-    spacing: [1.6, 1.7],
-    start: [-1.6, 3.0],
-    windowSize: [0.72, 0.95],
+    facadeDistance: 2.12,
+    rows: 2,
+    columns: 2,
+    spacing: [0.952, 0.58],
+    start: [0.126, 4.085],
+    windowSize: [0.65, 0.34],
     emissiveIntensity: 0.85,
     seed: 32,
     litRatio: 0.5,

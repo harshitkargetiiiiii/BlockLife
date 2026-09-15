@@ -239,6 +239,8 @@ export const ASSET_MANIFEST: AssetManifestEntry[] = [
     // authored 9.5 height exactly and lands 4.98 × 9.50 × 5.07 — strictly INSIDE the
     // authored 7×7 footprint. Colliders, entrance anchors, window overlays, labels and
     // occlusion still come from cityLayout, never from the model.
+    // Issue #63 also projects this unchanged row onto Main St Offices and North Exchange (two 8 × 12 × 8
+    // compiled lots, canonical west, yaw π/2), pinned in commercialOfficesContract.test.ts.
     glbPath: 'assets/models/city/arch_office_01.glb',
     fallbackKey: 'BuildingMesh',
     scale: [0.9501, 0.9501, 0.9501],
@@ -279,8 +281,9 @@ export const ASSET_MANIFEST: AssetManifestEntry[] = [
     // tris, 1K texture), projected onto many gameplay ids via BuildingDef.visual. Uniform
     // scale fills the [5,4,5] template footprint (model ~1.7×1.9×1.4); the model is
     // center-origin, so the offset raises its base to the ground. Colliders/anchors come from
-    // cityLayout, never the model. Stage A: one calibration placement (building_house_r1); no
-    // palette slots yet (tinting for the ~25-placement reuse is a Stage-B concern).
+    // cityLayout, never the model. Stage A calibrated it on building_house_r1; issue #55's 5 x 5
+    // slice reuses this row unchanged on ten more 5 x 5 lots (seven handwritten, three compiled),
+    // facing-only with `maxScaleDeviation: 0`. No palette slots: the source colours ship as is.
     glbPath: 'assets/models/city/arch_residential_house_01.glb',
     fallbackKey: 'BuildingMesh',
     scale: [2.95, 2.95, 2.95],
@@ -334,6 +337,8 @@ export const ASSET_MANIFEST: AssetManifestEntry[] = [
     // → 6.9612 × 7.9515 × 5.2868, half-X 3.4998 of the lot's 3.5. At 7.95 m the body is
     // 2.55 m SHORTER than the 10.5 m model it replaces, so this placement's long-standing
     // presentation overhang above its 6 m box gets smaller, not larger.
+    // Issue #55 (townhouse slice) also projects this row, unchanged, onto the three compiled townhouse
+    // lots `s1_-1_s2`, `s1_-2_s2` and `s2_-1_n4` (7 × 6 × 7, facing-only, `maxScaleDeviation: 0`).
     glbPath: 'assets/models/city/arch_row_house_01.glb',
     fallbackKey: 'BuildingMesh',
     scale: [0.8835, 0.8835, 0.8835],
@@ -378,6 +383,9 @@ export const ASSET_MANIFEST: AssetManifestEntry[] = [
     //   s = floor(min(3 / 2.48745, 3 / 2.02555) * 1e4) / 1e4 = 1.206   (X binds)
     // → 5.9925 × 4.824 × 4.8836 under a 6 × 5 × 6 authored box: the ONLY Wave-3 body that fits
     // inside its placement's procedural height as well as its footprint.
+    // Issue #60 also projects this unchanged row onto Main St Mart and North Mart (two 6 × 5 × 6
+    // compiled lots, yaw π), pinned in commercialMartsContract.test.ts; issue #61 onto Bay Supply
+    // (the 6 × 5 × 6 Waterfront free lot, yaw π), pinned in commercialBaySupplyContract.test.ts.
     glbPath: 'assets/models/city/arch_shop_01.glb',
     fallbackKey: 'BuildingMesh',
     scale: [1.206, 1.206, 1.206],
@@ -395,7 +403,7 @@ export const ASSET_MANIFEST: AssetManifestEntry[] = [
   {
     ...defaults,
     id: 'arch_house_01',
-    label: 'Detached-house archetype (issue #44 Wave 3, four placements)',
+    label: 'Detached-house archetype (issue #44 Wave 3 + issue #55 reuse, nine placements)',
     category: 'city',
     // The ONE reusable archetype of this wave: a single downloaded, cloned scene backs four
     // authored house placements — `building_house_01` (central), `building_house_r2` (north
@@ -404,6 +412,11 @@ export const ASSET_MANIFEST: AssetManifestEntry[] = [
     // It is deliberately NOT applied to the other authored houses: `building_house_r1` keeps
     // the issue #25 `arch_residential_house_01` archetype and the remaining house shapes stay
     // procedural, so the streets keep their variety.
+    //
+    // Issue #55 then reuses this SAME row, unchanged, on five more lots with the identical
+    // 5.5 x 5.5 footprint (`building_house_r4`, `_w4`, `_w6`, `_s4`, `_s6`), still facing-only.
+    // The 5 x 5 lots take the SAME file through their own calibrated row, `arch_house_01_compact`
+    // (five of them), or the terracotta `arch_residential_house_01` (ten) — never this 0.9515 fit.
     //
     // Measured local bbox 5.7735 × 4.9995 × 5.3216, origin at the base (the model's own ground
     // pad is inside that box). Cardinals: the front door, porch posts and steps are on the +z
@@ -427,6 +440,35 @@ export const ASSET_MANIFEST: AssetManifestEntry[] = [
     materialSlots: {},
     bounds: { width: 5.4935, height: 4.757, depth: 5.0635 },
     renderedTopY: 4.757,
+    enabled: true,
+    budget: { maxTriangles: 60000 },
+    attribution: 'Meshy AI — generated original asset (owner-approved 2026-08-31 sprint), texture-optimized in-repo',
+    license: 'Meshy AI generated asset (meshy.ai terms)',
+  },
+  {
+    ...defaults,
+    id: 'arch_house_01_compact',
+    label: 'Detached-house archetype, compact 5 x 5 calibration (issue #55)',
+    category: 'city',
+    // Issue #55's 5 x 5 slice: a second calibration ROW of the SAME file `arch_house_01.glb` — no
+    // copied mesh, texture or GLB. One url means one cached parse; each placement clones its own
+    // scene, and this row keeps its own load-branch counts. The `arch_house_01` row (0.9515) and
+    // its nine 5.5 x 5.5 placements are untouched.
+    //
+    // Uniform fit to a 5 x 5 lot from the measured bytes (local bbox 5.773529 × 4.999471 × 5.321628,
+    // origin at the base, measured +z front):
+    //   s = floor(min(2.5 / 2.88995, 2.5 / 2.66315) * 1e4) / 1e4 = 0.865   (X binds)
+    // → 4.9941 × 4.3245 × 4.6032, max half-extent 2.4998 of the lot's 2.5 under every cardinal yaw.
+    // Placements (facing-only, `maxScaleDeviation: 0`): building_house_r5, building_house_w5 and
+    // the compiled s2_-1_n2, s2_-1_s1 and s2_-1_s3.
+    glbPath: 'assets/models/city/arch_house_01.glb',
+    fallbackKey: 'BuildingMesh',
+    scale: [0.865, 0.865, 0.865],
+    rotation: [0, 0, 0],
+    positionOffset: [0, 0, 0],
+    materialSlots: {},
+    bounds: { width: 4.9941, height: 4.3245, depth: 4.6032 },
+    renderedTopY: 4.3245,
     enabled: true,
     budget: { maxTriangles: 60000 },
     attribution: 'Meshy AI — generated original asset (owner-approved 2026-08-31 sprint), texture-optimized in-repo',

@@ -207,22 +207,57 @@ describe('issue #44 Wave 3 — production building GLB contract (real bytes)', (
       'building_shop_01', 'building_townhomes_01',
     ])
     const wave3Ids = new Set([...PROJECTION.map((p) => p.assetId)])
+    // NARROWED, not deleted (CONVENTIONS #39): issue #55 deliberately reuses the `arch_house_01`
+    // archetype on five more 5.5 x 5.5 lots, pinned with their authored facts in
+    // residentialReuseContract.test.ts. Exactly those five, and only through a BuildingDef.visual
+    // projection of that one archetype, are exempt from the negative assertion below; this test
+    // still pins Wave 3's own nine placements.
+    const ISSUE_55_REUSE = new Set(['building_house_r4', 'building_house_s4', 'building_house_s6', 'building_house_w4', 'building_house_w6'])
+    // Issue #55's townhouse slice projects the Wave 3 row-house row onto exactly these three compiled
+    // townhouse lots, pinned in residentialTownhouseContract.test.ts.
+    const ISSUE_55_TOWNHOUSE = new Set(['s1_-1_s2', 's1_-2_s2', 's2_-1_n4'])
+    // Issue #60 projects the Wave 3 shop row onto exactly Main St Mart and North Mart, pinned in
+    // commercialMartsContract.test.ts.
+    const ISSUE_60_MARTS = new Set(['s1_-1_s1', 's1_-2_s1'])
+    // Issue #61 projects the same shop row onto exactly Bay Supply (a Waterfront free lot), pinned in
+    // commercialBaySupplyContract.test.ts.
+    const ISSUE_61_BAY = new Set(['s0_-2_shop'])
     for (const def of BUILDINGS) {
       if (projected.has(def.id)) continue
+      const issue55Reuse = (ISSUE_55_REUSE.has(def.id) && def.visual?.assetId === 'arch_house_01')
+        || (ISSUE_55_TOWNHOUSE.has(def.id) && def.visual?.assetId === 'building_townhomes_01')
+        || (ISSUE_60_MARTS.has(def.id) && def.visual?.assetId === 'building_shop_01')
+        || (ISSUE_61_BAY.has(def.id) && def.visual?.assetId === 'building_shop_01')
       // NEGATIVE ASSERTION: an unselected building must not resolve to a Wave 3 body, either
       // through its own manifest row or through a BuildingDef.visual projection.
       expect(wave3Ids.has(def.id), `${def.id} must not be a Wave 3 asset id`).toBe(false)
       expect(
-        def.visual?.assetId && wave3Ids.has(def.visual.assetId),
+        def.visual?.assetId && wave3Ids.has(def.visual.assetId) && !issue55Reuse,
         `${def.id} must not project a Wave 3 body`,
       ).toBeFalsy()
     }
-    // The four house placements are one-per-district on purpose; the other authored houses keep
-    // their existing look (building_house_r1 stays on the issue #25 archetype, the rest stay
-    // procedural), which is what "do not globally replace all houses" means.
+    // ...and by FILE, so a calibrated manifest row pointing at a Wave 3 body cannot bypass the id
+    // check above. Issue #55's next slice draws the SAME house file at a smaller uniform fit on five
+    // 5 x 5 lots through `arch_house_01_compact`; exactly those five, through exactly that row, may.
+    const ISSUE_55_COMPACT = new Set(['building_house_r5', 'building_house_w5', 's2_-1_n2', 's2_-1_s1', 's2_-1_s3'])
+    const wave3Files = new Set(PROJECTION.map((p) => p.file.replace(/^public\//, '')))
+    for (const def of BUILDINGS) {
+      if (projected.has(def.id) || !def.visual) continue
+      const entry = ASSET_MANIFEST_BY_ID.get(def.visual.assetId)
+      if (!entry?.glbPath || !wave3Files.has(entry.glbPath)) continue
+      const allowed = (ISSUE_55_REUSE.has(def.id) && entry.id === 'arch_house_01')
+        || (ISSUE_55_COMPACT.has(def.id) && entry.id === 'arch_house_01_compact')
+        || (ISSUE_55_TOWNHOUSE.has(def.id) && entry.id === 'building_townhomes_01')
+        || (ISSUE_60_MARTS.has(def.id) && entry.id === 'building_shop_01')
+        || (ISSUE_61_BAY.has(def.id) && entry.id === 'building_shop_01')
+      expect(allowed, `${def.id} draws a Wave 3 body file through ${entry.id}`).toBe(true)
+    }
+    // The four Wave 3 house placements are one-per-district on purpose; the other authored houses
+    // keep their existing look (building_house_r1 stays on the issue #25 archetype, the rest stay
+    // procedural apart from issue #55's five), which is what "do not globally replace all houses" means.
     const houses = BUILDINGS.filter((b) => b.id.startsWith('building_house_'))
     expect(houses.length, 'authored house placements').toBeGreaterThan(9)
-    expect(houses.filter((b) => b.visual?.assetId === 'arch_house_01').map((b) => b.id).sort())
+    expect(houses.filter((b) => b.visual?.assetId === 'arch_house_01' && !ISSUE_55_REUSE.has(b.id)).map((b) => b.id).sort())
       .toEqual(['building_house_01', 'building_house_r2', 'building_house_s2', 'building_house_w2'])
     expect(defFor('building_house_r1').visual?.assetId, 'issue #25 archetype preserved')
       .toBe('arch_residential_house_01')

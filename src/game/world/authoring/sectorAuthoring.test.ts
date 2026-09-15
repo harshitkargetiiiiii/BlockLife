@@ -200,6 +200,83 @@ describe('expansion kit features', () => {
     expect(compiled.sourceRefs.get(pavilion.id)!.templateId).toBe('kiosk_pavilion')
   })
 
+  it('a lot visual projection passes through compileLot into the compiled building (issue #55)', async () => {
+    const { RESIDENTIAL_EAST_SPEC } = await import('./sectors/residentialEast')
+    const compiled = compileSectorAuthoringSpec(RESIDENTIAL_EAST_SPEC)
+    const withVisual = RESIDENTIAL_EAST_SPEC.lots.filter((lot) => lot.visual)
+    // The six 5 x 5 houses, plus the townhouse lot n4 (issue #55 townhouse slice).
+    expect(withVisual.map((lot) => lot.localId).sort(), 'lots carrying a visual').toEqual(['n1', 'n2', 'n3', 'n4', 's1', 's2', 's3'])
+    for (const lot of RESIDENTIAL_EAST_SPEC.lots) {
+      const building = compiled.buildings.find((b) => b.id === `s2_-1_${lot.localId}`)!
+      if (lot.visual) {
+        expect(building.visual, `${lot.localId} visual reaches the compiled building`).toEqual(lot.visual)
+      } else {
+        expect('visual' in building, `${lot.localId} carries no visual key at all`).toBe(false)
+      }
+    }
+  })
+
+  it('a lot WITHOUT a visual compiles to exactly the previous output (issue #55)', async () => {
+    const { RESIDENTIAL_EAST_SPEC } = await import('./sectors/residentialEast')
+    const stripped = {
+      ...RESIDENTIAL_EAST_SPEC,
+      lots: RESIDENTIAL_EAST_SPEC.lots.map((lot) => {
+        const copy = { ...lot }
+        delete copy.visual
+        return copy
+      }),
+    }
+    const without = compileSectorAuthoringSpec(stripped)
+    const withVisuals = compileSectorAuthoringSpec(RESIDENTIAL_EAST_SPEC)
+    const canonical = (value: unknown, dropVisual: boolean) => JSON.stringify(value, (key, v) =>
+      dropVisual && key === 'visual' ? undefined : v instanceof Map ? [...v.entries()] : v)
+    // Removing the optional field removes ONLY the field: roads, lots, buildings, props, citizens,
+    // traffic, source refs and map output are otherwise identical.
+    expect(canonical(withVisuals, true)).toBe(canonical(without, false))
+    expect(canonical(without, false), 'no visual key is emitted when none is authored').not.toContain('"visual"')
+    expect(validateCompiledSectorContent(withVisuals), 'the projected sector still validates').toEqual([])
+  })
+
+  it('a free-lot visual projection passes through into the compiled building (issue #61)', async () => {
+    const { WATERFRONT_GATEWAY_SPEC } = await import('./sectors/waterfrontGateway')
+    const compiled = compileSectorAuthoringSpec(WATERFRONT_GATEWAY_SPEC)
+    const freeLots = WATERFRONT_GATEWAY_SPEC.freeLots ?? []
+    // Only Bay Supply authors one; Shorefront Cafe and Pier Kiosk stay procedural.
+    expect(freeLots.filter((free) => free.visual).map((free) => free.localId), 'free lots carrying a visual').toEqual(['shop'])
+    for (const free of freeLots) {
+      const building = compiled.buildings.find((b) => b.id === `s0_-2_${free.localId}`)!
+      if (free.visual) {
+        expect(building.visual, `${free.localId} visual reaches the compiled building`).toEqual(free.visual)
+      } else {
+        expect('visual' in building, `${free.localId} carries no visual key at all`).toBe(false)
+      }
+    }
+    // The synthetic probe's free lot authors none, so it emits no key either.
+    const probe = compileSectorAuthoringSpec(FEATURE_SPEC).buildings.find((b) => b.id === 's1_-1_pavilion')!
+    expect('visual' in probe, 'probe pavilion carries no visual key').toBe(false)
+  })
+
+  it('a free lot WITHOUT a visual compiles to exactly the previous output (issue #61)', async () => {
+    const { WATERFRONT_GATEWAY_SPEC } = await import('./sectors/waterfrontGateway')
+    const stripped = {
+      ...WATERFRONT_GATEWAY_SPEC,
+      freeLots: (WATERFRONT_GATEWAY_SPEC.freeLots ?? []).map((free) => {
+        const copy = { ...free }
+        delete copy.visual
+        return copy
+      }),
+    }
+    const without = compileSectorAuthoringSpec(stripped)
+    const withVisual = compileSectorAuthoringSpec(WATERFRONT_GATEWAY_SPEC)
+    const canonical = (value: unknown, dropVisual: boolean) => JSON.stringify(value, (key, v) =>
+      dropVisual && key === 'visual' ? undefined : v instanceof Map ? [...v.entries()] : v)
+    // Removing the optional field removes ONLY the field. The historical pre-change compiler output is
+    // pinned separately in assets/commercialBaySupplyContract.test.ts.
+    expect(canonical(withVisual, true)).toBe(canonical(without, false))
+    expect(canonical(without, false), 'no visual key is emitted when none is authored').not.toContain('"visual"')
+    expect(validateCompiledSectorContent(withVisual), 'the projected sector still validates').toEqual([])
+  })
+
   it('water compiles surfaces + solid rects; scatter and validation avoid it', () => {
     const compiled = compileSectorAuthoringSpec(FEATURE_SPEC)
     expect(compiled.waterRects).toHaveLength(1)

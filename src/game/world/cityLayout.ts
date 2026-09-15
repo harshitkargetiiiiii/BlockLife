@@ -425,6 +425,15 @@ export const BUILDINGS: BuildingDef[] = [
     roofColor: '#5f8391',
     door: 'south',
     accentColor: '#ffd166',
+    // Issue #55 (5 x 5 slice): the issue #25 terracotta house at its existing uniform fit. PURELY
+    // VISUAL and facing-only (`maxScaleDeviation: 0`); collider, anchor and occluder footprint stay
+    // keyed to this placement.
+    visual: {
+      assetId: 'arch_residential_house_01',
+      referenceSize: [5, 4, 5],
+      canonicalFacing: 'south',
+      maxScaleDeviation: 0,
+    },
   },
   {
     id: 'building_house_r4',
@@ -434,6 +443,16 @@ export const BUILDINGS: BuildingDef[] = [
     roofColor: '#9b8455',
     door: 'south',
     accentColor: '#8fb8a8',
+    // Issue #55: reuse of the SAME approved detached-house archetype on a 5.5 x 5.5 lot, exactly
+    // as Wave 3 projects it (see building_house_01). PURELY VISUAL — `maxScaleDeviation: 0` keeps
+    // the body undistorted even though this lot's authored height differs from the reference;
+    // the collider, entrance anchor and occluder footprint stay keyed to this placement.
+    visual: {
+      assetId: 'arch_house_01',
+      referenceSize: [5.5, 4.5, 5.5],
+      canonicalFacing: 'south',
+      maxScaleDeviation: 0,
+    },
   },
   // Future-use landmark: visual only, no interactable entry.
   {
@@ -455,6 +474,14 @@ export const BUILDINGS: BuildingDef[] = [
     roofColor: '#8a5f85',
     door: 'north',
     accentColor: '#bcd0a2',
+    // Issue #55 (5 x 5 slice): the Wave 3 red house FILE at its compact uniform calibration
+    // (`arch_house_01_compact`). PURELY VISUAL and facing-only — see building_house_r3.
+    visual: {
+      assetId: 'arch_house_01_compact',
+      referenceSize: [5, 4, 5],
+      canonicalFacing: 'south',
+      maxScaleDeviation: 0,
+    },
   },
 
   // ---- Industrial / Market Strip (east district) ----
@@ -513,6 +540,13 @@ export const BUILDINGS: BuildingDef[] = [
     roofColor: '#96687a',
     door: 'east',
     accentColor: '#f2d5a0',
+    // Issue #55 (5 x 5 slice): terracotta house — see building_house_r3.
+    visual: {
+      assetId: 'arch_residential_house_01',
+      referenceSize: [5, 4, 5],
+      canonicalFacing: 'south',
+      maxScaleDeviation: 0,
+    },
   },
   {
     id: 'building_house_w2',
@@ -543,6 +577,13 @@ export const BUILDINGS: BuildingDef[] = [
     roofColor: '#9b8455',
     door: 'east',
     accentColor: '#8fb8a8',
+    // Issue #55 (5 x 5 slice): terracotta house — see building_house_r3.
+    visual: {
+      assetId: 'arch_residential_house_01',
+      referenceSize: [5, 4, 5],
+      canonicalFacing: 'south',
+      maxScaleDeviation: 0,
+    },
   },
   {
     id: 'building_house_w4',
@@ -552,6 +593,13 @@ export const BUILDINGS: BuildingDef[] = [
     roofColor: '#7d9460',
     door: 'east',
     accentColor: '#ffd166',
+    // Issue #55: approved detached-house archetype reuse — see building_house_r4.
+    visual: {
+      assetId: 'arch_house_01',
+      referenceSize: [5.5, 4.5, 5.5],
+      canonicalFacing: 'south',
+      maxScaleDeviation: 0,
+    },
   },
   {
     id: 'building_house_w5',
@@ -561,6 +609,13 @@ export const BUILDINGS: BuildingDef[] = [
     roofColor: '#a5705c',
     door: 'west',
     accentColor: '#bcd0a2',
+    // Issue #55 (5 x 5 slice): compact red house — see building_house_r5.
+    visual: {
+      assetId: 'arch_house_01_compact',
+      referenceSize: [5, 4, 5],
+      canonicalFacing: 'south',
+      maxScaleDeviation: 0,
+    },
   },
   {
     id: 'building_commons_w1',
@@ -581,6 +636,13 @@ export const BUILDINGS: BuildingDef[] = [
     roofColor: '#8a5f85',
     door: 'west',
     accentColor: '#e8c9e4',
+    // Issue #55: approved detached-house archetype reuse — see building_house_r4.
+    visual: {
+      assetId: 'arch_house_01',
+      referenceSize: [5.5, 4.5, 5.5],
+      canonicalFacing: 'south',
+      maxScaleDeviation: 0,
+    },
   },
 
   // ---- Residential South (City Expansion v2): sunny row homes ----
@@ -592,6 +654,13 @@ export const BUILDINGS: BuildingDef[] = [
     roofColor: '#6f7d58',
     door: 'south',
     accentColor: '#ffd166',
+    // Issue #55 (5 x 5 slice): terracotta house — see building_house_r3.
+    visual: {
+      assetId: 'arch_residential_house_01',
+      referenceSize: [5, 4, 5],
+      canonicalFacing: 'south',
+      maxScaleDeviation: 0,
+    },
   },
   {
     id: 'building_house_s2',
@@ -622,6 +691,13 @@ export const BUILDINGS: BuildingDef[] = [
     roofColor: '#5f8391',
     door: 'south',
     accentColor: '#f2d5a0',
+    // Issue #55 (5 x 5 slice): terracotta house — see building_house_r3.
+    visual: {
+      assetId: 'arch_residential_house_01',
+      referenceSize: [5, 4, 5],
+      canonicalFacing: 'south',
+      maxScaleDeviation: 0,
+    },
   },
   {
     id: 'building_house_s4',
@@ -631,6 +707,13 @@ export const BUILDINGS: BuildingDef[] = [
     roofColor: '#9b8455',
     door: 'south',
     accentColor: '#e07a5f',
+    // Issue #55: approved detached-house archetype reuse — see building_house_r4.
+    visual: {
+      assetId: 'arch_house_01',
+      referenceSize: [5.5, 4.5, 5.5],
+      canonicalFacing: 'south',
+      maxScaleDeviation: 0,
+    },
   },
   {
     id: 'building_house_s5',
@@ -640,6 +723,13 @@ export const BUILDINGS: BuildingDef[] = [
     roofColor: '#8a5f85',
     door: 'north',
     accentColor: '#bcd0a2',
+    // Issue #55 (5 x 5 slice): terracotta house — see building_house_r3.
+    visual: {
+      assetId: 'arch_residential_house_01',
+      referenceSize: [5, 4, 5],
+      canonicalFacing: 'south',
+      maxScaleDeviation: 0,
+    },
   },
   {
     id: 'building_house_s6',
@@ -649,6 +739,13 @@ export const BUILDINGS: BuildingDef[] = [
     roofColor: '#7d9460',
     door: 'north',
     accentColor: '#d9825f',
+    // Issue #55: approved detached-house archetype reuse — see building_house_r4.
+    visual: {
+      assetId: 'arch_house_01',
+      referenceSize: [5.5, 4.5, 5.5],
+      canonicalFacing: 'south',
+      maxScaleDeviation: 0,
+    },
   },
   {
     id: 'building_deli_s1',
@@ -669,6 +766,13 @@ export const BUILDINGS: BuildingDef[] = [
     roofColor: '#96687a',
     door: 'north',
     accentColor: '#a2c4d0',
+    // Issue #55 (5 x 5 slice): terracotta house — see building_house_r3.
+    visual: {
+      assetId: 'arch_residential_house_01',
+      referenceSize: [5, 4, 5],
+      canonicalFacing: 'south',
+      maxScaleDeviation: 0,
+    },
   },
 
   // ---- Industrial North (City Expansion v2): freight along the arterial ----

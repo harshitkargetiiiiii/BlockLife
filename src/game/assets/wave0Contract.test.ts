@@ -194,28 +194,128 @@ describe('issue #38 Wave 0 — production GLB contract (real bytes)', () => {
     expect(world.length / 2).toBeLessThanOrEqual(CAR_HALF_LENGTH + 1e-6)
   })
 
-  // ---- Codex review finding 5: office night overlays vs the replacement facades ----
-  it('every office window overlay plane sits on the replacement facade, inside it', () => {
+  // ---- Codex review finding 5, re-measured by issue #64: office night glow vs the REAL glass ----
+  // The whole-building bounding box is not the glazing. The office's windows are recessed behind its
+  // piers, so the Wave 0 grids — planes "just outside the AABB" — floated 0.03–0.46 m in front of the
+  // actual surface and crossed the sign band, sills and parapet (issue #63 native night capture).
+  // These tests measure against the shipped triangles instead.
+
+  /**
+   * Glass panes the office grids light, in calibrated model metres on the overlay's own axes (lateral =
+   * z on the east face, x on the south face). Located by 1 mm scans of the outermost surface from each
+   * pane's centre until it left the pane's glass plane by > 12 mm, rounded INWARD to 1 cm, and reviewed
+   * against the baked atlas: the lower glazed floor's clean panes. The upper floor's glass carries baked
+   * bars/muntins, and the south face's narrow left light breaks the uniform column spacing; neither is lit.
+   */
+  const OFFICE_GLASS_PANES: Record<'east' | 'south', { lateral: [number, number]; y: [number, number] }[]> = {
+    east: [
+      { lateral: [-1.49, -0.60], y: [3.86, 4.32] }, { lateral: [-0.46, 0.48], y: [3.86, 4.33] }, { lateral: [0.62, 1.48], y: [3.85, 4.32] },
+      { lateral: [-1.49, -0.61], y: [4.41, 4.94] }, { lateral: [-0.46, 0.48], y: [4.41, 4.92] }, { lateral: [0.62, 1.48], y: [4.41, 4.94] },
+    ],
+    south: [
+      { lateral: [-0.26, 0.51], y: [3.86, 4.32] }, { lateral: [0.65, 1.50], y: [3.85, 4.32] },
+      { lateral: [-0.26, 0.51], y: [4.39, 4.94] }, { lateral: [0.65, 1.50], y: [4.39, 4.93] },
+    ],
+  }
+
+  /** Every overlay cell's rectangle, laid out exactly as WindowOverlays.buildInstances places it. */
+  function officeCells() {
+    const defs = WINDOW_OVERLAYS.filter((d) => d.buildingAssetId === 'building_office_01')
+    return defs.flatMap((d) => Array.from({ length: d.rows * d.columns }, (_, i) => {
+      const row = Math.floor(i / d.columns)
+      const col = i % d.columns
+      const lateral = d.start[0] + col * d.spacing[0]
+      const y = d.start[1] + row * d.spacing[1]
+      const [hw, hh] = [d.windowSize[0] / 2, d.windowSize[1] / 2]
+      return { d, name: `${d.facade} r${row}c${col}`, lateral: [lateral - hw, lateral + hw] as [number, number], y: [y - hh, y + hh] as [number, number] }
+    }))
+  }
+
+  it('every office overlay cell lies inside exactly one measured glass pane, inset by at least 5 cm', () => {
     const entry = ASSET_MANIFEST_BY_ID.get('building_office_01')!
     const s = entry.scale![0]
-    // Measured local bbox of the committed office GLB, centred in plan.
+    // Measured local bbox of the committed office GLB, centred in plan: the OUTER guards only.
     const half = { x: 2.6171 * s, z: 2.6643 * s }
     const height = 9.9992 * s
     const defs = WINDOW_OVERLAYS.filter((d) => d.buildingAssetId === 'building_office_01')
-    expect(defs.length, 'office overlays are authored').toBeGreaterThan(0)
-    for (const d of defs) {
-      const normalHalf = d.facade === 'east' || d.facade === 'west' ? half.x : half.z
-      const lateralHalf = d.facade === 'east' || d.facade === 'west' ? half.z : half.x
-      // The plane must hug its wall — proud of it, but not floating off the building.
-      expect(d.facadeDistance, `${d.facade} plane is outside the wall`).toBeGreaterThanOrEqual(normalHalf)
-      expect(d.facadeDistance, `${d.facade} plane hugs the wall`).toBeLessThanOrEqual(normalHalf + 0.1)
-      // Every window, including its half-width, stays within the facade.
-      const outer = d.start[0] + (d.columns - 1) * d.spacing[0] + d.windowSize[0] / 2
-      expect(Math.abs(d.start[0]) + d.windowSize[0] / 2, `${d.facade} first column`).toBeLessThanOrEqual(lateralHalf)
-      expect(outer, `${d.facade} last column`).toBeLessThanOrEqual(lateralHalf)
-      // ...and the top row stays under the roof.
-      const top = d.start[1] + (d.rows - 1) * d.spacing[1] + d.windowSize[1] / 2
-      expect(top, `${d.facade} top row under the roof`).toBeLessThanOrEqual(height)
+    expect(defs.map((d) => d.facade), 'one grid per camera-facing office facade').toEqual(['east', 'south'])
+    const used = new Map<string, string>()
+    for (const cell of officeCells()) {
+      const { d } = cell
+      const facade = d.facade as 'east' | 'south'
+      const normalHalf = facade === 'east' ? half.x : half.z
+      const lateralHalf = facade === 'east' ? half.z : half.x
+      // A recessed pane's plane is INSIDE the whole-building extreme, never forced out to it.
+      expect(d.facadeDistance, `${cell.name} plane inside the building extreme`).toBeLessThan(normalHalf)
+      expect(Math.max(...cell.lateral.map(Math.abs)), `${cell.name} within the facade width`).toBeLessThanOrEqual(lateralHalf)
+      expect(cell.y[1], `${cell.name} under the roof`).toBeLessThanOrEqual(height)
+      const hosts = OFFICE_GLASS_PANES[facade].map((pane, i) => ({ pane, key: `${facade}#${i}` })).filter(({ pane }) =>
+        cell.lateral[0] - pane.lateral[0] >= 0.05 && pane.lateral[1] - cell.lateral[1] >= 0.05 &&
+        cell.y[0] - pane.y[0] >= 0.05 && pane.y[1] - cell.y[1] >= 0.05)
+      expect(hosts.map((h) => h.key), `${cell.name} sits inset inside exactly one pane`).toHaveLength(1)
+      expect(used.has(hosts[0].key), `${cell.name} shares its pane with ${used.get(hosts[0].key)}`).toBe(false)
+      used.set(hosts[0].key, cell.name)
+    }
+    expect(used.size, 'every measured pane carries exactly one cell').toBe(OFFICE_GLASS_PANES.east.length + OFFICE_GLASS_PANES.south.length)
+  })
+
+  it('every office overlay plane sits 15–40 mm proud of planar, recessed glass at every SAMPLED point of its rectangle (real triangles)', () => {
+    const entry = ASSET_MANIFEST_BY_ID.get('building_office_01')!
+    const s = entry.scale![0]
+    const { json, bin } = readGlb(`public/${entry.glbPath}`)
+    // One identity node and one indexed primitive: the POSITION accessor is already model space.
+    expect(json.nodes, 'single untransformed node').toHaveLength(1)
+    expect(json.nodes[0].matrix ?? json.nodes[0].translation ?? json.nodes[0].rotation ?? json.nodes[0].scale).toBeUndefined()
+    expect(json.meshes[0].primitives, 'single primitive').toHaveLength(1)
+    const primitive = json.meshes[0].primitives[0]
+    const read = (index: number, width: number) => {
+      const accessor = json.accessors[index]
+      const view = json.bufferViews[accessor.bufferView]
+      const size = accessor.componentType === 5126 ? 4 : accessor.componentType === 5123 ? 2 : 4
+      const stride = view.byteStride ?? size * width
+      const base = (view.byteOffset ?? 0) + (accessor.byteOffset ?? 0)
+      const out = new Float64Array(accessor.count * width)
+      for (let k = 0; k < out.length; k++) {
+        const at = base + Math.floor(k / width) * stride + (k % width) * size
+        out[k] = accessor.componentType === 5126 ? bin!.readFloatLE(at) : accessor.componentType === 5123 ? bin!.readUInt16LE(at) : bin!.readUInt32LE(at)
+      }
+      return out
+    }
+    const positions = read(primitive.attributes.POSITION, 3).map((v) => v * s)
+    const indices = read(primitive.indices, 1)
+    expect(indices.length, 'the shipped index count').toBe(49770)
+    /** Outermost surface depth along the facade normal at (lateral, y): an axis-aligned ray from outside. */
+    const outermost = (facade: 'east' | 'south', lateral: number, y: number) => {
+      const [normalAxis, lateralAxis] = facade === 'east' ? [0, 2] : [2, 0]
+      let best = -Infinity
+      for (let t = 0; t < indices.length; t += 3) {
+        const [a, b, c] = [indices[t] * 3, indices[t + 1] * 3, indices[t + 2] * 3]
+        const [ax, ay, bx, by, cx, cy] = [positions[a + lateralAxis], positions[a + 1], positions[b + lateralAxis], positions[b + 1], positions[c + lateralAxis], positions[c + 1]]
+        const den = (by - cy) * (ax - cx) + (cx - bx) * (ay - cy)
+        if (Math.abs(den) < 1e-12) continue
+        const w0 = ((by - cy) * (lateral - cx) + (cx - bx) * (y - cy)) / den
+        const w1 = ((cy - ay) * (lateral - cx) + (ax - cx) * (y - cy)) / den
+        if (w0 < 0 || w1 < 0 || w0 + w1 > 1) continue
+        best = Math.max(best, w0 * positions[a + normalAxis] + w1 * positions[b + normalAxis] + (1 - w0 - w1) * positions[c + normalAxis])
+      }
+      return best
+    }
+    const halfNormal = { east: 2.6171 * s, south: 2.6643 * s }
+    for (const cell of officeCells()) {
+      const facade = cell.d.facade as 'east' | 'south'
+      // Sampled, not a continuous proof: an 11 × 11 lattice over the rectangle, its centre, four corners and edges included.
+      const depths: number[] = []
+      for (let i = 0; i <= 10; i++) {
+        for (let j = 0; j <= 10; j++) {
+          depths.push(outermost(facade, cell.lateral[0] + (cell.lateral[1] - cell.lateral[0]) * i / 10, cell.y[0] + (cell.y[1] - cell.y[0]) * j / 10))
+        }
+      }
+      const [nearest, deepest] = [Math.max(...depths), Math.min(...depths)]
+      expect(Number.isFinite(deepest), `${cell.name} has surface under every sampled point`).toBe(true)
+      expect(nearest - deepest, `${cell.name} samples one planar pane (no sill, mullion or transom sampled)`).toBeLessThanOrEqual(0.006)
+      expect(halfNormal[facade] - nearest, `${cell.name} sampled surface is recessed glass, not a pier or wall`).toBeGreaterThanOrEqual(0.3)
+      expect(cell.d.facadeDistance - nearest, `${cell.name} plane is in front of every sampled glass point`).toBeGreaterThanOrEqual(0.015)
+      expect(cell.d.facadeDistance - deepest, `${cell.name} plane hugs every sampled glass point`).toBeLessThanOrEqual(0.04)
     }
   })
 
