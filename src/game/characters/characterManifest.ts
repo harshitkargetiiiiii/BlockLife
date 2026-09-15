@@ -104,17 +104,17 @@ export const CHARACTER_ASSETS: Record<string, CharacterAssetDefinition> = {
     id: 'blocklife_ravi_01',
     modelPath: 'assets/models/characters/blocklife_ravi_01.glb',
     // Issue #47 Wave 4 — FITTED to the rig it replaces. The approved bodies are authored at
-    // real-world human height (1.70-1.84 m); `blocklife_person`, which every one of these NPCs
-    // rendered as before this wave and which the PLAYER still renders as, stands 2.930 m. Shipping
-    // these at scale 1 made each named resident ~60 % of the player's height — measured at a
-    // 1.674x rendered silhouette ratio, against 1.665 predicted from the bytes. So the rig's height
-    // sizes the body, never the reverse (CONVENTIONS #36 restated for characters), and each body
-    // keeps the EXACT rendered height its NPC had before Wave 4. Gated in wave4Contract.test.ts.
-    scale: 1.6648,
+    // real-world human height (1.70-1.84 m); `blocklife_person`, the PLAYER's rig and each named
+    // NPC's identity fallback, has a 2.150 m maximum-variant envelope (bun hair). The rig's envelope
+    // sizes the body, never the reverse (CONVENTIONS #36 restated for characters): scale =
+    // RIG_HEIGHT_METERS / measured, uniformly — one envelope policy, not an exact per-identity
+    // height. Issue #56 corrected the reference from 2.930 m, which was the exporter's broken bind
+    // pose (rest offsets applied twice), not the rig. Gated in wave4Contract.test.ts.
+    scale: 1.2216,
     // Issue #47: an owner-approved 1:1 body renders at ITS OWN proportions. The registry
     // bodyBuild vector is non-uniform — Officer Kim is 'broad' [1.13, 0.99, 1.13] and Bruno
     // 'stocky' [1.08, 0.93, 1.08] — so applying it here would stretch approved geometry in X/Z
-    // and change the fitted height (Bruno would render 2.725 m, not 2.930 m). The appearance is
+    // and change the fitted height (Bruno would render 7 % short of it). The appearance is
     // NOT discarded: it still drives this NPC's blocklife_person error fallback, which is a rig.
     proportions: 'authored',
     rotationOffset: 0,
@@ -148,17 +148,17 @@ export const CHARACTER_ASSETS: Record<string, CharacterAssetDefinition> = {
     id: 'blocklife_maya_01',
     modelPath: 'assets/models/characters/blocklife_maya_01.glb',
     // Issue #47 Wave 4 — FITTED to the rig it replaces. The approved bodies are authored at
-    // real-world human height (1.70-1.84 m); `blocklife_person`, which every one of these NPCs
-    // rendered as before this wave and which the PLAYER still renders as, stands 2.930 m. Shipping
-    // these at scale 1 made each named resident ~60 % of the player's height — measured at a
-    // 1.674x rendered silhouette ratio, against 1.665 predicted from the bytes. So the rig's height
-    // sizes the body, never the reverse (CONVENTIONS #36 restated for characters), and each body
-    // keeps the EXACT rendered height its NPC had before Wave 4. Gated in wave4Contract.test.ts.
-    scale: 1.7235,
+    // real-world human height (1.70-1.84 m); `blocklife_person`, the PLAYER's rig and each named
+    // NPC's identity fallback, has a 2.150 m maximum-variant envelope (bun hair). The rig's envelope
+    // sizes the body, never the reverse (CONVENTIONS #36 restated for characters): scale =
+    // RIG_HEIGHT_METERS / measured, uniformly — one envelope policy, not an exact per-identity
+    // height. Issue #56 corrected the reference from 2.930 m, which was the exporter's broken bind
+    // pose (rest offsets applied twice), not the rig. Gated in wave4Contract.test.ts.
+    scale: 1.2647,
     // Issue #47: an owner-approved 1:1 body renders at ITS OWN proportions. The registry
     // bodyBuild vector is non-uniform — Officer Kim is 'broad' [1.13, 0.99, 1.13] and Bruno
     // 'stocky' [1.08, 0.93, 1.08] — so applying it here would stretch approved geometry in X/Z
-    // and change the fitted height (Bruno would render 2.725 m, not 2.930 m). The appearance is
+    // and change the fitted height (Bruno would render 7 % short of it). The appearance is
     // NOT discarded: it still drives this NPC's blocklife_person error fallback, which is a rig.
     proportions: 'authored',
     rotationOffset: 0,
@@ -175,17 +175,17 @@ export const CHARACTER_ASSETS: Record<string, CharacterAssetDefinition> = {
     id: 'blocklife_bruno_01',
     modelPath: 'assets/models/characters/blocklife_bruno_01.glb',
     // Issue #47 Wave 4 — FITTED to the rig it replaces. The approved bodies are authored at
-    // real-world human height (1.70-1.84 m); `blocklife_person`, which every one of these NPCs
-    // rendered as before this wave and which the PLAYER still renders as, stands 2.930 m. Shipping
-    // these at scale 1 made each named resident ~60 % of the player's height — measured at a
-    // 1.674x rendered silhouette ratio, against 1.665 predicted from the bytes. So the rig's height
-    // sizes the body, never the reverse (CONVENTIONS #36 restated for characters), and each body
-    // keeps the EXACT rendered height its NPC had before Wave 4. Gated in wave4Contract.test.ts.
-    scale: 1.5924,
+    // real-world human height (1.70-1.84 m); `blocklife_person`, the PLAYER's rig and each named
+    // NPC's identity fallback, has a 2.150 m maximum-variant envelope (bun hair). The rig's envelope
+    // sizes the body, never the reverse (CONVENTIONS #36 restated for characters): scale =
+    // RIG_HEIGHT_METERS / measured, uniformly — one envelope policy, not an exact per-identity
+    // height. Issue #56 corrected the reference from 2.930 m, which was the exporter's broken bind
+    // pose (rest offsets applied twice), not the rig. Gated in wave4Contract.test.ts.
+    scale: 1.1685,
     // Issue #47: an owner-approved 1:1 body renders at ITS OWN proportions. The registry
     // bodyBuild vector is non-uniform — Officer Kim is 'broad' [1.13, 0.99, 1.13] and Bruno
     // 'stocky' [1.08, 0.93, 1.08] — so applying it here would stretch approved geometry in X/Z
-    // and change the fitted height (Bruno would render 2.725 m, not 2.930 m). The appearance is
+    // and change the fitted height (Bruno would render 7 % short of it). The appearance is
     // NOT discarded: it still drives this NPC's blocklife_person error fallback, which is a rig.
     proportions: 'authored',
     rotationOffset: 0,
@@ -202,17 +202,17 @@ export const CHARACTER_ASSETS: Record<string, CharacterAssetDefinition> = {
     id: 'blocklife_kim_01',
     modelPath: 'assets/models/characters/blocklife_kim_01.glb',
     // Issue #47 Wave 4 — FITTED to the rig it replaces. The approved bodies are authored at
-    // real-world human height (1.70-1.84 m); `blocklife_person`, which every one of these NPCs
-    // rendered as before this wave and which the PLAYER still renders as, stands 2.930 m. Shipping
-    // these at scale 1 made each named resident ~60 % of the player's height — measured at a
-    // 1.674x rendered silhouette ratio, against 1.665 predicted from the bytes. So the rig's height
-    // sizes the body, never the reverse (CONVENTIONS #36 restated for characters), and each body
-    // keeps the EXACT rendered height its NPC had before Wave 4. Gated in wave4Contract.test.ts.
-    scale: 1.7135,
+    // real-world human height (1.70-1.84 m); `blocklife_person`, the PLAYER's rig and each named
+    // NPC's identity fallback, has a 2.150 m maximum-variant envelope (bun hair). The rig's envelope
+    // sizes the body, never the reverse (CONVENTIONS #36 restated for characters): scale =
+    // RIG_HEIGHT_METERS / measured, uniformly — one envelope policy, not an exact per-identity
+    // height. Issue #56 corrected the reference from 2.930 m, which was the exporter's broken bind
+    // pose (rest offsets applied twice), not the rig. Gated in wave4Contract.test.ts.
+    scale: 1.2573,
     // Issue #47: an owner-approved 1:1 body renders at ITS OWN proportions. The registry
     // bodyBuild vector is non-uniform — Officer Kim is 'broad' [1.13, 0.99, 1.13] and Bruno
     // 'stocky' [1.08, 0.93, 1.08] — so applying it here would stretch approved geometry in X/Z
-    // and change the fitted height (Bruno would render 2.725 m, not 2.930 m). The appearance is
+    // and change the fitted height (Bruno would render 7 % short of it). The appearance is
     // NOT discarded: it still drives this NPC's blocklife_person error fallback, which is a rig.
     proportions: 'authored',
     rotationOffset: 0,
@@ -229,17 +229,17 @@ export const CHARACTER_ASSETS: Record<string, CharacterAssetDefinition> = {
     id: 'blocklife_nisha_01',
     modelPath: 'assets/models/characters/blocklife_nisha_01.glb',
     // Issue #47 Wave 4 — FITTED to the rig it replaces. The approved bodies are authored at
-    // real-world human height (1.70-1.84 m); `blocklife_person`, which every one of these NPCs
-    // rendered as before this wave and which the PLAYER still renders as, stands 2.930 m. Shipping
-    // these at scale 1 made each named resident ~60 % of the player's height — measured at a
-    // 1.674x rendered silhouette ratio, against 1.665 predicted from the bytes. So the rig's height
-    // sizes the body, never the reverse (CONVENTIONS #36 restated for characters), and each body
-    // keeps the EXACT rendered height its NPC had before Wave 4. Gated in wave4Contract.test.ts.
-    scale: 1.7235,
+    // real-world human height (1.70-1.84 m); `blocklife_person`, the PLAYER's rig and each named
+    // NPC's identity fallback, has a 2.150 m maximum-variant envelope (bun hair). The rig's envelope
+    // sizes the body, never the reverse (CONVENTIONS #36 restated for characters): scale =
+    // RIG_HEIGHT_METERS / measured, uniformly — one envelope policy, not an exact per-identity
+    // height. Issue #56 corrected the reference from 2.930 m, which was the exporter's broken bind
+    // pose (rest offsets applied twice), not the rig. Gated in wave4Contract.test.ts.
+    scale: 1.2647,
     // Issue #47: an owner-approved 1:1 body renders at ITS OWN proportions. The registry
     // bodyBuild vector is non-uniform — Officer Kim is 'broad' [1.13, 0.99, 1.13] and Bruno
     // 'stocky' [1.08, 0.93, 1.08] — so applying it here would stretch approved geometry in X/Z
-    // and change the fitted height (Bruno would render 2.725 m, not 2.930 m). The appearance is
+    // and change the fitted height (Bruno would render 7 % short of it). The appearance is
     // NOT discarded: it still drives this NPC's blocklife_person error fallback, which is a rig.
     proportions: 'authored',
     rotationOffset: 0,
