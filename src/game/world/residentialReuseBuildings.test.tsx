@@ -14,10 +14,12 @@ import { resolveGlbUrl } from '../assets/modelRegistry'
  * of the twenty-three newly mapped lots (the first five on `arch_house_01`, fifteen 5 x 5 lots on
  * `arch_residential_house_01` or the compact `arch_house_01_compact` calibration, and three compiled
  * townhouse lots on the Wave 3 row-house row `building_townhomes_01`; pinned in
- * `assets/residentialTownhouseContract.test.ts`):
+ * `assets/residentialTownhouseContract.test.ts`) — and, for issue #60, the two compiled Marts on the
+ * Wave 3 shop row `building_shop_01` (pinned in `assets/commercialMartsContract.test.ts`):
  *
  *  - a loaded archetype renders exactly ONE body, with no procedural shell or overlay grid behind it;
- *  - a failed load renders the COMPLETE procedural house the lot had before;
+ *  - a failed load renders the COMPLETE procedural building the lot had before;
+ *  - an authored sign survives both branches;
  *  - the archetype calibration sits on the primitive and the door yaw on the nested projection group.
  */
 
@@ -52,6 +54,9 @@ const MAPPED: Record<string, string> = {
   's1_-1_s2': 'building_townhomes_01',
   's1_-2_s2': 'building_townhomes_01',
   's2_-1_n4': 'building_townhomes_01',
+  // Issue #60: Main St Mart and North Mart on the Wave 3 shop row (commercialMartsContract.test.ts).
+  's1_-1_s1': 'building_shop_01',
+  's1_-2_s1': 'building_shop_01',
 }
 
 function glbScene(): THREE.Group {
@@ -125,6 +130,8 @@ describe('issue #55 — one reused house body renders, never two', () => {
         renderer.scene.findAll((n) => String(n.props.name ?? '').startsWith('window-overlay:')).length,
         `${id} overlay grids`,
       ).toBe(0)
+      const label = BUILDINGS.find((b) => b.id === id)!.label
+      if (label) expect(renderer.scene.findAll((n) => n.props.name === `world-label:${label}`).length, `${id} sign`).toBe(1)
       await renderer.unmount()
     })
 
@@ -133,6 +140,8 @@ describe('issue #55 — one reused house body renders, never two', () => {
       const renderer = await ReactThreeTestRenderer.create(<Buildings only={[id]} />)
       const slot = placementObject(renderer, id).getObjectByName(`asset:${assetId}`)!
       expect(countNamed(slot, 'glb-root'), `${id} no model`).toBe(0)
+      const failedLabel = BUILDINGS.find((b) => b.id === id)!.label
+      if (failedLabel) expect(renderer.scene.findAll((n) => n.props.name === `world-label:${failedLabel}`).length, `${id} sign on the fallback`).toBe(1)
       const failed = meshSignatures(slot)
       await renderer.unmount()
 

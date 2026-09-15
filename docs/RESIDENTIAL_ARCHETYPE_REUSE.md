@@ -119,13 +119,13 @@ The three compiled `townhouse` lots (7 × 6 × 7) that still rendered the proced
 - **Projection:** `{ assetId: 'building_townhomes_01', referenceSize: [7, 6, 7], canonicalFacing: 'south', maxScaleDeviation: 0 }` — uniform and facing-only. The body renders 6.961189 × 7.951500 × 5.286783 m with its base at the ground, max half-extent 3.4998 of the lot's 3.5 under the applied yaw.
 - **Roof above the box:** the 7.9515 m rendered top is taller than the 6 m authored box (6.5 m with its roof slab). The occluder keeps the authored footprint and covers the projected top, the same policy as the Wave 3 townhomes placement; no box-height waiver.
 - **Unchanged:** ids, positions, sizes, doors, labels (none), template colours and the procedural fallback, front-detail props, colliders and routes; the row-house manifest row and its own `building_townhomes_01` placement. No apartment interaction is added.
-- **Counts (current, slice 3):** **37** of 73 authored placements are mapped to a GLB body in the exported `BUILDINGS` (28 projections + 9 own-row bodies). That is mapping intent, not a count of bodies that render and not visual acceptance.
+- **Counts (slice 3; issue #60's two Marts later raise it to 39):** **37** of 73 authored placements are mapped to a GLB body in the exported `BUILDINGS` (28 projections + 9 own-row bodies). That is mapping intent, not a count of bodies that render and not visual acceptance.
 
 **Status:** source, CPU tests and one bounded in-game run whose framing check is false. See [Slice 3 evidence and status](#slice-3-evidence-and-status-2026-09-15).
 
 ## What stays out
 
-- **Other building roles.** Every `building_house_*` lot and every compiled townhouse lot is now mapped. Several shop, office and other placements already carry their own row bodies and are not changed here. The **remaining unmapped** shops, cafés, depots, warehouses, offices, towers and the waterfront free lot stay procedural; each needs its own role decision.
+- **Other building roles.** Every `building_house_*` lot and every compiled townhouse lot is now mapped. Several shop, office and other placements already carry their own row bodies and are not changed here. Main St Mart and North Mart are mapped by a separate commercial slice, issue #60 ([`COMMERCIAL_SHOP_REUSE.md`](COMMERCIAL_SHOP_REUSE.md)), which raises the mapped count to 39 of 73. The **remaining unmapped** shops, cafés, depots, warehouses, offices, towers and the waterfront free lot stay procedural; each needs its own role decision.
 - **Wave 3's config and provenance.** They still record Wave 3's own four house placements. This expansion is recorded here and pinned by its own contracts instead.
 - **Issue #58** (walkway surface vs collider contact), label offsets, and any global scaling framework.
 

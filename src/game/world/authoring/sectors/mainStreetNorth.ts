@@ -31,7 +31,9 @@ export const MAIN_STREET_NORTH_SPEC: SectorAuthoringSpec = {
     { localId: 'n2', templateId: 'storefront_lot', roadLocalId: 'north_ave', side: 'left', at: 0.5, buildingTemplateId: 'cafe_shopfront', label: 'North Perk', labelColor: '#ffdf9e', details: true },
     { localId: 'n3', templateId: 'tower_lot', roadLocalId: 'north_ave', side: 'left', at: 0.72, buildingTemplateId: 'mixed_use_block', details: true },
     // South side (right of eastbound travel).
-    { localId: 's1', templateId: 'storefront_lot', roadLocalId: 'north_ave', side: 'right', at: 0.4, buildingTemplateId: 'small_shop', label: 'North Mart', labelColor: '#fff3c9', details: true },
+    // Issue #60: the shipped Wave 3 shop body at its existing uniform fit — visual only, facing-only.
+    { localId: 's1', templateId: 'storefront_lot', roadLocalId: 'north_ave', side: 'right', at: 0.4, buildingTemplateId: 'small_shop', label: 'North Mart', labelColor: '#fff3c9', details: true,
+      visual: { assetId: 'building_shop_01', referenceSize: [6, 5, 6], canonicalFacing: 'south', maxScaleDeviation: 0 } },
     // Issue #55: the shipped Wave 3 row-house body at its existing uniform fit — visual only, facing-only.
     { localId: 's2', templateId: 'storefront_lot', roadLocalId: 'north_ave', side: 'right', at: 0.6, buildingTemplateId: 'townhouse', details: true,
       visual: { assetId: 'building_townhomes_01', referenceSize: [7, 6, 7], canonicalFacing: 'south', maxScaleDeviation: 0 } },
