@@ -28,6 +28,8 @@ const ROW_FILE_SHA256 = 'fc758a288365afa4450aa78dc03cce7d7936b6456f81ea0cf19b16c
 const BAY = 's0_-2_shop'
 /** Issue #60's two Marts on the same row, pinned in commercialMartsContract.test.ts. */
 const MARTS = ['s1_-1_s1', 's1_-2_s1']
+/** The later issue #63 office projections (a different body), pinned in commercialOfficesContract.test.ts. */
+const ISSUE_63_OFFICES = ['s1_-1_n1', 's1_-2_n1']
 
 /**
  * Digests captured with the PRE-CHANGE compiler and sources at the delivered Marts commit `097b440c`,
@@ -144,8 +146,9 @@ describe('issue #61 — Bay Supply on the shipped shop body, through a free-lot 
       return Boolean(entry?.enabled && entry.glbPath)
     })
     // Mapped placements (own-row bodies + projections), not unique assets and not visual acceptance.
-    expect(glbBodies.length, 'mapped placements').toBe(40)
-    expect(BUILDINGS.filter((b) => b.visual).length, 'visual-projected placements').toBe(31)
+    // This slice made it 40 / 31; issue #63's two offices add two more.
+    expect(glbBodies.length, 'mapped placements').toBe(40 + ISSUE_63_OFFICES.length)
+    expect(BUILDINGS.filter((b) => b.visual).length, 'visual-projected placements').toBe(31 + ISSUE_63_OFFICES.length)
     expect(BUILDINGS.length, 'authored placements').toBe(73)
   })
 
@@ -161,7 +164,7 @@ describe('issue #61 — Bay Supply on the shipped shop body, through a free-lot 
   })
 
   it('every other placement, every prop, every destination and the pedestrian graph are unchanged', () => {
-    const withoutBay = BUILDINGS.map((b) => (b.id === BAY
+    const withoutBay = BUILDINGS.map((b) => (b.id === BAY || ISSUE_63_OFFICES.includes(b.id)
       ? Object.fromEntries(Object.entries(b).filter(([key]) => key !== 'visual'))
       : b))
     expect({

@@ -239,6 +239,8 @@ export const ASSET_MANIFEST: AssetManifestEntry[] = [
     // authored 9.5 height exactly and lands 4.98 × 9.50 × 5.07 — strictly INSIDE the
     // authored 7×7 footprint. Colliders, entrance anchors, window overlays, labels and
     // occlusion still come from cityLayout, never from the model.
+    // Issue #63 also projects this unchanged row onto Main St Offices and North Exchange (two 8 × 12 × 8
+    // compiled lots, canonical west, yaw π/2), pinned in commercialOfficesContract.test.ts.
     glbPath: 'assets/models/city/arch_office_01.glb',
     fallbackKey: 'BuildingMesh',
     scale: [0.9501, 0.9501, 0.9501],
