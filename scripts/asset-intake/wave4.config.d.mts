@@ -14,8 +14,23 @@ export interface Wave4CharacterSource {
   sources: Record<string, string>
   expect: Record<string, Wave4SourceExpectation>
   base: string
+  /** Issue #27 named slice: the reviewed Idle-only derivation applied after assembly (Maya, Bruno only). */
+  idleDerivation?: Wave4IdleDerivation
   attribution: string
   license: string
+}
+
+export interface Wave4IdleDerivation {
+  id: string
+  label: string
+  /** Pinned per-body upper-arm abduction from the reviewed calibration. */
+  upperLateralDeg: number
+  /** The assembled body the derivation must start from. */
+  baseSha256: string
+  baseBytes: number
+  /** The reviewed candidate the derivation must reproduce exactly. */
+  outputSha256: string
+  review: string
 }
 
 export interface Wave4VehicleSource {
