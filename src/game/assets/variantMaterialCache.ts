@@ -102,6 +102,43 @@ export function variantCacheStats(): { keys: number; materials: number } {
   return { keys: cache.size, materials }
 }
 
+/** One cached key and the identity of each shared material it holds, as plain data. */
+export interface VariantCacheSnapshotEntry {
+  readonly key: string
+  readonly materials: readonly { readonly name: string; readonly uuid: string; readonly type: string }[]
+}
+
+/** The whole cache, as plain data: the aggregate stats plus every entry, sorted by key then name. */
+export interface VariantCacheSnapshot {
+  readonly keys: number
+  readonly materials: number
+  readonly entries: readonly VariantCacheSnapshotEntry[]
+}
+
+/**
+ * DEV/test (issue #67): an immutable, plain-data snapshot of what the cache actually holds — every key and the
+ * name/uuid/type of each shared material. No THREE object, Map or function escapes, so a reader can attribute
+ * ownership without being able to retain, mutate, dispose or clear a cached material. Taken on demand; the cache
+ * records nothing extra and its lifetime is unchanged.
+ */
+export function variantCacheSnapshot(): VariantCacheSnapshot {
+  const byString = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0)
+  const entries = [...cache.entries()]
+    .sort(([a], [b]) => byString(a, b))
+    .map(([key, set]) =>
+      Object.freeze({
+        key,
+        materials: Object.freeze(
+          [...set.values()]
+            .map((m) => Object.freeze({ name: m.name, uuid: m.uuid, type: m.type }))
+            .sort((a, b) => byString(a.name, b.name) || byString(a.uuid, b.uuid)),
+        ),
+      }),
+    )
+  const stats = variantCacheStats()
+  return Object.freeze({ keys: stats.keys, materials: stats.materials, entries: Object.freeze(entries) })
+}
+
 /** Test-only: clear the process cache between cases. */
 export function _resetVariantMaterialCache(): void {
   cache.clear()
