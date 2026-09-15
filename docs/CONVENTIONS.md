@@ -740,6 +740,38 @@ Three traps worth naming:
   that an NPC is 2.93 m; it is that swapping its body must not change its size, because the crowd,
   the camera framing and everything anchored to it were tuned against the old one.
 
+### 43. `<primitive>` is never auto-disposed — release what the instance CLONED, and nothing shared
+
+React Three Fiber deliberately skips disposal for `<primitive object={…}>`, because the object's
+lifetime may be owned outside React. `AnimatedCharacter` renders a `SkeletonUtils.clone` of the cached
+GLB that way, and `SkeletonUtils.clone` gives **every skinned mesh its own skeleton clone**. three's
+WebGLRenderer allocates a float `boneTexture` for each of those clones on first draw. The effect
+cleanup disposed the animation mixer and the isolated wardrobe materials, but not the clones' bone
+textures, so every unmount stranded them: an LOD demotion, a sector stream-out, a respawn. Issue #53
+measured it on a matched hardware run over three near → reduced → near excursions with the same
+characters mounted: retained renderer textures grew **+69 per later cycle** without the cleanup
+(213 → 287 → 356 → 425, past the 300 guardrail) and stayed **flat** with it (143 → 148 → 148 → 148).
+A settled-state registry looked clean the whole time.
+
+The rule is ownership, not "dispose on unmount":
+
+- **Release only what the instance created.** Those are the cloned skeletons' bone textures
+  (`disposeOwnedSkeletons(instance.scene, instance.source)`) and the isolated materials. Geometries
+  are shared by `Mesh.clone`, and the source scene belongs to drei's GLTF cache — disposing either
+  breaks every other instance and the next mount.
+- **Pass the source and exclude it.** Skip any skeleton or bone texture still reachable from the
+  shared source scene, and dispose each distinct texture once. A clone that was never rebound, or an
+  aliased texture, must not take the cache down with it.
+- **Do it in the effect cleanup, not in render or `useMemo`.** Disposal nulls `boneTexture`, and the
+  renderer recreates it on the next draw of the SAME memoized clone, so StrictMode/HMR remounts stay
+  healthy (gotcha #2). The cost is one bounded release-and-reallocate per remount.
+- **Prove it through the real component and a real cleanup boundary.** StrictMode's initial replay runs
+  before any texture exists, so it cannot prove reuse. Force an effect re-run on the same memoized clone
+  after allocation, and assert the dispose event and null reference at that boundary.
+
+`src/game/characters/ProofStaticModel.tsx` (DEV-only) renders an unreleased skeleton clone the same
+way. It is a known adjacent gap, not a production path.
+
 ## The verification workflow (honest gates)
 
 For any non-trivial change, run in this order and **read the counts, not a
