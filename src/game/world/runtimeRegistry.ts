@@ -74,9 +74,10 @@ export const registry = {
    * showing the fallback) or was never asked for.
    *
    * REFERENCE-COUNTED per branch, not a single value (issue #46 §4). One archetype backs several
-   * placements — `arch_house_01` renders four houses — and sector streaming mounts and unmounts
-   * them independently. With a single value, the first instance to unmount cleared the branch for
-   * the three still on screen, and one instance's 'active' silently overwrote another's 'failed'.
+   * placements — `arch_house_01` renders nine houses (Wave 3's four + issue #55's five) — and sector
+   * streaming mounts and unmounts them independently. With a single value, the first instance to
+   * unmount cleared the branch for the others still on screen, and one instance's 'active' silently
+   * overwrote another's 'failed'.
    * Counting per branch makes the answer instance-independent: any active instance means the GLB
    * body is what renders; only when none is active and at least one has failed does the fallback
    * win.

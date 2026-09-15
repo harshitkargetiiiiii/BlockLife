@@ -395,7 +395,7 @@ export const ASSET_MANIFEST: AssetManifestEntry[] = [
   {
     ...defaults,
     id: 'arch_house_01',
-    label: 'Detached-house archetype (issue #44 Wave 3, four placements)',
+    label: 'Detached-house archetype (issue #44 Wave 3 + issue #55 reuse, nine placements)',
     category: 'city',
     // The ONE reusable archetype of this wave: a single downloaded, cloned scene backs four
     // authored house placements — `building_house_01` (central), `building_house_r2` (north
@@ -404,6 +404,10 @@ export const ASSET_MANIFEST: AssetManifestEntry[] = [
     // It is deliberately NOT applied to the other authored houses: `building_house_r1` keeps
     // the issue #25 `arch_residential_house_01` archetype and the remaining house shapes stay
     // procedural, so the streets keep their variety.
+    //
+    // Issue #55 then reuses this SAME row, unchanged, on five more lots with the identical
+    // 5.5 x 5.5 footprint (`building_house_r4`, `_w4`, `_w6`, `_s4`, `_s6`), still facing-only.
+    // The 5 x 5 lots stay procedural: they need a second correctly fitted size class.
     //
     // Measured local bbox 5.7735 × 4.9995 × 5.3216, origin at the base (the model's own ground
     // pad is inside that box). Cardinals: the front door, porch posts and steps are on the +z

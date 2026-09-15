@@ -39,6 +39,12 @@ district/central area on purpose. `building_house_r1` keeps its issue #25
 residential streets keep their variety. `wave3Contract.test.ts` carries the negative assertion
 for every unselected building in `BUILDINGS`.
 
+> **Later expansion (issue #55).** The same `arch_house_01` row, unchanged, now also backs five
+> more lots with the identical 5.5 × 5.5 footprint (`building_house_r4`, `_w4`, `_w6`, `_s4`,
+> `_s6`). This section still describes Wave 3's own nine placements; the expansion, its narrowed
+> negative assertion and its own contract are in
+> [RESIDENTIAL_ARCHETYPE_REUSE.md](RESIDENTIAL_ARCHETYPE_REUSE.md).
+
 ## Two wiring paths, both pre-existing
 
 | Path | Used by | Why |

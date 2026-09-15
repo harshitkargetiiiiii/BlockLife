@@ -93,8 +93,8 @@ export function markGlbBranch(assetId: string, branch: 'active' | 'failed'): voi
  *
  * Sector streaming remounts these constantly and one archetype backs several placements, so the
  * release has to be per instance and per branch (issue #46 §4). The previous
- * `clearGlbBranch(assetId)` deleted the whole entry, which meant one of four houses unmounting
- * told the world the other three were no longer rendering their GLB.
+ * `clearGlbBranch(assetId)` deleted the whole entry, which meant one house unmounting told the
+ * world the others sharing its archetype were no longer rendering their GLB.
  */
 export function releaseGlbBranch(assetId: string, branch: 'active' | 'failed'): void {
   const counts = registry.glbAssetState.get(assetId)

@@ -201,7 +201,7 @@ describe('issue #46 §4 — GLB census lifetime', () => {
   })
 
   it('one archetype, several placements: unmounting one does not clear the branch of the rest', async () => {
-    // `arch_house_01` backs four houses and sector streaming mounts them independently. With a
+    // `arch_house_01` backs nine houses and sector streaming mounts them independently. With a
     // single-valued branch map, the first to unmount told the world the others had stopped
     // rendering their GLB.
     const glbScene = new THREE.Group()

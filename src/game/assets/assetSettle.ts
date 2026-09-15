@@ -166,8 +166,8 @@ export interface AssetBranchLists {
  * still pending, the second wait passes, and the shot is taken mid-load. Evaluating both in the
  * same instant closes that.
  *
- * `glbActive` and `glbFailed` are independent, not an either/or: `arch_house_01` backs four
- * placements, so it can legitimately be BOTH — three committed, one fell back — and a shot that
+ * `glbActive` and `glbFailed` are independent, not an either/or: `arch_house_01` backs nine
+ * placements, so it can legitimately be BOTH — some committed, one fell back — and a shot that
  * names it must not pass while a procedural house is in frame. So a required id has to be active
  * AND not failed.
  */

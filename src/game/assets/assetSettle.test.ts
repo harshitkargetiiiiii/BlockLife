@@ -242,7 +242,7 @@ describe('scene-ready gate (settled AND the named bodies are up)', () => {
   })
 
   it('a MIXED archetype — three committed, one fell back — is not ready', () => {
-    // arch_house_01 backs four placements. If one instance fails, a procedural house is in the
+    // arch_house_01 backs nine placements. If one instance fails, a procedural house is in the
     // frame; the id is legitimately in BOTH lists and a shot that names it must not pass.
     const mixed = branches(['arch_house_01'], ['arch_house_01'])
     expect(isSceneReady(settled, mixed, now, ['arch_house_01'])).toBe(false)

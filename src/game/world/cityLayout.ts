@@ -434,6 +434,16 @@ export const BUILDINGS: BuildingDef[] = [
     roofColor: '#9b8455',
     door: 'south',
     accentColor: '#8fb8a8',
+    // Issue #55: reuse of the SAME approved detached-house archetype on a 5.5 x 5.5 lot, exactly
+    // as Wave 3 projects it (see building_house_01). PURELY VISUAL — `maxScaleDeviation: 0` keeps
+    // the body undistorted even though this lot's authored height differs from the reference;
+    // the collider, entrance anchor and occluder footprint stay keyed to this placement.
+    visual: {
+      assetId: 'arch_house_01',
+      referenceSize: [5.5, 4.5, 5.5],
+      canonicalFacing: 'south',
+      maxScaleDeviation: 0,
+    },
   },
   // Future-use landmark: visual only, no interactable entry.
   {
@@ -552,6 +562,13 @@ export const BUILDINGS: BuildingDef[] = [
     roofColor: '#7d9460',
     door: 'east',
     accentColor: '#ffd166',
+    // Issue #55: approved detached-house archetype reuse — see building_house_r4.
+    visual: {
+      assetId: 'arch_house_01',
+      referenceSize: [5.5, 4.5, 5.5],
+      canonicalFacing: 'south',
+      maxScaleDeviation: 0,
+    },
   },
   {
     id: 'building_house_w5',
@@ -581,6 +598,13 @@ export const BUILDINGS: BuildingDef[] = [
     roofColor: '#8a5f85',
     door: 'west',
     accentColor: '#e8c9e4',
+    // Issue #55: approved detached-house archetype reuse — see building_house_r4.
+    visual: {
+      assetId: 'arch_house_01',
+      referenceSize: [5.5, 4.5, 5.5],
+      canonicalFacing: 'south',
+      maxScaleDeviation: 0,
+    },
   },
 
   // ---- Residential South (City Expansion v2): sunny row homes ----
@@ -631,6 +655,13 @@ export const BUILDINGS: BuildingDef[] = [
     roofColor: '#9b8455',
     door: 'south',
     accentColor: '#e07a5f',
+    // Issue #55: approved detached-house archetype reuse — see building_house_r4.
+    visual: {
+      assetId: 'arch_house_01',
+      referenceSize: [5.5, 4.5, 5.5],
+      canonicalFacing: 'south',
+      maxScaleDeviation: 0,
+    },
   },
   {
     id: 'building_house_s5',
@@ -649,6 +680,13 @@ export const BUILDINGS: BuildingDef[] = [
     roofColor: '#7d9460',
     door: 'north',
     accentColor: '#d9825f',
+    // Issue #55: approved detached-house archetype reuse — see building_house_r4.
+    visual: {
+      assetId: 'arch_house_01',
+      referenceSize: [5.5, 4.5, 5.5],
+      canonicalFacing: 'south',
+      maxScaleDeviation: 0,
+    },
   },
   {
     id: 'building_deli_s1',
