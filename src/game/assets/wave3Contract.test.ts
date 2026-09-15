@@ -213,9 +213,13 @@ describe('issue #44 Wave 3 — production building GLB contract (real bytes)', (
     // projection of that one archetype, are exempt from the negative assertion below; this test
     // still pins Wave 3's own nine placements.
     const ISSUE_55_REUSE = new Set(['building_house_r4', 'building_house_s4', 'building_house_s6', 'building_house_w4', 'building_house_w6'])
+    // Issue #55's townhouse slice projects the Wave 3 row-house row onto exactly these three compiled
+    // townhouse lots, pinned in residentialTownhouseContract.test.ts.
+    const ISSUE_55_TOWNHOUSE = new Set(['s1_-1_s2', 's1_-2_s2', 's2_-1_n4'])
     for (const def of BUILDINGS) {
       if (projected.has(def.id)) continue
-      const issue55Reuse = ISSUE_55_REUSE.has(def.id) && def.visual?.assetId === 'arch_house_01'
+      const issue55Reuse = (ISSUE_55_REUSE.has(def.id) && def.visual?.assetId === 'arch_house_01')
+        || (ISSUE_55_TOWNHOUSE.has(def.id) && def.visual?.assetId === 'building_townhomes_01')
       // NEGATIVE ASSERTION: an unselected building must not resolve to a Wave 3 body, either
       // through its own manifest row or through a BuildingDef.visual projection.
       expect(wave3Ids.has(def.id), `${def.id} must not be a Wave 3 asset id`).toBe(false)
@@ -235,6 +239,7 @@ describe('issue #44 Wave 3 — production building GLB contract (real bytes)', (
       if (!entry?.glbPath || !wave3Files.has(entry.glbPath)) continue
       const allowed = (ISSUE_55_REUSE.has(def.id) && entry.id === 'arch_house_01')
         || (ISSUE_55_COMPACT.has(def.id) && entry.id === 'arch_house_01_compact')
+        || (ISSUE_55_TOWNHOUSE.has(def.id) && entry.id === 'building_townhomes_01')
       expect(allowed, `${def.id} draws a Wave 3 body file through ${entry.id}`).toBe(true)
     }
     // The four Wave 3 house placements are one-per-district on purpose; the other authored houses

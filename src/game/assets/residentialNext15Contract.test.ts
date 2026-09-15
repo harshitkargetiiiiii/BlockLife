@@ -63,6 +63,8 @@ const NEXT15_IDS = Object.keys(NEXT15)
 /** The first issue #55 slice (PR #57's five). */
 const FIRST5 = ['building_house_r4', 'building_house_w4', 'building_house_w6', 'building_house_s4', 'building_house_s6']
 const TWENTY = new Set([...FIRST5, ...NEXT15_IDS])
+/** The later townhouse slice's three, pinned in residentialTownhouseContract.test.ts. */
+const TOWNHOUSE_SLICE = ['s1_-1_s2', 's1_-2_s2', 's2_-1_n4']
 
 /** Every placement that master (d81d73dd) already projected through BuildingDef.visual. */
 const MASTER_MAPPED: string[] = ['building_house_01', 'building_house_r1', 'building_house_r2', 'building_house_s2', 'building_house_w2']
@@ -131,7 +133,7 @@ describe('issue #55 next slice — fifteen 5 x 5 house lots on two existing bodi
     }
   })
 
-  it('adds exactly twenty mappings relative to master: the first slice\'s five plus these fifteen', () => {
+  it('adds exactly twenty house mappings relative to master (plus the townhouse slice\'s three, pinned separately)', () => {
     const mapped = BUILDINGS.filter((b) => b.visual).map((b) => b.id).sort()
     // A placement renders an approved GLB body either through its own enabled manifest row or through
     // a BuildingDef.visual projection of one; both count as a mapped placement.
@@ -140,10 +142,10 @@ describe('issue #55 next slice — fifteen 5 x 5 house lots on two existing bodi
       return Boolean(entry?.enabled && entry.glbPath)
     }).map((b) => b.id).sort()
     expect(glbBodies.filter((id) => !mapped.includes(id)), 'own-row GLB bodies, exactly as on master').toEqual(OWN_ROW_BODIES)
-    expect(mapped.length, 'visual-projected placements (master\'s 5 + these 20)').toBe(25)
-    expect(mapped.filter((id) => !MASTER_MAPPED.includes(id)), 'added since master').toEqual([...TWENTY].sort())
+    expect(mapped.length, 'visual-projected placements (master\'s 5 + these 20 + the townhouse slice\'s 3)').toBe(28)
+    expect(mapped.filter((id) => !MASTER_MAPPED.includes(id)), 'added since master').toEqual([...TWENTY, ...TOWNHOUSE_SLICE].sort())
     expect(MASTER_MAPPED.filter((id) => !mapped.includes(id)), 'nothing master mapped was dropped').toEqual([])
-    expect(glbBodies.length, 'mapped placements (own-row + projected GLB bodies)').toBe(34)
+    expect(glbBodies.length, 'mapped placements (own-row + projected GLB bodies)').toBe(37)
     expect(BUILDINGS.length, 'authored placements').toBe(73)
     // Mapped placements, not unique assets and not visual acceptance.
     const byAsset = (assetId: string) => BUILDINGS.filter((b) => b.visual?.assetId === assetId).map((b) => b.id).sort()
@@ -155,7 +157,7 @@ describe('issue #55 next slice — fifteen 5 x 5 house lots on two existing bodi
   })
 
   it('every other placement — and every prop — is exactly what master exported', () => {
-    const withoutTheTwenty = BUILDINGS.map((b) => (TWENTY.has(b.id)
+    const withoutTheTwenty = BUILDINGS.map((b) => (TWENTY.has(b.id) || TOWNHOUSE_SLICE.includes(b.id)
       ? Object.fromEntries(Object.entries(b).filter(([key]) => key !== 'visual'))
       : b))
     expect({ buildings: sha256(withoutTheTwenty), props: sha256(PROPS) }, 'master export digests').toEqual({

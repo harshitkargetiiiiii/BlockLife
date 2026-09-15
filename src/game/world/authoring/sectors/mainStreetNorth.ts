@@ -32,7 +32,9 @@ export const MAIN_STREET_NORTH_SPEC: SectorAuthoringSpec = {
     { localId: 'n3', templateId: 'tower_lot', roadLocalId: 'north_ave', side: 'left', at: 0.72, buildingTemplateId: 'mixed_use_block', details: true },
     // South side (right of eastbound travel).
     { localId: 's1', templateId: 'storefront_lot', roadLocalId: 'north_ave', side: 'right', at: 0.4, buildingTemplateId: 'small_shop', label: 'North Mart', labelColor: '#fff3c9', details: true },
-    { localId: 's2', templateId: 'storefront_lot', roadLocalId: 'north_ave', side: 'right', at: 0.6, buildingTemplateId: 'townhouse', details: true },
+    // Issue #55: the shipped Wave 3 row-house body at its existing uniform fit — visual only, facing-only.
+    { localId: 's2', templateId: 'storefront_lot', roadLocalId: 'north_ave', side: 'right', at: 0.6, buildingTemplateId: 'townhouse', details: true,
+      visual: { assetId: 'building_townhomes_01', referenceSize: [7, 6, 7], canonicalFacing: 'south', maxScaleDeviation: 0 } },
     { localId: 's3', templateId: 'tower_lot', roadLocalId: 'north_ave', side: 'right', at: 0.85, buildingTemplateId: 'mixed_use_block', details: true },
   ],
   linePropZones: [

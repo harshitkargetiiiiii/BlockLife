@@ -335,6 +335,8 @@ export const ASSET_MANIFEST: AssetManifestEntry[] = [
     // → 6.9612 × 7.9515 × 5.2868, half-X 3.4998 of the lot's 3.5. At 7.95 m the body is
     // 2.55 m SHORTER than the 10.5 m model it replaces, so this placement's long-standing
     // presentation overhang above its 6 m box gets smaller, not larger.
+    // Issue #55 (townhouse slice) also projects this row, unchanged, onto the three compiled townhouse
+    // lots `s1_-1_s2`, `s1_-2_s2` and `s2_-1_n4` (7 × 6 × 7, facing-only, `maxScaleDeviation: 0`).
     glbPath: 'assets/models/city/arch_row_house_01.glb',
     fallbackKey: 'BuildingMesh',
     scale: [0.8835, 0.8835, 0.8835],

@@ -204,7 +204,8 @@ describe('expansion kit features', () => {
     const { RESIDENTIAL_EAST_SPEC } = await import('./sectors/residentialEast')
     const compiled = compileSectorAuthoringSpec(RESIDENTIAL_EAST_SPEC)
     const withVisual = RESIDENTIAL_EAST_SPEC.lots.filter((lot) => lot.visual)
-    expect(withVisual.map((lot) => lot.localId).sort(), 'lots carrying a visual').toEqual(['n1', 'n2', 'n3', 's1', 's2', 's3'])
+    // The six 5 x 5 houses, plus the townhouse lot n4 (issue #55 townhouse slice).
+    expect(withVisual.map((lot) => lot.localId).sort(), 'lots carrying a visual').toEqual(['n1', 'n2', 'n3', 'n4', 's1', 's2', 's3'])
     for (const lot of RESIDENTIAL_EAST_SPEC.lots) {
       const building = compiled.buildings.find((b) => b.id === `s2_-1_${lot.localId}`)!
       if (lot.visual) {

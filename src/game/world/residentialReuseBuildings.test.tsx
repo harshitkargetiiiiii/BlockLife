@@ -11,8 +11,10 @@ import { resolveGlbUrl } from '../assets/modelRegistry'
 /**
  * Issue #55 — the RENDER-TREE half of the residential reuse contract (the byte/data half is
  * `assets/residentialReuseContract.test.ts` and `assets/residentialNext15Contract.test.ts`). For each
- * of the twenty newly mapped lots (the first five on `arch_house_01`, then fifteen 5 x 5 lots on
- * `arch_residential_house_01` or the compact `arch_house_01_compact` calibration):
+ * of the twenty-three newly mapped lots (the first five on `arch_house_01`, fifteen 5 x 5 lots on
+ * `arch_residential_house_01` or the compact `arch_house_01_compact` calibration, and three compiled
+ * townhouse lots on the Wave 3 row-house row `building_townhomes_01`; pinned in
+ * `assets/residentialTownhouseContract.test.ts`):
  *
  *  - a loaded archetype renders exactly ONE body, with no procedural shell or overlay grid behind it;
  *  - a failed load renders the COMPLETE procedural house the lot had before;
@@ -47,6 +49,9 @@ const MAPPED: Record<string, string> = {
   's2_-1_n2': 'arch_house_01_compact',
   's2_-1_s1': 'arch_house_01_compact',
   's2_-1_s3': 'arch_house_01_compact',
+  's1_-1_s2': 'building_townhomes_01',
+  's1_-2_s2': 'building_townhomes_01',
+  's2_-1_n4': 'building_townhomes_01',
 }
 
 function glbScene(): THREE.Group {

@@ -55,7 +55,9 @@ export const RESIDENTIAL_EAST_SPEC: SectorAuthoringSpec = {
     { localId: 'n1', templateId: 'house_lot', roadLocalId: 'east_ave', side: 'left', at: 0.63, buildingTemplateId: 'residential_house', details: true, visual: TERRACOTTA_HOUSE },
     { localId: 'n2', templateId: 'house_lot', roadLocalId: 'east_ave', side: 'left', at: 0.7, buildingTemplateId: 'residential_house', details: true, visual: COMPACT_RED_HOUSE },
     { localId: 'n3', templateId: 'house_lot', roadLocalId: 'east_ave', side: 'left', at: 0.77, buildingTemplateId: 'residential_house', details: true, visual: TERRACOTTA_HOUSE },
-    { localId: 'n4', templateId: 'storefront_lot', roadLocalId: 'east_ave', side: 'left', at: 0.85, buildingTemplateId: 'townhouse', details: true },
+    // Issue #55: the shipped Wave 3 row-house body at its existing uniform fit — visual only, facing-only.
+    { localId: 'n4', templateId: 'storefront_lot', roadLocalId: 'east_ave', side: 'left', at: 0.85, buildingTemplateId: 'townhouse', details: true,
+      visual: { assetId: 'building_townhomes_01', referenceSize: [7, 6, 7], canonicalFacing: 'south', maxScaleDeviation: 0 } },
     // South side (right of eastbound travel) — opposite phase to the north row.
     { localId: 's1', templateId: 'house_lot', roadLocalId: 'east_ave', side: 'right', at: 0.66, buildingTemplateId: 'residential_house', details: true, visual: COMPACT_RED_HOUSE },
     { localId: 's2', templateId: 'house_lot', roadLocalId: 'east_ave', side: 'right', at: 0.73, buildingTemplateId: 'residential_house', details: true, visual: TERRACOTTA_HOUSE },

@@ -2,7 +2,7 @@
 
 Issue #55 maps already-shipped, owner-approved house bodies onto authored residential lots that
 still rendered the procedural house. It is a mapping expansion, not an intake: **no GLB or texture
-file was added**, and no gameplay datum moved. It was implemented in two draft slices; neither is merged.
+file was added**, and no gameplay datum moved. It was implemented in three draft slices; none is merged.
 
 Mapping coverage is not visual acceptance.
 
@@ -95,20 +95,37 @@ The mix is 10 terracotta and 5 compact red. The compiled rows alternate in oppos
 `LotAuthoringSpec` and `CompiledBuilding` gain an optional `visual`, and `compileLot` copies it into the compiled building **only when authored**.
 - **No lot is dropped:** every lot without one compiles to exactly its previous output, with no `visual` key emitted.
 - **Scope:** `FreeLotAuthoringSpec` and the other authoring paths are unchanged.
-- **Residential East:** the spec's six house lots carry the projections; the `n4` townhouse lot stays procedural.
+- **Residential East:** the spec's six house lots carry the projections. *(Slice 2 state, historical:)* the `n4` townhouse lot stayed procedural; slice 3 maps it.
 
-### Counts (verified from the exported `BUILDINGS`)
+### Counts at slice 2 (verified from the exported `BUILDINGS` at `5ef710b8`; historical — slice 3 raises the mapped count to 37)
 
 - **Authored placements:** 73.
-- **Placements that render a GLB body:** **34**, counting both own-row bodies and `visual` projections.
+- **Placements mapped to a GLB body:** **34**, counting both own-row bodies and `visual` projections. That is mapping intent, not a count of bodies that render.
   - 9 own-row bodies, as on master;
   - 5 projections master already had;
   - issue #55's 20: slice 1's 5 and slice 2's 15.
 - **Unique house source files:** 2. The manifest has 3 house rows (`arch_house_01`, `arch_house_01_compact`, `arch_residential_house_01`), so the rows outnumber the files.
 
+## Slice 3 — the three compiled townhouse lots, on the shipped row-house body
+
+The three compiled `townhouse` lots (7 × 6 × 7) that still rendered the procedural box now draw the Wave 3 row-house body `building_townhomes_01` (`arch_row_house_01.glb`, `53eb375b…`) at its **existing** uniform 0.8835 calibration. No manifest row, alias, file, renderer or compiler path is added: each lot uses slice 2's optional `LotAuthoringSpec.visual`.
+
+| Placement | Position (x, z) | Authored box | Door | Applied yaw |
+|---|---|---|---|---:|
+| `s1_-1_s2` (Main Street East) | 98.96, −85.5 | 7 × 6 × 7 | north | π |
+| `s1_-2_s2` (Main Street North) | 110, −289.5 | 7 × 6 × 7 | north | π |
+| `s2_-1_n4` (Residential East) | 264.2, −110.5 | 7 × 6 × 7 | south | 0 |
+
+- **Projection:** `{ assetId: 'building_townhomes_01', referenceSize: [7, 6, 7], canonicalFacing: 'south', maxScaleDeviation: 0 }` — uniform and facing-only. The body renders 6.961189 × 7.951500 × 5.286783 m with its base at the ground, max half-extent 3.4998 of the lot's 3.5 under the applied yaw.
+- **Roof above the box:** the 7.9515 m rendered top is taller than the 6 m authored box (6.5 m with its roof slab). The occluder keeps the authored footprint and covers the projected top, the same policy as the Wave 3 townhomes placement; no box-height waiver.
+- **Unchanged:** ids, positions, sizes, doors, labels (none), template colours and the procedural fallback, front-detail props, colliders and routes; the row-house manifest row and its own `building_townhomes_01` placement. No apartment interaction is added.
+- **Counts (current, slice 3):** **37** of 73 authored placements are mapped to a GLB body in the exported `BUILDINGS` (28 projections + 9 own-row bodies). That is mapping intent, not a count of bodies that render and not visual acceptance.
+
+**Status:** source, CPU tests and one bounded in-game run whose framing check is false. See [Slice 3 evidence and status](#slice-3-evidence-and-status-2026-09-15).
+
 ## What stays out
 
-- **Other house shapes.** Every `building_house_*` lot is now mapped; the compiled `n4` townhouse lot stays procedural.
+- **Other building roles.** Every `building_house_*` lot and every compiled townhouse lot is now mapped. Several shop, office and other placements already carry their own row bodies and are not changed here. The **remaining unmapped** shops, cafés, depots, warehouses, offices, towers and the waterfront free lot stay procedural; each needs its own role decision.
 - **Wave 3's config and provenance.** They still record Wave 3's own four house placements. This expansion is recorded here and pinned by its own contracts instead.
 - **Issue #58** (walkway surface vs collider contact), label offsets, and any global scaling framework.
 
@@ -125,25 +142,31 @@ The mix is 10 terracotta and 5 compact red. The compiled rows alternate in oppos
   - no overlay grid, and distinct seeds.
 - **`src/game/assets/residentialNext15Contract.test.ts`** (slice 2):
   - both source files byte-identical;
-  - exactly **twenty** projections added relative to master, and nothing master mapped dropped;
-  - 34 GLB-body placements of 73;
+  - exactly **twenty** house projections added relative to master (plus slice 3's three townhouses, pinned in their own contract), and nothing master mapped dropped;
+  - 28 projections and 37 of 73 placements mapped to a GLB body (34 at slice 2, before slice 3's three);
   - per-body placement sets;
-  - **every other placement and every prop byte-identical to master's export** (sha256 of `BUILDINGS` with only the twenty visuals removed, and of `PROPS`);
+  - **every other placement and every prop byte-identical to master's export** (sha256 of `BUILDINGS` with only the twenty house visuals and the three townhouse visuals removed, and of `PROPS`);
   - authored facts;
   - uniform, facing-only projection;
   - **yaw containment measured from the GLB accessor bounds**;
   - the compact row sharing the red file, with the other two rows unchanged;
   - occluder height;
   - no overlays, and distinct seeds.
-- **`src/game/world/residentialReuseBuildings.test.tsx`**, for all twenty lots:
+- **`src/game/assets/residentialTownhouseContract.test.ts`** (slice 3):
+  - the shipped row-house file byte-identical and its manifest row unchanged;
+  - the three lots' exported authored facts;
+  - exactly these three projections; 37 of 73 placements mapped to a GLB body;
+  - every other placement (including the twenty earlier issue #55 mappings) and every prop hashed equal to the delivered slice 2 export;
+  - uniform facing-only projection, byte-measured yaw containment, and the occluder covering the projected 7.9515 m roof.
+- **`src/game/world/residentialReuseBuildings.test.tsx`**, for all twenty-three lots:
   - one body when loaded;
   - the complete procedural house on failure, signature-equal to a direct `BuildingMesh`;
   - calibration and base offset on the primitive, yaw on the nested projection group;
   - both red rows requesting one URL while keeping separate branch counts.
 - **`src/game/world/authoring/sectorAuthoring.test.ts`:** the lot visual reaches the compiled building, and removing the optional field changes nothing else in the compiled sector.
 - **`src/game/assets/wave3Contract.test.ts`:** its "no Wave 3 body elsewhere" rule is **narrowed, not deleted** (CONVENTIONS #39).
-  - *By manifest id:* slice 1's five are exempt, only through `arch_house_01`.
-  - *By body file:* only the five compact placements may draw a Wave 3 file, and only through `arch_house_01_compact`. A calibration row cannot bypass the id check.
+  - *By manifest id:* slice 1's five are exempt, only through `arch_house_01`, and slice 3's three townhouses, only through `building_townhomes_01`.
+  - *By body file:* outside Wave 3's own placements, only slice 1's five (through `arch_house_01`), slice 2's five compact placements (through `arch_house_01_compact`) and slice 3's three townhouses (through `building_townhomes_01`) may draw a Wave 3 file. A calibration row cannot bypass the id check.
 
 ## Slice 1 evidence and status (2026-09-15, at `8fa09443`)
 
@@ -219,4 +242,41 @@ With these, every one of the fifteen houses appears fully in frame in at least o
 - **Style:** the houses mix a cartoon terracotta texture with an aged, photographic red-house texture, and both read differently from their procedural neighbours.
 - **Repetition:** the identical red cottage appears repeatedly along each street.
 - **Roof height:** the two bodies differ by 1.297 m, which reads clearly at the ordinary camera.
+- Label/UI clearance, low-end performance and issue #58 surface contact.
+
+## Slice 3 evidence and status (2026-09-15)
+
+A bounded mapping increment for these three placements — **not final visual cohesion**, full-scene quality or low-end performance acceptance.
+
+**CPU gates** (the slice 3 source before this documentation update):
+- `tsc -b --force` 0, oxlint 0;
+- `vitest run` 192 files / 1753 tests passed; the unit logs carry texture-blob warnings;
+- build 0, dist `GAME_TEST_API` 0, `checkDistClean` clean (51 files), asset report 38 files / 0 over budget.
+
+**One owned in-game job** (headed Chromium, Apple M5 Pro Metal; 28 s; 5 PNGs; no retry; source fingerprint unchanged during the run): **12 of 13 checks true, one false.**
+- **Healthy views:** each townhouse, viewed alone at the ordinary zoom from its door side (azimuth π, π, 0; the player 6 m out on the door side), rendered the row-house model at material opacity 1.
+- **Healthy rows:** at every healthy step, all four house rows (row-house, terracotta, red, compact red) had mounted representatives rendering their model, with the branch active and never failed.
+- **Unload and return:** Main Street North `s1_-2` really unloaded (tier `unloaded`, `s1_-2_s2` unmounted) while the player stood in `s0_0`, and on return `s1_-2_s2` remounted as the model.
+- **Healthy errors:** zero request failures, page errors or console errors.
+- **Row-house file aborted:**
+  - all four mounted row-house placements — the three townhouses and Wave 3's own `building_townhomes_01` — rendered procedural, with the branch failed;
+  - terracotta, red and compact red stayed active models;
+  - one failed request, one console error and four page errors, all naming the exact aborted path, and no unrelated errors.
+- **Framing check false on all 5 PNGs.**
+  - **What it measures:** the corners of the authored 7 × 7 footprint extruded to the 7.9515 m rendered top — a conservative box, not the mesh — which must lie 8 px inside the viewport.
+  - **Result:** in every shot that box spans x 616–952.5, y −34.2–396.1, so its top lies above the image.
+  - **Native PNGs:** each healthy model, including roof, chimney and front platform, is fully in frame. The failure shot's procedural fallback has its upper roof edge cropped.
+  - **Not claimed:** all five fully framed, or a measured mesh projection in place of the check. There is no complete framing proof for the fallback.
+
+**Visual reading** (these three placements only):
+- **Street front:** in the three healthy views, front doors, windows and the porch platform face the authored street.
+- **No visible defects:** no floating base, and no duplicate procedural body.
+- **Unchanged collision and occlusion:** the taller body keeps the 6 m authored physics box and the projected-top occluder.
+- **Not implied:** doorway interaction, roof collision, hidden sides or low-end performance.
+
+**Not run:** full E2E, the visual suites and CI; this tree's CI result is unknown. **No baseline was updated.**
+
+**Still open:**
+- **Style:** the aged, photographic row-house texture reads differently from its procedural neighbours.
+- **Repetition:** the same body now appears at four placements.
 - Label/UI clearance, low-end performance and issue #58 surface contact.
