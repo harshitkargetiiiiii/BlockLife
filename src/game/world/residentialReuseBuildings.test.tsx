@@ -57,6 +57,8 @@ const MAPPED: Record<string, string> = {
   // Issue #60: Main St Mart and North Mart on the Wave 3 shop row (commercialMartsContract.test.ts).
   's1_-1_s1': 'building_shop_01',
   's1_-2_s1': 'building_shop_01',
+  // Issue #61: Bay Supply, a Waterfront free lot, on the same shop row (commercialBaySupplyContract.test.ts).
+  's0_-2_shop': 'building_shop_01',
 }
 
 function glbScene(): THREE.Group {

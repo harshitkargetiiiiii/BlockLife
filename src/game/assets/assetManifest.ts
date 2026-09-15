@@ -382,7 +382,8 @@ export const ASSET_MANIFEST: AssetManifestEntry[] = [
     // → 5.9925 × 4.824 × 4.8836 under a 6 × 5 × 6 authored box: the ONLY Wave-3 body that fits
     // inside its placement's procedural height as well as its footprint.
     // Issue #60 also projects this unchanged row onto Main St Mart and North Mart (two 6 × 5 × 6
-    // compiled lots, yaw π), pinned in commercialMartsContract.test.ts.
+    // compiled lots, yaw π), pinned in commercialMartsContract.test.ts; issue #61 onto Bay Supply
+    // (the 6 × 5 × 6 Waterfront free lot, yaw π), pinned in commercialBaySupplyContract.test.ts.
     glbPath: 'assets/models/city/arch_shop_01.glb',
     fallbackKey: 'BuildingMesh',
     scale: [1.206, 1.206, 1.206],

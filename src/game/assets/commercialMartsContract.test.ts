@@ -47,6 +47,8 @@ const MARTS: Record<string, { position: [number, number]; door: Facing; label: s
   },
 }
 const IDS = Object.keys(MARTS)
+/** The later issue #61 free-lot projection of the same row, pinned in commercialBaySupplyContract.test.ts. */
+const ISSUE_61_BAY = 's0_-2_shop'
 
 /**
  * sha256 of BUILDINGS (with ONLY these two lots' `visual` removed) and of PROPS exactly as the
@@ -150,20 +152,21 @@ describe('issue #60 — Main St Mart and North Mart on the shipped shop body', (
     }
   })
 
-  it('adds exactly these two mappings: 39 of 73 placements mapped to a GLB body', () => {
-    expect(BUILDINGS.filter((b) => b.visual?.assetId === ROW).map((b) => b.id).sort(), 'projections of the shop body').toEqual([...IDS].sort())
+  it('adds exactly these two mappings: 39 of 73 placements mapped to a GLB body (40 with issue #61\'s Bay Supply)', () => {
+    expect(BUILDINGS.filter((b) => b.visual?.assetId === ROW).map((b) => b.id).sort(), 'projections of the shop body').toEqual([...IDS, ISSUE_61_BAY].sort())
     const glbBodies = BUILDINGS.filter((b) => {
       const entry = ASSET_MANIFEST_BY_ID.get(b.visual?.assetId ?? b.id)
       return Boolean(entry?.enabled && entry.glbPath)
     })
     // Mapped placements (own-row bodies + projections), not unique assets and not visual acceptance.
-    expect(glbBodies.length, 'mapped placements').toBe(39)
-    expect(BUILDINGS.filter((b) => b.visual).length, 'visual-projected placements').toBe(30)
+    // This slice made it 39 / 30; issue #61's Bay Supply adds one more.
+    expect(glbBodies.length, 'mapped placements').toBe(39 + 1)
+    expect(BUILDINGS.filter((b) => b.visual).length, 'visual-projected placements').toBe(30 + 1)
     expect(BUILDINGS.length, 'authored placements').toBe(73)
   })
 
   it('every other placement — including the twenty-three issue #55 mappings — and every prop is unchanged', () => {
-    const withoutTheTwo = BUILDINGS.map((b) => (IDS.includes(b.id)
+    const withoutTheTwo = BUILDINGS.map((b) => (IDS.includes(b.id) || b.id === ISSUE_61_BAY
       ? Object.fromEntries(Object.entries(b).filter(([key]) => key !== 'visual'))
       : b))
     expect({ buildings: sha256(withoutTheTwo), props: sha256(PROPS) }, 'delivered townhouse slice export digests').toEqual({

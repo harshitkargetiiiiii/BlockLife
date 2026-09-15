@@ -219,11 +219,15 @@ describe('issue #44 Wave 3 — production building GLB contract (real bytes)', (
     // Issue #60 projects the Wave 3 shop row onto exactly Main St Mart and North Mart, pinned in
     // commercialMartsContract.test.ts.
     const ISSUE_60_MARTS = new Set(['s1_-1_s1', 's1_-2_s1'])
+    // Issue #61 projects the same shop row onto exactly Bay Supply (a Waterfront free lot), pinned in
+    // commercialBaySupplyContract.test.ts.
+    const ISSUE_61_BAY = new Set(['s0_-2_shop'])
     for (const def of BUILDINGS) {
       if (projected.has(def.id)) continue
       const issue55Reuse = (ISSUE_55_REUSE.has(def.id) && def.visual?.assetId === 'arch_house_01')
         || (ISSUE_55_TOWNHOUSE.has(def.id) && def.visual?.assetId === 'building_townhomes_01')
         || (ISSUE_60_MARTS.has(def.id) && def.visual?.assetId === 'building_shop_01')
+        || (ISSUE_61_BAY.has(def.id) && def.visual?.assetId === 'building_shop_01')
       // NEGATIVE ASSERTION: an unselected building must not resolve to a Wave 3 body, either
       // through its own manifest row or through a BuildingDef.visual projection.
       expect(wave3Ids.has(def.id), `${def.id} must not be a Wave 3 asset id`).toBe(false)
@@ -245,6 +249,7 @@ describe('issue #44 Wave 3 — production building GLB contract (real bytes)', (
         || (ISSUE_55_COMPACT.has(def.id) && entry.id === 'arch_house_01_compact')
         || (ISSUE_55_TOWNHOUSE.has(def.id) && entry.id === 'building_townhomes_01')
         || (ISSUE_60_MARTS.has(def.id) && entry.id === 'building_shop_01')
+        || (ISSUE_61_BAY.has(def.id) && entry.id === 'building_shop_01')
       expect(allowed, `${def.id} draws a Wave 3 body file through ${entry.id}`).toBe(true)
     }
     // The four Wave 3 house placements are one-per-district on purpose; the other authored houses
