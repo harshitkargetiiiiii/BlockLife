@@ -7,6 +7,12 @@ import {
   RESIDENTIAL_WEST,
 } from './cityLayout'
 import { roadMaterial, sidewalkMaterial } from './materials'
+import {
+  LEGACY_CURB_RAMP_Y,
+  LEGACY_MARKET_CURB_STRIPE_Y,
+  SIDEWALK_SLAB_CENTER_Y,
+  SIDEWALK_SLAB_THICKNESS,
+} from './surfaceHeights'
 import { Occludable } from '../visibility/Occludable'
 import { getLinkedOccluderDescriptor } from '../visibility/occluderData'
 import { suppressProceduralDouble } from '../assets/modelRegistry'
@@ -37,8 +43,9 @@ function RoadPlane({
 
 function Sidewalk({ x, z, w, d }: { x: number; z: number; w: number; d: number }) {
   return (
-    <mesh position={[x, 0.06, z]} material={sidewalkMaterial} receiveShadow castShadow>
-      <boxGeometry args={[w, 0.12, d]} />
+    // Issue #58: top on the shared 0.03 sidewalk layer (see surfaceHeights.ts).
+    <mesh position={[x, SIDEWALK_SLAB_CENTER_Y, z]} material={sidewalkMaterial} receiveShadow castShadow>
+      <boxGeometry args={[w, SIDEWALK_SLAB_THICKNESS, d]} />
     </mesh>
   )
 }
@@ -212,7 +219,7 @@ export function Districts() {
         </group>
         {/* Market curb spaces */}
         {[13.5, 17, 20.5].map((z) => (
-          <mesh key={z} rotation-x={-Math.PI / 2} position={[43.2, 0.065, z]}>
+          <mesh key={z} rotation-x={-Math.PI / 2} position={[43.2, LEGACY_MARKET_CURB_STRIPE_Y, z]}>
             <planeGeometry args={[1.8, 0.14]} />
             <meshStandardMaterial color={MARKING_COLOR} />
           </mesh>
@@ -430,7 +437,7 @@ function CityDressing() {
 
       {/* Curb ramps at every crossing */}
       {CURB_RAMPS.map(([x, z], i) => (
-        <mesh key={i} rotation-x={-Math.PI / 2} position={[x, 0.13, z]}>
+        <mesh key={i} rotation-x={-Math.PI / 2} position={[x, LEGACY_CURB_RAMP_Y, z]}>
           <planeGeometry args={[1.8, 1.1]} />
           <meshStandardMaterial color={rampColor} />
         </mesh>
