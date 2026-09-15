@@ -134,7 +134,7 @@ function withoutOfficeVisual(compiled: unknown, buildingId: string, localId: str
 }
 
 describe('issue #63 — Main St Offices and North Exchange on the shipped office body', () => {
-  it('the office body is the shipped file, byte for byte, and its row and overlay grids are unchanged', () => {
+  it('the office body is the shipped file, byte for byte, its row is unchanged, and it keeps exactly two overlay grids', () => {
     expect(createHash('sha256').update(readFileSync(`public/${ROW_FILE}`)).digest('hex')).toBe(ROW_FILE_SHA256)
     const entry = ASSET_MANIFEST_BY_ID.get(ROW)!
     expect(entry.glbPath).toBe(ROW_FILE)
@@ -147,9 +147,11 @@ describe('issue #63 — Main St Offices and North Exchange on the shipped office
     expect(entry.renderedTopY).toBe(9.5002)
     expect(entry.materialSlots).toEqual({ wall: ['wall'] })
     expect(entry.variants).toBeUndefined()
-    expect(WINDOW_OVERLAYS.filter((o) => o.buildingAssetId === ROW).map((o) => [o.facade, o.facadeDistance, o.rows, o.columns, o.seed]), 'the two existing grids').toEqual([
-      ['east', 2.51, 4, 4, 31],
-      ['south', 2.55, 4, 3, 32],
+    // Issue #64 re-authored the row's two grids onto measured glass panes (pinned and surface-checked in
+    // wave0Contract.test.ts); still two definitions with the same facades and seeds.
+    expect(WINDOW_OVERLAYS.filter((o) => o.buildingAssetId === ROW).map((o) => [o.facade, o.facadeDistance, o.rows, o.columns, o.seed]), 'the two measured pane grids').toEqual([
+      ['east', 2.13, 2, 3, 31],
+      ['south', 2.12, 2, 2, 32],
     ])
     const nook = defFor(ROW)
     expect(nook.visual, 'Nook Offices keeps its own row, no projection').toBeUndefined()

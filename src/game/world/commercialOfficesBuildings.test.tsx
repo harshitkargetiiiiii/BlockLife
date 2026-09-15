@@ -6,6 +6,8 @@ import { BUILDINGS } from './cityLayout'
 import { ASSET_MANIFEST_BY_ID } from '../assets/assetManifest'
 import { resolveBuildingVisual } from './buildingProjection'
 import { registry } from './runtimeRegistry'
+import { BuildingWindowOverlays } from './WindowOverlays'
+import { WINDOW_OVERLAYS } from './windowOverlayData'
 
 /**
  * Issue #63 — the RENDER-TREE half of the two-offices contract (the byte/data half is
@@ -127,4 +129,69 @@ describe('issue #63 — the office body renders once, with its window grids on t
       expect(boxes, `${id} door`).toContainEqual({ width: 1.4, height: 2.2, depth: 0.12, widthSegments: 1, heightSegments: 1, depthSegments: 1 })
     })
   }
+})
+
+describe('issue #64 — the measured office pane grids light a stable, distinct subset at every placement', () => {
+  /** Exact lit cells: Nook Offices keeps the authored seeds; each projected office renders with its overlaySeed. */
+  const LIT: Record<string, { seed: number | undefined; east: string[]; south: string[] }> = {
+    [ROW]: { seed: undefined, east: ['r0c0', 'r0c1', 'r0c2', 'r1c2'], south: ['r0c0', 'r0c1', 'r1c0', 'r1c1'] },
+    's1_-1_n1': { seed: resolveBuildingVisual(BUILDINGS.find((b) => b.id === 's1_-1_n1')!)!.overlaySeed, east: ['r0c0', 'r0c1', 'r0c2', 'r1c0', 'r1c2'], south: ['r0c0', 'r1c0'] },
+    's1_-2_n1': { seed: resolveBuildingVisual(BUILDINGS.find((b) => b.id === 's1_-2_n1')!)!.overlaySeed, east: ['r0c1', 'r1c0', 'r1c2'], south: ['r0c0', 'r1c0', 'r1c1'] },
+  }
+
+  /** Every instanced glow mesh the overlay renders: facade, lit cells recovered from the ACTUAL instance matrices, and the matrices. */
+  async function renderedGlow(seed: number | undefined) {
+    const renderer = await ReactThreeTestRenderer.create(<BuildingWindowOverlays assetId={ROW} seed={seed} />)
+    const meshes: { facade: string; cells: string[]; matrices: number[][] }[] = []
+    ;(renderer.scene.instance as THREE.Object3D).traverse((o) => {
+      const mesh = o as THREE.InstancedMesh
+      if (!mesh.isInstancedMesh) return
+      const facade = mesh.name.split(':').pop()!
+      const def = WINDOW_OVERLAYS.find((d) => d.buildingAssetId === ROW && d.facade === facade)!
+      const [matrix, position, rotation, scale] = [new THREE.Matrix4(), new THREE.Vector3(), new THREE.Quaternion(), new THREE.Vector3()]
+      const cells: string[] = []
+      const matrices: number[][] = []
+      for (let i = 0; i < mesh.count; i++) {
+        mesh.getMatrixAt(i, matrix)
+        matrix.decompose(position, rotation, scale)
+        // InstancedMesh stores matrices as Float32, so positions read back to ~5e-8 m, not 1e-9.
+        const [lateral, normal] = facade === 'east' ? [position.z, position.x] : [position.x, position.z]
+        const col = Math.round((lateral - def.start[0]) / def.spacing[0])
+        const row = Math.round((position.y - def.start[1]) / def.spacing[1])
+        expect([row >= 0 && row < def.rows, col >= 0 && col < def.columns], `${facade} instance ${i} is a grid cell`).toEqual([true, true])
+        expect(lateral, `${facade} r${row}c${col} lateral`).toBeCloseTo(def.start[0] + col * def.spacing[0], 6)
+        expect(position.y, `${facade} r${row}c${col} height`).toBeCloseTo(def.start[1] + row * def.spacing[1], 6)
+        expect(normal, `${facade} r${row}c${col} plane`).toBeCloseTo(def.facadeDistance, 6)
+        expect([scale.x, scale.y], `${facade} r${row}c${col} size`).toEqual(def.windowSize.map((v) => expect.closeTo(v, 6)))
+        cells.push(`r${row}c${col}`)
+        matrices.push(matrix.toArray())
+      }
+      meshes.push({ facade, cells, matrices })
+    })
+    await renderer.unmount()
+    return meshes
+  }
+
+  it('renders exactly the pinned lit cells, identically on a second mount, with two glow meshes per placement', async () => {
+    let instances = 0
+    let draws = 0
+    for (const [id, want] of Object.entries(LIT)) {
+      const first = await renderedGlow(want.seed)
+      expect(first.map((m) => m.facade).sort(), `${id} glow meshes`).toEqual(['east', 'south'])
+      expect(first.find((m) => m.facade === 'east')!.cells, `${id} east lit cells`).toEqual(want.east)
+      expect(first.find((m) => m.facade === 'south')!.cells, `${id} south lit cells`).toEqual(want.south)
+      expect(await renderedGlow(want.seed), `${id} stable across mounts`).toEqual(first)
+      instances += first.reduce((n, m) => n + m.cells.length, 0)
+      draws += first.length
+    }
+    expect([instances, draws], 'lit instances / glow draws across Nook Offices and the two offices').toEqual([21, 6])
+  })
+
+  it('no two placements light the same cells on either facade', () => {
+    for (const facade of ['east', 'south'] as const) {
+      const patterns = Object.values(LIT).map((l) => l[facade].join(','))
+      expect(new Set(patterns).size, `${facade} patterns distinct`).toBe(3)
+      for (const p of patterns) expect(p.length, `${facade} pattern nonempty`).toBeGreaterThan(0)
+    }
+  })
 })
