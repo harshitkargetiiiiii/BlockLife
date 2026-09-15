@@ -1,5 +1,6 @@
 import { ROAD_CENTER, ROAD_HALF_WIDTH } from './cityLayout'
 import { roadMaterial, sidewalkMaterial } from './materials'
+import { SIDEWALK_SLAB_CENTER_Y, SIDEWALK_SLAB_THICKNESS } from './surfaceHeights'
 
 const MARKING_COLOR = '#e8e4da'
 const GUTTER_COLOR = '#26252c'
@@ -51,7 +52,8 @@ function Crosswalk({ x, z, across }: { x: number; z: number; across: 'x' | 'z' }
 function SidewalkRing({
   inner,
   outer,
-  y = 0.06,
+  // Issue #58: top on the shared 0.03 sidewalk layer (see surfaceHeights.ts).
+  y = SIDEWALK_SLAB_CENTER_Y,
   northGap,
   eastGap,
 }: {
@@ -84,20 +86,20 @@ function SidewalkRing({
       {/* North strip (segmented around connector mouths) & south strip */}
       {northSegments.map(([from, to], i) => (
         <mesh key={`n${i}`} position={[(from + to) / 2, y, -mid]} material={sidewalkMaterial} receiveShadow castShadow>
-          <boxGeometry args={[to - from, 0.12, width]} />
+          <boxGeometry args={[to - from, SIDEWALK_SLAB_THICKNESS,width]} />
         </mesh>
       ))}
       <mesh position={[0, y, mid]} material={sidewalkMaterial} receiveShadow castShadow>
-        <boxGeometry args={[outer * 2, 0.12, width]} />
+        <boxGeometry args={[outer * 2, SIDEWALK_SLAB_THICKNESS,width]} />
       </mesh>
       {/* East strip (segmented) & west strip */}
       {eastSegments.map(([from, to], i) => (
         <mesh key={`e${i}`} position={[mid, y, (from + to) / 2]} material={sidewalkMaterial} receiveShadow castShadow>
-          <boxGeometry args={[width, 0.12, to - from]} />
+          <boxGeometry args={[width, SIDEWALK_SLAB_THICKNESS,to - from]} />
         </mesh>
       ))}
       <mesh position={[-mid, y, 0]} material={sidewalkMaterial} receiveShadow castShadow>
-        <boxGeometry args={[width, 0.12, inner * 2]} />
+        <boxGeometry args={[width, SIDEWALK_SLAB_THICKNESS,inner * 2]} />
       </mesh>
     </>
   )
