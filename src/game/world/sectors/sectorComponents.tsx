@@ -22,6 +22,9 @@ import { COMPILED_SECTORS } from '../authoring/compiledSectors'
  */
 
 const CENTRAL_BUILDINGS = getOwnedIds('s0_0', 'building')
+// Issue #68: the central root owns only its own props. Left unscoped, CityBlock/CityColliders walk the global PROPS
+// array, so every foreign prop rendered and collided here AND in its owning sector's root once that sector mounted.
+const CENTRAL_PROPS = getOwnedIds('s0_0', 'prop')
 const WEST_SHELF_BUILDINGS = getOwnedIds('s-1_0', 'building')
 const EAST_SHELF_BUILDINGS = getOwnedIds('s1_0', 'building')
 
@@ -46,10 +49,10 @@ function ShelfColliders({ ids }: { ids: readonly string[] }) {
 
 registerSectorComponents('s0_0', {
   Visuals: function CentralVisuals() {
-    return <CityBlock buildingIds={CENTRAL_BUILDINGS} />
+    return <CityBlock buildingIds={CENTRAL_BUILDINGS} propIds={CENTRAL_PROPS} />
   },
   Colliders: function CentralColliders() {
-    return <CityColliders buildingIds={CENTRAL_BUILDINGS} />
+    return <CityColliders buildingIds={CENTRAL_BUILDINGS} propIds={CENTRAL_PROPS} />
   },
 })
 

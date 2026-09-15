@@ -5,6 +5,7 @@ import {
   acquireTintedMaterials,
   assignTintedMaterials,
   variantCacheKey,
+  variantCacheSnapshot,
   variantCacheStats,
 } from './variantMaterialCache'
 import { countUniqueMaterials } from '../world/materialProbe'
@@ -111,5 +112,27 @@ describe('variantMaterialCache', () => {
     expect(variantCacheStats().keys).toBe(1)
     _resetVariantMaterialCache()
     expect(variantCacheStats()).toEqual({ keys: 0, materials: 0 })
+  })
+
+  it('issue #67: the diagnostic snapshot is frozen plain data that cannot reach or change the cache', () => {
+    const source = makeSourceScene()
+    const key = variantCacheKey('arch_house', SLOTS, undefined)
+    const tinted = acquireTintedMaterials(key, source, SLOTS, undefined)
+    const snap = variantCacheSnapshot()
+    expect(snap).toEqual({
+      keys: 1,
+      materials: 2,
+      entries: [{ key, materials: [
+        { name: 'MI_Trim', uuid: tinted.get('MI_Trim')!.uuid, type: 'MeshStandardMaterial' },
+        { name: 'MI_Wall', uuid: tinted.get('MI_Wall')!.uuid, type: 'MeshStandardMaterial' },
+      ] }],
+    })
+    expect(JSON.parse(JSON.stringify(snap)), 'nothing but plain data').toEqual(snap)
+    expect([snap, snap.entries, snap.entries[0], snap.entries[0].materials, snap.entries[0].materials[0]].every(Object.isFrozen)).toBe(true)
+    expect(() => { (snap.entries as unknown as unknown[]).push({ key: 'x', materials: [] }) }).toThrow()
+    expect(() => { (snap.entries[0].materials[0] as { uuid: string }).uuid = 'x' }).toThrow()
+    expect(variantCacheStats()).toEqual({ keys: 1, materials: 2 })
+    expect(acquireTintedMaterials(key, source, SLOTS, undefined)).toBe(tinted)
+    expect(tinted.get('MI_Wall')!.uuid).toBe(snap.entries[0].materials[1].uuid)
   })
 })

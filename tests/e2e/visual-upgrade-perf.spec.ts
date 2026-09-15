@@ -1,5 +1,7 @@
 import { test, expect, type Page } from '@playwright/test'
 import { cutOffAt, summarizeStall, type GlbRequestTiming, type ReadinessSample, type StageMark } from './assetStallReport'
+import { checkVariantCacheOwnership, consumersOfVariantCacheKey, type VariantCacheExpectation, type VariantCacheUsage } from '../../src/game/assets/variantCacheOwnership'
+import type { VariantCacheSnapshot } from '../../src/game/assets/variantMaterialCache'
 
 /**
  * Issue #25 Stage A — GLB integration + perf/material regression guard. Proves the enabled
@@ -157,14 +159,41 @@ test.describe('issue #25 Stage A — GLB integration', () => {
       uniqueMaterials: number
       variantCache: { keys: number; materials: number }
     }
+    const cache = (await call(page, 'getVariantCacheSnapshot')) as { snapshot: VariantCacheSnapshot; usage: VariantCacheUsage[] }
+    const derived = (await call(page, 'getVariantCacheExpectations')) as { expectations: VariantCacheExpectation[]; noCacheAssetIds: string[] }
+    const cacheProblems = checkVariantCacheOwnership({
+      stats: materials.variantCache,
+      snapshot: cache.snapshot,
+      usage: cache.usage,
+      expectations: derived.expectations,
+      noCacheAssetIds: derived.noCacheAssetIds,
+    })
     // eslint-disable-next-line no-console
     console.log('PERF_CAPTURE ' + JSON.stringify({ render, materials }))
+    // eslint-disable-next-line no-console
+    console.log('VARIANT_CACHE_OWNERSHIP ' + JSON.stringify({
+      snapshot: cache.snapshot,
+      consumers: Object.fromEntries(cache.snapshot.entries.map((e) => [e.key, consumersOfVariantCacheKey(cache.snapshot, cache.usage, e.key)])),
+      usage: cache.usage,
+      expectations: derived.expectations,
+      problems: cacheProblems,
+    }))
     expect(render.drawCalls, 'scene is drawing').toBeGreaterThan(0)
-    // Whole-scene material count stays well under the historical browser ceiling; the shared
-    // variant cache (unused at Stage A — the calibration house declares no palette slots yet)
-    // is empty, proving no per-instance material leak from the two new GLBs.
     expect(materials.uniqueMaterials, 'materials measured').toBeGreaterThan(0)
-    expect(materials.variantCache.keys, 'no variant cache entries at Stage A').toBe(0)
+    // Issue #25's original invariant, kept for exactly those assets: the Stage A calibration house
+    // and kiosk never own a shared variant entry.
+    expect(derived.noCacheAssetIds, 'Stage A calibration assets').toEqual(['arch_residential_house_01', 'prop_job_kiosk_01'])
+    expect(
+      cache.snapshot.entries.map((e) => e.key).filter((key) => derived.noCacheAssetIds.includes(key.split('|')[0])),
+      'no variant cache entry for the Stage A house or kiosk',
+    ).toEqual([])
+    // Issue #67: the global-zero premise is obsolete (approved office projections share one tinted
+    // set). Every actual entry must instead be a combination derived from the authored projections,
+    // hold exactly its declared slot materials once, and be rendered only by placements that project
+    // onto it. No count is relaxed: an unknown key or a second allocation still fails.
+    expect(derived.expectations.map((e) => e.key), 'the served build derives the pinned universe').toEqual(['building_office_01|wall:wall|∅'])
+    expect(cacheProblems, 'variant-cache ownership').toEqual([])
+    expect(errors, 'no pageerror at Stage A').toEqual([])
   })
 
   test('the enabled GLBs survive a sector unload→reload without errors', async ({ page }) => {

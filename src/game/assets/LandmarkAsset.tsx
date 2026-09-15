@@ -5,6 +5,7 @@ import type { AssetManifestEntry } from './assetManifest'
 import { getManifestEntry, markGlbBranch, noteGlbExpected, releaseGlbBranch, reportAssetLoadFailure, resolveGlbUrl, shouldLoadGlb } from './modelRegistry'
 import { applyVariant, createVariantInstances, disposeVariantMaterials, type MaterialVariant, type ResolvedSlots } from './assetVariants'
 import { acquireTintedMaterials, assignTintedMaterials } from './variantMaterialCache'
+import { LANDMARK_GLB_ROOT_MARKER } from './variantCacheOwnership'
 import { noteGlbLandmarkChange, registry } from '../world/runtimeRegistry'
 
 export interface LandmarkAssetProps {
@@ -152,6 +153,9 @@ function GlbModel({
   // clone/dispose); otherwise isolate this instance's declared slots per §21 §6.
   const { scene, slots } = useMemo(() => {
     const cloned = gltf.scene.clone(true)
+    // DEV/test only (issue #67): mark THIS instance's own cloned root — never the shared useGLTF source — so the
+    // variant-cache ownership diagnostic reads "a model is mounted here" from the branch itself, not from material names.
+    if (import.meta.env.DEV) cloned.userData[LANDMARK_GLB_ROOT_MARKER] = entry.id
     cloned.traverse((obj) => {
       if ((obj as THREE.Mesh).isMesh) {
         obj.castShadow = castShadow

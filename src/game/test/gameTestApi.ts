@@ -4,7 +4,9 @@ import { readAssetStageMarks, type AssetStageMark } from '../assets/assetStallPr
 import { ASSET_SETTLE_QUIET_MS, assetGraphPending, isAssetGraphSettled, isSceneReady, unresolvedByAsset, unresolvedInstances, type AssetGraphCounters, type UnresolvedAsset } from '../assets/assetSettle'
 import { perfRuntime } from '../world/perfRuntime'
 import { countUniqueMaterials, materialProbe } from '../world/materialProbe'
-import { variantCacheStats } from '../assets/variantMaterialCache'
+import { variantCacheSnapshot, variantCacheStats, type VariantCacheSnapshot } from '../assets/variantMaterialCache'
+import { collectVariantCacheUsage, type VariantCacheExpectation, type VariantCacheUsage } from '../assets/variantCacheOwnership'
+import { VARIANT_CACHE_NO_CACHE_ASSET_IDS, deriveVariantCacheExpectations, variantCacheAuthoredPlacementIds, variantCacheScannedAssetIds } from '../assets/variantCacheExpectations'
 import { socialSnapshot, getRelationship as getSocialRel, getDerivedRelationship as getSocialDerived, getMemories as getSocialMems, getContacts as getSocialContactsRt, ingestSocialEvent as ingestSocialEventRt, getInvitations as getSocialInvitationsRt, getMessages as getSocialMessagesRt, getTotalUnread as getSocialUnreadRt, reconcileOutreach as reconcileOutreachRt, getActiveActivity as getActiveActivityRt, getConfirmedPlans as getConfirmedPlansRt, reconcileMissedInvitations as reconcileMissedInvitationsRt } from '../social/socialRuntime'
 import type { SocialEvent } from '../social/socialEvents'
 import type { SocialActionId } from '../social/socialInteraction'
@@ -1113,6 +1115,13 @@ export interface GameTestApi {
     uniqueMaterials: number
     variantCache: { keys: number; materials: number }
   }
+  /** Issue #67: an immutable plain-data snapshot of the shared variant-material cache (every key and the name/uuid/type
+   *  of each cached material) plus, for every `asset:` slot of a slot-declaring or Stage A no-cache asset, the placement
+   *  it renders under and the materials its meshes show, with active occlusion fade clones resolved to the originals they
+   *  restore. Strings only: no scene reference and no mutation authority. */
+  getVariantCacheSnapshot: () => { snapshot: VariantCacheSnapshot; usage: VariantCacheUsage[]; fadeClonesResolved: number }
+  /** Issue #67: the variant-cache universe derived from authored, loadable projections, and the Stage A no-cache assets. */
+  getVariantCacheExpectations: () => { expectations: VariantCacheExpectation[]; noCacheAssetIds: string[] }
   validateSectorOwnership: () => string[]
   getGlobalRoadGraphVersion: () => number
   getAuthoringTemplates: () => Record<string, string[]>
@@ -2544,6 +2553,36 @@ export function installTestApi(): void {
     getMaterialStats: () => ({
       uniqueMaterials: countUniqueMaterials(materialProbe.scene),
       variantCache: variantCacheStats(),
+    }),
+    // Issue #67: ownership diagnostics, read on demand. Occlusion is never disabled for this: a mesh currently showing
+    // its per-occludable fade clone is attributed to the original material it restores to.
+    getVariantCacheSnapshot: () => {
+      const fadeOriginalByUuid = new Map<string, string>()
+      for (const occ of visibilityRuntime.occluders.values()) {
+        if (!occ.swapped || !occ.meshes) continue
+        for (const entry of occ.meshes) {
+          const originals = Array.isArray(entry.originalMaterial) ? entry.originalMaterial : [entry.originalMaterial]
+          const fades = Array.isArray(entry.fadeMaterial) ? entry.fadeMaterial : [entry.fadeMaterial]
+          fades.forEach((fade, i) => {
+            if (fade && originals[i] && fade !== originals[i]) fadeOriginalByUuid.set(fade.uuid, originals[i].uuid)
+          })
+        }
+      }
+      const snapshot = variantCacheSnapshot()
+      return {
+        snapshot,
+        usage: collectVariantCacheUsage(materialProbe.scene, {
+          placementIds: variantCacheAuthoredPlacementIds(),
+          assetIds: variantCacheScannedAssetIds(),
+          cachedUuids: new Set(snapshot.entries.flatMap((e) => e.materials.map((m) => m.uuid))),
+          fadeOriginalByUuid,
+        }),
+        fadeClonesResolved: fadeOriginalByUuid.size,
+      }
+    },
+    getVariantCacheExpectations: () => ({
+      expectations: deriveVariantCacheExpectations(),
+      noCacheAssetIds: [...VARIANT_CACHE_NO_CACHE_ASSET_IDS],
     }),
     validateSectorOwnership: () => validateSectorOwnership(),
     getGlobalRoadGraphVersion: () => getRoadGraph().version,

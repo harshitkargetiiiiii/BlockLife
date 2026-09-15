@@ -12,6 +12,7 @@ import type {
 } from './characterTypes'
 import { resolveClips } from './characterManifest'
 import { CharacterAnimationController } from './CharacterAnimationController'
+import { disposeOwnedSkeletons } from './characterSkeletons'
 import {
   applyCharacterAppearance,
   applyCharacterVariants,
@@ -130,7 +131,7 @@ function ModelInstance({
     if (def.skeletonRootName && !scene.getObjectByName(def.skeletonRootName)) {
       throw new Error(`skeleton root "${def.skeletonRootName}" not found`)
     }
-    return { scene, slots, resolved, clipRoles: Object.keys(resolved) }
+    return { scene, source: gltf.scene, slots, resolved, clipRoles: Object.keys(resolved) }
   }, [gltf, def])
 
   // Controller + registry state live in an effect so setup/teardown stay
@@ -149,6 +150,9 @@ function ModelInstance({
       // Disposed-but-still-assigned materials recompile on next use, so a
       // remount reusing the memoized clone stays healthy.
       disposeIsolatedMaterials(instance.slots)
+      // The clone's skeletons are ours too, and <primitive> is never auto-disposed: release
+      // their bone textures (issue #53). The renderer recreates them if the clone remounts.
+      disposeOwnedSkeletons(instance.scene, instance.source)
       info.modelLoaded = false
       info.activeVisual = 'primitive'
     }
