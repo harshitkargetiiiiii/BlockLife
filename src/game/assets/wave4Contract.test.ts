@@ -669,16 +669,18 @@ describe('issue #47 Wave 4 — named bodies are FITTED to the rig they replace',
    * The defect this gate exists for.
    *
    * The approved sprint bodies are authored at real-world human height (1.70-1.84 m). The body
-   * they replace is not: `blocklife_person` stands 2.930 m, and it is what every one of these
-   * NPCs rendered as before this wave AND what the player still renders as. Mounted at scale 1,
-   * each named resident came out at ~60 % of the player's height — visible immediately in the
-   * "player beside each named resident" baseline, and measured at a 1.674x rendered silhouette
-   * ratio against 1.665 predicted from the bytes.
+   * they replace is stylised taller: `blocklife_person`, the player's rig and each named NPC's
+   * identity fallback, has a 2.150 m maximum-variant envelope. Mounted at scale 1, each named
+   * resident came out visibly shorter than the player — first seen in the "player beside each
+   * named resident" baseline.
    *
    * The rule is the character restatement of CONVENTIONS #36: the thing being replaced sizes the
-   * body, never the reverse. Every named body must render at exactly the height its NPC had
-   * before Wave 4, so nothing anchored to that height — speech bubbles, the interaction prompt,
-   * occlusion, the crowd's read of scale — moves.
+   * body, never the reverse. Every named body renders uniformly at the reference rig's envelope —
+   * one policy for all five, not an exact match to each fallback's hair variant or registry build.
+   *
+   * Issue #56: the reference was first measured as 2.930 m from a rig whose exporter wrote
+   * identity inverse binds, so its rest joint offsets applied twice (a 0.72 m hover). A height
+   * alone cannot see that, so the reference is also required to start at its own origin.
    */
   const heights = new Map<string, number>()
   const measure = async (assetId: string): Promise<number> => {
@@ -698,6 +700,12 @@ describe('issue #47 Wave 4 — named bodies are FITTED to the rig they replace',
       `${DEFAULT_CHARACTER_ASSET_ID} measures ${measured} m, but the fitted scales were derived ` +
         `from ${RIG_HEIGHT_METERS} m. Re-derive every scale in WAVE4_NAMED_BODIES.`,
     ).toBeLessThanOrEqual(RIG_FIT_TOLERANCE_METERS)
+    // Issue #56: the 2.930 m reference floated its skinned rest pose 0.72 m above its own origin.
+    // The height gate above cannot see a float; the grounded base can.
+    const rig = await inspect(`public/${CHARACTER_ASSETS[DEFAULT_CHARACTER_ASSET_ID].modelPath}`)
+    expect(rig.groundedBounds.min[1], `${DEFAULT_CHARACTER_ASSET_ID} rest pose starts at its origin`)
+      .toBeCloseTo(0, 3)
+    expect(rig.groundedBounds.baseAtGround, `${DEFAULT_CHARACTER_ASSET_ID} grounded`).toBe(true)
   })
 
   it('every pinned height and sha still matches the committed bytes', async () => {
@@ -711,12 +719,12 @@ describe('issue #47 Wave 4 — named bodies are FITTED to the rig they replace',
     }
   })
 
-  it('each named body renders at the reference rig height, so no NPC changes size', async () => {
+  it('each named body renders uniformly at the corrected reference envelope', async () => {
     /**
      * This asserts the height the RENDERER produces, not `scale` alone. `AnimatedCharacter`
      * multiplies `def.scale` by a build vector, and that vector is non-uniform — so a gate that
-     * ignored the Y term would report Bruno at 2.930 m while he actually rendered 2.725 m
-     * ('stocky' multiplies Y by 0.93). The build comes from the same `effectiveBuildScale` the
+     * ignored the Y term would report Bruno at the rig height while he actually rendered 7 %
+     * short of it ('stocky' multiplies Y by 0.93). The build comes from the same `effectiveBuildScale` the
      * renderer calls, with that NPC's real registry appearance.
      */
     for (const [npcId, assetId] of Object.entries(WAVE4_NAMED_BODIES)) {

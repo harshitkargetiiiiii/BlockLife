@@ -148,31 +148,46 @@ The approved bodies are authored at correct real-world human height: 1.70 m (May
 (Officer Kim), 1.76 m (Ravi), 1.84 m (Bruno), each measured from the shipped bytes and matching its
 declared height exactly. That is precisely what made the first revision of this wave wrong.
 
-BlockLife's people are stylised. `blocklife_person` — the player's rig, and the body all five of
-these NPCs rendered as before this wave — measures **2.930 m**. Mounted at `scale: 1`, a correctly
-authored 1.70 m body renders at **58 %** of the height of the player standing next to it, and of
-every citizen in the crowd.
+BlockLife's people are stylised. `blocklife_person` — the player's rig, and the identity fallback of
+all five of these NPCs — has a maximum-variant envelope (body plus its tallest hair variant, `bun`)
+of **2.150 m**. Mounted at `scale: 1`, a correctly authored 1.70 m body renders visibly shorter than
+the player standing next to it. (Not than every citizen: the ambient crowd renders the same rig at
+0.82, a body of about 1.59 m.)
 
 The entire structural gate passed while this was true: canonical 24-bone rig, matching hierarchy
 signature, valid skin weights, grounded base, measured height equal to declared height. Every one
 of those checks asks whether the body is internally consistent. None of them asks whether it
 matches what it replaces. It was caught by **looking at** the `wave4-player-beside-*` baseline this
 wave adds for exactly that purpose, and then measured: a **1.674x** rendered silhouette ratio
-between the player and Ravi, against **1.665** predicted from the two bounding boxes.
+between the player and Ravi, against **1.665** predicted from the two bounding boxes (both against
+the then-defective 2.930 m rig — see the issue #56 correction below).
 
 So each body is fitted to the rig it replaces:
 
 | Body | Measured | Scale | Renders at |
 | ---- | -------: | ----: | ---------: |
-| `blocklife_ravi_01` | 1.760 m | 1.6648 | 2.9300 m |
-| `blocklife_maya_01` | 1.700 m | 1.7235 | 2.9299 m |
-| `blocklife_bruno_01` | 1.840 m | 1.5924 | 2.9300 m |
-| `blocklife_kim_01` | 1.710 m | 1.7135 | 2.9301 m |
-| `blocklife_nisha_01` | 1.700 m | 1.7235 | 2.9299 m |
-| `blocklife_person` (reference, **untouched**) | 2.930 m | 1 | 2.9300 m |
+| `blocklife_ravi_01` | 1.760 m | 1.2216 | 2.1500 m |
+| `blocklife_maya_01` | 1.700 m | 1.2647 | 2.1500 m |
+| `blocklife_bruno_01` | 1.840 m | 1.1685 | 2.1500 m |
+| `blocklife_kim_01` | 1.710 m | 1.2573 | 2.1500 m |
+| `blocklife_nisha_01` | 1.700 m | 1.2647 | 2.1500 m |
+| `blocklife_person` (reference, scale 1) | 2.150 m envelope | 1 | 2.1500 m |
 
-Each named NPC therefore renders at **exactly the height it had before Wave 4**, which is the
-invariant that matters: nothing anchored to that height moves.
+Each named NPC therefore renders uniformly at the reference rig's envelope — **one policy for all
+five**. It is not an exact match to each fallback's own height, which its hair variant and
+registry build still vary (bald 1.92 m, short/long hair 2.055 m, bun 2.150 m at build Y 1).
+
+#### Issue #56 correction: the 2.930 m reference was an exporter defect
+
+The first fits used `RIG_HEIGHT_METERS = 2.93` (scales 1.6648 / 1.7235 / 1.5924 / 1.7135 / 1.7235).
+That was not the rig. `scripts/buildCharacterGlb.mjs` bound every skin before the bones' world
+matrices were resolved, so every inverse bind was identity and each rest joint offset applied twice:
+the shipped rig floated **0.72 m** above its own origin with detached limbs, and its envelope grew by
+0.78 m. The exporter now calls `root.updateMatrixWorld(true)` before binding. The regenerated GLB
+(`440e9276…`) differs from the defective one (`7907894f…`) only in its 11 inverse-bind accessors —
+geometry, clips, nodes, joints and materials are byte-identical — and measures 2.150 m with its feet at
+y = 0. The reference, its sha pin and the five uniform fits follow it; the named GLB bytes,
+`proportions: 'authored'`, anchors, player scale 1 and the ambient 0.82 are unchanged.
 
 ### The build vector had to be switched off for these bodies
 
@@ -205,40 +220,47 @@ The registry appearance is **not** discarded for a moved NPC — it still drives
 both call it, so they cannot disagree.
 
 `wave4Contract.test.ts` asserts the **real runtime scale**: the applied vector is uniform on all
-three axes, the build resolves to [1, 1, 1], `scale x build.y x measured == 2.930 m` per body, at
-least one named NPC still carries a non-average registry build (so the check cannot pass
-vacuously), and the fallback rig still receives the NPC's own build. Removing the policy from one
-body fails it with the exact figure: `blocklife_bruno_01 renders 2.7249 m against the rig's 2.93 m`.
+three axes, the build resolves to [1, 1, 1], `scale x build.y x measured == RIG_HEIGHT_METERS`
+(2.150 m since issue #56) per body, at least one named NPC still carries a non-average registry
+build (so the check cannot pass vacuously), and the fallback rig still receives the NPC's own build.
+Removing the policy from one body failed it with the exact figure
+`blocklife_bruno_01 renders 2.7249 m against the rig's 2.93 m` against the original reference; by the
+same arithmetic the corrected reference reports 1.9995 m against 2.15 m.
 
-No baseline moved: the corrected proportions change a few thousand pixels in the frames where Kim
-or Bruno appear, well inside the 3 % tolerance, and all 16 Wave 4 NPC frames plus the three
-existing NPC-bearing baselines still match.
+*Historical Wave 4 / PR #49 evidence, measured against the then-defective 2.930 m reference — not
+issue #56 final-source evidence:* no baseline moved: the corrected proportions change a few thousand
+pixels in the frames where Kim or Bruno appear, well inside the 3 % tolerance, and all 16 Wave 4 NPC
+frames plus the three existing NPC-bearing baselines still match. Issue #56 changes every
+person-bearing frame; those baselines need their own adjudicated migration.
 
 `bounds` and `anchors` are handled differently, and the difference is not cosmetic:
 
 - **`bounds` describe the MODEL** and are validated against it, so each body keeps its own measured
   numbers (1.76 m for Ravi, and so on).
-- **`anchors` are world offsets that are NOT multiplied by `def.scale`** — they place the name label
-  and the interaction prompt. A body that now renders at the rig's height must therefore use the
-  RIG's anchors (`headY: 2.15`), or every label attached to that NPC moves relative to where it sat
-  before this wave.
+- **`anchors` are world offsets that are NOT multiplied by `def.scale`**, and each fitted body keeps
+  the RIG's (`headY: 2.15`) as declared metadata. Wave 4 described them as placing the name label and
+  the interaction prompt; they do not. No production UI reads character anchors: the NPC name label
+  (2.15), speech bubble (2.6) and quest marker (2.9) are hardcoded offsets (`NPC.tsx`,
+  `SpeechBubble.tsx`), unchanged by issue #56, so their clearance against the corrected bodies is a
+  pixel check.
 
-That exposed a pre-existing inconsistency worth recording: **`blocklife_person` declares
-`visualHeight: 1.92` but measures 2.930 m**, and 2.930 m is what it actually renders — confirmed in
-the running scene, where every mounted `blocklife_person` reports a world `Box3` of h = 2.930 with
-feet at y = 0. The declaration understates the model by 1.53x. Wave 4 does **not** correct it:
-changing it would move the PLAYER's authored bounds, which issue #47 forbids. The one place it
-surfaces is `cameraClearance.test.ts`, whose "plausible human height" upper bound is expressed in
-that declared arithmetic; bodies fitted to the rig's real size necessarily exceed it, so they are
-held to the stricter per-body equality gate in `wave4Contract.test.ts` instead, with the reason
-documented at both sites.
+Wave 4 recorded what looked like a pre-existing inconsistency: `blocklife_person` declared
+`visualHeight: 1.92` but measured 2.930 m, and the running scene was described as rendering it at
+h = 2.930 with feet at y = 0. **Issue #56 showed the declaration was right and the bytes were
+wrong.** Measured from skinned vertices in the running game, the shipped rig's body started 0.71–0.72 m
+*above* its origin — hovering, not grounded. The corrected rig measures 1.92 m bald and 2.150 m with
+its tallest hair, so `cameraClearance.test.ts` no longer exempts the fitted bodies from its
+declared-arithmetic "plausible human height" bound: each declares `scale x visualHeight` = 2.150 m,
+under it. The stricter per-body equality gate in `wave4Contract.test.ts` stays.
 
 The player is not rescaled: `blocklife_person` stays at `scale: 1`, gated explicitly.
 
-`wave4Contract.test.ts` re-measures the reference rig from its own bytes, checks every pinned
-height against the sha256 of the file it was measured from, and asserts `scale x measured ==
-2.930 m` per body — so a re-authored body fails the gate instead of silently keeping a stale scale.
-See CONVENTIONS #42.
+`wave4Contract.test.ts` re-measures the reference rig from its own bytes and requires it to start at
+its origin, checks every pinned height against the sha256 of the file it was measured from, and
+asserts `scale x measured == 2.150 m` per body — so a re-authored body fails the gate instead of
+silently keeping a stale scale. `src/game/characters/blocklifePersonRig.test.ts` gates the rig
+itself: inverse binds at the rest pose, rest skinning equal to the authored geometry, the per-variant
+envelope, and the six-slot wardrobe and variant meshes on the shipped file. See CONVENTIONS #42.
 
 ### The Wave 0 decision, narrowed rather than weakened
 

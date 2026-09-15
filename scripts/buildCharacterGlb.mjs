@@ -192,6 +192,12 @@ const VARIANT_GROUPS = {
 const root = new THREE.Group()
 root.name = 'BlockLifePerson'
 root.add(bones.Hips)
+// Resolve every bone's REST world matrix before any `mesh.bind(skeleton)` (issue #56).
+// `SkinnedMesh.bind()` updates only the mesh's own matrix, and `Skeleton.calculateInverses()`
+// inverts each bone's `matrixWorld`. Without this, every inverse bind was identity, so the rest
+// joint offsets were applied twice at runtime: a 0.72 m hover, detached limbs, and a 2.93 m
+// envelope for a rig authored at 2.15 m.
+root.updateMatrixWorld(true)
 
 let triangles = 0
 for (const [slot, def] of Object.entries(SLOTS)) {

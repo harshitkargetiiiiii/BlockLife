@@ -283,30 +283,35 @@ export const PROP_ENVELOPES = {
 export const PROVENANCE_OUT = 'docs/asset-provenance/wave4-provenance.json'
 
 /**
- * Character height fitting (issue #47 Wave 4).
+ * Character height fitting (issue #47 Wave 4; reference corrected by issue #56).
  *
  * The approved sprint bodies are authored at real-world human height (1.70-1.84 m). The rig they
- * REPLACE is not: `blocklife_person` — which every one of these NPCs rendered as before this wave,
- * and which the PLAYER still renders as — stands 2.930 m from the shipped bytes. Mounting an
- * approved body at scale 1 therefore shrinks that NPC to ~60 % of the player's height. It was
- * caught by the "player beside each named resident" baseline this wave adds, and measured: a
- * 1.674x rendered silhouette ratio between the player and Ravi, against 1.665 predicted from the
- * bytes.
+ * REPLACE is stylised taller: `blocklife_person` — the PLAYER's rig and each named NPC's identity
+ * fallback — has a maximum-variant envelope (body plus its tallest hair variant, `bun`) of 2.150 m
+ * from the shipped bytes, feet at y = 0. Mounting an approved body at scale 1 renders that NPC
+ * visibly shorter than the rig it stands in for; it was caught by the "player beside each named
+ * resident" baseline this wave adds.
  *
  * So the body is fitted to the rig, never the reverse — the same rule Wave 4 already applies to
- * props, where the authored envelope sizes the body (CONVENTIONS #36). Each named body renders at
- * `RIG_HEIGHT_METERS / heightMeters`, which restores the EXACT rendered height its NPC had before
- * this wave.
+ * props, where the authored envelope sizes the body (CONVENTIONS #36). Each named body renders
+ * uniformly at `RIG_HEIGHT_METERS / heightMeters`: the rig's ENVELOPE, one policy for all five. It is
+ * not an exact match to any one identity's fallback, whose hair variant and registry build vary.
+ *
+ * Issue #56: Wave 4 first derived these scales from 2.930 m. That number was an exporter defect,
+ * not the rig — `scripts/buildCharacterGlb.mjs` bound every skin before resolving the bones' world
+ * matrices, so every inverse bind was identity and the rest joint offsets applied twice (a 0.72 m
+ * hover, detached limbs, +0.78 m on the envelope). The exporter now resolves the rest hierarchy
+ * first; the regenerated rig measures 2.150 m and every fit below follows it.
  *
  * Every height below is measured from the committed bytes by `scripts/human-proof/inspectRig.mjs`
  * (`groundedBounds.size[1]`), and each is pinned to the sha256 of the file it was measured from, so
  * a re-authored body fails the gate instead of silently keeping a stale scale.
  */
-export const RIG_HEIGHT_METERS = 2.93
+export const RIG_HEIGHT_METERS = 2.15
 /** Tolerance on `scale x heightMeters` vs RIG_HEIGHT_METERS — 4 decimal places of scale. */
 export const RIG_FIT_TOLERANCE_METERS = 0.001
 export const RIG_FIT = {
-  blocklife_person: { heightMeters: 2.93, sha256: '7907894ffbac5b39f793cddc5c94ffc31f1b2c623932dd849ad23e9e320b8c1e' },
+  blocklife_person: { heightMeters: 2.15, sha256: '440e92761197981b7d438f1945eafb41d7c03712ce87931b412d9a71292957cb' },
   blocklife_ravi_01: { heightMeters: 1.76, sha256: 'f9ac3d5b8606c34007de89bfed05a764cfd2a4b843bb000e44fd0713488d6fe4' },
   blocklife_maya_01: { heightMeters: 1.7, sha256: '2b2de77624956433a3f7c65782bf3a315bf5f1ef8169a2b202017c415f8cdd73' },
   blocklife_bruno_01: { heightMeters: 1.84, sha256: '7abc583cf88e3def698b378477aba5dbd89603533756af694e10929b38adcdad' },

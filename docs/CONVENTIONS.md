@@ -689,10 +689,11 @@ sweep must end by freeing the port.
 
 ### 42. A character body authored at REAL human height is the wrong size for this world
 
-BlockLife's people are stylised, not scale models. `blocklife_person` — the player's rig, and the
-body every named NPC rendered as before issue #47 — measures **2.930 m** from the shipped bytes.
-An approved external body authored at a correct real-world 1.70–1.84 m is therefore **60 % of the
-size of everyone already in the city**, even though nothing about it is wrong in isolation.
+BlockLife's people are stylised, not scale models. `blocklife_person` — the player's rig, and each
+named NPC's identity fallback — has a maximum-variant envelope (body plus its tallest hair variant)
+of **2.150 m** from the shipped bytes. An approved external body authored at a correct real-world
+1.70–1.84 m therefore reads visibly short relative to the reference rig and the player, even though
+nothing about it is wrong in isolation.
 
 Issue #47 Wave 4 shipped exactly that mistake and it survived the whole contract gate: the rig was
 canonical, the skeleton signature matched, the skin weights were valid, the base was grounded, and
@@ -700,14 +701,15 @@ the intake asserted the measured height equalled the declared height — **1.70 
 declared, green**. Every check was about the body's internal consistency. None compared it to what
 it replaced. It was caught by looking at the "player beside each named resident" screenshot, and
 then measured: a **1.674x** rendered silhouette ratio between player and NPC, against **1.665**
-predicted from the two bounding boxes.
+predicted from the two bounding boxes — both against the then-defective 2.930 m rig (see the
+issue #56 trap below).
 
 **Fit the body to the thing it replaces, and gate the RENDERED height, not the authored one.** This
 is CONVENTIONS #36 restated for characters — there, an authored `propPlacement` envelope sizes a
 prop body; here, the rig's height sizes a character body:
 
 ```ts
-scale: RIG_HEIGHT_METERS / measuredHeightMeters   // 2.93 / 1.76 = 1.6648
+scale: RIG_HEIGHT_METERS / measuredHeightMeters   // 2.15 / 1.76 = 1.2216
 ```
 
 with the gate asserting `scale * measured === rig height` per body, the reference rig re-measured
@@ -719,7 +721,7 @@ a re-authored body fails instead of silently keeping a stale scale
 `def.scale x bodyBuild[axis]`, and the issue #23 build vector is NON-UNIFORM — `broad` is
 [1.13, 0.99, 1.13], `stocky` [1.08, 0.93, 1.08]. On a rig whose proportions the repo authors that
 is the point. On a fixed, owner-approved body it distorts the art AND changes the height you just
-fitted: Bruno rendered 2.725 m, not 2.930 m. Give such a body an explicit
+fitted: Bruno's `stocky` 0.93 rendered him 7 % short of the fit. Give such a body an explicit
 `proportions: 'authored'` policy, resolve it in ONE helper the renderer and the gate share, and
 assert the RUNTIME vector (uniform on all three axes, `scale x build.y x measured`) rather than
 `scale` alone — a gate that multiplies only `scale` will report the height you intended while the
@@ -729,16 +731,29 @@ rig.
 Three traps worth naming:
 
 - **The declared `bounds`/`anchors` are not the model's bounding box.** `blocklife_person` declares
-  `visualHeight: 1.92` while its GLB measures 2.930 — and 2.930 is what it renders (every mounted
-  instance reports a world `Box3` of h = 2.930 with feet at y = 0). Rendering uses the model and
-  `def.scale`; the declarations are a separate authored contract. Treat them separately: `bounds`
-  describe the MODEL, so a fitted body keeps its own; `anchors` are world offsets that are NOT
-  multiplied by `def.scale`, so a fitted body must adopt the RIG's, or every label attached to that
-  NPC moves. Expect a gate written in declared arithmetic to disagree with one written in measured
-  arithmetic — say which one each gate speaks, at the gate.
-- **"Same absolute height" is not the invariant — "same height as before" is.** The point is not
-  that an NPC is 2.93 m; it is that swapping its body must not change its size, because the crowd,
-  the camera framing and everything anchored to it were tuned against the old one.
+  `visualHeight: 1.92` — its bald body — while its envelope with the tallest hair is 2.150 m
+  (`anchors.headY` 2.15 is that bun top). Rendering uses the model and `def.scale`; the declarations
+  are a separate authored contract. Treat them separately: `bounds` describe the MODEL, so a fitted
+  body keeps its own; `anchors` are world offsets that are NOT multiplied by `def.scale`, and a
+  fitted body keeps the RIG's as declared metadata. No production UI reads them: the NPC name label
+  (2.15), speech bubble (2.6) and quest marker (2.9) are hardcoded offsets, so matching anchors
+  neither moves nor protects a label — label clearance is a pixel check. Expect a gate written
+  in declared arithmetic to disagree with one written in measured arithmetic — say which one each
+  gate speaks, at the gate.
+- **Measure the reference itself before fitting to it (issue #56).** Wave 4 first fitted all five
+  bodies to 2.930 m. That was not the rig: `scripts/buildCharacterGlb.mjs` bound its skins before
+  resolving the bones' world matrices, so every inverse bind was identity and each rest joint offset
+  applied twice — the rig floated 0.72 m above its origin with detached limbs. Every gate stayed
+  green because each pinned the height and sha of the defective bytes, and the recorded "feet at
+  y = 0" reading was never gated — skinned vertices in the running game put the body's lowest point
+  0.71–0.72 m above the origin. A reference is a reference only
+  if it binds at its rest pose and starts at its origin: gate both
+  (`src/game/characters/blocklifePersonRig.test.ts`), and when the reference is repaired, re-derive
+  every fit from it rather than compensating the repair with a scale.
+- **The invariant is one envelope policy, not an absolute or per-identity height.** The point is
+  not that an NPC is 2.15 m; it is that every fitted body follows the same measured reference, so
+  swapping a body does not change its size relative to the rig. It is an envelope: a fallback's
+  hair variant and registry build still vary around it (bald 1.92 m, short/long hair 2.055 m).
 
 ## The verification workflow (honest gates)
 
