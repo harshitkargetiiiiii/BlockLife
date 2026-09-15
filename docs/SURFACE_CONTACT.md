@@ -78,4 +78,24 @@ A bounded candidate with measured native evidence. **Not visual acceptance; issu
   - door or prop interaction beyond the approach photo.
 - **Not run:** E2E and visual suites; no baseline image was updated.
 
+
+**Stack propagation** (dependency only; not acceptance, not a merge to master):
+- **Branch:** `fix/issue-58-surface-contact` is `95a10ef2` plus the no-fast-forward merge `d371d53f` of the issues #55–#64 topic head `f62bec1f`, which brings in office commits `aa8d1108` (#63) and `f62bec1f` (#64). No rebase, squash or force.
+- **Proof the issue #58 change is untouched:** its five paths are byte-identical to `95a10ef2`, and the diff `f62bec1f`..`d371d53f` equals `c6d369bc`..`95a10ef2` byte for byte (sha256 `a9da09fa…`).
+- **Combined CPU gate at `d371d53f`:** `tsc -b --force`, oxlint and build exit 0; `vitest run` **197 files / 1806 tests passed**; dist `GAME_TEST_API` 0; `checkDistClean` clean (51 files); asset report 38 files, 0 over budget. No local E2E or native run at this head.
+- **Native results above:** they belong to their original bytes (baseline `c6d369bc`, candidate `2dfeed3c`) and were not re-run or relabelled.
+
+**Terminal CI for `95a10ef2`** (E2E run 34953615841, attempt 1, over synthetic merge `4ef213ce`, whose tree equals the `95a10ef2` tree):
+- **Result: FAILED.** 385 defined, 335 passed, 50 failed; none skipped, flaky or unrun. The static run 34953615889 succeeded.
+- **Against the immediate base `c6d369bc`** (run 34953605914, 336 passed / 49 failed): 40 failure identities in common, 10 head-only, 9 base-only.
+  - These are separate executions: a description, **not causal regression clearance**.
+  - No head-only failure is dismissed, and a base-only failure's absence here is not proof of repair.
+  - No artifacts were uploaded.
+- **The head-only failures** include overall timeouts and three specific predicates:
+  - run distance vs walk distance;
+  - civilian +z escape progress (not a floor-height check);
+  - a missing "loaded" toast.
+- **Scope:** this record belongs to `95a10ef2` only. The stacked head has no CI result.
+- **Raw logs and comparison:** `BlockLife-intake/issue58-surface-contact-2026-09-15/delivery/ci-run-34953615841/` (comparison JSON `1ab7a337…`).
+
 A negative or unobserved result must not be answered with character offsets, collision changes or weaker assertions.
