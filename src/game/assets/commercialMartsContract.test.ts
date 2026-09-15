@@ -49,6 +49,8 @@ const MARTS: Record<string, { position: [number, number]; door: Facing; label: s
 const IDS = Object.keys(MARTS)
 /** The later issue #61 free-lot projection of the same row, pinned in commercialBaySupplyContract.test.ts. */
 const ISSUE_61_BAY = 's0_-2_shop'
+/** The later issue #63 office projections (a different body), pinned in commercialOfficesContract.test.ts. */
+const ISSUE_63_OFFICES = ['s1_-1_n1', 's1_-2_n1']
 
 /**
  * sha256 of BUILDINGS (with ONLY these two lots' `visual` removed) and of PROPS exactly as the
@@ -159,14 +161,14 @@ describe('issue #60 — Main St Mart and North Mart on the shipped shop body', (
       return Boolean(entry?.enabled && entry.glbPath)
     })
     // Mapped placements (own-row bodies + projections), not unique assets and not visual acceptance.
-    // This slice made it 39 / 30; issue #61's Bay Supply adds one more.
-    expect(glbBodies.length, 'mapped placements').toBe(39 + 1)
-    expect(BUILDINGS.filter((b) => b.visual).length, 'visual-projected placements').toBe(30 + 1)
+    // This slice made it 39 / 30; issue #61's Bay Supply adds one more and issue #63's two offices two more.
+    expect(glbBodies.length, 'mapped placements').toBe(39 + 1 + ISSUE_63_OFFICES.length)
+    expect(BUILDINGS.filter((b) => b.visual).length, 'visual-projected placements').toBe(30 + 1 + ISSUE_63_OFFICES.length)
     expect(BUILDINGS.length, 'authored placements').toBe(73)
   })
 
   it('every other placement — including the twenty-three issue #55 mappings — and every prop is unchanged', () => {
-    const withoutTheTwo = BUILDINGS.map((b) => (IDS.includes(b.id) || b.id === ISSUE_61_BAY
+    const withoutTheTwo = BUILDINGS.map((b) => (IDS.includes(b.id) || b.id === ISSUE_61_BAY || ISSUE_63_OFFICES.includes(b.id)
       ? Object.fromEntries(Object.entries(b).filter(([key]) => key !== 'visual'))
       : b))
     expect({ buildings: sha256(withoutTheTwo), props: sha256(PROPS) }, 'delivered townhouse slice export digests').toEqual({

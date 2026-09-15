@@ -34,7 +34,9 @@ export const MAIN_STREET_EAST_SPEC: SectorAuthoringSpec = {
   ],
   lots: [
     // North side (left of eastbound travel).
-    { localId: 'n1', templateId: 'tower_lot', roadLocalId: 'main_st', side: 'left', at: 0.45, buildingTemplateId: 'office_tower', label: 'Main St Offices', labelColor: '#cfe3ff', details: true },
+    // Issue #63: the shipped Nook Offices body at its existing uniform fit — visual only; its entrance is the model's west side.
+    { localId: 'n1', templateId: 'tower_lot', roadLocalId: 'main_st', side: 'left', at: 0.45, buildingTemplateId: 'office_tower', label: 'Main St Offices', labelColor: '#cfe3ff', details: true,
+      visual: { assetId: 'building_office_01', referenceSize: [8, 12, 8], canonicalFacing: 'west', maxScaleDeviation: 0 } },
     { localId: 'n2', templateId: 'storefront_lot', roadLocalId: 'main_st', side: 'left', at: 0.62, buildingTemplateId: 'cafe_shopfront', label: 'Corner Beans', labelColor: '#ffdf9e', details: true },
     { localId: 'n3', templateId: 'tower_lot', roadLocalId: 'main_st', side: 'left', at: 0.82, buildingTemplateId: 'mixed_use_block', details: true },
     // South side (right of eastbound travel).
