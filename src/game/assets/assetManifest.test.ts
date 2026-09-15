@@ -37,8 +37,11 @@ describe('asset manifest', () => {
     // Wave 3 (six building bodies over nine placements: the reconciled apartment and townhome
     // entries plus the shop, the reusable house archetype, the garage and the gateway hotel)
     // + issue #47 Wave 4 (ONE building body on ONE placement: the gateway residential tower).
+    // + issue #55's next slice: `arch_house_01_compact`, a second calibration row of the SAME
+    // house file (a row, not a new file).
     expect(landmarkEnabled.map((e) => e.id).sort()).toEqual([
       'arch_house_01',
+      'arch_house_01_compact',
       'arch_residential_house_01',
       'building_apartment_01',
       'building_garage_01',

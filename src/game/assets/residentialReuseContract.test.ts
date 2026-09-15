@@ -51,13 +51,14 @@ describe('issue #55 — approved house archetype reused on five more 5.5 x 5.5 l
     expect(BUILDINGS.some((b) => b.id === 'arch_house_01'), 'archetype is not a placement').toBe(false)
   })
 
-  it('leaves every other house lot as it was — the 5 x 5 lots need their own fit class', () => {
+  it('never puts this 5.5 m calibration on another house lot — the 5 x 5 lots have their own fit', () => {
     expect(defFor('building_house_r1').visual?.assetId, 'issue #25 archetype preserved').toBe('arch_residential_house_01')
     const others = BUILDINGS.filter((b) => b.id.startsWith('building_house_')
       && ![...WAVE3_HOUSES, ...IDS, 'building_house_r1'].includes(b.id))
-    expect(others.length, 'there really are unmapped house lots left').toBeGreaterThan(0)
+    expect(others.length, 'there really are other house lots').toBeGreaterThan(0)
     for (const def of others) {
-      expect(def.visual, `${def.id} stays procedural in this slice`).toBeUndefined()
+      // The next slice fits them with a separately calibrated row (residentialNext15Contract.test.ts).
+      expect(def.visual?.assetId, `${def.id} is not on the 5.5 m arch_house_01 row`).not.toBe('arch_house_01')
       // None of them could take this body unchanged: they are not 5.5 x 5.5.
       expect([def.size[0], def.size[2]], `${def.id} footprint`).not.toEqual([5.5, 5.5])
     }

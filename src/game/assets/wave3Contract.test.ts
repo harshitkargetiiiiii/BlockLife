@@ -224,6 +224,19 @@ describe('issue #44 Wave 3 — production building GLB contract (real bytes)', (
         `${def.id} must not project a Wave 3 body`,
       ).toBeFalsy()
     }
+    // ...and by FILE, so a calibrated manifest row pointing at a Wave 3 body cannot bypass the id
+    // check above. Issue #55's next slice draws the SAME house file at a smaller uniform fit on five
+    // 5 x 5 lots through `arch_house_01_compact`; exactly those five, through exactly that row, may.
+    const ISSUE_55_COMPACT = new Set(['building_house_r5', 'building_house_w5', 's2_-1_n2', 's2_-1_s1', 's2_-1_s3'])
+    const wave3Files = new Set(PROJECTION.map((p) => p.file.replace(/^public\//, '')))
+    for (const def of BUILDINGS) {
+      if (projected.has(def.id) || !def.visual) continue
+      const entry = ASSET_MANIFEST_BY_ID.get(def.visual.assetId)
+      if (!entry?.glbPath || !wave3Files.has(entry.glbPath)) continue
+      const allowed = (ISSUE_55_REUSE.has(def.id) && entry.id === 'arch_house_01')
+        || (ISSUE_55_COMPACT.has(def.id) && entry.id === 'arch_house_01_compact')
+      expect(allowed, `${def.id} draws a Wave 3 body file through ${entry.id}`).toBe(true)
+    }
     // The four Wave 3 house placements are one-per-district on purpose; the other authored houses
     // keep their existing look (building_house_r1 stays on the issue #25 archetype, the rest stay
     // procedural apart from issue #55's five), which is what "do not globally replace all houses" means.

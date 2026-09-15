@@ -425,6 +425,15 @@ export const BUILDINGS: BuildingDef[] = [
     roofColor: '#5f8391',
     door: 'south',
     accentColor: '#ffd166',
+    // Issue #55 (5 x 5 slice): the issue #25 terracotta house at its existing uniform fit. PURELY
+    // VISUAL and facing-only (`maxScaleDeviation: 0`); collider, anchor and occluder footprint stay
+    // keyed to this placement.
+    visual: {
+      assetId: 'arch_residential_house_01',
+      referenceSize: [5, 4, 5],
+      canonicalFacing: 'south',
+      maxScaleDeviation: 0,
+    },
   },
   {
     id: 'building_house_r4',
@@ -465,6 +474,14 @@ export const BUILDINGS: BuildingDef[] = [
     roofColor: '#8a5f85',
     door: 'north',
     accentColor: '#bcd0a2',
+    // Issue #55 (5 x 5 slice): the Wave 3 red house FILE at its compact uniform calibration
+    // (`arch_house_01_compact`). PURELY VISUAL and facing-only — see building_house_r3.
+    visual: {
+      assetId: 'arch_house_01_compact',
+      referenceSize: [5, 4, 5],
+      canonicalFacing: 'south',
+      maxScaleDeviation: 0,
+    },
   },
 
   // ---- Industrial / Market Strip (east district) ----
@@ -523,6 +540,13 @@ export const BUILDINGS: BuildingDef[] = [
     roofColor: '#96687a',
     door: 'east',
     accentColor: '#f2d5a0',
+    // Issue #55 (5 x 5 slice): terracotta house — see building_house_r3.
+    visual: {
+      assetId: 'arch_residential_house_01',
+      referenceSize: [5, 4, 5],
+      canonicalFacing: 'south',
+      maxScaleDeviation: 0,
+    },
   },
   {
     id: 'building_house_w2',
@@ -553,6 +577,13 @@ export const BUILDINGS: BuildingDef[] = [
     roofColor: '#9b8455',
     door: 'east',
     accentColor: '#8fb8a8',
+    // Issue #55 (5 x 5 slice): terracotta house — see building_house_r3.
+    visual: {
+      assetId: 'arch_residential_house_01',
+      referenceSize: [5, 4, 5],
+      canonicalFacing: 'south',
+      maxScaleDeviation: 0,
+    },
   },
   {
     id: 'building_house_w4',
@@ -578,6 +609,13 @@ export const BUILDINGS: BuildingDef[] = [
     roofColor: '#a5705c',
     door: 'west',
     accentColor: '#bcd0a2',
+    // Issue #55 (5 x 5 slice): compact red house — see building_house_r5.
+    visual: {
+      assetId: 'arch_house_01_compact',
+      referenceSize: [5, 4, 5],
+      canonicalFacing: 'south',
+      maxScaleDeviation: 0,
+    },
   },
   {
     id: 'building_commons_w1',
@@ -616,6 +654,13 @@ export const BUILDINGS: BuildingDef[] = [
     roofColor: '#6f7d58',
     door: 'south',
     accentColor: '#ffd166',
+    // Issue #55 (5 x 5 slice): terracotta house — see building_house_r3.
+    visual: {
+      assetId: 'arch_residential_house_01',
+      referenceSize: [5, 4, 5],
+      canonicalFacing: 'south',
+      maxScaleDeviation: 0,
+    },
   },
   {
     id: 'building_house_s2',
@@ -646,6 +691,13 @@ export const BUILDINGS: BuildingDef[] = [
     roofColor: '#5f8391',
     door: 'south',
     accentColor: '#f2d5a0',
+    // Issue #55 (5 x 5 slice): terracotta house — see building_house_r3.
+    visual: {
+      assetId: 'arch_residential_house_01',
+      referenceSize: [5, 4, 5],
+      canonicalFacing: 'south',
+      maxScaleDeviation: 0,
+    },
   },
   {
     id: 'building_house_s4',
@@ -671,6 +723,13 @@ export const BUILDINGS: BuildingDef[] = [
     roofColor: '#8a5f85',
     door: 'north',
     accentColor: '#bcd0a2',
+    // Issue #55 (5 x 5 slice): terracotta house — see building_house_r3.
+    visual: {
+      assetId: 'arch_residential_house_01',
+      referenceSize: [5, 4, 5],
+      canonicalFacing: 'south',
+      maxScaleDeviation: 0,
+    },
   },
   {
     id: 'building_house_s6',
@@ -707,6 +766,13 @@ export const BUILDINGS: BuildingDef[] = [
     roofColor: '#96687a',
     door: 'north',
     accentColor: '#a2c4d0',
+    // Issue #55 (5 x 5 slice): terracotta house — see building_house_r3.
+    visual: {
+      assetId: 'arch_residential_house_01',
+      referenceSize: [5, 4, 5],
+      canonicalFacing: 'south',
+      maxScaleDeviation: 0,
+    },
   },
 
   // ---- Industrial North (City Expansion v2): freight along the arterial ----

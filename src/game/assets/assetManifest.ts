@@ -279,8 +279,9 @@ export const ASSET_MANIFEST: AssetManifestEntry[] = [
     // tris, 1K texture), projected onto many gameplay ids via BuildingDef.visual. Uniform
     // scale fills the [5,4,5] template footprint (model ~1.7×1.9×1.4); the model is
     // center-origin, so the offset raises its base to the ground. Colliders/anchors come from
-    // cityLayout, never the model. Stage A: one calibration placement (building_house_r1); no
-    // palette slots yet (tinting for the ~25-placement reuse is a Stage-B concern).
+    // cityLayout, never the model. Stage A calibrated it on building_house_r1; issue #55's 5 x 5
+    // slice reuses this row unchanged on ten more 5 x 5 lots (seven handwritten, three compiled),
+    // facing-only with `maxScaleDeviation: 0`. No palette slots: the source colours ship as is.
     glbPath: 'assets/models/city/arch_residential_house_01.glb',
     fallbackKey: 'BuildingMesh',
     scale: [2.95, 2.95, 2.95],
@@ -407,7 +408,8 @@ export const ASSET_MANIFEST: AssetManifestEntry[] = [
     //
     // Issue #55 then reuses this SAME row, unchanged, on five more lots with the identical
     // 5.5 x 5.5 footprint (`building_house_r4`, `_w4`, `_w6`, `_s4`, `_s6`), still facing-only.
-    // The 5 x 5 lots stay procedural: they need a second correctly fitted size class.
+    // The 5 x 5 lots take the SAME file through their own calibrated row, `arch_house_01_compact`
+    // (five of them), or the terracotta `arch_residential_house_01` (ten) — never this 0.9515 fit.
     //
     // Measured local bbox 5.7735 × 4.9995 × 5.3216, origin at the base (the model's own ground
     // pad is inside that box). Cardinals: the front door, porch posts and steps are on the +z
@@ -431,6 +433,35 @@ export const ASSET_MANIFEST: AssetManifestEntry[] = [
     materialSlots: {},
     bounds: { width: 5.4935, height: 4.757, depth: 5.0635 },
     renderedTopY: 4.757,
+    enabled: true,
+    budget: { maxTriangles: 60000 },
+    attribution: 'Meshy AI — generated original asset (owner-approved 2026-08-31 sprint), texture-optimized in-repo',
+    license: 'Meshy AI generated asset (meshy.ai terms)',
+  },
+  {
+    ...defaults,
+    id: 'arch_house_01_compact',
+    label: 'Detached-house archetype, compact 5 x 5 calibration (issue #55)',
+    category: 'city',
+    // Issue #55's 5 x 5 slice: a second calibration ROW of the SAME file `arch_house_01.glb` — no
+    // copied mesh, texture or GLB. One url means one cached parse; each placement clones its own
+    // scene, and this row keeps its own load-branch counts. The `arch_house_01` row (0.9515) and
+    // its nine 5.5 x 5.5 placements are untouched.
+    //
+    // Uniform fit to a 5 x 5 lot from the measured bytes (local bbox 5.773529 × 4.999471 × 5.321628,
+    // origin at the base, measured +z front):
+    //   s = floor(min(2.5 / 2.88995, 2.5 / 2.66315) * 1e4) / 1e4 = 0.865   (X binds)
+    // → 4.9941 × 4.3245 × 4.6032, max half-extent 2.4998 of the lot's 2.5 under every cardinal yaw.
+    // Placements (facing-only, `maxScaleDeviation: 0`): building_house_r5, building_house_w5 and
+    // the compiled s2_-1_n2, s2_-1_s1 and s2_-1_s3.
+    glbPath: 'assets/models/city/arch_house_01.glb',
+    fallbackKey: 'BuildingMesh',
+    scale: [0.865, 0.865, 0.865],
+    rotation: [0, 0, 0],
+    positionOffset: [0, 0, 0],
+    materialSlots: {},
+    bounds: { width: 4.9941, height: 4.3245, depth: 4.6032 },
+    renderedTopY: 4.3245,
     enabled: true,
     budget: { maxTriangles: 60000 },
     attribution: 'Meshy AI — generated original asset (owner-approved 2026-08-31 sprint), texture-optimized in-repo',

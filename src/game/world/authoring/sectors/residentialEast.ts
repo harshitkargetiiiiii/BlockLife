@@ -11,6 +11,28 @@ import { compileSectorAuthoringSpec } from '../sectorAuthoring'
  * street its neighborhood pace. Future hook: house interiors reuse the
  * apartment location-mode flow.
  */
+type LotVisual = SectorAuthoringSpec['lots'][number]['visual']
+
+/**
+ * Issue #55 — visual-only archetype projections for the six house lots (see
+ * docs/RESIDENTIAL_ARCHETYPE_REUSE.md). Both bodies front +z and are fitted to the 5 x 5 house
+ * template footprint; `maxScaleDeviation: 0` keeps each one uniform, and the projection only yaws
+ * the front onto the lot's compiled, road-facing door. Alternating the two bodies along the street
+ * keeps neighbours distinct.
+ */
+const TERRACOTTA_HOUSE: LotVisual = {
+  assetId: 'arch_residential_house_01',
+  referenceSize: [5, 4, 5],
+  canonicalFacing: 'south',
+  maxScaleDeviation: 0,
+}
+const COMPACT_RED_HOUSE: LotVisual = {
+  assetId: 'arch_house_01_compact',
+  referenceSize: [5, 4, 5],
+  canonicalFacing: 'south',
+  maxScaleDeviation: 0,
+}
+
 export const RESIDENTIAL_EAST_SPEC: SectorAuthoringSpec = {
   sectorId: 's2_-1',
   name: 'Residential East',
@@ -30,14 +52,14 @@ export const RESIDENTIAL_EAST_SPEC: SectorAuthoringSpec = {
   ],
   lots: [
     // North side (left of eastbound travel).
-    { localId: 'n1', templateId: 'house_lot', roadLocalId: 'east_ave', side: 'left', at: 0.63, buildingTemplateId: 'residential_house', details: true },
-    { localId: 'n2', templateId: 'house_lot', roadLocalId: 'east_ave', side: 'left', at: 0.7, buildingTemplateId: 'residential_house', details: true },
-    { localId: 'n3', templateId: 'house_lot', roadLocalId: 'east_ave', side: 'left', at: 0.77, buildingTemplateId: 'residential_house', details: true },
+    { localId: 'n1', templateId: 'house_lot', roadLocalId: 'east_ave', side: 'left', at: 0.63, buildingTemplateId: 'residential_house', details: true, visual: TERRACOTTA_HOUSE },
+    { localId: 'n2', templateId: 'house_lot', roadLocalId: 'east_ave', side: 'left', at: 0.7, buildingTemplateId: 'residential_house', details: true, visual: COMPACT_RED_HOUSE },
+    { localId: 'n3', templateId: 'house_lot', roadLocalId: 'east_ave', side: 'left', at: 0.77, buildingTemplateId: 'residential_house', details: true, visual: TERRACOTTA_HOUSE },
     { localId: 'n4', templateId: 'storefront_lot', roadLocalId: 'east_ave', side: 'left', at: 0.85, buildingTemplateId: 'townhouse', details: true },
-    // South side (right of eastbound travel).
-    { localId: 's1', templateId: 'house_lot', roadLocalId: 'east_ave', side: 'right', at: 0.66, buildingTemplateId: 'residential_house', details: true },
-    { localId: 's2', templateId: 'house_lot', roadLocalId: 'east_ave', side: 'right', at: 0.73, buildingTemplateId: 'residential_house', details: true },
-    { localId: 's3', templateId: 'house_lot', roadLocalId: 'east_ave', side: 'right', at: 0.8, buildingTemplateId: 'residential_house', details: true },
+    // South side (right of eastbound travel) — opposite phase to the north row.
+    { localId: 's1', templateId: 'house_lot', roadLocalId: 'east_ave', side: 'right', at: 0.66, buildingTemplateId: 'residential_house', details: true, visual: COMPACT_RED_HOUSE },
+    { localId: 's2', templateId: 'house_lot', roadLocalId: 'east_ave', side: 'right', at: 0.73, buildingTemplateId: 'residential_house', details: true, visual: TERRACOTTA_HOUSE },
+    { localId: 's3', templateId: 'house_lot', roadLocalId: 'east_ave', side: 'right', at: 0.8, buildingTemplateId: 'residential_house', details: true, visual: COMPACT_RED_HOUSE },
   ],
   linePropZones: [
     // Street-tree hedges give the neighborhood its green edge.

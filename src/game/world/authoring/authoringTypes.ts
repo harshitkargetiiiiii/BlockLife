@@ -149,6 +149,12 @@ export interface LotAuthoringSpec {
   labelColor?: string
   /** Emit the building template's FRONT_DETAIL_POLICY props at the door. */
   details?: boolean
+  /**
+   * Optional reusable-archetype visual projection for this lot's building (issue #55), passed
+   * through unchanged to the compiled BuildingDef. PURELY VISUAL: position, size, door, collider,
+   * routing and details still derive from the lot and building templates. Absent → no `visual` key.
+   */
+  visual?: import('../worldTypes').BuildingVisualProjection
 }
 
 export interface PropZoneAuthoringSpec {
@@ -286,6 +292,8 @@ export interface CompiledBuilding {
   door?: 'north' | 'south' | 'east' | 'west'
   accentColor?: string
   windows?: boolean
+  /** A lot's optional visual projection, passed through unchanged (issue #55). */
+  visual?: import('../worldTypes').BuildingVisualProjection
 }
 
 export interface CompiledProp {

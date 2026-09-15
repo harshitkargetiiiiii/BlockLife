@@ -307,6 +307,9 @@ function compileLot(
       door,
       accentColor: building.accentColor,
       windows: building.windows,
+      // Issue #55: the lot's optional visual projection rides through untouched. Omitted when not
+      // authored, so a lot without one compiles to exactly its previous building.
+      ...(spec.visual ? { visual: spec.visual } : {}),
     },
   }
 }
