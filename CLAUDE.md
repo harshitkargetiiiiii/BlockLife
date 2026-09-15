@@ -83,13 +83,17 @@ existing authored placements** (ceilings: 12 / 36), `dist` **+9.758 MiB** of an 
 rather than rebuilt), Maya, Bruno, Officer Kim, Nisha — through the EXISTING `AnimatedCharacter`
 path on the canonical 24-bone `c432d433d51d` rig. Each body is **FITTED to the rig it replaces**:
 the approved sources are authored at real human height (1.70–1.84 m) but `blocklife_person` — the
-player's rig and these NPCs' pre-wave body — measures **2.930 m**, so at `scale: 1` every resident
+player's rig and these NPCs' pre-wave body — measured **2.930 m**, so at `scale: 1` every resident
 shipped at ~58% of the player. The whole structural gate passed while that was true (canonical rig,
 valid skinning, grounded base, measured == declared height); it was caught by LOOKING at the
 `wave4-player-beside-*` shot and measured at a 1.674× silhouette ratio vs 1.665 predicted from the
-bytes. Each body now renders at exactly its pre-wave height (`scale = 2.93 / measured`); it keeps its OWN
-`bounds` (they describe the model) but adopts the rig's `anchors`, which are world offsets NOT
-multiplied by `scale`, so no label moves; the player stays at `scale: 1`, gated
+bytes. **Issue #56 correction:** that 2.930 m was an exporter bind-pose defect (identity inverse binds,
+rest offsets applied twice, a 0.72 m hover); the fixed rig's maximum-variant envelope is **2.150 m**, and
+each body now renders uniformly at it (`scale = 2.15 / measured`, CONVENTIONS #42); it keeps its OWN
+`bounds` (they describe the model) and keeps the rig's `anchors` as declared metadata (world offsets NOT
+multiplied by `scale`). No production UI reads those anchors: the NPC name label, speech bubble and
+quest marker use hardcoded offsets (2.15 / 2.6 / 2.9), which issue #56 leaves unchanged and which
+need a pixel clearance check against the corrected bodies; the player stays at `scale: 1`, gated
 (CONVENTIONS #42). A Codex review of PR #49 then caught that `scale` is not the
 whole transform: `AnimatedCharacter` multiplies a NON-UNIFORM registry build (Kim `broad`
 [1.13, 0.99, 1.13], Bruno `stocky` [1.08, 0.93, 1.08]), which stretched the approved geometry in
