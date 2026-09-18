@@ -264,6 +264,8 @@ interface Window {
       heading: number
     }[]
     spawnPoliceResponse: (level: number) => number
+    /** Integration Wave 5: the light bar on each visible police cruiser — mounted variant + lit lamps. */
+    getPoliceSirenState: () => { bars: number; variants: ('body' | 'procedural')[]; litPerBar: number[] }
     getPoliceUnits: () => {
       id: string
       kind: string

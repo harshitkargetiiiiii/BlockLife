@@ -1103,6 +1103,33 @@ export const ASSET_MANIFEST: AssetManifestEntry[] = [
     attribution: 'Meshy AI — generated original asset (owner-approved 2026-08-31 sprint), texture-optimized in-repo',
     license: 'Meshy AI generated asset (meshy.ai terms)',
   },
+  // ---- Integration Wave 5: the approved police car on the LIVE police cruiser pool.
+  // Wave 4 measured this body inside the parked-car envelope and rejected it as a PARKED prop,
+  // because a parked cruiser implies police presence the live police system owns. The cruisers
+  // in `PoliceUnits` ARE that presence and already draw the same procedural `CarMesh` the parked
+  // props do, so the body lands on exactly what it depicts. Purely visual: police AI, routing,
+  // avoidance boxes, dismount, dispatch caps and the flashing light bar are untouched.
+  {
+    ...defaults,
+    id: 'vehicle_police_cruiser_01',
+    label: 'Police cruiser body (Integration Wave 5, live police cruiser pool)',
+    category: 'vehicles',
+    glbPath: 'assets/models/vehicles/police_cruiser_01.glb',
+    fallbackKey: 'CarMesh',
+    // Model 1.8978 × 0.6045 × 0.7551, origin at its base. LENGTH binds: at s = 2.1076 the body is
+    // 3.9998 long against the cruiser envelope's 4.0 (the `parked_car` table — the same CarMesh),
+    // 1.274 tall against 1.4 and 1.5914 wide against 2.0. Computed by buildWave5.mjs from the bytes.
+    scale: [2.1076, 2.1076, 2.1076],
+    rotation: [0, Math.PI / 2, 0],
+    positionOffset: [0, 0, 0],
+    enabled: true,
+    budget: { maxTriangles: 25000 },
+    // One baked atlas: livery, glass, lights and tyres share a single texture — no recolorable slot.
+    materialSlots: {},
+    bounds: { width: 1.5914, height: 1.274, depth: 3.9998 },
+    attribution: 'Meshy AI — generated original asset (owner-approved 2026-08-31 sprint), texture-optimized in-repo',
+    license: 'Meshy AI generated asset (meshy.ai terms)',
+  },
   // ---- Issue #47 Wave 4: ONE approved building body on ONE existing authored placement.
   // `building_gate_tower_02` is the UNLABELLED, east-door residential-scale tower in the
   // Downtown Gateway; the approved second apartment style is a balconied residential slab, so

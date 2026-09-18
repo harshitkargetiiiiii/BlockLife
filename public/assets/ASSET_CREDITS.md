@@ -443,3 +443,33 @@ metres with their feet at `y = 0`. Every number is recomputed from the committed
 
 **No file was retired or replaced by this wave** — every GLB it adds is new, and the ten Wave-0/1/2/3
 files it stands beside are untouched.
+
+---
+
+### Intake record — Integration Wave 5: the live police cruiser (2026-09-18)
+
+- **Source:** the same owner-approved 2026-08-31 Meshy sprint, read **read-only** from
+  `/Users/harshitkargeti/BlockLife-intake/asset-sprint-2026-08-31/` (`LEDGER-VEHICLES-PROPS.md`,
+  row 10: `blocklife_vehicle_police_car.glb`).
+- **Generation cost: 0 credits.** No Meshy generation, enhancement, remesh, retexture or purchase;
+  one already-approved output reduced and normalized in-repo.
+- **Deterministic and verifiable.** `node scripts/asset-intake/buildWave5.mjs` rebuilds the file
+  from the recorded source; `--check` rebuilds into a temp directory outside the worktree and fails
+  if a committed byte differs. The source SHA-256 is asserted **before** the file is read.
+- **Static body path, verbatim** (`./lib.mjs`, as Waves 1–4): material renamed `baked_atlas`,
+  dedup/prune, texture reduced to ≤1024 JPEG; the mesh digest and bounding box are asserted
+  unchanged. The source is already bottom-origin, so no vertical transform was applied.
+- **Runtime home.** Wave 4 measured this body and rejected it as a PARKED prop because a parked
+  cruiser implies police presence the live police system owns. It is drawn on exactly that
+  system's cruisers (`src/game/police/PoliceUnits.tsx`), which already rendered the same procedural
+  `CarMesh`; that complete cruiser (car + flashing light bar) stays the fallback.
+- **Projection.** Uniform scale 2.1076 (length-bound) after the +π/2 yaw, inside the `parked_car`
+  envelope the same `CarMesh` occupies: 1.5914 × 1.274 × 3.9998 m. Nose on +Z (confirmed on the
+  rendered body). The flashing lamps cover the model's own roof bar on this body. Recomputed from
+  the committed bytes by `src/game/assets/wave5Contract.test.ts`.
+
+| Shipped file | Runtime home | Triangles | Texture | Size | Output SHA-256 | Pristine source |
+|---|---|---|---|---|---|---|
+| `assets/models/vehicles/police_cruiser_01.glb` | live police cruiser pool (3 slots) | 14852 | 1024×1024 jpeg | 1111 KB | `36ec50f6ba480a9e…` | `blocklife_vehicle_police_car.glb` `9d8a26204a768c09…` |
+
+**Source colours are retained** — one baked atlas, no recolorable slot (`materialSlots: {}`).

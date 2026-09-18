@@ -123,6 +123,9 @@ describe('issue #40 Wave 1 — production vehicle GLB contract (real bytes)', ()
       'parked_delivery_van_01.glb',
       'parked_hatchback_01.glb',
       'parked_pickup_01.glb',
+      // Integration Wave 5 — the LIVE police cruiser body, drawn on the police pool through
+      // LandmarkAsset: likewise no VehicleDef, collider, seat or ownership (wave5Contract.test.ts).
+      'police_cruiser_01.glb',
       'scooter_01.glb',
       'sports_car_01.glb',
       'utility_van_01.glb',

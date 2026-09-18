@@ -1,0 +1,169 @@
+{
+  "wave": 5,
+  "note": "Rebuild with: node scripts/asset-intake/buildWave5.mjs   |   verify with --check",
+  "maxTexture": 1024,
+  "textureFormat": "jpeg",
+  "textureQuality": 85,
+  "boundsEpsilon": 0.00005,
+  "scaleDecimals": 4,
+  "cruiserEnvelope": {
+    "halfX": 1,
+    "halfZ": 2,
+    "maxY": 1.4
+  },
+  "assets": [
+    {
+      "id": "vehicle_police_cruiser_01",
+      "label": "Police cruiser body (drawn on the live police cruiser pool)",
+      "kind": "vehicle",
+      "envelope": "cruiser",
+      "output": "public/assets/models/vehicles/police_cruiser_01.glb",
+      "outputSha256": "36ec50f6ba480a9ed664bcac0ca46b5f44666c5f9c271479080165bec89aad0d",
+      "outputBytes": 1137596,
+      "sources": [
+        {
+          "role": "source",
+          "path": "/Users/harshitkargeti/BlockLife-intake/asset-sprint-2026-08-31/vehicles-worker/final/blocklife_vehicle_police_car.glb",
+          "sha256": "9d8a26204a768c0969182325837d79142de433db193cc498cfc5a4b8ae221d34",
+          "bytes": 6299576,
+          "structure": {
+            "bytes": 6299576,
+            "triangles": 14852,
+            "meshes": 1,
+            "materials": [
+              {
+                "name": "Material_0.001",
+                "metallic": 0,
+                "roughness": 0.5,
+                "emissive": [
+                  0,
+                  0,
+                  0
+                ],
+                "emissiveTexture": false,
+                "specularExtension": false
+              }
+            ],
+            "textures": [
+              {
+                "name": "Baked_BaseColor",
+                "mime": "image/png",
+                "width": 2048,
+                "height": 2048,
+                "bytes": 5497715
+              }
+            ],
+            "clips": [],
+            "skin": null,
+            "cameras": 0,
+            "scenes": 1,
+            "lights": 0,
+            "bounds": {
+              "min": [
+                -0.9492,
+                0,
+                -0.3788
+              ],
+              "max": [
+                0.9486,
+                0.6045,
+                0.3763
+              ],
+              "size": [
+                1.8978,
+                0.6045,
+                0.7551
+              ]
+            },
+            "extensions": []
+          }
+        }
+      ],
+      "groundOffsetY": 0,
+      "operations": [
+        "assert approved source SHA-256 9d8a26204a768c0969182325837d79142de433db193cc498cfc5a4b8ae221d34 + 6299576 bytes + 14852 triangles before reading (read-only)",
+        "normalize single material name -> \"baked_atlas\" (baked atlas — exposes NO recolorable slot)",
+        "origin already at the base — no vertical transform applied; rendered minimum y=0 asserted",
+        "dedup + prune",
+        "textureCompress resize <=1024 targetFormat=jpeg quality=85 filter=lanczos3",
+        "assert mesh digest unchanged (geometry, indices, topology, triangle count, proportions preserved)",
+        "assert bounds unchanged except the declared grounding offset on Y",
+        "assert runtime-safe: metallic 0, emissive [0,0,0], no unlit/lights/cameras, no draco/meshopt/KTX2, embedded textures only",
+        "fit: +pi/2 yaw, uniform scale 2.1076 (length-bound) inside the cruiser envelope"
+      ],
+      "fit": {
+        "yaw": "PI/2",
+        "envelope": {
+          "halfX": 1,
+          "halfZ": 2,
+          "maxY": 1.4
+        },
+        "scale": 2.1076,
+        "binding": "length",
+        "ratios": {
+          "length": 2.1076481281450063,
+          "width": 2.648480434350791,
+          "height": 2.3157720618641964
+        },
+        "rendered": {
+          "width": 1.5914,
+          "height": 1.274,
+          "length": 3.9998
+        }
+      },
+      "attribution": "Meshy AI — generated original asset (owner-approved 2026-08-31 sprint), texture-optimized in-repo",
+      "license": "Meshy AI generated asset (meshy.ai terms)",
+      "structure": {
+        "bytes": 1137596,
+        "triangles": 14852,
+        "meshes": 1,
+        "materials": [
+          {
+            "name": "baked_atlas",
+            "metallic": 0,
+            "roughness": 0.5,
+            "emissive": [
+              0,
+              0,
+              0
+            ],
+            "emissiveTexture": false,
+            "specularExtension": false
+          }
+        ],
+        "textures": [
+          {
+            "name": "Baked_BaseColor",
+            "mime": "image/jpeg",
+            "width": 1024,
+            "height": 1024,
+            "bytes": 335762
+          }
+        ],
+        "clips": [],
+        "skin": null,
+        "cameras": 0,
+        "scenes": 1,
+        "lights": 0,
+        "bounds": {
+          "min": [
+            -0.9492,
+            0,
+            -0.3788
+          ],
+          "max": [
+            0.9486,
+            0.6045,
+            0.3763
+          ],
+          "size": [
+            1.8978,
+            0.6045,
+            0.7551
+          ]
+        },
+        "extensions": []
+      }
+    }
+  ]
+}

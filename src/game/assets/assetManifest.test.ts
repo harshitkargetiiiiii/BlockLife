@@ -86,7 +86,8 @@ describe('asset manifest', () => {
     ])
     // Issue #47 Wave 4 parked-vehicle bodies: `vehicles`-category rows that render as PROP
     // scenery through LandmarkAsset, not as a vehicle class. They carry no VehicleDef, so they
-    // are pinned separately from the four ownable-class bodies.
+    // are pinned separately from the four ownable-class bodies. Integration Wave 5 adds the
+    // police cruiser body, drawn on the live police pool — likewise no VehicleDef.
     expect(
       enabled
         .filter((e) => e.category === 'vehicles')
@@ -98,6 +99,7 @@ describe('asset manifest', () => {
       'vehicle_parked_delivery_van_01',
       'vehicle_parked_hatchback_01',
       'vehicle_parked_pickup_01',
+      'vehicle_police_cruiser_01',
       'vehicle_scooter_01',
       'vehicle_sports_car_01',
       'vehicle_utility_van_01',
