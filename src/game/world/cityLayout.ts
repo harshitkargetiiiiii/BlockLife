@@ -529,6 +529,24 @@ export const BUILDINGS: BuildingDef[] = [
     roofColor: '#6a7340',
     door: 'east',
     accentColor: '#d9825f',
+    // Issue #53 retail reuse: draw the approved Wave-3 shop archetype on this lot. PURELY
+    // VISUAL. This placement's authored footprint IS the archetype's reference box
+    // ([6, 5, 6] -- the same lot shape Mini Mart, the two Marts and Bay Supply already ship
+    // on), so `maxScaleDeviation: 0` resolves to scale [1, 1, 1] and the body renders at its
+    // calibrated 5.9925 x 4.824 x 4.8836 with NO new fit math. The projection's only job is
+    // to yaw the model's canonical south shopfront onto THIS placement's authored door.
+    //
+    // WHY THIS LOT AND NOT EVERY 6 x 5 x 6 LOT: this body decorates exactly ONE elevation (the
+    // glazed shopfront + awning on model +z; the other three are blank render), and the camera is
+    // a FIXED isometric rig at +x / +z, so only a lot whose authored door is 'east' or 'south'
+    // can ever show that elevation to a player. West Commons ('west') and South Deli ('north')
+    // were measured, rendered and REJECTED for that reason -- they would trade an authored,
+    // windowed procedural facade for a blank wall. See archetypeReuseContract.test.ts, which
+    // gates the rule, and docs for the deferred list.
+    //
+    // Gameplay identity, collider, entrance anchor, routing and footprint stay keyed to
+    // building_market_02; the procedural BuildingMesh remains the fallback.
+    visual: { assetId: 'building_shop_01', referenceSize: [6, 5, 6], canonicalFacing: 'south', maxScaleDeviation: 0 },
   },
 
   // ---- Residential West (City Expansion v2): quiet lane, homes both sides ----
@@ -819,6 +837,16 @@ export const BUILDINGS: BuildingDef[] = [
     door: 'east',
     accentColor: '#5faf7f',
     windows: false,
+    // Issue #53 industrial reuse: draw the approved repair-garage archetype here. PURELY
+    // VISUAL, and it reuses building_garage_01's OWN calibration unchanged: that placement is
+    // the identical [8, 5.5, 7] box, so `maxScaleDeviation: 0` gives scale [1, 1, 1] and the
+    // manifest's 0.6304 fit (4.834 x 3.7824 x 6.9915) still holds -- a 180 deg yaw maps the
+    // extents onto themselves. `canonicalFacing: 'west'` is the facing of the MOUNTED body,
+    // i.e. after the manifest's own [0, -pi/2, 0] rotation has already turned the model's +z
+    // shutter elevation west; the projection composes on top of it (nested group, matrix
+    // multiply), so this lot's 'east' door is a clean pi turn and the roller shutters face the
+    // industrial road. Gameplay identity, collider and anchors stay keyed to building_depot_n1.
+    visual: { assetId: 'building_garage_01', referenceSize: [8, 5.5, 7], canonicalFacing: 'west', maxScaleDeviation: 0 },
   },
 
   // ---- Downtown Gateway (Large City Foundation v1, sector s0_-1) ----
@@ -874,6 +902,9 @@ export const BUILDINGS: BuildingDef[] = [
     labelColor: '#fff3c9',
     door: 'east',
     accentColor: '#5f9ea0',
+    // Issue #53 retail reuse: the same approved shop archetype as building_market_02, on an
+    // identical [6, 5, 6] authored lot (scale [1, 1, 1], yaw = authored door). Purely visual.
+    visual: { assetId: 'building_shop_01', referenceSize: [6, 5, 6], canonicalFacing: 'south', maxScaleDeviation: 0 },
   },
 
   // ---- Main Street East (District Authoring Kit proof, sector s1_-1) ----

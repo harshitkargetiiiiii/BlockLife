@@ -59,6 +59,14 @@ const PRE_CHANGE = {
   citizenDestinations: '9cdd87b48e7d338a5fdf41404ce0cdf5e612f195b36453390bd60fc9c4caf736',
   pedestrianGraph: '0f7dd3de60cbccf0585465d0c39f1d33b85d64d07133519a0a29c47ae7eed06d',
 }
+/**
+ * The LATER issue #53 archetype-reuse projections, pinned with their authored facts, resolved
+ * projections and fit derivations in `archetypeReuseContract.test.ts`: two 6 x 5 x 6 retail lots on
+ * the same shop row (two of them: only an 'east' / 'south' authored door can show this body's one
+ * decorated elevation to the fixed camera), and the north depot on the Wave 3 garage row. They add `visual` keys to three
+ * placements this slice never touched, so they are excluded here exactly as the other later slices are.
+ */
+const ISSUE_53_REUSE = ['building_market_02', 'building_gate_retail_01', 'building_depot_n1']
 
 const defFor = (id: string) => BUILDINGS.find((b) => b.id === id) as BuildingDef
 const hash = (text: string) => createHash('sha256').update(text).digest('hex')
@@ -180,8 +188,8 @@ describe('issue #63 — Main St Offices and North Exchange on the shipped office
       return Boolean(entry?.enabled && entry.glbPath)
     })
     // Mapped placements (own-row bodies + projections), not unique assets and not visual acceptance.
-    expect(glbBodies.length, 'mapped placements').toBe(42)
-    expect(BUILDINGS.filter((b) => b.visual).length, 'visual-projected placements').toBe(33)
+    expect(glbBodies.length, 'mapped placements').toBe(42 + ISSUE_53_REUSE.length)
+    expect(BUILDINGS.filter((b) => b.visual).length, 'visual-projected placements').toBe(33 + ISSUE_53_REUSE.length)
     expect(BUILDINGS.length, 'authored placements').toBe(73)
   })
 
@@ -191,7 +199,7 @@ describe('issue #63 — Main St Offices and North Exchange on the shipped office
   })
 
   it('every other placement, every prop, every destination and the pedestrian graph are unchanged', () => {
-    const withoutTheTwo = BUILDINGS.map((b) => (IDS.includes(b.id)
+    const withoutTheTwo = BUILDINGS.map((b) => (IDS.includes(b.id) || ISSUE_53_REUSE.includes(b.id)
       ? Object.fromEntries(Object.entries(b).filter(([key]) => key !== 'visual'))
       : b))
     expect({

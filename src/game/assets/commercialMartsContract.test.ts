@@ -51,6 +51,17 @@ const IDS = Object.keys(MARTS)
 const ISSUE_61_BAY = 's0_-2_shop'
 /** The later issue #63 office projections (a different body), pinned in commercialOfficesContract.test.ts. */
 const ISSUE_63_OFFICES = ['s1_-1_n1', 's1_-2_n1']
+/**
+ * The LATER issue #53 archetype-reuse projections, pinned with their authored facts, resolved
+ * projections and fit derivations in `archetypeReuseContract.test.ts`: two 6 x 5 x 6 retail lots on
+ * the same shop row (two of them: only an 'east' / 'south' authored door can show this body's one
+ * decorated elevation to the fixed camera), and the north depot on the Wave 3 garage row. They add `visual` keys to three
+ * placements this slice never touched, so they are excluded here exactly as the other later slices are.
+ */
+const ISSUE_53_REUSE = ['building_market_02', 'building_gate_retail_01', 'building_depot_n1']
+/** The four of them that project the shop row (the depot projects the garage row). */
+const ISSUE_53_SHOPS = ['building_market_02', 'building_gate_retail_01']
+
 
 /**
  * sha256 of BUILDINGS (with ONLY these two lots' `visual` removed) and of PROPS exactly as the
@@ -155,20 +166,20 @@ describe('issue #60 — Main St Mart and North Mart on the shipped shop body', (
   })
 
   it('adds exactly these two mappings: 39 of 73 placements mapped to a GLB body (40 with issue #61\'s Bay Supply)', () => {
-    expect(BUILDINGS.filter((b) => b.visual?.assetId === ROW).map((b) => b.id).sort(), 'projections of the shop body').toEqual([...IDS, ISSUE_61_BAY].sort())
+    expect(BUILDINGS.filter((b) => b.visual?.assetId === ROW).map((b) => b.id).sort(), 'projections of the shop body').toEqual([...IDS, ISSUE_61_BAY, ...ISSUE_53_SHOPS].sort())
     const glbBodies = BUILDINGS.filter((b) => {
       const entry = ASSET_MANIFEST_BY_ID.get(b.visual?.assetId ?? b.id)
       return Boolean(entry?.enabled && entry.glbPath)
     })
     // Mapped placements (own-row bodies + projections), not unique assets and not visual acceptance.
     // This slice made it 39 / 30; issue #61's Bay Supply adds one more and issue #63's two offices two more.
-    expect(glbBodies.length, 'mapped placements').toBe(39 + 1 + ISSUE_63_OFFICES.length)
-    expect(BUILDINGS.filter((b) => b.visual).length, 'visual-projected placements').toBe(30 + 1 + ISSUE_63_OFFICES.length)
+    expect(glbBodies.length, 'mapped placements').toBe(39 + 1 + ISSUE_63_OFFICES.length + ISSUE_53_REUSE.length)
+    expect(BUILDINGS.filter((b) => b.visual).length, 'visual-projected placements').toBe(30 + 1 + ISSUE_63_OFFICES.length + ISSUE_53_REUSE.length)
     expect(BUILDINGS.length, 'authored placements').toBe(73)
   })
 
   it('every other placement — including the twenty-three issue #55 mappings — and every prop is unchanged', () => {
-    const withoutTheTwo = BUILDINGS.map((b) => (IDS.includes(b.id) || b.id === ISSUE_61_BAY || ISSUE_63_OFFICES.includes(b.id)
+    const withoutTheTwo = BUILDINGS.map((b) => (IDS.includes(b.id) || b.id === ISSUE_61_BAY || ISSUE_63_OFFICES.includes(b.id) || ISSUE_53_REUSE.includes(b.id)
       ? Object.fromEntries(Object.entries(b).filter(([key]) => key !== 'visual'))
       : b))
     expect({ buildings: sha256(withoutTheTwo), props: sha256(PROPS) }, 'delivered townhouse slice export digests').toEqual({
