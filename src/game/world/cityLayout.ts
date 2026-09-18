@@ -284,6 +284,12 @@ export const BUILDINGS: BuildingDef[] = [
     labelColor: '#ffdf9e',
     door: 'east',
     accentColor: '#e07a5f',
+    // Issue #53 batch 2: the same approved shop archetype as building_market_02 -- an identical
+    // [6, 5, 6] authored lot and an 'east' door, so scale [1, 1, 1] and the glazed shopfront faces
+    // the camera. The Mini Mart placement 18.5 m away draws the same body; under the owner's
+    // 2026-09-18 direction that repetition is deferred polish, not a functional blocker, and the
+    // facade, footprint, entrance and camera fit here are all sound. Purely visual.
+    visual: { assetId: 'building_shop_01', referenceSize: [6, 5, 6], canonicalFacing: 'south', maxScaleDeviation: 0 },
   },
   {
     id: 'building_shop_01',
@@ -350,6 +356,14 @@ export const BUILDINGS: BuildingDef[] = [
     size: [9, 13, 9],
     color: '#c8a88f',
     roofColor: '#93755d',
+    // Issue #53 batch 2: the approved gateway hotel body on this backdrop tower. The lot is
+    // [9, 13, 9] and the mounted body is 8.446 x 14.999 x 7.618, so referenceSize = the lot gives
+    // scale [1, 1, 1] with 0.28 m / 0.69 m of clearance per side -- the tightest fill in the batch.
+    // This body has "a canopied double-door entrance on EVERY elevation" (see its manifest row), so
+    // it has no wrong facing; the lot authors no door, which resolves to a zero projection yaw.
+    // It renders 2 m above the authored 13 m box, exactly as the shipped apartment body does over
+    // its own 7.5 m box, and stays under MAX_WORLD_RENDER_HEIGHT.
+    visual: { assetId: 'building_gate_hotel_01', referenceSize: [9, 13, 9], canonicalFacing: 'west', maxScaleDeviation: 0 },
   },
   {
     id: 'building_tower_03',
@@ -372,6 +386,12 @@ export const BUILDINGS: BuildingDef[] = [
     size: [8, 9, 8],
     color: '#b3a08c',
     roofColor: '#7d6e5d',
+    // Issue #53 batch 2: the approved apartment body on this backdrop tower -- [8, 9, 8] lot,
+    // mounted 5.538 x 15.000 x 5.118, scale [1, 1, 1]. Its manifest row records "no distinguishable
+    // entrance elevation ... windowed on all four sides", so again no wrong facing, and this lot
+    // authors no door. The 1.23 m / 1.44 m side clearance is TIGHTER than the same body's own
+    // shipped placement (1.73 m / 1.93 m, documented there as an accepted cost).
+    visual: { assetId: 'building_apartment_01', referenceSize: [8, 9, 8], canonicalFacing: 'south', maxScaleDeviation: 0 },
   },
   {
     id: 'building_tower_06',
@@ -520,6 +540,14 @@ export const BUILDINGS: BuildingDef[] = [
     labelColor: '#ffe9b0',
     door: 'east',
     accentColor: '#5f9ea0',
+    // Issue #53 batch 2: the shop archetype again, but this lot is 4.5 m tall and the body is
+    // 4.824 m, so it needs a per-placement calibration rather than the 1:1 reuse. The reference box
+    // is the lot divided by 0.9 ([6.6667, 5, 6.6667]), which makes the resolved scale UNIFORM 0.9
+    // on all three axes (max axis spread 4.5e-6 from the decimal reference) -- the approved body is
+    // scaled, never squashed. `maxScaleDeviation: 0.11` admits exactly that 0.1 departure and
+    // nothing looser. Renders 5.393 x 4.342 x 4.395 inside the [6, 4.5, 6] box: under the authored
+    // massing, 0.30 m clear of each side wall, 0.80 m front and back, 'east' door to the camera.
+    visual: { assetId: 'building_shop_01', referenceSize: [6.6667, 5, 6.6667], canonicalFacing: 'south', maxScaleDeviation: 0.11 },
   },
   {
     id: 'building_market_02',
@@ -860,6 +888,12 @@ export const BUILDINGS: BuildingDef[] = [
     labelColor: '#cfe3ff',
     door: 'east',
     accentColor: '#9fc2ec',
+    // Issue #53 batch 2: Meridian Tower takes the approved apartment body ([8, 12, 8] lot, scale
+    // [1, 1, 1], 1.23 m / 1.44 m clearance). The neighbouring Gateway tower already draws
+    // building_gate_tower_02 (a DIFFERENT file, arch_apartment_02), so the two do not become twins.
+    // The body is windowed on all four elevations, so the 'east' door's pi/2 yaw is presentational
+    // only. Gameplay identity, collider, entrance anchor and occluder stay keyed to this id.
+    visual: { assetId: 'building_apartment_01', referenceSize: [8, 12, 8], canonicalFacing: 'south', maxScaleDeviation: 0 },
   },
   {
     id: 'building_gate_tower_02',

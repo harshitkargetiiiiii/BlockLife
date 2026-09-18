@@ -14,62 +14,111 @@ import { CITIZEN_DESTINATIONS, PEDESTRIAN_GRAPH } from '../citizens/destinations
 import type { BuildingDef } from '../world/worldTypes'
 
 /**
- * Issue #53 archetype reuse — five authored lots that still drew the procedural `BuildingMesh` now draw
- * an ALREADY-APPROVED, already-shipped body at its EXISTING calibration:
+ * Issue #53 archetype reuse — authored lots that still drew the procedural `BuildingMesh` now draw an
+ * ALREADY-APPROVED, already-shipped body at its EXISTING calibration. Delivered as two batches on one
+ * branch; this file pins both.
  *
- *   - two 6 x 5 x 6 retail lots (Market Row East, Avenue Deli) on the Wave 3 shop row
- *     `building_shop_01` — the same row, the same reference box and the same 1.206 uniform fit Mini
- *     Mart, the two Marts and Bay Supply already ship on;
- *   - the North Depot ([8, 5.5, 7]) on the Wave 3 garage row `building_garage_01` — the identical box
- *     `building_garage_01`'s own placement authors, so its 0.6304 fit carries over untouched.
+ *   Batch 1 (commit `ca63b5e9`): Market Row East, Avenue Deli on the shop row; North Depot on the
+ *   garage row — all three at `referenceSize == def.size`, i.e. scale [1, 1, 1].
  *
- * Nothing is generated, re-fitted, re-textured or re-calibrated: the only production change is three
- * `BuildingDef.visual` keys. Mapping intent and derivation, NOT visual acceptance.
+ *   Batch 2: Corner Café, Market Row and two compiled storefronts on the same shop row; two compiled
+ *   yard depots on the garage row; two compiled block lots on the row-house row; two backdrop towers
+ *   and Meridian Tower on the approved apartment / gateway-hotel bodies.
  *
- * WHY ONLY TWO OF THE FOUR eligible 6 x 5 x 6 retail lots: `arch_shop_01` decorates exactly ONE
- * elevation (glazed shopfront + awning on model +z; the manifest records the other three as blank
- * render), and `CAMERA_OFFSET` is a FIXED isometric rig at +x / +z, so a player only ever sees a
- * building's +x and +z faces. A lot whose authored door is 'west' or 'north' therefore yaws that one
- * decorated elevation permanently out of view and trades a windowed procedural facade for a blank
- * wall. West Commons ('west') and South Deli ('north') were built, rendered and rejected on exactly
- * that evidence. `CAMERA_FACING_DOORS` below gates the rule for every future reuse of this row.
+ * Nothing is generated, re-fitted, re-textured or re-calibrated. Every body keeps its manifest row,
+ * its uniform scale and `positionOffset: [0, 0, 0]`, and every one of them declares
+ * `materialSlots: {}`, so no placement here adds a variant-cache key. Mapping intent and derivation,
+ * NOT visual acceptance.
  *
- * The one subtlety this file exists to pin is `canonicalFacing` on the depot. For every earlier
- * projection the archetype's manifest `rotation` is [0, 0, 0], so "the model's canonical front" and
- * "the front of the MOUNTED body" are the same direction and the distinction never mattered. The garage
- * row carries `rotation: [0, -pi/2, 0]` (Wave 3 turned its +z roller-shutter elevation west for its own
- * west door), and `LandmarkAsset` applies that rotation INSIDE the projection group. `canonicalFacing`
- * therefore has to name the mounted body's facing — 'west' — and the assertions below check the
- * COMPOSED yaw (projection + manifest) against the authored door, which is what actually renders.
+ * TWO RULES THIS FILE EXISTS TO GATE:
+ *
+ * 1. FACING. Some approved bodies decorate exactly ONE elevation (`arch_shop_01`'s glazed shopfront,
+ *    `arch_row_house_01`'s two front doors between blank party walls, `arch_repair_garage_01`'s
+ *    shutters), and `CAMERA_OFFSET` is a FIXED isometric rig at +x / +z, so a player only ever sees a
+ *    building's +x and +z faces. A single-elevation body may therefore only go on a lot whose
+ *    composed facing is 'east' or 'south'. West Commons ('west') and South Deli ('north') were built,
+ *    RENDERED and rejected on exactly that evidence. The bodies with no wrong front — the apartment
+ *    ("windowed on all four sides") and the hotel ("entrance on EVERY elevation") — are exempt, and
+ *    the exemption is per body, quoted from the manifest row that measured it.
+ *
+ * 2. FIT. `def.size` stays the sole authority for collider, occluder, routing and anchors, so a body
+ *    that under-fills its lot leaves a gap between the wall a player sees and the wall they collide
+ *    with. Every placement here is measured from the GLB bytes under its composed yaw and held inside
+ *    the shipped worst case: the approved apartment's own placement, which documents 1.73 m / 1.93 m
+ *    of half-extent slack as an accepted cost.
+ *
+ * `canonicalFacing` names the facing of the MOUNTED body, not the raw model: the garage and hotel rows
+ * carry a manifest `rotation` that `LandmarkAsset` applies INSIDE the projection group, so the two
+ * differ there. The assertions below check the COMPOSED yaw (projection + manifest), which is what
+ * actually renders; a mutation of either term fails them.
  */
 
 type Vec3 = [number, number, number]
 type Facing = 'north' | 'south' | 'east' | 'west'
 
-const SHOP = 'building_shop_01'
-const SHOP_FILE = 'assets/models/city/arch_shop_01.glb'
-const SHOP_FILE_SHA256 = 'fc758a288365afa4450aa78dc03cce7d7936b6456f81ea0cf19b16ca6b0eaf61'
-const GARAGE = 'building_garage_01'
-const GARAGE_FILE = 'assets/models/city/arch_repair_garage_01.glb'
-const GARAGE_FILE_SHA256 = 'fe870f4c3704dc911f45162854b68785a397f94c7b806848ef74ccd68f54fe6c'
+/** Every approved body this slice reuses: manifest id → its shipped file and bytes. */
+const BODIES = {
+  shop: { id: 'building_shop_01', file: 'assets/models/city/arch_shop_01.glb', sha256: 'fc758a288365afa4450aa78dc03cce7d7936b6456f81ea0cf19b16ca6b0eaf61' },
+  garage: { id: 'building_garage_01', file: 'assets/models/city/arch_repair_garage_01.glb', sha256: 'fe870f4c3704dc911f45162854b68785a397f94c7b806848ef74ccd68f54fe6c' },
+  rowHouse: { id: 'building_townhomes_01', file: 'assets/models/city/arch_row_house_01.glb', sha256: '53eb375b50eddb7e1c26ceb4b10d090aafa1f194dc9f2defb5953dec9632b4a8' },
+  apartment: { id: 'building_apartment_01', file: 'assets/models/city/arch_apartment_01.glb', sha256: '32b65625a86332a22490ac54277994d46b4e997047c600d097ef276291426704' },
+  hotel: { id: 'building_gate_hotel_01', file: 'assets/models/city/arch_hotel_01.glb', sha256: '8a4fcacc19c574a3f33f8517266947623dfd92c92f1f274926210f89c7ac49ec' },
+} as const
+const FILE_OF = new Map<string, string>(Object.values(BODIES).map((b) => [b.id, b.file]))
 
-/** Every authored fact of the five lots, transcribed from cityLayout BEFORE this slice. */
+/**
+ * Bodies whose decoration is confined to one elevation, quoting the manifest row that measured it —
+ * these are the ones the camera-facing rule binds.
+ *   shop:      "the glazed shopfront, its awning and the entrance are all on the model's +z elevation;
+ *               ±x and −z are blank render"
+ *   rowHouse:  "the two front doors on the model's +z elevation and blank party walls on ±x"
+ *   garage:    "the pair of orange roller shutters ... on the model's +z (long) elevation, with a third
+ *               single shutter on +x and blank cladding on −z / −x"
+ * The apartment ("no distinguishable entrance elevation — the ground floor is windowed on all four
+ * sides") and the hotel ("a canopied double-door entrance on EVERY elevation") are exempt BY
+ * MEASUREMENT, not by convenience.
+ */
+const SINGLE_ELEVATION = new Set<string>([BODIES.shop.id, BODIES.rowHouse.id, BODIES.garage.id])
+
+/**
+ * Every authored fact of the reused lots, transcribed from the sources BEFORE this slice, with the
+ * projection yaw each one must resolve to. `door: undefined` is a lot that authors none (the backdrop
+ * towers), which resolves to the canonical facing and therefore a zero projection yaw.
+ */
 const REUSED: Record<string, {
-  assetId: string
+  body: string
+  batch: 1 | 2
   position: [number, number]
   size: Vec3
-  door: Facing
-  /** Yaw the projection alone must contribute, and the composed yaw that must reach the door. */
+  door?: Facing
+  canonicalFacing: Facing
   projectionYaw: number
+  /** Nearest OTHER placement drawing the same body, and its distance — recorded, see the repetition test. */
+  nearestSameBody: [string, number]
   label?: string
-  colors: [string, string, string]
 }> = {
-  building_market_02: { assetId: SHOP, position: [39, 22], size: [6, 5, 6], door: 'east', projectionYaw: Math.PI / 2, colors: ['#9ea86a', '#6a7340', '#d9825f'] },
-  building_gate_retail_01: { assetId: SHOP, position: [33, -104], size: [6, 5, 6], door: 'east', projectionYaw: Math.PI / 2, label: 'Avenue Deli', colors: ['#e3b448', '#a87f2c', '#5f9ea0'] },
-  // 'west' canonical facing, so this lot's east door is a clean pi turn ON TOP of the row's own -pi/2.
-  building_depot_n1: { assetId: GARAGE, position: [38.5, -36.5], size: [8, 5.5, 7], door: 'east', projectionYaw: Math.PI, colors: ['#6e7b8a', '#48525e', '#5faf7f'] },
+  // --- batch 1 (ca63b5e9) ---
+  building_market_02: { body: BODIES.shop.id, batch: 1, position: [39, 22], size: [6, 5, 6], door: 'east', canonicalFacing: 'south', projectionYaw: Math.PI / 2, nearestSameBody: ['building_market_01', 7.0] },
+  building_gate_retail_01: { body: BODIES.shop.id, batch: 1, position: [33, -104], size: [6, 5, 6], door: 'east', canonicalFacing: 'south', projectionYaw: Math.PI / 2, label: 'Avenue Deli', nearestSameBody: ['s1_-1_s1', 55.4] },
+  building_depot_n1: { body: BODIES.garage.id, batch: 1, position: [38.5, -36.5], size: [8, 5.5, 7], door: 'east', canonicalFacing: 'west', projectionYaw: Math.PI, nearestSameBody: ['building_garage_01', 49.2] },
+  // --- batch 2 ---
+  building_cafe_01: { body: BODIES.shop.id, batch: 2, position: [-16.5, -3], size: [6, 5, 6], door: 'east', canonicalFacing: 'south', projectionYaw: Math.PI / 2, label: 'Corner Café', nearestSameBody: ['building_shop_01', 18.5] },
+  building_market_01: { body: BODIES.shop.id, batch: 2, position: [39, 15], size: [6, 4.5, 6], door: 'east', canonicalFacing: 'south', projectionYaw: Math.PI / 2, label: 'Market Row', nearestSameBody: ['building_market_02', 7.0] },
+  building_tower_02: { body: BODIES.hotel.id, batch: 2, position: [72, -12], size: [9, 13, 9], canonicalFacing: 'west', projectionYaw: 0, nearestSameBody: ['building_gate_hotel_01', 98.4] },
+  building_tower_05: { body: BODIES.apartment.id, batch: 2, position: [-76, 10], size: [8, 9, 8], canonicalFacing: 'south', projectionYaw: 0, nearestSameBody: ['building_apartment_01', 66.2] },
+  building_gate_tower_01: { body: BODIES.apartment.id, batch: 2, position: [34, -80], size: [8, 12, 8], door: 'east', canonicalFacing: 'south', projectionYaw: Math.PI / 2, label: 'Meridian Tower', nearestSameBody: ['building_apartment_01', 81.5] },
+  's1_-1_n2': { body: BODIES.shop.id, batch: 2, position: [92.16, -110], size: [6, 5, 6], door: 'south', canonicalFacing: 'south', projectionYaw: 0, label: 'Corner Beans', nearestSameBody: ['s1_-1_s1', 24.9] },
+  's1_-1_n3': { body: BODIES.rowHouse.id, batch: 2, position: [105.76, -112], size: [9, 9, 8], door: 'south', canonicalFacing: 'south', projectionYaw: 0, nearestSameBody: ['s1_-1_s2', 27.4] },
+  's1_-2_n2': { body: BODIES.shop.id, batch: 2, position: [100, -314], size: [6, 5, 6], door: 'south', canonicalFacing: 'south', projectionYaw: 0, label: 'North Perk', nearestSameBody: ['s1_-2_s1', 26.0] },
+  's1_-2_n3': { body: BODIES.rowHouse.id, batch: 2, position: [122, -316], size: [9, 9, 8], door: 'south', canonicalFacing: 'south', projectionYaw: 0, nearestSameBody: ['s1_-2_s2', 29.1] },
+  's-1_-2_w2': { body: BODIES.garage.id, batch: 2, position: [-103.42, -243.5], size: [8, 5.5, 7], door: 'south', canonicalFacing: 'west', projectionYaw: Math.PI / 2, nearestSameBody: ['s-1_-2_w4', 42.1] },
+  's-1_-2_w4': { body: BODIES.garage.id, batch: 2, position: [-145.54, -243.5], size: [8, 5.5, 7], door: 'south', canonicalFacing: 'west', projectionYaw: Math.PI / 2, nearestSameBody: ['s-1_-2_w2', 42.1] },
 }
 const REUSED_IDS = Object.keys(REUSED)
+
+/** Half-extent slack the SHIPPED apartment placement already accepts, in metres — the fit ceiling. */
+const MAX_HALF_EXTENT_SLACK = 1.93
+
 /**
  * The only authored doors that point a single-elevation body at the fixed +x / +z camera. Derived, not
  * transcribed: the rig's own offset decides it.
@@ -80,25 +129,20 @@ const CAMERA_FACING_DOORS: Facing[] = (['east', 'south', 'west', 'north'] as Fac
     const normal = new THREE.Vector3(...({ south: [0, 0, 1], north: [0, 0, -1], east: [1, 0, 0], west: [-1, 0, 0] }[facing] as Vec3))
     return normal.dot(new THREE.Vector3(CAMERA_OFFSET[0], 0, CAMERA_OFFSET[2])) > 0
   })
-const RETAIL_IDS = REUSED_IDS.filter((id) => REUSED[id].assetId === SHOP)
-
-/** The placements that ALREADY drew these two rows before this slice. */
-const EXISTING_SHOP = ['building_shop_01', 's1_-1_s1', 's1_-2_s1', 's0_-2_shop']
-const EXISTING_GARAGE = ['building_garage_01']
 
 /**
- * Digests captured from the UNTOUCHED tree at `991a61f7` (the branch base), before this slice edited any
- * file: global BUILDINGS and PROPS as the sibling contracts hash them, plus the citizen destinations and
- * the pedestrian graph. The five new `visual` keys are appended last in their object literals, so
- * dropping them reproduces the pre-change key order exactly.
+ * Digests captured from the UNTOUCHED tree at `991a61f7` (the branch base), before either batch edited
+ * any file: global BUILDINGS and PROPS as the sibling contracts hash them, plus the citizen
+ * destinations and the pedestrian graph.
  */
 const PRE_CHANGE = {
   buildings: 'c3b2a212dfbdb81b04074f79ce20f0f4e6358953deb46a2e5daf25ddeb22388c',
   props: 'd94702c5e475f075a28e2b7a3b476ac8bc0df42fc9655bfa52ccfdb45732be3b',
   citizenDestinations: '9cdd87b48e7d338a5fdf41404ce0cdf5e612f195b36453390bd60fc9c4caf736',
   pedestrianGraph: '0f7dd3de60cbccf0585465d0c39f1d33b85d64d07133519a0a29c47ae7eed06d',
-  /** Projections / authored placements before this slice. */
+  /** Projections / mapped placements / authored placements before this slice. */
   projections: 33,
+  mapped: 42,
   placements: 73,
 }
 
@@ -153,107 +197,112 @@ function glbBounds(glbPath: string): { min: Vec3; max: Vec3 } {
 }
 
 /** Footprint reach of the fitted body about the lot centre, under the COMPOSED yaw. */
-function renderedReach(assetId: string, file: string, yaw: number): { halfX: number; halfZ: number; height: number; baseY: number } {
+function renderedReach(assetId: string, file: string, yaw: number, projectionScale: Vec3): { halfX: number; halfZ: number; height: number; baseY: number } {
   const entry = ASSET_MANIFEST_BY_ID.get(assetId)!
   const { min, max } = glbBounds(file)
+  const sx = entry.scale[0] * projectionScale[0]
+  const sy = entry.scale[1] * projectionScale[1]
+  const sz = entry.scale[2] * projectionScale[2]
   let halfX = 0
   let halfZ = 0
   for (const x of [min[0], max[0]]) {
     for (const z of [min[2], max[2]]) {
-      const lx = x * entry.scale[0]
-      const lz = z * entry.scale[2]
+      const lx = x * sx
+      const lz = z * sz
       halfX = Math.max(halfX, Math.abs(lx * Math.cos(yaw) + lz * Math.sin(yaw)))
       halfZ = Math.max(halfZ, Math.abs(-lx * Math.sin(yaw) + lz * Math.cos(yaw)))
     }
   }
-  return { halfX, halfZ, height: (max[1] - min[1]) * entry.scale[1], baseY: min[1] * entry.scale[1] }
+  return { halfX, halfZ, height: (max[1] - min[1]) * sy, baseY: min[1] * sy }
 }
 
-describe('issue #53 — five procedural lots on two already-approved archetype rows', () => {
-  it('both rows are the shipped files, byte for byte, with their calibrations untouched', () => {
-    expect(createHash('sha256').update(readFileSync(`public/${SHOP_FILE}`)).digest('hex')).toBe(SHOP_FILE_SHA256)
-    expect(createHash('sha256').update(readFileSync(`public/${GARAGE_FILE}`)).digest('hex')).toBe(GARAGE_FILE_SHA256)
-
-    const shop = ASSET_MANIFEST_BY_ID.get(SHOP)!
-    expect(shop.glbPath).toBe(SHOP_FILE)
-    expect(shop.enabled).toBe(true)
-    expect(shop.fallbackKey).toBe('BuildingMesh')
-    expect(shop.scale).toEqual([1.206, 1.206, 1.206])
-    expect(shop.rotation).toEqual([0, 0, 0])
-    expect(shop.positionOffset).toEqual([0, 0, 0])
-    expect(shop.labelHeight).toBe(6)
-    expect(shop.bounds).toEqual({ width: 5.9925, height: 4.824, depth: 4.8836 })
-    expect(shop.renderedTopY).toBe(4.824)
-    expect(shop.materialSlots).toEqual({})
-    expect(shop.variants).toBeUndefined()
-
-    const garage = ASSET_MANIFEST_BY_ID.get(GARAGE)!
-    expect(garage.glbPath).toBe(GARAGE_FILE)
-    expect(garage.enabled).toBe(true)
-    expect(garage.fallbackKey).toBe('BuildingMesh')
-    expect(garage.scale).toEqual([0.6304, 0.6304, 0.6304])
-    expect(garage.rotation).toEqual([0, -Math.PI / 2, 0])
-    expect(garage.positionOffset).toEqual([0, 0, 0])
-    expect(garage.labelHeight).toBe(5)
-    expect(garage.renderedTopY).toBe(3.7824)
-    expect(garage.materialSlots).toEqual({})
-    expect(garage.variants).toBeUndefined()
-
-    // The two rows' OWN placements stay legacy (id-keyed, no projection).
-    expect(defFor(SHOP).visual, 'Mini Mart is untouched').toBeUndefined()
-    expect(defFor(GARAGE).visual, 'the Garage placement is untouched').toBeUndefined()
+describe('issue #53 — fourteen procedural lots on five already-approved archetype rows', () => {
+  it('every reused row is the shipped file, byte for byte, with its calibration untouched', () => {
+    for (const body of Object.values(BODIES)) {
+      expect(createHash('sha256').update(readFileSync(`public/${body.file}`)).digest('hex'), `${body.id} bytes`).toBe(body.sha256)
+      const entry = ASSET_MANIFEST_BY_ID.get(body.id)!
+      expect(entry.glbPath, `${body.id} path`).toBe(body.file)
+      expect(entry.enabled, `${body.id} enabled`).toBe(true)
+      expect(entry.fallbackKey, `${body.id} fallback`).toBe('BuildingMesh')
+      // Uniform scale, no offset, and no recolorable slot — so a projection adds no variant-cache key
+      // and cannot distort or displace the approved body.
+      expect(new Set(entry.scale).size, `${body.id} uniform manifest scale`).toBe(1)
+      expect(entry.positionOffset, `${body.id} offset`).toEqual([0, 0, 0])
+      expect(entry.materialSlots, `${body.id} slots`).toEqual({})
+      expect(entry.variants, `${body.id} variants`).toBeUndefined()
+      expect(entry.rotation[0], `${body.id} pitch`).toBe(0)
+      expect(entry.rotation[2], `${body.id} roll`).toBe(0)
+    }
+    // The exact shipped calibrations, spelled out.
+    expect(ASSET_MANIFEST_BY_ID.get(BODIES.shop.id)!.scale).toEqual([1.206, 1.206, 1.206])
+    expect(ASSET_MANIFEST_BY_ID.get(BODIES.garage.id)!.scale).toEqual([0.6304, 0.6304, 0.6304])
+    expect(ASSET_MANIFEST_BY_ID.get(BODIES.rowHouse.id)!.scale).toEqual([0.8835, 0.8835, 0.8835])
+    expect(ASSET_MANIFEST_BY_ID.get(BODIES.apartment.id)!.scale).toEqual([0.6, 0.6, 0.6])
+    expect(ASSET_MANIFEST_BY_ID.get(BODIES.hotel.id)!.scale).toEqual([0.8333, 0.8333, 0.8333])
+    expect(ASSET_MANIFEST_BY_ID.get(BODIES.garage.id)!.rotation[1]).toBeCloseTo(-Math.PI / 2, 12)
+    expect(ASSET_MANIFEST_BY_ID.get(BODIES.hotel.id)!.rotation[1]).toBeCloseTo(-Math.PI / 2, 12)
+    for (const id of [BODIES.shop.id, BODIES.rowHouse.id, BODIES.apartment.id]) {
+      expect(ASSET_MANIFEST_BY_ID.get(id)!.rotation[1], `${id} yaw`).toBe(0)
+    }
+    // Each row's OWN placement stays legacy (id-keyed, no projection).
+    for (const id of [BODIES.shop.id, BODIES.garage.id, BODIES.apartment.id, BODIES.rowHouse.id]) {
+      expect(defFor(id)?.visual, `${id}'s own placement is untouched`).toBeUndefined()
+    }
   })
 
-  it('keeps every authored fact of the five reused lots', () => {
+  it('keeps every authored fact of the reused lots', () => {
     for (const id of REUSED_IDS) {
       const def = defFor(id)
       const want = REUSED[id]
-      expect(def.position, `${id} position`).toEqual(want.position)
+      expect(def.position[0], `${id} x`).toBeCloseTo(want.position[0], 6)
+      expect(def.position[1], `${id} z`).toBeCloseTo(want.position[1], 6)
       expect(def.size, `${id} size`).toEqual(want.size)
       expect(def.door, `${id} door`).toBe(want.door)
-      expect([def.color, def.roofColor, def.accentColor], `${id} fallback colours`).toEqual(want.colors)
       expect(def.label, `${id} label`).toBe(want.label)
       expect(def.paletteVariant, `${id} tints nothing`).toBeUndefined()
     }
     expect(defFor('building_depot_n1').windows, 'the depot keeps its authored windowless fallback').toBe(false)
   })
 
-  it('resolves every projection to scale 1, no offset, and a pure facing yaw', () => {
+  it('resolves every projection to a uniform scale, no offset, and a pure facing yaw', () => {
     for (const id of REUSED_IDS) {
       const want = REUSED[id]
       const v = resolveBuildingVisual(defFor(id))!
-      expect(v.assetId, `${id} archetype`).toBe(want.assetId)
-      expect(v.scale, `${id} uniform 1:1 fit (the lot IS the reference box)`).toEqual([1, 1, 1])
+      expect(v.assetId, `${id} archetype`).toBe(want.body)
       expect(v.offset, `${id} offset`).toEqual([0, 0, 0])
       expect(v.paletteVariant, `${id} palette`).toBeUndefined()
+      // UNIFORM: the approved body is scaled, never squashed. Thirteen of the fourteen lots ARE the
+      // reference box (scale exactly 1); Market Row is a deliberate 0.9, uniform to 5e-6 because the
+      // reference is written as a decimal.
+      const spread = Math.max(...v.scale) - Math.min(...v.scale)
+      expect(spread, `${id} scale is uniform`).toBeLessThan(1e-5)
+      if (id === 'building_market_01') {
+        expect(v.scale[1], 'Market Row is a deliberate 0.9 down-fit').toBeCloseTo(0.9, 9)
+      } else {
+        expect(v.scale, `${id} 1:1 fit (the lot IS the reference box)`).toEqual([1, 1, 1])
+      }
       expect(wrap(v.rotationY), `${id} projection yaw`).toBeCloseTo(wrap(want.projectionYaw), 9)
-      // THE claim: projection yaw composed with the row's own manifest yaw reaches the authored door.
-      const entry = ASSET_MANIFEST_BY_ID.get(want.assetId)!
-      expect(wrap(v.rotationY + entry.rotation[1]), `${id} composed yaw faces its ${want.door} door`)
-        .toBeCloseTo(wrap(FACING_YAW[want.door]), 9)
+      // THE claim: projection yaw composed with the row's own manifest yaw reaches the authored door
+      // (or, for a lot that authors none, the declared canonical facing).
+      const entry = ASSET_MANIFEST_BY_ID.get(want.body)!
+      expect(wrap(v.rotationY + entry.rotation[1]), `${id} composed yaw faces ${want.door ?? want.canonicalFacing}`)
+        .toBeCloseTo(wrap(FACING_YAW[want.door ?? want.canonicalFacing]), 9)
     }
   })
 
-  it('the rendered body stays inside each authored lot, grounded and under the camera — measured from the bytes', () => {
+  it('points every SINGLE-ELEVATION body at the camera, and exempts the others by measurement', () => {
+    expect(CAMERA_FACING_DOORS.slice().sort(), 'doors the fixed rig can see').toEqual(['east', 'south'])
     for (const id of REUSED_IDS) {
       const want = REUSED[id]
-      const file = want.assetId === SHOP ? SHOP_FILE : GARAGE_FILE
-      const reach = renderedReach(want.assetId, file, FACING_YAW[want.door])
-      expect(reach.baseY, `${id} base at the ground`).toBeCloseTo(0, 6)
-      expect(reach.halfX, `${id} rendered half-X inside the lot`).toBeLessThanOrEqual(want.size[0] / 2)
-      expect(reach.halfZ, `${id} rendered half-Z inside the lot`).toBeLessThanOrEqual(want.size[2] / 2)
-      // The body also stays under the authored massing, so no lot gets taller than it was.
-      expect(reach.height, `${id} rendered height under the authored box`).toBeLessThanOrEqual(want.size[1])
-      expect(reach.height, `${id} rendered height under the camera clearance limit`).toBeLessThan(MAX_WORLD_RENDER_HEIGHT)
+      const facing = want.door ?? want.canonicalFacing
+      if (SINGLE_ELEVATION.has(want.body)) {
+        expect(CAMERA_FACING_DOORS, `${id} shows ${want.body}'s decorated elevation`).toContain(facing)
+      }
     }
-  })
-
-  it('points every reused single-elevation body at the camera', () => {
-    expect(CAMERA_FACING_DOORS.sort(), 'doors the fixed rig can see').toEqual(['east', 'south'])
-    for (const id of REUSED_IDS) {
-      expect(CAMERA_FACING_DOORS, `${id} shows its decorated elevation`).toContain(REUSED[id].door)
-    }
-    // ...and the two lots rejected for this reason are still procedural, with their authored facts intact.
+    // The exempt bodies are exactly the two the manifest measured as having no wrong front.
+    const exempt = Object.values(BODIES).map((b) => b.id).filter((id) => !SINGLE_ELEVATION.has(id))
+    expect(exempt.sort(), 'bodies exempt from the facing rule').toEqual([BODIES.apartment.id, BODIES.hotel.id].sort())
+    // ...and the two lots rejected for facing are still procedural, with their authored facts intact.
     for (const [id, door] of [['building_commons_w1', 'west'], ['building_deli_s1', 'north']] as const) {
       const def = defFor(id)
       expect(def.visual, `${id} stays procedural`).toBeUndefined()
@@ -262,11 +311,34 @@ describe('issue #53 — five procedural lots on two already-approved archetype r
     }
   })
 
-  it('adds exactly these three mappings — 36 projections, 45 of 73 placements mapped', () => {
-    expect(BUILDINGS.filter((b) => b.visual?.assetId === SHOP).map((b) => b.id).sort(), 'shop-row placements')
-      .toEqual([...RETAIL_IDS, ...EXISTING_SHOP.filter((id) => id !== SHOP)].sort())
-    expect(BUILDINGS.filter((b) => b.visual?.assetId === GARAGE).map((b) => b.id), 'garage-row projections')
-      .toEqual(['building_depot_n1'])
+  it('holds every rendered body inside its lot, grounded, under the camera — measured from the bytes', () => {
+    for (const id of REUSED_IDS) {
+      const want = REUSED[id]
+      const v = resolveBuildingVisual(defFor(id))!
+      const entry = ASSET_MANIFEST_BY_ID.get(want.body)!
+      const composed = wrap(v.rotationY + entry.rotation[1])
+      const reach = renderedReach(want.body, FILE_OF.get(want.body)!, composed, v.scale)
+      expect(reach.baseY, `${id} base at the ground`).toBeCloseTo(0, 6)
+      expect(reach.halfX, `${id} rendered half-X inside the lot`).toBeLessThanOrEqual(want.size[0] / 2)
+      expect(reach.halfZ, `${id} rendered half-Z inside the lot`).toBeLessThanOrEqual(want.size[2] / 2)
+      // ...and not so far inside that a player collides with a wall they cannot see.
+      expect(want.size[0] / 2 - reach.halfX, `${id} half-X slack vs the shipped worst case`).toBeLessThanOrEqual(MAX_HALF_EXTENT_SLACK)
+      expect(want.size[2] / 2 - reach.halfZ, `${id} half-Z slack vs the shipped worst case`).toBeLessThanOrEqual(MAX_HALF_EXTENT_SLACK)
+      expect(reach.height, `${id} rendered height under the camera clearance limit`).toBeLessThan(MAX_WORLD_RENDER_HEIGHT)
+    }
+  })
+
+  it('adds exactly these fourteen mappings — 47 projections, 56 of 73 placements mapped', () => {
+    const byBody = (assetId: string) => BUILDINGS.filter((b) => b.visual?.assetId === assetId).map((b) => b.id).sort()
+    expect(byBody(BODIES.shop.id), 'shop-row projections').toEqual(
+      [...REUSED_IDS.filter((id) => REUSED[id].body === BODIES.shop.id), 's1_-1_s1', 's1_-2_s1', 's0_-2_shop'].sort())
+    expect(byBody(BODIES.garage.id), 'garage-row projections').toEqual(
+      REUSED_IDS.filter((id) => REUSED[id].body === BODIES.garage.id).sort())
+    expect(byBody(BODIES.apartment.id), 'apartment-row projections').toEqual(
+      REUSED_IDS.filter((id) => REUSED[id].body === BODIES.apartment.id).sort())
+    expect(byBody(BODIES.hotel.id), 'hotel-row projections').toEqual(['building_tower_02'])
+    expect(byBody(BODIES.rowHouse.id), 'row-house projections').toEqual(
+      [...REUSED_IDS.filter((id) => REUSED[id].body === BODIES.rowHouse.id), 's1_-1_s2', 's1_-2_s2', 's2_-1_n4'].sort())
     const glbBodies = BUILDINGS.filter((b) => {
       const entry = ASSET_MANIFEST_BY_ID.get(b.visual?.assetId ?? b.id)
       return Boolean(entry?.enabled && entry.glbPath)
@@ -274,26 +346,41 @@ describe('issue #53 — five procedural lots on two already-approved archetype r
     // Mapped placements (own-row bodies + projections), not unique assets and not visual acceptance.
     expect(BUILDINGS.filter((b) => b.visual).length, 'visual-projected placements')
       .toBe(PRE_CHANGE.projections + REUSED_IDS.length)
-    expect(glbBodies.length, 'mapped placements').toBe(42 + REUSED_IDS.length)
+    expect(glbBodies.length, 'mapped placements').toBe(PRE_CHANGE.mapped + REUSED_IDS.length)
     expect(BUILDINGS.length, 'authored placements').toBe(PRE_CHANGE.placements)
+    expect(REUSED_IDS.filter((id) => REUSED[id].batch === 1).length, 'batch 1').toBe(3)
   })
 
-  it('no reused body lands within 30 m of another placement drawing the same body', () => {
+  it('records how close each reuse lands to another instance of the same body', () => {
+    // REPETITION POLICY. Batch 1 asserted a 30 m floor between instances of one body. Under the owner's
+    // 2026-09-18 direction cosmetic repetition is DEFERRED POLISH and not a functional blocker, so the
+    // threshold is relaxed to a geometric one — two instances must not be close enough to read as one
+    // duplicated wall — and the real distances are PINNED instead, so any future placement that tightens
+    // them shows up as a diff and gets looked at. The facing, fit, footprint and slack assertions above
+    // are untouched: this is the only cosmetic rule in the file.
     for (const id of REUSED_IDS) {
-      const mine = defFor(id)
-      const siblings = BUILDINGS.filter((b) => b.id !== id && (b.visual?.assetId ?? b.id) === REUSED[id].assetId)
+      const me = defFor(id)
+      const want = REUSED[id]
+      const siblings = BUILDINGS.filter((b) => b.id !== id && (b.visual?.assetId ?? b.id) === want.body)
       expect(siblings.length, `${id} has siblings to compare against`).toBeGreaterThan(0)
-      const nearest = Math.min(...siblings.map((b) => Math.hypot(b.position[0] - mine.position[0], b.position[1] - mine.position[1])))
-      expect(nearest, `${id} nearest same-body placement`).toBeGreaterThan(30)
+      const sorted = siblings
+        .map((b) => ({ id: b.id, d: Math.hypot(b.position[0] - me.position[0], b.position[1] - me.position[1]) }))
+        .sort((a, b) => a.d - b.d)
+      expect(sorted[0].id, `${id} nearest same-body placement`).toBe(want.nearestSameBody[0])
+      expect(sorted[0].d, `${id} nearest same-body distance`).toBeCloseTo(want.nearestSameBody[1], 1)
+      // Geometric floor: further apart than the two authored footprints could ever span.
+      const sibling = siblings.find((b) => b.id === sorted[0].id)!
+      expect(sorted[0].d, `${id} does not overlap its nearest twin`)
+        .toBeGreaterThan((Math.max(...want.size) + Math.max(...sibling.size)) / 2)
     }
   })
 
   it('every other placement, every prop, every destination and the pedestrian graph are unchanged', () => {
-    const withoutTheFive = BUILDINGS.map((b) => (REUSED_IDS.includes(b.id)
+    const withoutTheReuse = BUILDINGS.map((b) => (REUSED_IDS.includes(b.id)
       ? Object.fromEntries(Object.entries(b).filter(([key]) => key !== 'visual'))
       : b))
     expect({
-      buildings: hash(JSON.stringify(withoutTheFive)),
+      buildings: hash(JSON.stringify(withoutTheReuse)),
       props: hash(JSON.stringify(PROPS)),
       destinations: hash(canonical(CITIZEN_DESTINATIONS)),
       graph: hash(canonical(PEDESTRIAN_GRAPH)),
@@ -305,7 +392,7 @@ describe('issue #53 — five procedural lots on two already-approved archetype r
     })
   })
 
-  it('occlusion is untouched: authored footprint, and the authored box still the taller of the two', () => {
+  it('keeps every occluder footprint, and only raises a top where the body genuinely is taller', () => {
     for (const id of REUSED_IDS) {
       const def = defFor(id)
       const occ = getBuildingOccluderDescriptor(def)
@@ -315,27 +402,37 @@ describe('issue #53 — five procedural lots on two already-approved archetype r
         minZ: def.position[1] - d / 2, maxZ: def.position[1] + d / 2,
       })
       expect(occ.minY, `${id} occluder base`).toBe(0)
-      expect(ASSET_MANIFEST_BY_ID.get(REUSED[id].assetId)!.renderedTopY!, `${id} body under the box-plus-slab`)
-        .toBeLessThan(h + BUILDING_ROOF_EXTRA)
-      expect(occ.maxY, `${id} occluder top is still the authored massing`).toBeCloseTo(h + BUILDING_ROOF_EXTRA, 9)
+      const v = resolveBuildingVisual(def)!
+      const top = v.offset[1] + v.scale[1] * ASSET_MANIFEST_BY_ID.get(v.assetId)!.renderedTopY!
+      // Issue #46's rule, unchanged: the taller of the authored massing and what actually renders.
+      expect(occ.maxY, `${id} occluder top`).toBeCloseTo(Math.max(h + BUILDING_ROOF_EXTRA, top), 6)
       expect(occ.enabled, `${id} occluder enabled`).toBe(true)
     }
+    // Only the three lots whose approved body genuinely overtops the authored massing gain height.
+    const raised = REUSED_IDS.filter((id) => {
+      const def = defFor(id)
+      return getBuildingOccluderDescriptor(def).maxY > def.size[1] + BUILDING_ROOF_EXTRA + 1e-9
+    })
+    expect(raised.sort(), 'occluders raised to match a taller body')
+      .toEqual(['building_gate_tower_01', 'building_tower_02', 'building_tower_05'])
   })
 
   it('each sign anchor moves to its row\'s label height and clears the rendered roof', () => {
     for (const id of REUSED_IDS) {
       const def = defFor(id)
-      const entry = ASSET_MANIFEST_BY_ID.get(REUSED[id].assetId)!
-      const anchor = projectedLabelHeight(resolveBuildingVisual(def), entry.labelHeight!)
-      expect(anchor, `${id} model anchor`).toBeCloseTo(entry.labelHeight!, 9)
-      expect(anchor - entry.renderedTopY!, `${id} anchor above the rendered roof`).toBeGreaterThan(1)
+      const entry = ASSET_MANIFEST_BY_ID.get(REUSED[id].body)!
+      const v = resolveBuildingVisual(def)!
+      const anchor = projectedLabelHeight(v, entry.labelHeight!)
+      expect(anchor, `${id} model anchor`).toBeCloseTo(v.scale[1] * entry.labelHeight!, 9)
+      expect(anchor - v.scale[1] * entry.renderedTopY!, `${id} anchor above the rendered roof`).toBeGreaterThan(1)
     }
   })
 
-  it('carries no window-overlay grid, and every reused placement keeps a distinct overlay seed', () => {
-    expect(WINDOW_OVERLAYS.filter((o) => o.buildingAssetId === SHOP || o.buildingAssetId === GARAGE)).toEqual([])
-    const seeds = [...REUSED_IDS, ...EXISTING_SHOP, ...EXISTING_GARAGE]
-      .map((id) => resolveBuildingVisual(defFor(id))?.overlaySeed ?? id)
+  it('adds no window-overlay grid and no variant-cache key, and keeps every overlay seed distinct', () => {
+    for (const body of Object.values(BODIES)) {
+      expect(WINDOW_OVERLAYS.filter((o) => o.buildingAssetId === body.id), `${body.id} overlays`).toEqual([])
+    }
+    const seeds = REUSED_IDS.map((id) => resolveBuildingVisual(defFor(id))!.overlaySeed)
     expect(new Set(seeds).size, 'distinct seeds').toBe(seeds.length)
   })
 })

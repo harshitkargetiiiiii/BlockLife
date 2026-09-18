@@ -61,12 +61,14 @@ const PRE_CHANGE = {
 }
 /**
  * The LATER issue #53 archetype-reuse projections, pinned with their authored facts, resolved
- * projections and fit derivations in `archetypeReuseContract.test.ts`: two 6 x 5 x 6 retail lots on
- * the same shop row (two of them: only an 'east' / 'south' authored door can show this body's one
- * decorated elevation to the fixed camera), and the north depot on the Wave 3 garage row. They add `visual` keys to three
- * placements this slice never touched, so they are excluded here exactly as the other later slices are.
+ * projections and fit derivations in `archetypeReuseContract.test.ts`: fourteen authored lots drawn by
+ * five already-approved rows (shop, garage, row house, apartment, gateway hotel) at their existing
+ * calibrations. They add `visual` keys to fourteen placements this slice never touched, so they are
+ * excluded here exactly as the other later slices are.
  */
-const ISSUE_53_REUSE = ['building_market_02', 'building_gate_retail_01', 'building_depot_n1']
+const ISSUE_53_REUSE = ['building_market_02', 'building_gate_retail_01', 'building_depot_n1',
+  'building_cafe_01', 'building_market_01', 'building_tower_02', 'building_tower_05', 'building_gate_tower_01',
+  's1_-1_n2', 's1_-1_n3', 's1_-2_n2', 's1_-2_n3', 's-1_-2_w2', 's-1_-2_w4']
 
 const defFor = (id: string) => BUILDINGS.find((b) => b.id === id) as BuildingDef
 const hash = (text: string) => createHash('sha256').update(text).digest('hex')
@@ -129,7 +131,13 @@ function yawedCorners(): [number, number][] {
   return out
 }
 
-/** A compiled sector with ONLY the office lot's authored and compiled `visual` removed, serialized like the capture. */
+/**
+ * A compiled sector with the office lot's authored and compiled `visual` removed — and, since issue #53
+ * later added `visual` keys to the n2 / n3 lots of these same two sectors, those two as well. Nothing
+ * else is touched: the s1 / s2 visuals from issues #60 / #55 were already in the pre-change capture, so
+ * any OTHER new visual still breaks this digest.
+ */
+const ISSUE_53_LOCAL_IDS = ['n2', 'n3']
 function withoutOfficeVisual(compiled: unknown, buildingId: string, localId: string): string {
   const copy = JSON.parse(canonical(compiled)) as { spec: { lots: { localId: string; visual?: unknown }[] }; buildings: { id: string; visual?: unknown }[] }
   const lot = copy.spec.lots.find((l) => l.localId === localId)!
@@ -138,6 +146,16 @@ function withoutOfficeVisual(compiled: unknown, buildingId: string, localId: str
   expect(building.visual, `${buildingId} compiled visual`).toEqual(VISUAL)
   delete lot.visual
   delete building.visual
+  // The s1 / s2 lots' visuals (issues #60 / #55) were ALREADY in the pre-change capture and stay.
+  const sectorId = buildingId.slice(0, buildingId.lastIndexOf('_'))
+  for (const local of ISSUE_53_LOCAL_IDS) {
+    const laterLot = copy.spec.lots.find((l) => l.localId === local)!
+    const laterBuilding = copy.buildings.find((b) => b.id === `${sectorId}_${local}`)!
+    expect(laterLot.visual, `${sectorId}_${local} authored visual`).toBeDefined()
+    expect(laterBuilding.visual, `${sectorId}_${local} compiled visual`).toEqual(laterLot.visual)
+    delete laterLot.visual
+    delete laterBuilding.visual
+  }
   return JSON.stringify(copy)
 }
 

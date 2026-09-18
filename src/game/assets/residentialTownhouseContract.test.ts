@@ -43,12 +43,16 @@ const ISSUE_61_BAY = ['s0_-2_shop']
 const ISSUE_63_OFFICES = ['s1_-1_n1', 's1_-2_n1']
 /**
  * The LATER issue #53 archetype-reuse projections, pinned with their authored facts, resolved
- * projections and fit derivations in `archetypeReuseContract.test.ts`: two 6 x 5 x 6 retail lots on
- * the same shop row (two of them: only an 'east' / 'south' authored door can show this body's one
- * decorated elevation to the fixed camera), and the north depot on the Wave 3 garage row. They add `visual` keys to three
- * placements this slice never touched, so they are excluded here exactly as the other later slices are.
+ * projections and fit derivations in `archetypeReuseContract.test.ts`: fourteen authored lots drawn by
+ * five already-approved rows (shop, garage, row house, apartment, gateway hotel) at their existing
+ * calibrations. They add `visual` keys to fourteen placements this slice never touched, so they are
+ * excluded here exactly as the other later slices are.
  */
-const ISSUE_53_REUSE = ['building_market_02', 'building_gate_retail_01', 'building_depot_n1']
+/** The two of them that project THIS row (the rest go on the shop, garage, apartment and hotel rows). */
+const ISSUE_53_ROWHOUSE = ['s1_-1_n3', 's1_-2_n3']
+const ISSUE_53_REUSE = ['building_market_02', 'building_gate_retail_01', 'building_depot_n1',
+  'building_cafe_01', 'building_market_01', 'building_tower_02', 'building_tower_05', 'building_gate_tower_01',
+  's1_-1_n2', 's1_-1_n3', 's1_-2_n2', 's1_-2_n3', 's-1_-2_w2', 's-1_-2_w4']
 
 
 /**
@@ -137,7 +141,8 @@ describe('issue #55 townhouse slice — three compiled townhouse lots on the shi
   })
 
   it('adds exactly these three mappings: 37 of 73 placements mapped (40 with issues #60 and #61)', () => {
-    expect(BUILDINGS.filter((b) => b.visual?.assetId === ROW).map((b) => b.id).sort(), 'projections of the row-house body').toEqual([...IDS].sort())
+    expect(BUILDINGS.filter((b) => b.visual?.assetId === ROW).map((b) => b.id).sort(), 'projections of the row-house body')
+      .toEqual([...IDS, ...ISSUE_53_ROWHOUSE].sort())
     const glbBodies = BUILDINGS.filter((b) => {
       const entry = ASSET_MANIFEST_BY_ID.get(b.visual?.assetId ?? b.id)
       return Boolean(entry?.enabled && entry.glbPath)
