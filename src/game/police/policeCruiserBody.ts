@@ -31,21 +31,28 @@ export const SIREN_BAR_FITS: Readonly<Record<'procedural' | 'body', SirenBarFit>
 
 /**
  * DEV/test reader: the light bar on every VISIBLE cruiser, which variant is mounted (the body's
- * or the procedural one, told apart by its authored height), and how many of its lamps are lit.
- * Never read by the simulation.
+ * or the procedural one, told apart by its authored height), how many of its lamps are lit, and
+ * WHICH lamp — so a test can observe the red/blue alternation change phase over time rather than
+ * one lit instant. Never read by the simulation.
  */
 export function readPoliceSirens(scene: import('three').Object3D | null): {
   bars: number
   variants: ('body' | 'procedural')[]
   litPerBar: number[]
+  litSides: ('red' | 'blue' | 'both' | 'none')[]
 } {
   const variants: ('body' | 'procedural')[] = []
   const litPerBar: number[] = []
+  const litSides: ('red' | 'blue' | 'both' | 'none')[] = []
   scene?.getObjectByName('police-units')?.traverse((o) => {
     if (o.name !== SIREN_BAR_NAME) return
     for (let p = o.parent; p; p = p.parent) if (!p.visible) return
     variants.push(Math.abs(o.position.y - SIREN_BAR_FITS.body.position[1]) < 1e-6 ? 'body' : 'procedural')
     litPerBar.push(o.children.filter((c) => c.visible).length)
+    // SirenBar renders the red lamp first and the blue lamp second.
+    const red = o.children[0]?.visible === true
+    const blue = o.children[1]?.visible === true
+    litSides.push(red && blue ? 'both' : red ? 'red' : blue ? 'blue' : 'none')
   })
-  return { bars: litPerBar.length, variants, litPerBar }
+  return { bars: litPerBar.length, variants, litPerBar, litSides }
 }

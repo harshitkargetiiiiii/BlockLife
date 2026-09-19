@@ -30,7 +30,11 @@ unit has a per-unit colour a mission or test could depend on.
   material, envelope fit recomputed from `PROP_PLACEMENT`, yaw, and the lamp cover re-measured
   from the shipped vertices (a lamp bar floated at the old 1.45 m fails it).
 - E2E: `tests/e2e/police-cruiser-body.spec.ts` — the body mounts on dispatched cruisers with the
-  body-fitted bar lit; an aborted GLB leaves the procedural cruiser with its original bar lit.
+  body-fitted bar mounted, and an aborted GLB leaves the procedural cruiser with its original bar.
+  In both branches every bar shows exactly one lamp and then **switches to the other lamp within
+  a bounded 8 s window** (a frozen siren fails it). The abort case produces the expected
+  "Could not load … Failed to fetch" page errors, one per pool slot — it is a fallback test, not a
+  zero-error one; only the body case asserts no page errors.
 
 ## Not done here
 

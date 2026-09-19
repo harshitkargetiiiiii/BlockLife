@@ -34,13 +34,35 @@ async function stageCruisers(page: Page): Promise<string[]> {
   })
 }
 
-/** The light bar on each visible cruiser: which variant is mounted, and how many lamps are lit. */
-async function sirenState(page: Page): Promise<{ bars: number; variants: string[]; litPerBar: number[] }> {
+/** The light bar on each visible cruiser: mounted variant, lit-lamp count and WHICH lamp is lit. */
+async function sirenState(
+  page: Page,
+): Promise<{ bars: number; variants: string[]; litPerBar: number[]; litSides: string[] }> {
   return page.evaluate(() => window.GAME_TEST_API!.getPoliceSirenState())
 }
 
+/**
+ * The siren ALTERNATES rather than merely being lit: every bar's lit lamp flips to the other one
+ * within a bounded window. The flash is `sin(gameTime * 8)` (half-period ≈ 0.39 s of game time),
+ * advanced by the clamped frame delta, so 8 s of wall time covers it even on a slow software-GL
+ * host; the world is unpaused throughout.
+ */
+async function expectSirenAlternates(page: Page, bars: number): Promise<void> {
+  const first = (await sirenState(page)).litSides
+  expect(first.length, 'one sampled bar per visible cruiser').toBe(bars)
+  for (const side of first) expect(['red', 'blue'], 'exactly one lamp lit').toContain(side)
+  await page.waitForFunction(
+    (initial) => {
+      const now = window.GAME_TEST_API!.getPoliceSirenState().litSides
+      return now.length === initial.length && now.every((side, i) => side !== initial[i] && side !== 'both' && side !== 'none')
+    },
+    first,
+    { timeout: 8_000 },
+  )
+}
+
 test.describe('police cruiser body (Integration Wave 5)', () => {
-  test('dispatched cruisers render the approved body, and the siren still flashes', async ({ page }) => {
+  test('dispatched cruisers render the approved body, and the siren still alternates', async ({ page }) => {
     const errors: string[] = []
     page.on('pageerror', (e) => errors.push(String(e)))
     await boot(page)
@@ -57,13 +79,14 @@ test.describe('police cruiser body (Integration Wave 5)', () => {
     expect(siren.bars, 'one light bar per visible cruiser').toBe(2)
     expect(siren.variants, 'the bar mounted is the one fitted to the approved body').toEqual(['body', 'body'])
     for (const lit of siren.litPerBar) expect(lit, 'exactly one lamp lit per bar').toBe(1)
+    await expectSirenAlternates(page, 2)
     // Purely visual: the dispatched units are still the police director's units.
     const units = await page.evaluate(() => window.GAME_TEST_API!.getPoliceUnits().filter((u) => u.kind === 'vehicle').length)
     expect(units).toBe(2)
     expect(errors, 'no page error').toEqual([])
   })
 
-  test('an unreachable police GLB leaves the complete procedural cruiser, siren included', async ({ page }) => {
+  test('an unreachable police GLB leaves the complete procedural cruiser, alternating siren included', async ({ page }) => {
     await page.route('**/police_cruiser_01.glb', (route) => route.abort())
     await boot(page)
     await stageCruisers(page)
@@ -78,6 +101,7 @@ test.describe('police cruiser body (Integration Wave 5)', () => {
     expect(siren.bars, 'the fallback cruisers keep their light bars').toBe(2)
     expect(siren.variants, 'on the procedural cruiser, at its original spot').toEqual(['procedural', 'procedural'])
     for (const lit of siren.litPerBar) expect(lit, 'exactly one lamp lit per bar').toBe(1)
+    await expectSirenAlternates(page, 2)
     // The pursuit itself is unaffected by which body renders.
     const units = await page.evaluate(() => window.GAME_TEST_API!.getPoliceUnits().filter((u) => u.kind === 'vehicle').length)
     expect(units).toBe(2)
