@@ -36,9 +36,17 @@ export const INDUSTRIAL_YARD_SPEC: SectorAuthoringSpec = {
     // All frontage on the north side (right of westbound travel) — the
     // south strip is too shallow for industrial lots inside the cell.
     { localId: 'w1', templateId: 'industrial_lot', roadLocalId: 'yard_rd', side: 'right', at: 0.54, buildingTemplateId: 'warehouse', label: 'Yard 12', labelColor: '#ffd27f', details: true },
-    { localId: 'w2', templateId: 'industrial_lot', roadLocalId: 'yard_rd', side: 'right', at: 0.63, buildingTemplateId: 'depot', details: true },
+    // Issue #53 batch 2: the shipped repair-garage body on this depot lot -- the identical
+    // [8, 5.5, 7] box its own placement authors, so scale [1, 1, 1] and the 0.6304 fit carry over.
+    // `canonicalFacing: 'west'` names the MOUNTED facing (the row's own [0, -pi/2, 0] rotation is
+    // applied inside the projection group), so this lot's south door composes to a zero net yaw
+    // and puts BOTH decorated elevations -- the twin shutters on +z and the third on +x -- in view.
+    { localId: 'w2', templateId: 'industrial_lot', roadLocalId: 'yard_rd', side: 'right', at: 0.63, buildingTemplateId: 'depot', details: true,
+      visual: { assetId: 'building_garage_01', referenceSize: [8, 5.5, 7], canonicalFacing: 'west', maxScaleDeviation: 0 } },
     { localId: 'w3', templateId: 'industrial_lot', roadLocalId: 'yard_rd', side: 'right', at: 0.72, buildingTemplateId: 'warehouse', details: true },
-    { localId: 'w4', templateId: 'industrial_lot', roadLocalId: 'yard_rd', side: 'right', at: 0.81, buildingTemplateId: 'depot', details: true },
+    // Issue #53 batch 2: the same shipped repair-garage body as w2.
+    { localId: 'w4', templateId: 'industrial_lot', roadLocalId: 'yard_rd', side: 'right', at: 0.81, buildingTemplateId: 'depot', details: true,
+      visual: { assetId: 'building_garage_01', referenceSize: [8, 5.5, 7], canonicalFacing: 'west', maxScaleDeviation: 0 } },
     { localId: 'w5', templateId: 'industrial_lot', roadLocalId: 'yard_rd', side: 'right', at: 0.9, buildingTemplateId: 'warehouse', details: true },
   ],
   linePropZones: [

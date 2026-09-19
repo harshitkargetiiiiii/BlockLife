@@ -4,6 +4,8 @@ import { readAssetStageMarks, type AssetStageMark } from '../assets/assetStallPr
 import { ASSET_SETTLE_QUIET_MS, assetGraphPending, isAssetGraphSettled, isSceneReady, unresolvedByAsset, unresolvedInstances, type AssetGraphCounters, type UnresolvedAsset } from '../assets/assetSettle'
 import { perfRuntime } from '../world/perfRuntime'
 import { countUniqueMaterials, materialProbe } from '../world/materialProbe'
+import { readPoliceSirens } from '../police/policeCruiserBody'
+import { readPlacementBody } from '../assets/placementBodyProbe'
 import { variantCacheSnapshot, variantCacheStats, type VariantCacheSnapshot } from '../assets/variantMaterialCache'
 import { collectVariantCacheUsage, type VariantCacheExpectation, type VariantCacheUsage } from '../assets/variantCacheOwnership'
 import { VARIANT_CACHE_NO_CACHE_ASSET_IDS, deriveVariantCacheExpectations, variantCacheAuthoredPlacementIds, variantCacheScannedAssetIds } from '../assets/variantCacheExpectations'
@@ -862,6 +864,15 @@ export interface GameTestApi {
   // ---- Police dispatch & AI (M4) ------------------------------------------
   /** Force a police response at the suspect's location for a wanted level. */
   spawnPoliceResponse: (level: number) => number
+  /** Integration Wave 5: the light bar on each visible police cruiser — mounted variant + lit lamps. */
+  getPoliceSirenState: () => {
+    bars: number
+    variants: ('body' | 'procedural')[]
+    litPerBar: number[]
+    litSides: ('red' | 'blue' | 'both' | 'none')[]
+  }
+  /** DEV: the GLB body mounted under ONE authored placement (asset ids of marked clones; [] = fallback). */
+  getPlacementBody: (placementId: string) => { found: boolean; glbAssetIds: string[] }
   getPoliceUnits: () => {
     id: string
     kind: string
@@ -2015,6 +2026,8 @@ export function installTestApi(): void {
       })
       return policeActiveCounts().vehicles
     },
+    getPoliceSirenState: () => readPoliceSirens(materialProbe.scene),
+    getPlacementBody: (placementId) => readPlacementBody(materialProbe.scene, placementId),
     getPoliceUnits: () =>
       getPoliceUnitsSnapshot().map((u) => ({
         id: u.id,

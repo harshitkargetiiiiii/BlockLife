@@ -30,6 +30,20 @@ const BAY = 's0_-2_shop'
 const MARTS = ['s1_-1_s1', 's1_-2_s1']
 /** The later issue #63 office projections (a different body), pinned in commercialOfficesContract.test.ts. */
 const ISSUE_63_OFFICES = ['s1_-1_n1', 's1_-2_n1']
+/**
+ * The LATER issue #53 archetype-reuse projections, pinned with their authored facts, resolved
+ * projections and fit derivations in `archetypeReuseContract.test.ts`: fourteen authored lots drawn by
+ * five already-approved rows (shop, garage, row house, apartment, gateway hotel) at their existing
+ * calibrations. They add `visual` keys to fourteen placements this slice never touched, so they are
+ * excluded here exactly as the other later slices are.
+ */
+const ISSUE_53_REUSE = ['building_market_02', 'building_gate_retail_01', 'building_depot_n1',
+  'building_cafe_01', 'building_market_01', 'building_tower_02', 'building_tower_05', 'building_gate_tower_01',
+  's1_-1_n2', 's1_-1_n3', 's1_-2_n2', 's1_-2_n3', 's-1_-2_w2', 's-1_-2_w4']
+/** The four of them that project the shop row (the depot projects the garage row). */
+const ISSUE_53_SHOPS = ['building_market_02', 'building_gate_retail_01', 'building_cafe_01',
+  'building_market_01', 's1_-1_n2', 's1_-2_n2']
+
 
 /**
  * Digests captured with the PRE-CHANGE compiler and sources at the delivered Marts commit `097b440c`,
@@ -140,15 +154,15 @@ describe('issue #61 — Bay Supply on the shipped shop body, through a free-lot 
   })
 
   it('adds exactly this one mapping: three shop projections, 31 projections, 40 of 73 mapped', () => {
-    expect(BUILDINGS.filter((b) => b.visual?.assetId === ROW).map((b) => b.id).sort(), 'projections of the shop body').toEqual([...MARTS, BAY].sort())
+    expect(BUILDINGS.filter((b) => b.visual?.assetId === ROW).map((b) => b.id).sort(), 'projections of the shop body').toEqual([...MARTS, BAY, ...ISSUE_53_SHOPS].sort())
     const glbBodies = BUILDINGS.filter((b) => {
       const entry = ASSET_MANIFEST_BY_ID.get(b.visual?.assetId ?? b.id)
       return Boolean(entry?.enabled && entry.glbPath)
     })
     // Mapped placements (own-row bodies + projections), not unique assets and not visual acceptance.
     // This slice made it 40 / 31; issue #63's two offices add two more.
-    expect(glbBodies.length, 'mapped placements').toBe(40 + ISSUE_63_OFFICES.length)
-    expect(BUILDINGS.filter((b) => b.visual).length, 'visual-projected placements').toBe(31 + ISSUE_63_OFFICES.length)
+    expect(glbBodies.length, 'mapped placements').toBe(40 + ISSUE_63_OFFICES.length + ISSUE_53_REUSE.length)
+    expect(BUILDINGS.filter((b) => b.visual).length, 'visual-projected placements').toBe(31 + ISSUE_63_OFFICES.length + ISSUE_53_REUSE.length)
     expect(BUILDINGS.length, 'authored placements').toBe(73)
   })
 
@@ -164,7 +178,7 @@ describe('issue #61 — Bay Supply on the shipped shop body, through a free-lot 
   })
 
   it('every other placement, every prop, every destination and the pedestrian graph are unchanged', () => {
-    const withoutBay = BUILDINGS.map((b) => (b.id === BAY || ISSUE_63_OFFICES.includes(b.id)
+    const withoutBay = BUILDINGS.map((b) => (b.id === BAY || ISSUE_63_OFFICES.includes(b.id) || ISSUE_53_REUSE.includes(b.id)
       ? Object.fromEntries(Object.entries(b).filter(([key]) => key !== 'visual'))
       : b))
     expect({

@@ -2,16 +2,21 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import ReactThreeTestRenderer from '@react-three/test-renderer'
 import type * as THREE from 'three'
 import { CityBlock } from './CityBlock'
+import { BUILDINGS } from './cityLayout'
 
 /**
- * The placement groups each landmark row renders in. Issue #63 projects the office row onto exactly
- * Main St Offices and North Exchange as well (commercialOfficesContract.test.ts), so its slot and its
- * night overlay grid appear under exactly those three placements; every other row stays one-to-one.
+ * The placement groups each landmark row renders in: an id-keyed lot plus every `BuildingDef.visual`
+ * projection of that row (issue #63's two offices, issue #53's apartment reuse, and so on), so a slot
+ * and its night overlay grid appear under exactly those placements.
+ *
+ * Every placement an asset id renders under: its own id-keyed lot plus every `BuildingDef.visual`
+ * projection of it. DERIVED from the layout rather than transcribed — a hardcoded table silently went
+ * stale the moment issue #53 projected the apartment body onto two more lots.
  */
-const PLACEMENTS_OF: Record<string, string[]> = {
-  building_office_01: ['building_office_01', 's1_-1_n1', 's1_-2_n1'],
+const placementsOf = (id: string) => {
+  const placements = BUILDINGS.filter((b) => (b.visual?.assetId ?? b.id) === id).map((b) => b.id)
+  return placements.length > 0 ? placements : [id]
 }
-const placementsOf = (id: string) => PLACEMENTS_OF[id] ?? [id]
 
 /** The nearest ancestor whose name is one of `candidates` (the placement group a node renders under). */
 function owningPlacement(node: THREE.Object3D, candidates: string[]): string | null {
