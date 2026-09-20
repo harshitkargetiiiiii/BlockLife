@@ -13,14 +13,27 @@ on:
     branches: [master]
   pull_request:
   workflow_dispatch:
+    inputs:
+      # PR #70 routing: a manual dispatch still runs the FULL gate unless this is explicitly
+      # ticked. Nothing else can set it — push and pull_request leave `inputs` null.
+      diagnostic:
+        description: Run the bounded base-vs-head timing comparison INSTEAD of the full gate
+        type: boolean
+        required: false
+        default: false
 
 concurrency:
-  group: e2e-${{ github.ref }}
-  cancel-in-progress: true
+  # The diagnostic takes its own group, so it can neither cancel nor be cancelled by an
+  # ordinary gate run; ordinary runs keep the previous cancel-in-progress behaviour.
+  group: e2e-${{ github.ref }}-${{ (github.event_name == 'workflow_dispatch' && inputs.diagnostic) && 'diagnostic' || 'gate' }}
+  cancel-in-progress: ${{ !(github.event_name == 'workflow_dispatch' && inputs.diagnostic) }}
 
 jobs:
   e2e:
     name: E2E shard ${{ matrix.shard }}
+    # Unchanged for push, pull_request and an ordinary manual dispatch; skipped ONLY when a
+    # dispatch explicitly asks for the diagnostic.
+    if: github.event_name != 'workflow_dispatch' || inputs.diagnostic != true
     runs-on: ubuntu-latest
     timeout-minutes: 120
     strategy:
@@ -70,3 +83,251 @@ jobs:
             playwright-report/
             test-results/
           retention-days: 7
+
+  # ─────────────────────────────────────────────────────────────────────────────────────────
+  # PR #70 diagnostic — manual dispatch ONLY, never part of the gate.
+  #
+  # Why it lives here: a standalone workflow file cannot be dispatched until it is registered
+  # on the default branch, and this one is already registered. Routing through it needs no
+  # merge. The gate job above is untouched for push, pull_request and ordinary dispatch.
+  #
+  # What it answers: the retained shard-4 traces could not say whether `gameplay-flow :53`
+  # and `:91` are slow because this runner is slow or because the branch made them slower.
+  # A recorded action duration bundles the driver's own work with the page's, and a test that
+  # already fails at the base can still be slower at the head. So both revisions run the SAME
+  # two tests, back to back, on ONE runner, with their real clicks, assertions and timeouts.
+  # ─────────────────────────────────────────────────────────────────────────────────────────
+  diagnostic:
+    name: Diagnostic — gameplay-flow :53 and :91, base vs head
+    if: github.event_name == 'workflow_dispatch' && inputs.diagnostic == true
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    env:
+      # Fixed for this one-off comparison: no ref inputs, nothing interpolated into a shell.
+      BASE_SHA: 991a61f7b8a11162826cd6a792b7a9f2d958f789
+      HEAD_SHA: e1a4fba56f242930daaaa7e09988af486374aabc
+      TESTS: tests/e2e/gameplay-flow.spec.ts:53 tests/e2e/gameplay-flow.spec.ts:91
+    steps:
+      - name: Check out the base revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.BASE_SHA }}
+          path: base
+          persist-credentials: false
+
+      - name: Check out the head revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.HEAD_SHA }}
+          path: head
+          persist-credentials: false
+
+      - name: Set up Node (pinned via head's .nvmrc)
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: head/.nvmrc
+
+      # Hard gate on the comparison's validity: the checkouts must BE the named commits and the
+      # two revisions must pin identical dependencies, config and test code. A mismatch stops
+      # the run here — comparing two different browsers or two different specs would produce a
+      # number that looks like a result and is not one. Evidence is still uploaded.
+      - name: Verify the checkouts and the pinned inputs (stops on mismatch)
+        run: |
+          set -Eeuo pipefail
+          mkdir -p evidence
+          {
+            echo "expected base: $BASE_SHA"
+            echo "actual   base: $(git -C base rev-parse HEAD)"
+            echo "expected head: $HEAD_SHA"
+            echo "actual   head: $(git -C head rev-parse HEAD)"
+          } | tee evidence/pins.txt
+          test "$(git -C base rev-parse HEAD)" = "$BASE_SHA"
+          test "$(git -C head rev-parse HEAD)" = "$HEAD_SHA"
+          bad=0
+          for f in package-lock.json package.json .nvmrc playwright.config.ts \
+                   tests/e2e/gameplay-flow.spec.ts tests/e2e/helpers.ts; do
+            if cmp -s "base/$f" "head/$f"; then
+              echo "same      $f" | tee -a evidence/pins.txt
+            else
+              echo "DIFFERENT $f" | tee -a evidence/pins.txt
+              bad=1
+            fi
+          done
+          if [ "$bad" -ne 0 ]; then
+            echo "::error::the two revisions do not pin identical dependencies/config/tests — comparison invalid"
+            exit 1
+          fi
+
+      - name: Install dependencies for both revisions
+        run: |
+          set -Eeuo pipefail
+          (cd base && npm ci)
+          (cd head && npm ci)
+          {
+            echo "base playwright: $(cd base && npx playwright --version)"
+            echo "head playwright: $(cd head && npx playwright --version)"
+          } | tee -a evidence/pins.txt
+          base_v="$(cd base && npx playwright --version)"
+          head_v="$(cd head && npx playwright --version)"
+          if [ "$base_v" != "$head_v" ]; then
+            echo "::error::playwright versions differ despite identical lockfiles — comparison invalid"
+            exit 1
+          fi
+
+      - name: Install the Playwright browser once (one binary, shared by both sides)
+        run: cd head && npx playwright install --with-deps chromium
+
+      - name: Record the runner environment
+        run: |
+          set -Eeuo pipefail
+          # GNU time is used to report per-process CPU; if the image ever lacks it, the runs must
+          # still happen, so its availability is resolved once and exported rather than assumed.
+          if [ -x /usr/bin/time ]; then echo "TIME_BIN=/usr/bin/time" >> "$GITHUB_ENV"; else
+            echo "TIME_BIN=" >> "$GITHUB_ENV"
+            echo "::warning::/usr/bin/time not present — per-process CPU will be unavailable"
+          fi
+          {
+            echo "date: $(date -u +%FT%TZ)"
+            echo "runner nproc: $(nproc)"
+            echo "runner loadavg at start: $(cat /proc/loadavg)"
+            echo "runner cpu: $(grep -m1 'model name' /proc/cpuinfo || true)"
+            echo "runner memory:"; free -m
+          } > evidence/runner.txt
+          # ENVIRONMENT PROBE ONLY. This launches the same browser binary with the same default
+          # flags (the repo config sets no launchOptions.args) in a SEPARATE about:blank page.
+          # It evidences the runner's GL stack; it is NOT a reading from the test's own page and
+          # must not be reported as the backend the tests rendered with.
+          cd head && node -e '
+            const { chromium } = require("playwright-core");
+            (async () => {
+              const b = await chromium.launch();
+              const p = await b.newPage();
+              await p.goto("about:blank");
+              console.log(JSON.stringify(await p.evaluate(() => {
+                const g = document.createElement("canvas").getContext("webgl2");
+                if (!g) return { error: "no webgl2 context" };
+                const d = g.getExtension("WEBGL_debug_renderer_info");
+                return {
+                  note: "environment probe on about:blank — NOT the test page context",
+                  version: g.getParameter(g.VERSION),
+                  renderer: d ? g.getParameter(d.UNMASKED_RENDERER_WEBGL) : g.getParameter(g.RENDERER),
+                  vendor: d ? g.getParameter(d.UNMASKED_VENDOR_WEBGL) : g.getParameter(g.VENDOR),
+                  hardwareConcurrency: navigator.hardwareConcurrency,
+                };
+              }), null, 1));
+              await b.close();
+            })()
+          ' | tee ../evidence/backend-probe.json
+
+      # Each side: the repository's own spec and config, real clicks, unchanged assertions and
+      # the config's own 90 s timeout. `--trace on` only KEEPS what `retain-on-failure` already
+      # records for every test, so the instrumentation matches the gate and passes keep traces.
+      # The exit status is captured from PIPESTATUS immediately and the step then returns 0, so
+      # a failing side cannot stop the other; the verify step below turns it into a job failure.
+      - name: Run the two tests at BASE
+        run: |
+          set -Eeuo pipefail
+          echo "runner loadavg before base: $(cat /proc/loadavg)" >> evidence/runner.txt
+          cd base
+          set +e
+          ${TIME_BIN:+$TIME_BIN -v -o "$GITHUB_WORKSPACE/evidence/base.process-cpu.txt"} \
+            npx playwright test $TESTS --workers=1 --retries=0 --reporter=list --trace on \
+            2>&1 | tee "$GITHUB_WORKSPACE/evidence/base.log"
+          status=${PIPESTATUS[0]}
+          set -e
+          echo "$status" > "$GITHUB_WORKSPACE/evidence/base.exit"
+          echo "base playwright exit: $status"
+          cd "$GITHUB_WORKSPACE"
+          echo "runner loadavg after base: $(cat /proc/loadavg)" >> evidence/runner.txt
+
+      - name: Run the two tests at HEAD
+        run: |
+          set -Eeuo pipefail
+          cd head
+          set +e
+          ${TIME_BIN:+$TIME_BIN -v -o "$GITHUB_WORKSPACE/evidence/head.process-cpu.txt"} \
+            npx playwright test $TESTS --workers=1 --retries=0 --reporter=list --trace on \
+            2>&1 | tee "$GITHUB_WORKSPACE/evidence/head.log"
+          status=${PIPESTATUS[0]}
+          set -e
+          echo "$status" > "$GITHUB_WORKSPACE/evidence/head.exit"
+          echo "head playwright exit: $status"
+          cd "$GITHUB_WORKSPACE"
+          echo "runner loadavg after head: $(cat /proc/loadavg)" >> evidence/runner.txt
+
+      - name: Collect the traces from both sides
+        if: always()
+        run: |
+          set -Eeuo pipefail
+          mkdir -p evidence/base-test-results evidence/head-test-results
+          cp -r base/test-results/. evidence/base-test-results/ 2>/dev/null \
+            || echo "base produced no test-results" | tee -a evidence/collection.txt
+          cp -r head/test-results/. evidence/head-test-results/ 2>/dev/null \
+            || echo "head produced no test-results" | tee -a evidence/collection.txt
+
+      - name: Upload the evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr70-timing-diagnostic
+          path: evidence/
+          retention-days: 7
+
+      # No silent pass. The job fails if either side's tests failed, if a side never produced a
+      # result, or if the expected two results / two traces per side are missing.
+      - name: Verify collection and propagate failure
+        if: always()
+        run: |
+          set -Eeuo pipefail
+          fail=0
+          for side in base head; do
+            exit_file="evidence/$side.exit"
+            if [ ! -f "$exit_file" ]; then
+              echo "::error::$side produced no exit status — the comparison is incomplete"
+              fail=1
+              continue
+            fi
+            code="$(cat "$exit_file")"
+            results="$(grep -cE '^\s+(✓|✘)\s' "evidence/$side.log" || true)"
+            traces="$(find "evidence/$side-test-results" -name trace.zip 2>/dev/null | wc -l | tr -d ' ')"
+            echo "$side: exit=$code results=$results traces=$traces"
+            [ "$code" = "0" ] || { echo "::error::$side playwright exited $code"; fail=1; }
+            [ "$results" = "2" ] || { echo "::error::$side reported $results test results, expected 2"; fail=1; }
+            [ "$traces" = "2" ] || { echo "::error::$side kept $traces traces, expected 2"; fail=1; }
+          done
+          {
+            echo "# PR #70 timing diagnostic"
+            echo
+            echo "- base \`$BASE_SHA\` exit: \`$(cat evidence/base.exit 2>/dev/null || echo missing)\`"
+            echo "- head \`$HEAD_SHA\` exit: \`$(cat evidence/head.exit 2>/dev/null || echo missing)\`"
+            echo
+            echo '## Per-test outcome (real clicks, unchanged assertions and timeouts)'
+            echo '```'
+            grep -hE '^\s+(✓|✘)\s' evidence/base.log 2>/dev/null | sed 's/^/base  /' || echo 'base  (none)'
+            grep -hE '^\s+(✓|✘)\s' evidence/head.log 2>/dev/null | sed 's/^/head  /' || echo 'head  (none)'
+            echo '```'
+            echo
+            echo '## Runner-wide (NOT per-process)'
+            echo '```'
+            cat evidence/runner.txt 2>/dev/null || true
+            echo '```'
+            echo '## Per-process CPU of each playwright command'
+            echo '```'
+            grep -hE 'Percent of CPU|Elapsed|Maximum resident' evidence/base.process-cpu.txt 2>/dev/null | sed 's/^/base  /' || true
+            grep -hE 'Percent of CPU|Elapsed|Maximum resident' evidence/head.process-cpu.txt 2>/dev/null | sed 's/^/head  /' || true
+            echo '```'
+            echo '## Backend'
+            echo '```'
+            cat evidence/backend-probe.json 2>/dev/null || true
+            echo '```'
+            echo
+            echo '### Limitations'
+            echo '- Order is FIXED: base runs first, so head benefits from a warm npm/browser/OS cache.'
+            echo '  One repetition per side; no averaging and no interleaving.'
+            echo '- The backend line is an about:blank environment probe, not a reading from the test page.'
+            echo '- Runner load is machine-wide; per-process CPU comes from /usr/bin/time on each command.'
+            echo '- A failing test here is data, not a gate signal: this job is not part of the E2E gate.'
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit "$fail"
