@@ -62,5 +62,11 @@ jobs:
         with:
           # Unique per shard — a shared name collides across the parallel matrix jobs (round-4).
           name: playwright-report-shard-${{ strategy.job-index }}
-          path: playwright-report/
+          # `playwright-report/` is written by the html reporter, which this job does not use, so
+          # every failed run uploaded nothing ("No files were found"). The traces the config
+          # already keeps (`trace: 'retain-on-failure'`) land in `test-results/` instead, so that
+          # path is listed too and a failed shard finally ships the evidence it produced.
+          path: |
+            playwright-report/
+            test-results/
           retention-days: 7
