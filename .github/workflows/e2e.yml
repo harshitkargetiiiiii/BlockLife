@@ -50,8 +50,11 @@ jobs:
       # NOTE: some wall-clock-budgeted tests (e.g. the cross-district commute's 380s window)
       # need a FAST host; a free 2-core ubuntu runner can be too slow for those — see the
       # delivery report §7 for the honest per-host picture.
+      # `--reporter=list` only replaces CI's default dot reporter, which prints no per-test
+      # duration: a timeout was indistinguishable from a test that finished with 1 s to spare.
+      # Selection, shards, workers, retries, timeouts and assertions are unchanged.
       - name: E2E shard (workers=1, retries=0)
-        run: npx playwright test tests/e2e --workers=1 --retries=0 --shard=${{ matrix.shard }}
+        run: npx playwright test tests/e2e --workers=1 --retries=0 --reporter=list --shard=${{ matrix.shard }}
 
       - name: Upload Playwright report on failure
         if: failure()
