@@ -87,7 +87,7 @@ const SINGLE_ELEVATION = new Set<string>([BODIES.shop.id, BODIES.rowHouse.id, BO
  */
 const REUSED: Record<string, {
   body: string
-  batch: 1 | 2
+  batch: 1 | 2 | 3
   position: [number, number]
   size: Vec3
   door?: Facing
@@ -104,7 +104,7 @@ const REUSED: Record<string, {
   // --- batch 2 ---
   building_cafe_01: { body: BODIES.shop.id, batch: 2, position: [-16.5, -3], size: [6, 5, 6], door: 'east', canonicalFacing: 'south', projectionYaw: Math.PI / 2, label: 'Corner Café', nearestSameBody: ['building_shop_01', 18.5] },
   building_market_01: { body: BODIES.shop.id, batch: 2, position: [39, 15], size: [6, 4.5, 6], door: 'east', canonicalFacing: 'south', projectionYaw: Math.PI / 2, label: 'Market Row', nearestSameBody: ['building_market_02', 7.0] },
-  building_tower_02: { body: BODIES.hotel.id, batch: 2, position: [72, -12], size: [9, 13, 9], canonicalFacing: 'west', projectionYaw: 0, nearestSameBody: ['building_gate_hotel_01', 98.4] },
+  building_tower_02: { body: BODIES.hotel.id, batch: 2, position: [72, -12], size: [9, 13, 9], canonicalFacing: 'west', projectionYaw: 0, nearestSameBody: ['building_tower_03', 96.5194] },
   building_tower_05: { body: BODIES.apartment.id, batch: 2, position: [-76, 10], size: [8, 9, 8], canonicalFacing: 'south', projectionYaw: 0, nearestSameBody: ['building_apartment_01', 66.2] },
   building_gate_tower_01: { body: BODIES.apartment.id, batch: 2, position: [34, -80], size: [8, 12, 8], door: 'east', canonicalFacing: 'south', projectionYaw: Math.PI / 2, label: 'Meridian Tower', nearestSameBody: ['building_apartment_01', 81.5] },
   's1_-1_n2': { body: BODIES.shop.id, batch: 2, position: [92.16, -110], size: [6, 5, 6], door: 'south', canonicalFacing: 'south', projectionYaw: 0, label: 'Corner Beans', nearestSameBody: ['s1_-1_s1', 24.9] },
@@ -113,6 +113,14 @@ const REUSED: Record<string, {
   's1_-2_n3': { body: BODIES.rowHouse.id, batch: 2, position: [122, -316], size: [9, 9, 8], door: 'south', canonicalFacing: 'south', projectionYaw: 0, nearestSameBody: ['s1_-2_s2', 29.1] },
   's-1_-2_w2': { body: BODIES.garage.id, batch: 2, position: [-103.42, -243.5], size: [8, 5.5, 7], door: 'south', canonicalFacing: 'west', projectionYaw: Math.PI / 2, nearestSameBody: ['s-1_-2_w4', 42.1] },
   's-1_-2_w4': { body: BODIES.garage.id, batch: 2, position: [-145.54, -243.5], size: [8, 5.5, 7], door: 'south', canonicalFacing: 'west', projectionYaw: Math.PI / 2, nearestSameBody: ['s-1_-2_w2', 42.1] },
+  // --- batch 3: placement closure (2026-09-21) ---
+  // These three were in the "no approved body fits" ledger. Two of the three entries were arithmetic
+  // errors in that ledger, not measurements: it compared FULL widths against a ceiling this file has
+  // always measured as a HALF-extent. Re-measured from the bytes under the composed yaw, all three sit
+  // inside every gate below, so they are mapped rather than left procedural.
+  building_tower_03: { body: BODIES.hotel.id, batch: 3, position: [-8, -66], size: [11, 11, 9], canonicalFacing: 'west', projectionYaw: 0, nearestSameBody: ['building_gate_hotel_01', 83.5284] },
+  building_tower_06: { body: BODIES.hotel.id, batch: 3, position: [-10, 70], size: [11, 12, 9], canonicalFacing: 'west', projectionYaw: 0, nearestSameBody: ['building_tower_02', 115.9655] },
+  building_shop_02: { body: BODIES.shop.id, batch: 3, position: [3.5, -17.5], size: [7, 6, 6], door: 'south', canonicalFacing: 'south', projectionYaw: 0, label: 'Book Nook', nearestSameBody: ['building_shop_01', 8.5] },
 }
 const REUSED_IDS = Object.keys(REUSED)
 
@@ -216,7 +224,7 @@ function renderedReach(assetId: string, file: string, yaw: number, projectionSca
   return { halfX, halfZ, height: (max[1] - min[1]) * sy, baseY: min[1] * sy }
 }
 
-describe('issue #53 — fourteen procedural lots on five already-approved archetype rows', () => {
+describe('issue #53 — seventeen procedural lots on five already-approved archetype rows', () => {
   it('every reused row is the shipped file, byte for byte, with its calibration untouched', () => {
     for (const body of Object.values(BODIES)) {
       expect(createHash('sha256').update(readFileSync(`public/${body.file}`)).digest('hex'), `${body.id} bytes`).toBe(body.sha256)
@@ -278,6 +286,12 @@ describe('issue #53 — fourteen procedural lots on five already-approved archet
       expect(spread, `${id} scale is uniform`).toBeLessThan(1e-5)
       if (id === 'building_market_01') {
         expect(v.scale[1], 'Market Row is a deliberate 0.9 down-fit').toBeCloseTo(0.9, 9)
+      } else if (id === 'building_shop_02') {
+        // Book Nook is the mirror case: a deliberate 1.15 UP-fit, expressed the same way (the
+        // reference is the lot divided by 1.15) and landing exactly on the +/-15% band the
+        // projection already allows — no threshold is relaxed to accept it.
+        expect(v.scale[1], 'Book Nook is a deliberate 1.15 up-fit').toBeCloseTo(1.15, 4)
+        expect(defFor(id).visual!.maxScaleDeviation, 'and it rides the default band').toBeUndefined()
       } else {
         expect(v.scale, `${id} 1:1 fit (the lot IS the reference box)`).toEqual([1, 1, 1])
       }
@@ -328,7 +342,7 @@ describe('issue #53 — fourteen procedural lots on five already-approved archet
     }
   })
 
-  it('adds exactly these fourteen mappings — 47 projections, 56 of 73 placements mapped', () => {
+  it('adds exactly these seventeen mappings — 50 projections, 59 of 73 placements mapped', () => {
     const byBody = (assetId: string) => BUILDINGS.filter((b) => b.visual?.assetId === assetId).map((b) => b.id).sort()
     expect(byBody(BODIES.shop.id), 'shop-row projections').toEqual(
       [...REUSED_IDS.filter((id) => REUSED[id].body === BODIES.shop.id), 's1_-1_s1', 's1_-2_s1', 's0_-2_shop'].sort())
@@ -336,7 +350,8 @@ describe('issue #53 — fourteen procedural lots on five already-approved archet
       REUSED_IDS.filter((id) => REUSED[id].body === BODIES.garage.id).sort())
     expect(byBody(BODIES.apartment.id), 'apartment-row projections').toEqual(
       REUSED_IDS.filter((id) => REUSED[id].body === BODIES.apartment.id).sort())
-    expect(byBody(BODIES.hotel.id), 'hotel-row projections').toEqual(['building_tower_02'])
+    expect(byBody(BODIES.hotel.id), 'hotel-row projections').toEqual(
+      ['building_tower_02', 'building_tower_03', 'building_tower_06'])
     expect(byBody(BODIES.rowHouse.id), 'row-house projections').toEqual(
       [...REUSED_IDS.filter((id) => REUSED[id].body === BODIES.rowHouse.id), 's1_-1_s2', 's1_-2_s2', 's2_-1_n4'].sort())
     const glbBodies = BUILDINGS.filter((b) => {
@@ -349,6 +364,7 @@ describe('issue #53 — fourteen procedural lots on five already-approved archet
     expect(glbBodies.length, 'mapped placements').toBe(PRE_CHANGE.mapped + REUSED_IDS.length)
     expect(BUILDINGS.length, 'authored placements').toBe(PRE_CHANGE.placements)
     expect(REUSED_IDS.filter((id) => REUSED[id].batch === 1).length, 'batch 1').toBe(3)
+    expect(REUSED_IDS.filter((id) => REUSED[id].batch === 3).length, 'batch 3 (placement closure)').toBe(3)
   })
 
   it('records how close each reuse lands to another instance of the same body', () => {
@@ -414,7 +430,10 @@ describe('issue #53 — fourteen procedural lots on five already-approved archet
       return getBuildingOccluderDescriptor(def).maxY > def.size[1] + BUILDING_ROOF_EXTRA + 1e-9
     })
     expect(raised.sort(), 'occluders raised to match a taller body')
-      .toEqual(['building_gate_tower_01', 'building_tower_02', 'building_tower_05'])
+      .toEqual([
+        'building_gate_tower_01', 'building_tower_02', 'building_tower_03', 'building_tower_05',
+        'building_tower_06',
+      ])
   })
 
   it('each sign anchor moves to its row\'s label height and clears the rendered roof', () => {

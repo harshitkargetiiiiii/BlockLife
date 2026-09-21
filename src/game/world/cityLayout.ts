@@ -312,6 +312,20 @@ export const BUILDINGS: BuildingDef[] = [
     labelColor: '#e8f0d8',
     door: 'south',
     accentColor: '#d9825f',
+    // The approved shop body, the same row the Mini Mart and the cafe draw, at a measured UNIFORM
+    // 1.15 up-fit: `referenceSize` is the lot divided by 1.15, so the projection resolves
+    // [1.15, 1.15, 1.15] inside the default +/-15% band — no threshold is relaxed and no axis is
+    // stretched on its own. Measured from the bytes under the composed yaw it reaches
+    // 3.4498 / 2.8092 with a 5.5476 m top, leaving 0.05 m / 0.19 m per side inside a [7, 6, 6] lot.
+    // At 1:1 the same body leaves 0.50 m / 0.56 m and reads small for the box; the up-fit fills it.
+    // The earlier ledger rejected this lot against the ROW-HOUSE body, whose 7.95 m height and
+    // domestic role never suited a bookshop; the shop row keeps the commercial role the label needs
+    // and its glazed elevation faces the authored south door, which the fixed camera can see.
+    visual: {
+      assetId: 'building_shop_01',
+      referenceSize: [6.087, 5.2174, 5.2174],
+      canonicalFacing: 'south',
+    },
   },
   {
     id: 'building_house_01',
@@ -371,6 +385,14 @@ export const BUILDINGS: BuildingDef[] = [
     size: [11, 11, 9],
     color: '#9aa5b1',
     roofColor: '#68737f',
+    // The same approved gateway hotel body already on Meridian's neighbour (building_tower_02).
+    // The old ledger called this lot unfillable by comparing FULL widths (11 - 8.446 = 2.55 m)
+    // against a ceiling that the contract measures as a HALF-extent: measured from the bytes under
+    // the composed yaw, the body reaches 4.2305 / 3.8163, leaving 1.27 m / 0.68 m per side — inside
+    // the 1.93 m the shipped apartment placement already accepts. It renders 14.9994 m over an 11 m
+    // box, under MAX_WORLD_RENDER_HEIGHT, and this body is entered and windowed on every elevation,
+    // so a lot that authors no door has no wrong facing.
+    visual: { assetId: 'building_gate_hotel_01', referenceSize: [11, 11, 9], canonicalFacing: 'west', maxScaleDeviation: 0 },
   },
   // Distant silhouettes past the districts — the city continues off-map.
   {
@@ -399,6 +421,10 @@ export const BUILDINGS: BuildingDef[] = [
     size: [11, 12, 9],
     color: '#a89bb3',
     roofColor: '#73687f',
+    // Same body and same measured fit as building_tower_03 (identical 11 x 9 footprint): 1.27 m /
+    // 0.68 m of half-extent slack, 14.9994 m over a 12 m box, no authored door and no wrong facing.
+    // The two stand 136 m apart, so the repeat never reads as a copy-paste.
+    visual: { assetId: 'building_gate_hotel_01', referenceSize: [11, 12, 9], canonicalFacing: 'west', maxScaleDeviation: 0 },
   },
 
   // ---- Residential Street (north district) ----

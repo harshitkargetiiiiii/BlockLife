@@ -52,7 +52,10 @@ const ISSUE_63_OFFICES = ['s1_-1_n1', 's1_-2_n1']
 const ISSUE_53_ROWHOUSE = ['s1_-1_n3', 's1_-2_n3']
 const ISSUE_53_REUSE = ['building_market_02', 'building_gate_retail_01', 'building_depot_n1',
   'building_cafe_01', 'building_market_01', 'building_tower_02', 'building_tower_05', 'building_gate_tower_01',
-  's1_-1_n2', 's1_-1_n3', 's1_-2_n2', 's1_-2_n3', 's-1_-2_w2', 's-1_-2_w4']
+  's1_-1_n2', 's1_-1_n3', 's1_-2_n2', 's1_-2_n3', 's-1_-2_w2', 's-1_-2_w4',
+  // Placement closure (2026-09-21), batch 3 of the same programme: the two 11 x 9 backdrop towers on the
+  // hotel row, and Book Nook on the shop row at a measured uniform 1.15.
+  'building_tower_03', 'building_tower_06', 'building_shop_02']
 
 
 /**
