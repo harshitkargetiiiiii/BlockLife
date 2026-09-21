@@ -6,6 +6,7 @@ import { getBuildingOccluderDescriptor } from '../visibility/occluderData'
 import type { BuildingDef } from './worldTypes'
 import { seededRandom, shade, windowDimMaterial, windowLitMaterial } from './materials'
 import { computeFacadeDetails, type FacadeBox } from './surfaces/facadeDetails'
+import { computeRoofDetails, type RoofBox } from './surfaces/roofDetails'
 import { WorldLabel } from '../ui3d/WorldLabel'
 import { LandmarkAsset } from '../assets/LandmarkAsset'
 import { getManifestEntry, hasRealModel } from '../assets/modelRegistry'
@@ -14,6 +15,39 @@ import { BuildingWindowOverlays } from './WindowOverlays'
 import { projectedLabelHeight, resolveBuildingVisual } from './buildingProjection'
 
 const windowGeometry = new THREE.PlaneGeometry(0.85, 1.05)
+
+/** Palette-role → colour for rooftop plant (Hybrid dressing v1). */
+function roofColor(def: BuildingDef, role: RoofBox['role']): string {
+  switch (role) {
+    case 'plant':
+      return '#8d939c'
+    case 'duct':
+      return shade(def.roofColor, 1.18)
+    case 'skylight':
+      return '#9db3c4'
+  }
+}
+
+/**
+ * Rooftop plant for the industrial lots, INSIDE the Occludable like the facade accents, so it
+ * fades with its building and can never hide the player. Visual only: no collider or anchor.
+ */
+function RoofPlant({ def }: { def: BuildingDef }) {
+  const top = def.size[1] + 0.45
+  return (
+    <>
+      {computeRoofDetails(def).map((box, i) => (
+        <mesh key={i} position={[box.x, top + box.y + box.h / 2, box.z]} castShadow receiveShadow>
+          <boxGeometry args={[box.w, box.h, box.d]} />
+          <meshStandardMaterial
+            color={roofColor(def, box.role)}
+            roughness={box.role === 'skylight' ? 0.45 : 0.9}
+          />
+        </mesh>
+      ))}
+    </>
+  )
+}
 
 /** Small rooftop flavor: a water tank on the apartment, antennas on towers. */
 function RooftopExtras({ def }: { def: BuildingDef }) {
@@ -165,6 +199,7 @@ export function BuildingMesh({ def, index }: { def: BuildingDef; index: number }
         </mesh>
       )}
       <RooftopExtras def={def} />
+      <RoofPlant def={def} />
       <FacadeDetails def={def} />
       {def.windows !== false && <BuildingWindows def={def} index={index} />}
       {door && (
