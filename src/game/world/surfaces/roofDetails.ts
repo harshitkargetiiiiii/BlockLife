@@ -36,7 +36,8 @@ export const MAX_ROOF_DETAIL_HEIGHT = 1.4
  * water tank, the towers' antenna) and the generic AC unit.
  */
 export function computeRoofDetails(def: BuildingDef): RoofBox[] {
-  if (resolveFacadeStyle(def) !== 'industrial') return []
+  const style = resolveFacadeStyle(def)
+  if (style !== 'industrial' && style !== 'shop') return []
   const [w, , d] = def.size
   // Keep everything within the slab, not the overhang, so nothing reads as floating off an edge.
   const halfW = w / 2 - 0.9
@@ -44,6 +45,21 @@ export function computeRoofDetails(def: BuildingDef): RoofBox[] {
   if (halfW <= 0.6 || halfD <= 0.6) return []
 
   const out: RoofBox[] = []
+  if (style === 'shop') {
+    // A shop roof is small and close to the camera, so it gets the quiet version: one housing and
+    // one skylight. Anything busier would compete with the shopfront below it.
+    out.push({ x: -halfW * 0.45, y: 0, z: -halfD * 0.3, w: 1.1, h: 0.55, d: 1.1, role: 'plant' })
+    out.push({
+      x: halfW * 0.3,
+      y: 0,
+      z: halfD * 0.45,
+      w: Math.min(w * 0.3, 2.2),
+      h: 0.16,
+      d: 0.5,
+      role: 'skylight',
+    })
+    return out
+  }
   // Two extractor housings on the long axis, the larger one deeper into the roof.
   out.push({ x: -halfW * 0.55, y: 0, z: -halfD * 0.35, w: 1.5, h: 0.85, d: 1.5, role: 'plant' })
   out.push({ x: halfW * 0.5, y: 0, z: halfD * 0.45, w: 1.1, h: 0.6, d: 1.1, role: 'plant' })

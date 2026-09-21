@@ -12,21 +12,34 @@ import { BUILDINGS } from '../cityLayout'
  * slabs. A first pilot dressed the walls instead and was rejected on its own screenshots: three of
  * the four author their door on the west face, which the camera never sees.
  */
-describe('industrial rooftop plant', () => {
+describe('rooftop plant', () => {
   const industrial = BUILDINGS.filter((b) => resolveFacadeStyle(b) === 'industrial')
+  const shops = BUILDINGS.filter((b) => resolveFacadeStyle(b) === 'shop')
+  const dressed = [...industrial, ...shops]
 
-  it('covers every industrial lot and nothing else', () => {
+  it('covers the industrial and shop lots, and nothing else', () => {
     expect(industrial.length).toBeGreaterThanOrEqual(4)
-    for (const def of industrial) {
+    expect(shops.length).toBeGreaterThanOrEqual(3)
+    for (const def of dressed) {
       expect(computeRoofDetails(def).length, `${def.id} has no rooftop plant`).toBeGreaterThan(0)
     }
-    for (const def of BUILDINGS.filter((b) => resolveFacadeStyle(b) !== 'industrial')) {
+    // Towers, houses and plain blocks keep their authored roofs: the towers already carry an
+    // antenna, the apartment a water tank, and a house roof is too small to read as plant.
+    for (const def of BUILDINGS.filter((b) => !['industrial', 'shop'].includes(resolveFacadeStyle(b)))) {
       expect(computeRoofDetails(def), `${def.id} should keep its authored roof`).toEqual([])
     }
   })
 
+  it('keeps the shop profile quieter than the industrial one', () => {
+    for (const def of shops) {
+      const boxes = computeRoofDetails(def)
+      expect(boxes.length, `${def.id} shop roof`).toBeLessThanOrEqual(2)
+      expect(boxes.map((b) => b.role)).toContain('skylight')
+    }
+  })
+
   it('is deterministic and bounded', () => {
-    for (const def of industrial) {
+    for (const def of dressed) {
       const a = computeRoofDetails(def)
       expect(a).toEqual(computeRoofDetails(def))
       expect(a.length).toBeLessThanOrEqual(5)
@@ -34,7 +47,7 @@ describe('industrial rooftop plant', () => {
   })
 
   it('keeps every box on the slab and under the height ceiling', () => {
-    for (const def of industrial) {
+    for (const def of dressed) {
       const [w, , d] = def.size
       for (const box of computeRoofDetails(def)) {
         // Fully inside the roof footprint: nothing may hang over an edge and read as floating.

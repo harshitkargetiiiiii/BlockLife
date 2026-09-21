@@ -29,8 +29,13 @@ function roofColor(def: BuildingDef, role: RoofBox['role']): string {
 }
 
 /**
- * Rooftop plant for the industrial lots, INSIDE the Occludable like the facade accents, so it
- * fades with its building and can never hide the player. Visual only: no collider or anchor.
+ * Rooftop plant for the industrial lots, INSIDE the Occludable like the facade accents, so it fades
+ * with its building. That alone only buys participation, not detection: the occluder descriptor
+ * caps a procedural building at `size[1] + BUILDING_ROOF_EXTRA` while the tallest housing reaches
+ * h + 1.3, so a sight line could in principle clear the descriptor and still be stopped by real
+ * geometry. `visibility/__tests__/roofDetailOcclusion.test.ts` sweeps every bearing around all four
+ * lots and gates the property that matters — a roof box never blocks a sample the building's own
+ * occluder misses. Keep new boxes inside that envelope. Visual only: no collider or anchor.
  */
 function RoofPlant({ def }: { def: BuildingDef }) {
   const top = def.size[1] + 0.45

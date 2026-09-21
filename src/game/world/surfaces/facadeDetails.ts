@@ -68,7 +68,38 @@ export function computeFacadeDetails(def: BuildingDef): FacadeBox[] {
   }
 
   switch (style) {
-    case 'shop':
+    case 'shop': {
+      /**
+       * A second, STREET-side shopfront.
+       *
+       * The fixed camera only ever sees the +x and +z elevations, and a shop's whole shopfront —
+       * fascia, awning line and display glass — hangs off its authored door. Two of the three
+       * procedural shop lots author that door on the west or north face, so from normal play they
+       * present blank walls and read as offices. This mirrors the display band and its awning onto
+       * a seen elevation that is NOT the door's, so every shop reads as a shop from the street
+       * without moving its entrance, collider or identity.
+       */
+      const streetOnX = def.door !== 'east'
+      const streetFace = streetOnX ? w / 2 : d / 2
+      const streetSpan = (streetOnX ? d : w) * 0.52
+      out.push({
+        x: streetOnX ? streetFace * 1.008 : 0,
+        y: 0.75,
+        z: streetOnX ? 0 : streetFace * 1.008,
+        w: streetOnX ? 0.1 : streetSpan,
+        h: 1.45,
+        d: streetOnX ? streetSpan : 0.1,
+        role: 'dark',
+      })
+      out.push({
+        x: streetOnX ? streetFace + 0.26 : 0,
+        y: Math.min(2.5, h - 1),
+        z: streetOnX ? 0 : streetFace + 0.26,
+        w: streetOnX ? 0.62 : streetSpan + 0.5,
+        h: 0.17,
+        d: streetOnX ? streetSpan + 0.5 : 0.62,
+        role: 'accent',
+      })
       if (dir) {
         // Fascia sign band above the awning.
         out.push({
@@ -92,6 +123,7 @@ export function computeFacadeDetails(def: BuildingDef): FacadeBox[] {
         })
       }
       break
+    }
     case 'tower': {
       // Floor bands every other floor + entrance canopy.
       for (let y = 3.3; y < h - 1.2 && out.length < 5; y += 3.4) {
