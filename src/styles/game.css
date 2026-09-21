@@ -962,6 +962,16 @@ body,
   }
 }
 
+/*
+ * The bubble is positioned by its BOTTOM edge (see `ui3d/npcLabelStack.ts`): the wrapper is centred
+ * on the point the clamp returns, and this lifts it by half its own height so the box's bottom
+ * lands there whatever the text wraps to. It sits on the WRAPPER, not on `.speech-bubble`, because
+ * that element's `prompt-in` animation drives `transform` and would replace a static one.
+ */
+.speech-bubble-anchor {
+  transform: translateY(-50%);
+}
+
 .speech-bubble {
   background: #ffffff;
   color: #2b3044;

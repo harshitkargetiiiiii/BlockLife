@@ -32,6 +32,7 @@ function makeClampedPosition(
   halfHeight: number,
   margin: number,
   screenOffsetY: number,
+  pinBottomHeight: number | null,
 ) {
   return (el: Object3D, camera: Camera, size: { width: number; height: number }): number[] => {
     _world.setFromMatrixPosition(el.matrixWorld)
@@ -49,17 +50,23 @@ function makeClampedPosition(
     // the wheel and with the driving/interior mode, so the same world gap buys a different number
     // of pixels at every zoom (see `npc/NPC.tsx`).
     const anchorY = -(_world.y * heightHalf) + heightHalf - screenOffsetY
+    // Bottom-pinned elements (the speech bubble) grow UPWARD from the returned point, so the
+    // clamp is fed the centre implied by their supported height and the point is converted back.
+    // Centring on a guessed half-height instead would move the bottom edge whenever the text
+    // wrapped to another line — which is exactly how a two-line bark reached the quest marker.
+    const half = pinBottomHeight == null ? halfHeight : pinBottomHeight / 2
     const r = clampToViewport({
       anchorX,
-      anchorY,
+      anchorY: pinBottomHeight == null ? anchorY : anchorY - half,
       viewportWidth: size.width,
       viewportHeight: size.height,
       halfWidth,
-      halfHeight,
+      halfHeight: half,
       margin,
       onScreen,
     })
-    return r.hidden ? OFFSCREEN : [r.x, r.y]
+    if (r.hidden) return OFFSCREEN
+    return pinBottomHeight == null ? [r.x, r.y] : [r.x, r.y + half]
   }
 }
 
@@ -74,6 +81,12 @@ export interface WorldAnchoredHtmlProps {
   margin?: number
   /** Pixels to lift the element above its projected anchor, included in the clamp. */
   screenOffsetY?: number
+  /**
+   * Pin the element by its BOTTOM edge instead of its centre, reserving this much height above it
+   * for the clamp. Use when the rendered height varies (wrapped text) but the bottom edge must stay
+   * in its slot.
+   */
+  pinBottomHeight?: number
   zIndexRange?: [number, number]
   testGroupName?: string
 }
@@ -85,6 +98,7 @@ export function WorldAnchoredHtml({
   halfHeight = 26,
   margin = 14,
   screenOffsetY = 0,
+  pinBottomHeight,
   zIndexRange = [40, 0],
   testGroupName,
 }: WorldAnchoredHtmlProps) {
@@ -97,7 +111,13 @@ export function WorldAnchoredHtml({
       center
       zIndexRange={zIndexRange}
       style={{ pointerEvents: 'none' }}
-      calculatePosition={makeClampedPosition(halfWidth, halfHeight, margin, screenOffsetY)}
+      calculatePosition={makeClampedPosition(
+        halfWidth,
+        halfHeight,
+        margin,
+        screenOffsetY,
+        pinBottomHeight ?? null,
+      )}
     >
       {children}
     </Html>
