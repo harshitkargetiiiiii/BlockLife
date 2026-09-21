@@ -59,6 +59,14 @@ export const NPC_BUBBLE_MAX_HEIGHT = Math.ceil(
 ) // 69
 
 /**
+ * Bounded half-width of the widest plate in the band, used when the bubble has to step aside at the
+ * screen edge. The quest marker is ~40 px wide; a long name plate ("Coach Bruno") runs to ~85 px.
+ * 48 covers both with room, and it is a BOUND, not a measurement: a much longer name would still
+ * render, it would simply sit closer to a stepped-aside bubble.
+ */
+export const NPC_PLATE_MAX_HALF_WIDTH = 48
+
+/**
  * Bottom edge of the speech bubble's BOX, in pixels above the anchor. Its tail hangs
  * `NPC_BUBBLE_TAIL_HEIGHT` below that, so the tail TIP lands at 60 px — three pixels clear of the
  * marker at the top of its bounce (57 px). The bubble is pinned by this edge, so wrapped text grows

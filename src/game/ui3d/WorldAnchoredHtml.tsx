@@ -27,12 +27,20 @@ const _to = new Vector3()
 /** Far off-screen sentinel used to hide an anchor that is behind the camera. */
 const OFFSCREEN: [number, number] = [-99999, -99999]
 
+export interface AnchorPlacementInput {
+  /** Projected anchor in screen pixels, before any offset. */
+  anchorX: number
+  anchorY: number
+  viewportWidth: number
+  viewportHeight: number
+  onScreen: boolean
+}
+
 function makeClampedPosition(
   halfWidth: number,
   halfHeight: number,
   margin: number,
-  screenOffsetY: number,
-  pinBottomHeight: number | null,
+  place: ((a: AnchorPlacementInput) => { x: number; y: number; hidden: boolean }) | null,
 ) {
   return (el: Object3D, camera: Camera, size: { width: number; height: number }): number[] => {
     _world.setFromMatrixPosition(el.matrixWorld)
@@ -49,24 +57,30 @@ function makeClampedPosition(
     // is actually drawn. A world offset cannot hold a pixel gap here: the camera zoom changes with
     // the wheel and with the driving/interior mode, so the same world gap buys a different number
     // of pixels at every zoom (see `npc/NPC.tsx`).
-    const anchorY = -(_world.y * heightHalf) + heightHalf - screenOffsetY
-    // Bottom-pinned elements (the speech bubble) grow UPWARD from the returned point, so the
-    // clamp is fed the centre implied by their supported height and the point is converted back.
-    // Centring on a guessed half-height instead would move the bottom edge whenever the text
-    // wrapped to another line — which is exactly how a two-line bark reached the quest marker.
-    const half = pinBottomHeight == null ? halfHeight : pinBottomHeight / 2
+    const anchorY = -(_world.y * heightHalf) + heightHalf
+    // A caller with its own constraints (the NPC plate stack) resolves the point itself; it gets
+    // the raw projected anchor, because it needs to reason about where the other plates are.
+    if (place) {
+      const p = place({
+        anchorX,
+        anchorY,
+        viewportWidth: size.width,
+        viewportHeight: size.height,
+        onScreen,
+      })
+      return p.hidden ? OFFSCREEN : [p.x, p.y]
+    }
     const r = clampToViewport({
       anchorX,
-      anchorY: pinBottomHeight == null ? anchorY : anchorY - half,
+      anchorY,
       viewportWidth: size.width,
       viewportHeight: size.height,
       halfWidth,
-      halfHeight: half,
+      halfHeight,
       margin,
       onScreen,
     })
-    if (r.hidden) return OFFSCREEN
-    return pinBottomHeight == null ? [r.x, r.y] : [r.x, r.y + half]
+    return r.hidden ? OFFSCREEN : [r.x, r.y]
   }
 }
 
@@ -79,14 +93,12 @@ export interface WorldAnchoredHtmlProps {
   halfHeight?: number
   /** Safe margin from every viewport edge, in pixels. */
   margin?: number
-  /** Pixels to lift the element above its projected anchor, included in the clamp. */
-  screenOffsetY?: number
   /**
-   * Pin the element by its BOTTOM edge instead of its centre, reserving this much height above it
-   * for the clamp. Use when the rendered height varies (wrapped text) but the bottom edge must stay
-   * in its slot.
+   * Resolve the screen point from the raw projected anchor. Use when containment is not the only
+   * constraint — the speech bubble also has to stay clear of the NPC's other plates, which the
+   * generic clamp knows nothing about.
    */
-  pinBottomHeight?: number
+  place?: (a: AnchorPlacementInput) => { x: number; y: number; hidden: boolean }
   zIndexRange?: [number, number]
   testGroupName?: string
 }
@@ -97,8 +109,7 @@ export function WorldAnchoredHtml({
   halfWidth = 80,
   halfHeight = 26,
   margin = 14,
-  screenOffsetY = 0,
-  pinBottomHeight,
+  place,
   zIndexRange = [40, 0],
   testGroupName,
 }: WorldAnchoredHtmlProps) {
@@ -111,13 +122,7 @@ export function WorldAnchoredHtml({
       center
       zIndexRange={zIndexRange}
       style={{ pointerEvents: 'none' }}
-      calculatePosition={makeClampedPosition(
-        halfWidth,
-        halfHeight,
-        margin,
-        screenOffsetY,
-        pinBottomHeight ?? null,
-      )}
+      calculatePosition={makeClampedPosition(halfWidth, halfHeight, margin, place ?? null)}
     >
       {children}
     </Html>

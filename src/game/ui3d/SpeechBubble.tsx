@@ -1,9 +1,22 @@
 import { WorldAnchoredHtml } from './WorldAnchoredHtml'
 import {
   NPC_BUBBLE_MAX_HEIGHT,
+  NPC_BUBBLE_TAIL_HEIGHT,
   NPC_LABEL_ANCHOR_Y,
+  NPC_PLATE_MAX_HALF_WIDTH,
+  NPC_QUEST_MARKER_BOUNCE,
+  NPC_QUEST_MARKER_HEIGHT,
+  NPC_QUEST_MARKER_OFFSET,
   NPC_SPEECH_BUBBLE_OFFSET,
+  NPC_STACK_GAP,
 } from './npcLabelStack'
+import { placeStackedBubble } from './stackedBubblePlacement'
+
+const HALF_WIDTH = 92
+const MARGIN = 14
+/** The band the name plate and the (bouncing) quest marker own, in px above the anchor. */
+const PLATE_BAND_TOP = NPC_QUEST_MARKER_OFFSET + NPC_QUEST_MARKER_HEIGHT + NPC_QUEST_MARKER_BOUNCE
+const PLATE_BAND_BOTTOM = 0
 
 /**
  * A small comic-style speech bubble floating above an NPC's head. Routed through
@@ -20,13 +33,25 @@ export function SpeechBubble({
   return (
     <WorldAnchoredHtml
       offset={offset}
-      // Same head anchor as the name plate and the quest marker. The offset is the BOX's bottom
-      // edge, pinned — wrapped text grows upward, so a two-line bark cannot push the tail back
-      // down into the quest marker's bounce. The clamp is told both the offset and the supported
-      // height, so an edge-of-screen bubble is kept inside the viewport where it is really drawn.
-      screenOffsetY={NPC_SPEECH_BUBBLE_OFFSET}
-      pinBottomHeight={NPC_BUBBLE_MAX_HEIGHT}
-      halfWidth={92}
+      // Placement is resolved against the whole stack, not just the viewport: the bubble is pinned
+      // by its BOTTOM edge so wrapped text grows upward, and if the screen edge forces it back down
+      // into the plates' band it steps aside instead of through them.
+      place={(a) => {
+        const p = placeStackedBubble({
+          ...a,
+          margin: MARGIN,
+          halfWidth: HALF_WIDTH,
+          height: NPC_BUBBLE_MAX_HEIGHT,
+          slotBottom: NPC_SPEECH_BUBBLE_OFFSET,
+          tail: NPC_BUBBLE_TAIL_HEIGHT,
+          plateBandTop: PLATE_BAND_TOP,
+          plateBandBottom: PLATE_BAND_BOTTOM,
+          plateHalfWidth: NPC_PLATE_MAX_HALF_WIDTH,
+          gap: NPC_STACK_GAP,
+        })
+        return { x: p.x, y: p.bottomY, hidden: p.hidden }
+      }}
+      halfWidth={HALF_WIDTH}
       zIndexRange={[50, 0]}
       testGroupName={`speech-bubble:${text}`}
     >
