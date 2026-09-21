@@ -23,6 +23,19 @@ import {
 } from '../traffic/trafficRuntime'
 import { WorldLabel } from '../ui3d/WorldLabel'
 
+/**
+ * World height both NPC plates are anchored at: the top of the head.
+ *
+ * Every approved body renders to the same 2.15 m maximum-variant envelope (CONVENTIONS #42), and
+ * the rig fallback shares it, so ONE anchor serves every NPC. The plates are then stacked in
+ * SCREEN space by `.npc-name` / `.quest-marker` rather than by separate world offsets: the camera
+ * zoom is not fixed (the wheel adjusts it, and the mode zoom widens while driving), so a world gap
+ * between two fixed-pixel plates buys a different number of pixels at every zoom. The shipped
+ * offsets — name 2.15, marker 2.9 — bought 14 px at the default zoom for plates 19 px and 27 px
+ * tall, so the marker covered the name and the name sat on the head.
+ */
+const NPC_LABEL_ANCHOR_Y = 2.15
+
 /** Pedestrians keep this much distance from any car's center. */
 const CAR_CLEARANCE = 2.3
 const PLAYER_CLEARANCE = 0.85
@@ -69,10 +82,10 @@ function QuestIndicator({ def }: { def: NPCDef }) {
   const questState = useGameStore((s) => s.questStates[COFFEE_QUEST_ID])
   if (def.id !== 'npc_ravi_01') return null
   if (questState === 'not_started') {
-    return <WorldLabel text="!" className="quest-marker" offset={2.9} />
+    return <WorldLabel text="!" className="quest-marker" offset={NPC_LABEL_ANCHOR_Y} />
   }
   if (questState === 'has_coffee') {
-    return <WorldLabel text="☕!" className="quest-marker" offset={2.9} />
+    return <WorldLabel text="☕!" className="quest-marker" offset={NPC_LABEL_ANCHOR_Y} />
   }
   return null
 }
@@ -350,7 +363,7 @@ export function NPC({ def }: { def: NPCDef }) {
       ) : (
         <NPCMesh def={def} />
       )}
-      <WorldLabel text={def.name} className="npc-name" offset={2.15} />
+      <WorldLabel text={def.name} className="npc-name" offset={NPC_LABEL_ANCHOR_Y} />
       <QuestIndicator def={def} />
       {bubble && !worldPaused && <SpeechBubble text={bubble} />}
     </group>
