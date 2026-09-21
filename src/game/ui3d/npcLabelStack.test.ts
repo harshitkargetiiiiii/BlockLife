@@ -1,6 +1,13 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import {
+  NPC_NAME_PLATE_HEIGHT,
+  NPC_QUEST_MARKER_HEIGHT,
+  NPC_QUEST_MARKER_OFFSET,
+  NPC_SPEECH_BUBBLE_OFFSET,
+  NPC_STACK_GAP,
+} from './npcLabelStack'
 
 /**
  * The NPC name plate and the quest marker share ONE world anchor (the head top, `NPC_LABEL_ANCHOR_Y`
@@ -38,6 +45,25 @@ describe('NPC world-label stack', () => {
     const marker = block('.world-label.quest-marker')
     expect(marker).toMatch(/--quest-marker-stack-y:\s*calc\(-100% - \d+px\)/)
     expect(marker).toMatch(/transform:\s*translateY\(var\(--quest-marker-stack-y\)\)/)
+  })
+
+  it('gives every plate its own slot, so no two can ever overlap', () => {
+    // name 0-19, marker 22-49, bubble 52 and up — each clears the one below by the same gap.
+    expect(NPC_QUEST_MARKER_OFFSET).toBe(NPC_NAME_PLATE_HEIGHT + NPC_STACK_GAP)
+    expect(NPC_SPEECH_BUBBLE_OFFSET).toBe(
+      NPC_QUEST_MARKER_OFFSET + NPC_QUEST_MARKER_HEIGHT + NPC_STACK_GAP,
+    )
+    expect(NPC_SPEECH_BUBBLE_OFFSET).toBeGreaterThan(NPC_QUEST_MARKER_OFFSET + NPC_QUEST_MARKER_HEIGHT)
+  })
+
+  it('the CSS marker offset matches the module the bubble positions itself from', () => {
+    // The marker's offset has to live in CSS (an animation drives its transform) and the bubble's
+    // in TS (it is positioned through the viewport clamp). They describe ONE stack, so a drift
+    // between them would silently reintroduce an overlap.
+    const marker = block('.world-label.quest-marker')
+    const px = /--quest-marker-stack-y:\s*calc\(-100% - (\d+)px\)/.exec(marker)?.[1]
+    expect(px, 'the marker offset is declared in game.css').toBeDefined()
+    expect(Number(px)).toBe(NPC_QUEST_MARKER_OFFSET)
   })
 
   it('keeps the bounce composed with the stack offset instead of replacing it', () => {

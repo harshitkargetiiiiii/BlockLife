@@ -27,7 +27,12 @@ const _to = new Vector3()
 /** Far off-screen sentinel used to hide an anchor that is behind the camera. */
 const OFFSCREEN: [number, number] = [-99999, -99999]
 
-function makeClampedPosition(halfWidth: number, halfHeight: number, margin: number) {
+function makeClampedPosition(
+  halfWidth: number,
+  halfHeight: number,
+  margin: number,
+  screenOffsetY: number,
+) {
   return (el: Object3D, camera: Camera, size: { width: number; height: number }): number[] => {
     _world.setFromMatrixPosition(el.matrixWorld)
     // In front of the camera? (works for ortho + perspective)
@@ -39,7 +44,11 @@ function makeClampedPosition(halfWidth: number, halfHeight: number, margin: numb
     const widthHalf = size.width / 2
     const heightHalf = size.height / 2
     const anchorX = _world.x * widthHalf + widthHalf
-    const anchorY = -(_world.y * heightHalf) + heightHalf
+    // Screen-space stack offset, applied BEFORE the clamp so the clamp keeps the element where it
+    // is actually drawn. A world offset cannot hold a pixel gap here: the camera zoom changes with
+    // the wheel and with the driving/interior mode, so the same world gap buys a different number
+    // of pixels at every zoom (see `npc/NPC.tsx`).
+    const anchorY = -(_world.y * heightHalf) + heightHalf - screenOffsetY
     const r = clampToViewport({
       anchorX,
       anchorY,
@@ -63,6 +72,8 @@ export interface WorldAnchoredHtmlProps {
   halfHeight?: number
   /** Safe margin from every viewport edge, in pixels. */
   margin?: number
+  /** Pixels to lift the element above its projected anchor, included in the clamp. */
+  screenOffsetY?: number
   zIndexRange?: [number, number]
   testGroupName?: string
 }
@@ -73,6 +84,7 @@ export function WorldAnchoredHtml({
   halfWidth = 80,
   halfHeight = 26,
   margin = 14,
+  screenOffsetY = 0,
   zIndexRange = [40, 0],
   testGroupName,
 }: WorldAnchoredHtmlProps) {
@@ -85,7 +97,7 @@ export function WorldAnchoredHtml({
       center
       zIndexRange={zIndexRange}
       style={{ pointerEvents: 'none' }}
-      calculatePosition={makeClampedPosition(halfWidth, halfHeight, margin)}
+      calculatePosition={makeClampedPosition(halfWidth, halfHeight, margin, screenOffsetY)}
     >
       {children}
     </Html>

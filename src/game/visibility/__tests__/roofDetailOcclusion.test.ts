@@ -4,28 +4,38 @@ import { BUILDING_ROOF_EXTRA } from '../../world/buildingMassing'
 import { resolveFacadeStyle } from '../../world/surfaces/facadeDetails'
 import { computeRoofDetails } from '../../world/surfaces/roofDetails'
 import { getBuildingOccluderDescriptor } from '../occluderData'
-import { countBlockedSamples } from '../occlusionDetection'
+import { countBlockedSamples, isMeaningfullyOccluded } from '../occlusionDetection'
 import { CAMERA_OFFSET } from '../../camera/cameraGeometry'
 import type { OccluderDescriptor, VisibilitySubject } from '../visibilityTypes'
 
 /**
- * Hybrid dressing v1 — can the detector MISS the rooftop plant?
+ * Hybrid dressing — can the detector MISS the rooftop plant?
  *
  * The plant renders inside the building's `Occludable`, so it fades once the building is
  * detected. That proves participation, not detection: `getBuildingOccluderDescriptor` caps a
  * procedural building at `size[1] + BUILDING_ROOF_EXTRA` (h + 0.5), while the tallest housing
- * reaches h + 0.45 + 0.85 = h + 1.3. A sight line could in principle pass ABOVE the descriptor's
- * roof and still be stopped by the housing — the player would sit hidden behind real geometry
- * with no fade, which is exactly the class of defect issue #46 §3 closed for projected bodies.
+ * reaches h + 1.3 and even the quiet shop profile reaches h + 1.0. A sight line could in principle
+ * pass ABOVE the descriptor's roof and still be stopped by the housing — the player would sit
+ * hidden behind real geometry with no fade, which is exactly the class of defect issue #46 §3
+ * closed for projected bodies. Existing thin fittings (cornice, AC unit, water tank, antenna) were
+ * deliberately left out of the descriptor, so the question is specific to the new bulky boxes.
  *
- * Existing thin fittings (the cornice, the generic AC unit, the water tank, the antenna) were
- * deliberately left out of the descriptor, so the question is specific to the new BULKY boxes.
- * Rather than argue from one screenshot, this sweeps subject positions all around each industrial
- * lot and asserts the property that matters: whenever a roof box blocks a sample, the building's
- * own descriptor blocks at least as many. Geometry, not assumption.
+ * SCOPE OF THIS GATE, precisely: a finite sampled envelope — bearings every 5°, radial gaps every
+ * 0.5 m from 0.5 m to 24 m beyond the footprint, one subject profile (the shipped player sample
+ * heights and `minBlockedSamples`) and the camera at the fixed `CAMERA_OFFSET` bearing. It is NOT
+ * a proof over every ray, bearing, subject or camera state; it is a dense check of the approaches
+ * a player actually walks, at the two properties that matter:
+ *
+ *   1. per sample height — a roof box never blocks a height the building's own occluder leaves
+ *      clear (counts matching is not the same as the SAME sample being covered), and
+ *   2. at the fade threshold — whenever the roof boxes together hide enough samples to warrant a
+ *      fade, the building is `isMeaningfullyOccluded`, so the parent fade actually fires.
  */
 
-const INDUSTRIAL = BUILDINGS.filter((b) => resolveFacadeStyle(b) === 'industrial')
+const DRESSED = BUILDINGS.filter((b) => {
+  const style = resolveFacadeStyle(b)
+  return style === 'industrial' || style === 'shop'
+})
 
 /** A roof box as its own occluder, in world space, sitting on the slab. */
 function roofBoxDescriptor(
@@ -48,7 +58,10 @@ function roofBoxDescriptor(
   }
 }
 
-function subjectAt(x: number, z: number): VisibilitySubject {
+const SAMPLE_HEIGHTS = [0.4, 1.0, 1.7]
+const MIN_BLOCKED = 2
+
+function subjectAt(x: number, z: number, heights: number[] = SAMPLE_HEIGHTS): VisibilitySubject {
   return {
     id: 'player',
     kind: 'player',
@@ -56,8 +69,8 @@ function subjectAt(x: number, z: number): VisibilitySubject {
     z,
     groundY: 0,
     radius: 0.36,
-    sampleHeights: [0.4, 1.0, 1.7],
-    minBlockedSamples: 2,
+    sampleHeights: heights,
+    minBlockedSamples: MIN_BLOCKED,
   }
 }
 
@@ -67,29 +80,43 @@ const cameraFor = (s: VisibilitySubject) => ({
   z: s.z + CAMERA_OFFSET[2],
 })
 
+/** Does this occluder block this ONE sample height? Uses the shipped detector, one height at a time. */
+const blocksHeight = (
+  cam: ReturnType<typeof cameraFor>,
+  s: VisibilitySubject,
+  occ: OccluderDescriptor,
+  h: number,
+) => countBlockedSamples(cam, subjectAt(s.x, s.z, [h]), occ) > 0
+
 describe('rooftop plant cannot hide a subject the building occluder misses', () => {
-  it('has bulky boxes that really do stand above the descriptor roof', () => {
-    // If they did not, this gate would pass vacuously.
-    expect(INDUSTRIAL.length).toBeGreaterThanOrEqual(4)
-    let above = 0
-    for (const def of INDUSTRIAL) {
+  it('dresses both styles, with boxes that really stand above the descriptor roof', () => {
+    // If no box stood above the cap, or a style were missing, this gate would pass vacuously.
+    const styles = new Set(DRESSED.map((b) => resolveFacadeStyle(b)))
+    expect(styles.has('industrial'), 'industrial lots under test').toBe(true)
+    expect(styles.has('shop'), 'shop lots under test').toBe(true)
+    expect(DRESSED.length).toBeGreaterThanOrEqual(7)
+
+    const above = new Map<string, number>()
+    for (const def of DRESSED) {
       const descTop = getBuildingOccluderDescriptor(def).maxY
       for (const box of computeRoofDetails(def)) {
         const top = def.size[1] + BUILDING_ROOF_EXTRA - 0.05 + box.y + box.h
-        if (top > descTop) above++
+        if (top > descTop) above.set(resolveFacadeStyle(def), (above.get(resolveFacadeStyle(def)) ?? 0) + 1)
       }
     }
-    expect(above, 'roof boxes standing above the occluder roof').toBeGreaterThan(0)
+    expect(above.get('industrial') ?? 0, 'industrial boxes above the occluder roof').toBeGreaterThan(0)
+    expect(above.get('shop') ?? 0, 'shop boxes above the occluder roof').toBeGreaterThan(0)
   })
 
-  it('sweeping every approach, no roof box ever blocks more than its building does', () => {
+  it('over the sampled envelope, every roof-blocked sample is one the building also blocks', () => {
     let sampled = 0
-    let roofBlocking = 0
-    for (const def of INDUSTRIAL) {
+    let roofBlockedSamples = 0
+    let fadeThresholdCases = 0
+    for (const def of DRESSED) {
       const building = getBuildingOccluderDescriptor(def)
       const boxes = computeRoofDetails(def).map((b) => roofBoxDescriptor(def, b))
+      if (boxes.length === 0) continue
       const [w, , d] = def.size
-      // Ring the lot: every bearing, from hard against the wall out to well beyond it.
       for (let deg = 0; deg < 360; deg += 5) {
         const rad = (deg * Math.PI) / 180
         for (let gap = 0.5; gap <= 24; gap += 0.5) {
@@ -98,21 +125,35 @@ describe('rooftop plant cannot hide a subject the building occluder misses', () 
             def.position[1] + Math.sin(rad) * (d / 2 + gap),
           )
           const cam = cameraFor(s)
-          const byBuilding = countBlockedSamples(cam, s, building)
           sampled++
-          for (const box of boxes) {
-            const byBox = countBlockedSamples(cam, s, box)
-            if (byBox > 0) roofBlocking++
+          // Union across the roof boxes, per sample height.
+          const unionBlocked = new Set<number>()
+          for (const h of SAMPLE_HEIGHTS) {
+            const box = boxes.find((b) => blocksHeight(cam, s, b, h))
+            if (!box) continue
+            unionBlocked.add(h)
+            roofBlockedSamples++
+            // 1. The SAME sample must be covered by the building's own occluder.
             expect(
-              byBuilding,
-              `${box.id} hides ${byBox} sample(s) at (${s.x.toFixed(1)}, ${s.z.toFixed(1)}) that the building occluder misses`,
-            ).toBeGreaterThanOrEqual(byBox)
+              blocksHeight(cam, s, building, h),
+              `${box.id} hides the ${h}u sample at (${s.x.toFixed(1)}, ${s.z.toFixed(1)}) and the building occluder does not`,
+            ).toBe(true)
+          }
+          // 2. If the plant alone hides enough of the subject to warrant a fade, the parent must
+          //    actually be faded — participation is worthless if the parent never triggers.
+          if (unionBlocked.size >= MIN_BLOCKED) {
+            fadeThresholdCases++
+            expect(
+              isMeaningfullyOccluded(cam, s, building),
+              `roof plant hides ${unionBlocked.size} samples at (${s.x.toFixed(1)}, ${s.z.toFixed(1)}) without the building fading`,
+            ).toBe(true)
           }
         }
       }
     }
-    expect(sampled, 'positions swept').toBeGreaterThan(5000)
-    // The sweep must actually exercise the roof boxes, or it proves nothing.
-    expect(roofBlocking, 'positions where a roof box blocks a sample').toBeGreaterThan(0)
+    expect(sampled, 'positions in the sampled envelope').toBeGreaterThan(5000)
+    // The envelope must actually exercise the plant, at both strengths, or it proves nothing.
+    expect(roofBlockedSamples, 'samples hidden by a roof box').toBeGreaterThan(0)
+    expect(fadeThresholdCases, 'positions where the plant alone reaches the fade threshold').toBeGreaterThan(0)
   })
 })

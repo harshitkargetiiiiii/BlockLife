@@ -22,19 +22,8 @@ import {
   type PedestrianRuntime,
 } from '../traffic/trafficRuntime'
 import { WorldLabel } from '../ui3d/WorldLabel'
+import { NPC_LABEL_ANCHOR_Y } from '../ui3d/npcLabelStack'
 
-/**
- * World height both NPC plates are anchored at: the top of the head.
- *
- * Every approved body renders to the same 2.15 m maximum-variant envelope (CONVENTIONS #42), and
- * the rig fallback shares it, so ONE anchor serves every NPC. The plates are then stacked in
- * SCREEN space by `.npc-name` / `.quest-marker` rather than by separate world offsets: the camera
- * zoom is not fixed (the wheel adjusts it, and the mode zoom widens while driving), so a world gap
- * between two fixed-pixel plates buys a different number of pixels at every zoom. The shipped
- * offsets — name 2.15, marker 2.9 — bought 14 px at the default zoom for plates 19 px and 27 px
- * tall, so the marker covered the name and the name sat on the head.
- */
-const NPC_LABEL_ANCHOR_Y = 2.15
 
 /** Pedestrians keep this much distance from any car's center. */
 const CAR_CLEARANCE = 2.3
