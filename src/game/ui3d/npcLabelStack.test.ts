@@ -3,6 +3,8 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
   NPC_BUBBLE_LINE_HEIGHT,
+  NPC_BUBBLE_MAX_HALF_WIDTH,
+  NPC_BUBBLE_MAX_WIDTH,
   NPC_BUBBLE_MAX_HEIGHT,
   NPC_BUBBLE_MAX_LINES,
   NPC_BUBBLE_PADDING_Y,
@@ -121,6 +123,19 @@ describe('NPC world-label stack', () => {
     expect(block('.speech-bubble-anchor'), 'the bubble is pinned by its bottom edge').toMatch(
       /transform:\s*translateY\(-50%\)/,
     )
+  })
+
+  it('reserves the width the bubble can actually render, read from the CSS', () => {
+    // The placement reserves this for the sideways exclusion and the edge margin. Passing a
+    // narrower number than `.speech-bubble` can draw (it did: 184 px against a 210 px box under
+    // the global border-box) leaves both 13 px short, so the bound is READ from the stylesheet
+    // rather than repeated here.
+    const declared = /\.speech-bubble \{[^}]*max-width:\s*(\d+)px/s.exec(css)?.[1]
+    expect(declared, '.speech-bubble declares a max-width').toBeDefined()
+    expect(NPC_BUBBLE_MAX_WIDTH, 'the reserved width equals the rendered maximum').toBe(Number(declared))
+    expect(NPC_BUBBLE_MAX_HALF_WIDTH).toBe(NPC_BUBBLE_MAX_WIDTH / 2)
+    // Border-box is what makes the declared width the OUTER width, padding included.
+    expect(css, 'the global border-box rule the bound relies on').toMatch(/box-sizing:\s*border-box/)
   })
 
   it('the CSS marker offset matches the module the bubble positions itself from', () => {

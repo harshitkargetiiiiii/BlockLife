@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { placeStackedBubble, type StackedBubbleInput } from './stackedBubblePlacement'
 import {
   NPC_BUBBLE_LINE_HEIGHT,
+  NPC_BUBBLE_MAX_HALF_WIDTH,
   NPC_BUBBLE_MAX_HEIGHT,
   NPC_BUBBLE_MAX_LINES,
   NPC_BUBBLE_PADDING_Y,
@@ -28,7 +29,8 @@ import {
 
 const VIEWPORT = { viewportWidth: 1280, viewportHeight: 720 }
 const MARGIN = 14
-const HALF_WIDTH = 92
+/** The production bound, which `npcLabelStack.test.ts` ties to `.speech-bubble`'s `max-width`. */
+const HALF_WIDTH = NPC_BUBBLE_MAX_HALF_WIDTH
 /** Top of the band the plates own, at the WORST moment of the marker's bounce. */
 const BAND_TOP = NPC_QUEST_MARKER_OFFSET + NPC_QUEST_MARKER_HEIGHT + NPC_QUEST_MARKER_BOUNCE // 57
 

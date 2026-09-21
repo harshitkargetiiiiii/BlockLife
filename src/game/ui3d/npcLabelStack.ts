@@ -59,6 +59,16 @@ export const NPC_BUBBLE_MAX_HEIGHT = Math.ceil(
 ) // 69
 
 /**
+ * The widest the bubble box can render: `.speech-bubble`'s `max-width`, under the global
+ * `box-sizing: border-box`, so the padding is already inside it. Reserving less than this — the
+ * 92 px half-width this file used to pass — leaves the sideways exclusion and the edge margin 13 px
+ * short of the box that is actually drawn. `npcLabelStack.test.ts` reads the CSS and fails if the
+ * two ever disagree, rather than repeating the number here and in the assertions.
+ */
+export const NPC_BUBBLE_MAX_WIDTH = 210
+export const NPC_BUBBLE_MAX_HALF_WIDTH = NPC_BUBBLE_MAX_WIDTH / 2 // 105
+
+/**
  * Bounded half-width of the widest plate in the band, used when the bubble has to step aside at the
  * screen edge. The quest marker is ~40 px wide; a long name plate ("Coach Bruno") runs to ~85 px.
  * 48 covers both with room, and it is a BOUND, not a measurement: a much longer name would still
