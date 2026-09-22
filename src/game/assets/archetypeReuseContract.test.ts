@@ -67,18 +67,39 @@ const BODIES = {
 const FILE_OF = new Map<string, string>(Object.values(BODIES).map((b) => [b.id, b.file]))
 
 /**
- * Bodies whose decoration is confined to one elevation, quoting the manifest row that measured it —
- * these are the ones the camera-facing rule binds.
- *   shop:      "the glazed shopfront, its awning and the entrance are all on the model's +z elevation;
- *               ±x and −z are blank render"
- *   rowHouse:  "the two front doors on the model's +z elevation and blank party walls on ±x"
- *   garage:    "the pair of orange roller shutters ... on the model's +z (long) elevation, with a third
- *               single shutter on +x and blank cladding on −z / −x"
+ * Bodies whose PRIMARY frontage is one elevation — the ones the camera-facing rule binds.
+ *
+ * The manifest rows quoted here originally said these bodies were blank on every other side. That is
+ * over-claimed: rendering each shipped file orthographically, dead-on to each cardinal (so no adjacent
+ * face can leak into frame), shows the shop carrying a SECOND decorated elevation on −x — a framed
+ * sign panel, a framed window and a glazed panel between pilasters — while its −z is genuinely blank,
+ * and shows the row house's −z rear carrying windows and a door. The rule below is unchanged and every
+ * shipped placement still satisfies it; what changed is that the reason is now a measurement instead of
+ * a transcription, and a placement may only lean on a secondary elevation by being named in
+ * SECONDARY_FRONTAGE and proving it geometrically.
+ *
  * The apartment ("no distinguishable entrance elevation — the ground floor is windowed on all four
  * sides") and the hotel ("a canopied double-door entrance on EVERY elevation") are exempt BY
  * MEASUREMENT, not by convenience.
  */
 const SINGLE_ELEVATION = new Set<string>([BODIES.shop.id, BODIES.rowHouse.id, BODIES.garage.id])
+
+/** Model-local outward normals, so a declared elevation can be rotated rather than reasoned about. */
+const ELEVATION_NORMAL: Record<'+x' | '-x' | '+z' | '-z', Vec3> = {
+  '+x': [1, 0, 0], '-x': [-1, 0, 0], '+z': [0, 0, 1], '-z': [0, 0, -1],
+}
+
+/**
+ * The ONLY placements allowed to show the camera a body's secondary decorated elevation instead of its
+ * primary frontage. Each one names the elevation and what the camera must therefore see; the test below
+ * rotates that normal by the placement's own composed yaw and refuses it unless it really does land on a
+ * camera-facing world direction. A new entry is a deliberate, reviewed act — nothing falls in silently.
+ */
+const SECONDARY_FRONTAGE: Record<string, { elevation: '+x' | '-x' | '+z' | '-z'; why: string }> = {
+  // Authored door is NORTH, so the glazed shopfront must go there (the entrance belongs at the door).
+  // The composed yaw is π, which swings the body's measured second elevation onto world EAST.
+  building_deli_s1: { elevation: '-x', why: 'framed sign panel, window and glazed panel; measured dead-on' },
+}
 
 /**
  * Every authored fact of the reused lots, transcribed from the sources BEFORE this slice, with the
@@ -122,6 +143,8 @@ const REUSED: Record<string, {
   building_tower_06: { body: BODIES.hotel.id, batch: 3, position: [-10, 70], size: [11, 12, 9], canonicalFacing: 'west', projectionYaw: 0, nearestSameBody: ['building_tower_02', 115.9655] },
   building_factory_n1: { body: BODIES.garage.id, batch: 3, position: [38.5, -27], size: [9, 8, 8], door: 'east', canonicalFacing: 'west', projectionYaw: Math.PI, label: 'Blockworks Factory', nearestSameBody: ['building_depot_n1', 9.5] },
   building_shop_02: { body: BODIES.shop.id, batch: 3, position: [3.5, -17.5], size: [7, 6, 6], door: 'south', canonicalFacing: 'south', projectionYaw: 0, label: 'Book Nook', nearestSameBody: ['building_shop_01', 8.5] },
+  // The one lot in this file that reaches the camera through a SECOND elevation rather than its front.
+  building_deli_s1: { body: BODIES.shop.id, batch: 3, position: [6, 55.5], size: [6, 5, 6], door: 'north', canonicalFacing: 'south', projectionYaw: Math.PI, label: 'South Deli', nearestSameBody: ['building_market_02', 47.0239] },
 }
 const REUSED_IDS = Object.keys(REUSED)
 
@@ -225,7 +248,7 @@ function renderedReach(assetId: string, file: string, yaw: number, projectionSca
   return { halfX, halfZ, height: (max[1] - min[1]) * sy, baseY: min[1] * sy }
 }
 
-describe('issue #53 — eighteen procedural lots on five already-approved archetype rows', () => {
+describe('issue #53 — nineteen procedural lots on five already-approved archetype rows', () => {
   it('every reused row is the shipped file, byte for byte, with its calibration untouched', () => {
     for (const body of Object.values(BODIES)) {
       expect(createHash('sha256').update(readFileSync(`public/${body.file}`)).digest('hex'), `${body.id} bytes`).toBe(body.sha256)
@@ -315,20 +338,44 @@ describe('issue #53 — eighteen procedural lots on five already-approved archet
     for (const id of REUSED_IDS) {
       const want = REUSED[id]
       const facing = want.door ?? want.canonicalFacing
-      if (SINGLE_ELEVATION.has(want.body)) {
+      if (!SINGLE_ELEVATION.has(want.body)) continue
+      const secondary = SECONDARY_FRONTAGE[id]
+      if (!secondary) {
         expect(CAMERA_FACING_DOORS, `${id} shows ${want.body}'s decorated elevation`).toContain(facing)
+        continue
       }
+      // A named exception still has to PROVE it: rotate the declared elevation's own normal by this
+      // placement's composed yaw and require it to land on a side the fixed rig can see.
+      const entry = ASSET_MANIFEST_BY_ID.get(want.body)!
+      const composed = wrap(resolveBuildingVisual(defFor(id))!.rotationY + entry.rotation[1])
+      const world = new THREE.Vector3(...ELEVATION_NORMAL[secondary.elevation])
+        .applyAxisAngle(new THREE.Vector3(0, 1, 0), composed)
+      const seen = world.dot(new THREE.Vector3(CAMERA_OFFSET[0], 0, CAMERA_OFFSET[2]))
+      expect(seen, `${id} turns its ${secondary.elevation} elevation toward the camera`).toBeGreaterThan(0)
+      // ...and the primary frontage really is the one that had to give way, i.e. it faces AWAY.
+      const front = new THREE.Vector3(0, 0, 1).applyAxisAngle(new THREE.Vector3(0, 1, 0), composed)
+      expect(front.dot(new THREE.Vector3(CAMERA_OFFSET[0], 0, CAMERA_OFFSET[2])),
+        `${id} only claims the exception because its front is turned away`).toBeLessThan(0)
     }
     // The exempt bodies are exactly the two the manifest measured as having no wrong front.
     const exempt = Object.values(BODIES).map((b) => b.id).filter((id) => !SINGLE_ELEVATION.has(id))
     expect(exempt.sort(), 'bodies exempt from the facing rule').toEqual([BODIES.apartment.id, BODIES.hotel.id].sort())
-    // ...and the two lots rejected for facing are still procedural, with their authored facts intact.
-    for (const [id, door] of [['building_commons_w1', 'west'], ['building_deli_s1', 'north']] as const) {
-      const def = defFor(id)
-      expect(def.visual, `${id} stays procedural`).toBeUndefined()
-      expect(def.door, `${id} authored door`).toBe(door)
-      expect(CAMERA_FACING_DOORS, `${id} is rejected BECAUSE its door faces away`).not.toContain(def.door)
+    // The lot still rejected for facing stays procedural, with its authored facts intact. Its door is
+    // WEST, so the composed yaw is -π/2: the shop's front swings to world west and its measured second
+    // elevation to world north — BOTH away from the camera — which is why the exception above cannot
+    // rescue it and why it is not mapped.
+    const commons = defFor('building_commons_w1')
+    expect(commons.visual, 'building_commons_w1 stays procedural').toBeUndefined()
+    expect(commons.door, 'building_commons_w1 authored door').toBe('west')
+    expect(CAMERA_FACING_DOORS, 'building_commons_w1 is rejected BECAUSE its door faces away').not.toContain(commons.door)
+    for (const elevation of ['+z', '-x'] as const) {
+      const world = new THREE.Vector3(...ELEVATION_NORMAL[elevation])
+        .applyAxisAngle(new THREE.Vector3(0, 1, 0), FACING_YAW.west - FACING_YAW.south)
+      expect(world.dot(new THREE.Vector3(CAMERA_OFFSET[0], 0, CAMERA_OFFSET[2])),
+        `building_commons_w1 would hide the shop's ${elevation} elevation`).toBeLessThan(0)
     }
+    // Exactly one placement leans on a secondary elevation, and it is the one reviewed for it.
+    expect(Object.keys(SECONDARY_FRONTAGE), 'placements using a secondary elevation').toEqual(['building_deli_s1'])
   })
 
   it('holds every rendered body inside its lot, grounded, under the camera — measured from the bytes', () => {
@@ -348,7 +395,7 @@ describe('issue #53 — eighteen procedural lots on five already-approved archet
     }
   })
 
-  it('adds exactly these eighteen mappings — 51 projections, 60 of 73 placements mapped', () => {
+  it('adds exactly these nineteen mappings — 52 projections, 61 of 73 placements mapped', () => {
     const byBody = (assetId: string) => BUILDINGS.filter((b) => b.visual?.assetId === assetId).map((b) => b.id).sort()
     expect(byBody(BODIES.shop.id), 'shop-row projections').toEqual(
       [...REUSED_IDS.filter((id) => REUSED[id].body === BODIES.shop.id), 's1_-1_s1', 's1_-2_s1', 's0_-2_shop'].sort())
@@ -370,7 +417,7 @@ describe('issue #53 — eighteen procedural lots on five already-approved archet
     expect(glbBodies.length, 'mapped placements').toBe(PRE_CHANGE.mapped + REUSED_IDS.length)
     expect(BUILDINGS.length, 'authored placements').toBe(PRE_CHANGE.placements)
     expect(REUSED_IDS.filter((id) => REUSED[id].batch === 1).length, 'batch 1').toBe(3)
-    expect(REUSED_IDS.filter((id) => REUSED[id].batch === 3).length, 'batch 3 (placement closure)').toBe(4)
+    expect(REUSED_IDS.filter((id) => REUSED[id].batch === 3).length, 'batch 3 (placement closure)').toBe(5)
   })
 
   it('records how close each reuse lands to another instance of the same body', () => {

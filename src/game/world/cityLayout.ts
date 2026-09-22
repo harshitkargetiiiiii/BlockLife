@@ -830,6 +830,19 @@ export const BUILDINGS: BuildingDef[] = [
     labelColor: '#fff3c9',
     door: 'north',
     accentColor: '#5f9ea0',
+    // The approved shop row on its [6, 5, 6] lot at scale [1, 1, 1], exactly as the cafe and Avenue
+    // Deli already ship it. The authored door is NORTH, so the composed yaw is pi: the glazed
+    // shopfront lands on the authored door -- the entrance belongs where the door is -- and the
+    // body's SECOND decorated elevation lands on world EAST, which the fixed camera sees. That
+    // second elevation (a framed sign panel, a framed window and a glazed panel between pilasters
+    // on the model's -x) was MEASURED, by rendering the shipped file orthographically dead-on to
+    // each cardinal so no adjacent face can leak into frame; the manifest row's older claim that
+    // every side but +z is blank render holds for -z but not for -x. This is the only placement
+    // that reaches the camera through a secondary elevation, and archetypeReuseContract names it in
+    // SECONDARY_FRONTAGE and re-derives the direction from the composed yaw rather than trusting
+    // this comment. West Commons stays procedural: its west door swings BOTH decorated elevations
+    // away from the camera.
+    visual: { assetId: 'building_shop_01', referenceSize: [6, 5, 6], canonicalFacing: 'south', maxScaleDeviation: 0 },
   },
   {
     id: 'building_house_s7',
