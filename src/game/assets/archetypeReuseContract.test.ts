@@ -159,6 +159,16 @@ const REUSED: Record<string, {
 }
 const REUSED_IDS = Object.keys(REUSED)
 
+/**
+ * Placements that project an approved body but are pinned in ANOTHER contract, so this file must
+ * allow for them without claiming to own them — the same allowance the sibling contracts make for
+ * this file's ids via their own `ISSUE_53_REUSE` lists. Gateway Offices draws the office row at its
+ * own measured 1.04 up-fit and is pinned in `gatewayOfficesContract.test.ts`; the office body is not
+ * in BODIES above because it is a slotted body with window overlays and a shared variant-cache key,
+ * and the per-body assertions here are written for the baked-atlas rows.
+ */
+const PINNED_ELSEWHERE = ['building_gate_offices_01']
+
 /** Half-extent slack the SHIPPED apartment placement already accepts, in metres — the fit ceiling. */
 const MAX_HALF_EXTENT_SLACK = 1.93
 
@@ -427,8 +437,8 @@ describe('issue #53 — twenty-two procedural lots on five already-approved arch
     })
     // Mapped placements (own-row bodies + projections), not unique assets and not visual acceptance.
     expect(BUILDINGS.filter((b) => b.visual).length, 'visual-projected placements')
-      .toBe(PRE_CHANGE.projections + REUSED_IDS.length)
-    expect(glbBodies.length, 'mapped placements').toBe(PRE_CHANGE.mapped + REUSED_IDS.length)
+      .toBe(PRE_CHANGE.projections + REUSED_IDS.length + PINNED_ELSEWHERE.length)
+    expect(glbBodies.length, 'mapped placements').toBe(PRE_CHANGE.mapped + REUSED_IDS.length + PINNED_ELSEWHERE.length)
     expect(BUILDINGS.length, 'authored placements').toBe(PRE_CHANGE.placements)
     expect(REUSED_IDS.filter((id) => REUSED[id].batch === 1).length, 'batch 1').toBe(3)
     expect(REUSED_IDS.filter((id) => REUSED[id].batch === 3).length, 'batch 3 (placement closure)').toBe(5)
@@ -460,7 +470,7 @@ describe('issue #53 — twenty-two procedural lots on five already-approved arch
   })
 
   it('every other placement, every prop, every destination and the pedestrian graph are unchanged', () => {
-    const withoutTheReuse = BUILDINGS.map((b) => (REUSED_IDS.includes(b.id)
+    const withoutTheReuse = BUILDINGS.map((b) => (REUSED_IDS.includes(b.id) || PINNED_ELSEWHERE.includes(b.id)
       ? Object.fromEntries(Object.entries(b).filter(([key]) => key !== 'visual'))
       : b))
     expect({

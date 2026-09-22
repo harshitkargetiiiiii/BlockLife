@@ -72,7 +72,8 @@ const ISSUE_53_REUSE = ['building_market_02', 'building_gate_retail_01', 'buildi
   // Placement closure (2026-09-21), batch 3 of the same programme: the two 11 x 9 backdrop towers on the
   // hotel row, and Book Nook on the shop row at a measured uniform 1.15.
   'building_tower_03', 'building_tower_06', 'building_shop_02', 'building_factory_n1',
-  'building_deli_s1', 's-1_-2_w1', 's-1_-2_w3', 's-1_-2_w5']
+  'building_deli_s1', 's-1_-2_w1', 's-1_-2_w3', 's-1_-2_w5',
+  'building_gate_offices_01']
 
 const defFor = (id: string) => BUILDINGS.find((b) => b.id === id) as BuildingDef
 const hash = (text: string) => createHash('sha256').update(text).digest('hex')
@@ -204,7 +205,11 @@ describe('issue #63 — Main St Offices and North Exchange on the shipped office
   })
 
   it('adds exactly these two mappings: 33 projections, 42 of 73 placements mapped to a GLB body', () => {
-    expect(BUILDINGS.filter((b) => b.visual?.assetId === ROW).map((b) => b.id).sort(), 'projections of the office body').toEqual([...IDS].sort())
+    // The office body also carries Gateway Offices, at its OWN measured 1.04 up-fit on a [9, 11, 8]
+    // cityLayout lot. That placement is pinned in gatewayOfficesContract.test.ts, not here: this file
+    // pins issue #63's two identical 1:1 sector lots, and every assertion below is written for them.
+    expect(BUILDINGS.filter((b) => b.visual?.assetId === ROW).map((b) => b.id).sort(), 'projections of the office body')
+      .toEqual([...IDS, 'building_gate_offices_01'].sort())
     const glbBodies = BUILDINGS.filter((b) => {
       const entry = ASSET_MANIFEST_BY_ID.get(b.visual?.assetId ?? b.id)
       return Boolean(entry?.enabled && entry.glbPath)

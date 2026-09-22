@@ -965,6 +965,23 @@ export const BUILDINGS: BuildingDef[] = [
     labelColor: '#e8dff2',
     door: 'west',
     accentColor: '#d9a5b5',
+    // The approved office row at a measured UNIFORM 1.04 up-fit: `referenceSize` is the lot divided
+    // by 1.04, so the projection resolves [1.04, 1.04, 1.04] inside the DEFAULT +/-15% band -- no
+    // threshold relaxed, no axis stretched alone, and no calibration alias needed.
+    //
+    // This overturns the recorded 2.004 m blocker, which was measured at 1:1: at the shipped 0.9501
+    // the body reaches half-extents 2.495770 / 2.540183, leaving 2.004230 m per side on X, just over
+    // the 1.93 m ceiling. At a total 0.988104 it reaches 2.595601 / 2.641790 -- gaps 1.904399 /
+    // 1.358210 -- with its top at 9.880285 under both the 11 m authored box and the 15 m camera
+    // limit, and its base on the ground.
+    //
+    // The west door was the other half of the old objection and it does not apply to THIS body:
+    // rendered orthographically dead-on to each cardinal, `arch_office_01` is decorated on ALL FOUR
+    // elevations (two glazed storeys, cornice, spandrel band and plinth all round) with a door on +z
+    // AND one on -x. It has no wrong front, so it is exempt from the camera-facing rule by
+    // measurement -- like the apartment and hotel rows -- and the authored west door keeps a real
+    // modelled door on it while the camera-visible +x / +z elevations are both fully glazed.
+    visual: { assetId: 'building_office_01', referenceSize: [9 / 1.04, 11 / 1.04, 8 / 1.04], canonicalFacing: 'west' },
   },
   {
     id: 'building_gate_hotel_01',
