@@ -100,7 +100,7 @@ const REUSED: Record<string, {
   // --- batch 1 (ca63b5e9) ---
   building_market_02: { body: BODIES.shop.id, batch: 1, position: [39, 22], size: [6, 5, 6], door: 'east', canonicalFacing: 'south', projectionYaw: Math.PI / 2, nearestSameBody: ['building_market_01', 7.0] },
   building_gate_retail_01: { body: BODIES.shop.id, batch: 1, position: [33, -104], size: [6, 5, 6], door: 'east', canonicalFacing: 'south', projectionYaw: Math.PI / 2, label: 'Avenue Deli', nearestSameBody: ['s1_-1_s1', 55.4] },
-  building_depot_n1: { body: BODIES.garage.id, batch: 1, position: [38.5, -36.5], size: [8, 5.5, 7], door: 'east', canonicalFacing: 'west', projectionYaw: Math.PI, nearestSameBody: ['building_garage_01', 49.2] },
+  building_depot_n1: { body: BODIES.garage.id, batch: 1, position: [38.5, -36.5], size: [8, 5.5, 7], door: 'east', canonicalFacing: 'west', projectionYaw: Math.PI, nearestSameBody: ['building_factory_n1', 9.5] },
   // --- batch 2 ---
   building_cafe_01: { body: BODIES.shop.id, batch: 2, position: [-16.5, -3], size: [6, 5, 6], door: 'east', canonicalFacing: 'south', projectionYaw: Math.PI / 2, label: 'Corner Café', nearestSameBody: ['building_shop_01', 18.5] },
   building_market_01: { body: BODIES.shop.id, batch: 2, position: [39, 15], size: [6, 4.5, 6], door: 'east', canonicalFacing: 'south', projectionYaw: Math.PI / 2, label: 'Market Row', nearestSameBody: ['building_market_02', 7.0] },
@@ -120,6 +120,7 @@ const REUSED: Record<string, {
   // inside every gate below, so they are mapped rather than left procedural.
   building_tower_03: { body: BODIES.hotel.id, batch: 3, position: [-8, -66], size: [11, 11, 9], canonicalFacing: 'west', projectionYaw: 0, nearestSameBody: ['building_gate_hotel_01', 83.5284] },
   building_tower_06: { body: BODIES.hotel.id, batch: 3, position: [-10, 70], size: [11, 12, 9], canonicalFacing: 'west', projectionYaw: 0, nearestSameBody: ['building_tower_02', 115.9655] },
+  building_factory_n1: { body: BODIES.garage.id, batch: 3, position: [38.5, -27], size: [9, 8, 8], door: 'east', canonicalFacing: 'west', projectionYaw: Math.PI, label: 'Blockworks Factory', nearestSameBody: ['building_depot_n1', 9.5] },
   building_shop_02: { body: BODIES.shop.id, batch: 3, position: [3.5, -17.5], size: [7, 6, 6], door: 'south', canonicalFacing: 'south', projectionYaw: 0, label: 'Book Nook', nearestSameBody: ['building_shop_01', 8.5] },
 }
 const REUSED_IDS = Object.keys(REUSED)
@@ -224,7 +225,7 @@ function renderedReach(assetId: string, file: string, yaw: number, projectionSca
   return { halfX, halfZ, height: (max[1] - min[1]) * sy, baseY: min[1] * sy }
 }
 
-describe('issue #53 — seventeen procedural lots on five already-approved archetype rows', () => {
+describe('issue #53 — eighteen procedural lots on five already-approved archetype rows', () => {
   it('every reused row is the shipped file, byte for byte, with its calibration untouched', () => {
     for (const body of Object.values(BODIES)) {
       expect(createHash('sha256').update(readFileSync(`public/${body.file}`)).digest('hex'), `${body.id} bytes`).toBe(body.sha256)
@@ -286,6 +287,11 @@ describe('issue #53 — seventeen procedural lots on five already-approved arche
       expect(spread, `${id} scale is uniform`).toBeLessThan(1e-5)
       if (id === 'building_market_01') {
         expect(v.scale[1], 'Market Row is a deliberate 0.9 down-fit').toBeCloseTo(0.9, 9)
+      } else if (id === 'building_factory_n1') {
+        // A deliberate 1.14 up-fit, same technique as Book Nook's 1.15 and Market Row's 0.9: the
+        // reference is the lot divided by the factor, so the band is never touched.
+        expect(v.scale[1], 'the factory is a deliberate 1.14 up-fit').toBeCloseTo(1.14, 4)
+        expect(defFor(id).visual!.maxScaleDeviation, 'and it rides the default band').toBeUndefined()
       } else if (id === 'building_shop_02') {
         // Book Nook is the mirror case: a deliberate 1.15 UP-fit, expressed the same way (the
         // reference is the lot divided by 1.15) and landing exactly on the +/-15% band the
@@ -342,7 +348,7 @@ describe('issue #53 — seventeen procedural lots on five already-approved arche
     }
   })
 
-  it('adds exactly these seventeen mappings — 50 projections, 59 of 73 placements mapped', () => {
+  it('adds exactly these eighteen mappings — 51 projections, 60 of 73 placements mapped', () => {
     const byBody = (assetId: string) => BUILDINGS.filter((b) => b.visual?.assetId === assetId).map((b) => b.id).sort()
     expect(byBody(BODIES.shop.id), 'shop-row projections').toEqual(
       [...REUSED_IDS.filter((id) => REUSED[id].body === BODIES.shop.id), 's1_-1_s1', 's1_-2_s1', 's0_-2_shop'].sort())
@@ -364,7 +370,7 @@ describe('issue #53 — seventeen procedural lots on five already-approved arche
     expect(glbBodies.length, 'mapped placements').toBe(PRE_CHANGE.mapped + REUSED_IDS.length)
     expect(BUILDINGS.length, 'authored placements').toBe(PRE_CHANGE.placements)
     expect(REUSED_IDS.filter((id) => REUSED[id].batch === 1).length, 'batch 1').toBe(3)
-    expect(REUSED_IDS.filter((id) => REUSED[id].batch === 3).length, 'batch 3 (placement closure)').toBe(3)
+    expect(REUSED_IDS.filter((id) => REUSED[id].batch === 3).length, 'batch 3 (placement closure)').toBe(4)
   })
 
   it('records how close each reuse lands to another instance of the same body', () => {

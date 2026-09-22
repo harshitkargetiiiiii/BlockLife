@@ -71,7 +71,7 @@ const ISSUE_53_REUSE = ['building_market_02', 'building_gate_retail_01', 'buildi
   's1_-1_n2', 's1_-1_n3', 's1_-2_n2', 's1_-2_n3', 's-1_-2_w2', 's-1_-2_w4',
   // Placement closure (2026-09-21), batch 3 of the same programme: the two 11 x 9 backdrop towers on the
   // hotel row, and Book Nook on the shop row at a measured uniform 1.15.
-  'building_tower_03', 'building_tower_06', 'building_shop_02']
+  'building_tower_03', 'building_tower_06', 'building_shop_02', 'building_factory_n1']
 
 const defFor = (id: string) => BUILDINGS.find((b) => b.id === id) as BuildingDef
 const hash = (text: string) => createHash('sha256').update(text).digest('hex')

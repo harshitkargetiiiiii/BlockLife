@@ -543,6 +543,7 @@ export const BUILDINGS: BuildingDef[] = [
     door: 'west',
     accentColor: '#d1495b',
     windows: false,
+
   },
   {
     id: 'building_garage_01',
@@ -881,6 +882,17 @@ export const BUILDINGS: BuildingDef[] = [
     door: 'east',
     accentColor: '#e0975f',
     windows: false,
+    // Placement closure pilot: the approved repair-garage row at a measured UNIFORM 1.14
+    // (referenceSize = the lot / 1.14, inside the default +/-15% band). Measured from the bytes at
+    // the composed +pi/2 yaw: half-extents 2.7591 / 3.9894 with a 4.3119 m top, leaving 1.7409 m /
+    // 0.0106 m per side inside a [9, 8, 8] lot -- both under the 1.93 m ceiling. canonicalFacing
+    // 'west' puts the body's PAIRED SHUTTER elevation on the authored east door, which is also a
+    // face the fixed camera sees; that is the arrangement building_depot_n1 already ships.
+    visual: {
+      assetId: 'building_garage_01',
+      referenceSize: [7.89474, 7.01754, 7.01754],
+      canonicalFacing: 'west',
+    },
   },
   {
     id: 'building_depot_n1',
