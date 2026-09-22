@@ -162,12 +162,13 @@ const REUSED_IDS = Object.keys(REUSED)
 /**
  * Placements that project an approved body but are pinned in ANOTHER contract, so this file must
  * allow for them without claiming to own them — the same allowance the sibling contracts make for
- * this file's ids via their own `ISSUE_53_REUSE` lists. Gateway Offices draws the office row at its
- * own measured 1.04 up-fit and is pinned in `gatewayOfficesContract.test.ts`; the office body is not
- * in BODIES above because it is a slotted body with window overlays and a shared variant-cache key,
- * and the per-body assertions here are written for the baked-atlas rows.
+ * this file's ids via their own `ISSUE_53_REUSE` lists. Gateway Offices draws the office row at its own
+ * measured 1.04 up-fit (`gatewayOfficesContract.test.ts`) and the mixed-use tower lot draws it at 1.02
+ * (`mixedUseOfficeContract.test.ts`); the office body is not in BODIES above because it is a slotted
+ * body with window overlays and a shared variant-cache key, and the per-body assertions here are
+ * written for the baked-atlas rows.
  */
-const PINNED_ELSEWHERE = ['building_gate_offices_01']
+const PINNED_ELSEWHERE = ['building_gate_offices_01', 's1_-2_s3']
 
 /** Half-extent slack the SHIPPED apartment placement already accepts, in metres — the fit ceiling. */
 const MAX_HALF_EXTENT_SLACK = 1.93

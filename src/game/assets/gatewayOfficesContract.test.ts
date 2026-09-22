@@ -226,8 +226,10 @@ describe('Gateway Offices on the shipped office row at a measured 1.04', () => {
     expect(WINDOW_OVERLAYS.filter((o) => o.buildingAssetId === ROW).length, "the row's own two grids are untouched").toBe(2)
   })
 
-  it('is the only lot this change maps, and the office body now has exactly three projections', () => {
+  it('is the only lot THIS change maps, alongside the office body\'s other projections', () => {
+    // Issue #63's two sector lots at 1:1, this one at 1.04, and the mixed-use tower lot at 1.02
+    // (pinned in mixedUseOfficeContract.test.ts). One body, four placements, three calibrations.
     expect(BUILDINGS.filter((b) => b.visual?.assetId === ROW).map((b) => b.id).sort(), 'office-body projections')
-      .toEqual(['building_gate_offices_01', 's1_-1_n1', 's1_-2_n1'])
+      .toEqual(['building_gate_offices_01', 's1_-1_n1', 's1_-2_n1', 's1_-2_s3'])
   })
 })

@@ -73,7 +73,7 @@ const ISSUE_53_REUSE = ['building_market_02', 'building_gate_retail_01', 'buildi
   // hotel row, and Book Nook on the shop row at a measured uniform 1.15.
   'building_tower_03', 'building_tower_06', 'building_shop_02', 'building_factory_n1',
   'building_deli_s1', 's-1_-2_w1', 's-1_-2_w3', 's-1_-2_w5',
-  'building_gate_offices_01']
+  'building_gate_offices_01', 's1_-2_s3']
 
 const defFor = (id: string) => BUILDINGS.find((b) => b.id === id) as BuildingDef
 const hash = (text: string) => createHash('sha256').update(text).digest('hex')
@@ -143,7 +143,7 @@ function yawedCorners(): [number, number][] {
  * any OTHER new visual still breaks this digest.
  */
 const ISSUE_53_LOCAL_IDS = ['n2', 'n3']
-function withoutOfficeVisual(compiled: unknown, buildingId: string, localId: string): string {
+function withoutOfficeVisual(compiled: unknown, buildingId: string, localId: string, alsoStrip: string[] = []): string {
   const copy = JSON.parse(canonical(compiled)) as { spec: { lots: { localId: string; visual?: unknown }[] }; buildings: { id: string; visual?: unknown }[] }
   const lot = copy.spec.lots.find((l) => l.localId === localId)!
   const building = copy.buildings.find((b) => b.id === buildingId)!
@@ -160,6 +160,17 @@ function withoutOfficeVisual(compiled: unknown, buildingId: string, localId: str
     expect(laterBuilding.visual, `${sectorId}_${local} compiled visual`).toEqual(laterLot.visual)
     delete laterLot.visual
     delete laterBuilding.visual
+  }
+  // Lots mapped LATER still by other slices, named per sector so the other sector's digest stays
+  // exactly as strict: Main Street North's `s3` now draws the office body at 1.02, pinned in
+  // mixedUseOfficeContract.test.ts.
+  for (const local of alsoStrip) {
+    const otherLot = copy.spec.lots.find((l) => l.localId === local)!
+    const otherBuilding = copy.buildings.find((b) => b.id === `${sectorId}_${local}`)!
+    expect(otherLot.visual, `${sectorId}_${local} authored visual`).toBeDefined()
+    expect(otherBuilding.visual, `${sectorId}_${local} compiled visual`).toEqual(otherLot.visual)
+    delete otherLot.visual
+    delete otherBuilding.visual
   }
   return JSON.stringify(copy)
 }
@@ -209,7 +220,7 @@ describe('issue #63 — Main St Offices and North Exchange on the shipped office
     // cityLayout lot. That placement is pinned in gatewayOfficesContract.test.ts, not here: this file
     // pins issue #63's two identical 1:1 sector lots, and every assertion below is written for them.
     expect(BUILDINGS.filter((b) => b.visual?.assetId === ROW).map((b) => b.id).sort(), 'projections of the office body')
-      .toEqual([...IDS, 'building_gate_offices_01'].sort())
+      .toEqual([...IDS, 'building_gate_offices_01', 's1_-2_s3'].sort())
     const glbBodies = BUILDINGS.filter((b) => {
       const entry = ASSET_MANIFEST_BY_ID.get(b.visual?.assetId ?? b.id)
       return Boolean(entry?.enabled && entry.glbPath)
@@ -222,7 +233,7 @@ describe('issue #63 — Main St Offices and North Exchange on the shipped office
 
   it('both compiled sectors equal the PRE-CHANGE compiler output with only the office lot visual removed', () => {
     expect(hash(withoutOfficeVisual(MAIN_STREET_EAST, 's1_-1_n1', 'n1')), 'Main Street East vs pre-change').toBe(PRE_CHANGE.mainStreetEast)
-    expect(hash(withoutOfficeVisual(MAIN_STREET_NORTH, 's1_-2_n1', 'n1')), 'Main Street North vs pre-change').toBe(PRE_CHANGE.mainStreetNorth)
+    expect(hash(withoutOfficeVisual(MAIN_STREET_NORTH, 's1_-2_n1', 'n1', ['s3'])), 'Main Street North vs pre-change').toBe(PRE_CHANGE.mainStreetNorth)
   })
 
   it('every other placement, every prop, every destination and the pedestrian graph are unchanged', () => {

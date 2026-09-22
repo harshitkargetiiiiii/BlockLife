@@ -43,7 +43,23 @@ export const MAIN_STREET_NORTH_SPEC: SectorAuthoringSpec = {
     // Issue #55: the shipped Wave 3 row-house body at its existing uniform fit — visual only, facing-only.
     { localId: 's2', templateId: 'storefront_lot', roadLocalId: 'north_ave', side: 'right', at: 0.6, buildingTemplateId: 'townhouse', details: true,
       visual: { assetId: 'building_townhomes_01', referenceSize: [7, 6, 7], canonicalFacing: 'south', maxScaleDeviation: 0 } },
-    { localId: 's3', templateId: 'tower_lot', roadLocalId: 'north_ave', side: 'right', at: 0.85, buildingTemplateId: 'mixed_use_block', details: true },
+    // The approved office row on this mixed-use tower lot at a measured UNIFORM 1.02. The lot's NORTH
+    // facing with `canonicalFacing: 'west'` composes to -pi/2, which SWAPS the body's X and Z against
+    // the lot -- so the fit is computed after the yaw: half-extents 2.590986 / 2.545685 in a 4.5 / 4
+    // half-lot, leaving 1.909014 / 1.454315 per side, both inside the 1.93 m ceiling. At 1:1 it does
+    // NOT fit (1.959817 on X), so the up-fit is necessary, and 1.02 sits inside the DEFAULT +/-15%
+    // band -- no threshold relaxed, no alias row, the same file and hash Gateway Offices draws.
+    //
+    // The modelled WEST door lands on the authored NORTH door, and the two camera-visible elevations
+    // (the body's +x to world south and -z to world east) are both fully glazed -- this body is
+    // decorated on all four sides.
+    //
+    // Its top is 9.690280, which is 0.690280 ABOVE the authored 9 m box and 0.190280 above the box
+    // plus its roof slab, so `getBuildingOccluderDescriptor` raises maxY to the RENDERED body. That is
+    // the supported path (`occluderData.ts` takes max(box + slab, projected body top)) and it is
+    // asserted in mixedUseOfficeContract.test.ts rather than assumed.
+    { localId: 's3', templateId: 'tower_lot', roadLocalId: 'north_ave', side: 'right', at: 0.85, buildingTemplateId: 'mixed_use_block', details: true,
+      visual: { assetId: 'building_office_01', referenceSize: [9 / 1.02, 9 / 1.02, 8 / 1.02], canonicalFacing: 'west' } },
   ],
   linePropZones: [
     // Tree line softens the north wall against the void.
