@@ -476,6 +476,44 @@ export const ASSET_MANIFEST: AssetManifestEntry[] = [
   },
   {
     ...defaults,
+    id: 'building_garage_01_yard',
+    label: 'Garage (Industrial Yard, wide calibration)',
+    category: 'city',
+    // The SAME shipped file and bytes as `building_garage_01`, at a SECOND calibration for the
+    // yard's wider [10, 7, 9] warehouse lots -- the established separate-row pattern
+    // (`arch_house_01_compact` reuses `arch_house_01.glb` the same way). No new asset, no new
+    // bytes, and the 0.6304 row it sits beside is untouched.
+    //
+    // Why these lots and not the [10, 7, 9] `building_warehouse_01`: this row's `rotation` is the
+    // same [0, -pi/2, 0], so a lot declaring `canonicalFacing: 'west'` with a SOUTH door composes
+    // to a zero net yaw -- exactly how w2/w4 already mount -- which puts BOTH decorated
+    // elevations in view of the fixed camera (the twin shutters on +z toward the road, the third
+    // on +x). `building_warehouse_01`'s door is WEST, which hides the twin shutters; it stays
+    // procedural.
+    //
+    // Fit, measured from the bytes at the composed zero yaw (local bbox 11.0906 x 6 x 7.6682,
+    // origin at the base). World X binds:
+    //   half-extents 4.66297 / 3.22501 in a 5 / 4.5 half-lot -> slack 0.33703 / 1.27499 per side,
+    //   both inside the 1.93 ceiling and proportioned like the shipped w2/w4 fit (0.50 / 1.08).
+    //   top 5.04 under the authored 7 m box and far under the 15 m camera limit.
+    glbPath: 'assets/models/city/arch_repair_garage_01.glb',
+    fallbackKey: 'BuildingMesh',
+    scale: [0.84, 0.84, 0.84],
+    rotation: [0, -Math.PI / 2, 0],
+    positionOffset: [0, 0, 0],
+    labelHeight: 6.5,
+    materialSlots: {},
+    // MODEL-LOCAL extents at this scale, the convention every other entry uses; the -pi/2 yaw
+    // swaps them in world space, so this body renders 6.4413 wide x 9.3161 deep on the lot.
+    bounds: { width: 9.3161, height: 5.04, depth: 6.4413 },
+    renderedTopY: 5.04,
+    enabled: true,
+    budget: { maxTriangles: 60000 },
+    attribution: 'Meshy AI — generated original asset (owner-approved 2026-08-31 sprint), texture-optimized in-repo',
+    license: 'Meshy AI generated asset (meshy.ai terms)',
+  },
+  {
+    ...defaults,
     id: 'building_garage_01',
     label: 'Garage (Industrial / Market Strip)',
     category: 'city',

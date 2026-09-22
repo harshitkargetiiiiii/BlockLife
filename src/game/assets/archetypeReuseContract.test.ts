@@ -60,6 +60,9 @@ type Facing = 'north' | 'south' | 'east' | 'west'
 const BODIES = {
   shop: { id: 'building_shop_01', file: 'assets/models/city/arch_shop_01.glb', sha256: 'fc758a288365afa4450aa78dc03cce7d7936b6456f81ea0cf19b16ca6b0eaf61' },
   garage: { id: 'building_garage_01', file: 'assets/models/city/arch_repair_garage_01.glb', sha256: 'fe870f4c3704dc911f45162854b68785a397f94c7b806848ef74ccd68f54fe6c' },
+  // The SAME file at a second calibration for the yard's wider [10, 7, 9] lots -- a row, not a
+  // new asset, so the sha256 below is deliberately identical to the line above.
+  garageYard: { id: 'building_garage_01_yard', file: 'assets/models/city/arch_repair_garage_01.glb', sha256: 'fe870f4c3704dc911f45162854b68785a397f94c7b806848ef74ccd68f54fe6c' },
   rowHouse: { id: 'building_townhomes_01', file: 'assets/models/city/arch_row_house_01.glb', sha256: '53eb375b50eddb7e1c26ceb4b10d090aafa1f194dc9f2defb5953dec9632b4a8' },
   apartment: { id: 'building_apartment_01', file: 'assets/models/city/arch_apartment_01.glb', sha256: '32b65625a86332a22490ac54277994d46b4e997047c600d097ef276291426704' },
   hotel: { id: 'building_gate_hotel_01', file: 'assets/models/city/arch_hotel_01.glb', sha256: '8a4fcacc19c574a3f33f8517266947623dfd92c92f1f274926210f89c7ac49ec' },
@@ -82,7 +85,7 @@ const FILE_OF = new Map<string, string>(Object.values(BODIES).map((b) => [b.id, 
  * sides") and the hotel ("a canopied double-door entrance on EVERY elevation") are exempt BY
  * MEASUREMENT, not by convenience.
  */
-const SINGLE_ELEVATION = new Set<string>([BODIES.shop.id, BODIES.rowHouse.id, BODIES.garage.id])
+const SINGLE_ELEVATION = new Set<string>([BODIES.shop.id, BODIES.rowHouse.id, BODIES.garage.id, BODIES.garageYard.id])
 
 /** Model-local outward normals, so a declared elevation can be rotated rather than reasoned about. */
 const ELEVATION_NORMAL: Record<'+x' | '-x' | '+z' | '-z', Vec3> = {
@@ -108,7 +111,7 @@ const SECONDARY_FRONTAGE: Record<string, { elevation: '+x' | '-x' | '+z' | '-z';
  */
 const REUSED: Record<string, {
   body: string
-  batch: 1 | 2 | 3
+  batch: 1 | 2 | 3 | 4
   position: [number, number]
   size: Vec3
   door?: Facing
@@ -145,6 +148,14 @@ const REUSED: Record<string, {
   building_shop_02: { body: BODIES.shop.id, batch: 3, position: [3.5, -17.5], size: [7, 6, 6], door: 'south', canonicalFacing: 'south', projectionYaw: 0, label: 'Book Nook', nearestSameBody: ['building_shop_01', 8.5] },
   // The one lot in this file that reaches the camera through a SECOND elevation rather than its front.
   building_deli_s1: { body: BODIES.shop.id, batch: 3, position: [6, 55.5], size: [6, 5, 6], door: 'north', canonicalFacing: 'south', projectionYaw: Math.PI, label: 'South Deli', nearestSameBody: ['building_market_02', 47.0239] },
+  // --- batch 4: the industrial yard's three WIDER lots, on a second calibration of the garage file ---
+  // w2 and w4 in this same row already draw the garage body 1:1 on their [8, 5.5, 7] depot lots. w1,
+  // w3 and w5 were left out because their warehouse template is [10, 7, 9] -- a size question, not a
+  // facing one: they carry the SAME south door, which composes to the SAME zero net yaw, so both
+  // decorated elevations face the camera exactly as w2/w4's do.
+  's-1_-2_w1': { body: BODIES.garageYard.id, batch: 4, position: [-82.36, -244.5], size: [10, 7, 9], door: 'south', canonicalFacing: 'west', projectionYaw: Math.PI / 2, label: 'Yard 12', nearestSameBody: ['s-1_-2_w3', 42.12] },
+  's-1_-2_w3': { body: BODIES.garageYard.id, batch: 4, position: [-124.48, -244.5], size: [10, 7, 9], door: 'south', canonicalFacing: 'west', projectionYaw: Math.PI / 2, nearestSameBody: ['s-1_-2_w1', 42.12] },
+  's-1_-2_w5': { body: BODIES.garageYard.id, batch: 4, position: [-166.6, -244.5], size: [10, 7, 9], door: 'south', canonicalFacing: 'west', projectionYaw: Math.PI / 2, nearestSameBody: ['s-1_-2_w3', 42.12] },
 }
 const REUSED_IDS = Object.keys(REUSED)
 
@@ -248,7 +259,7 @@ function renderedReach(assetId: string, file: string, yaw: number, projectionSca
   return { halfX, halfZ, height: (max[1] - min[1]) * sy, baseY: min[1] * sy }
 }
 
-describe('issue #53 — nineteen procedural lots on five already-approved archetype rows', () => {
+describe('issue #53 — twenty-two procedural lots on five already-approved archetype bodies', () => {
   it('every reused row is the shipped file, byte for byte, with its calibration untouched', () => {
     for (const body of Object.values(BODIES)) {
       expect(createHash('sha256').update(readFileSync(`public/${body.file}`)).digest('hex'), `${body.id} bytes`).toBe(body.sha256)
@@ -268,10 +279,13 @@ describe('issue #53 — nineteen procedural lots on five already-approved archet
     // The exact shipped calibrations, spelled out.
     expect(ASSET_MANIFEST_BY_ID.get(BODIES.shop.id)!.scale).toEqual([1.206, 1.206, 1.206])
     expect(ASSET_MANIFEST_BY_ID.get(BODIES.garage.id)!.scale).toEqual([0.6304, 0.6304, 0.6304])
+    expect(ASSET_MANIFEST_BY_ID.get(BODIES.garageYard.id)!.scale).toEqual([0.84, 0.84, 0.84])
     expect(ASSET_MANIFEST_BY_ID.get(BODIES.rowHouse.id)!.scale).toEqual([0.8835, 0.8835, 0.8835])
     expect(ASSET_MANIFEST_BY_ID.get(BODIES.apartment.id)!.scale).toEqual([0.6, 0.6, 0.6])
     expect(ASSET_MANIFEST_BY_ID.get(BODIES.hotel.id)!.scale).toEqual([0.8333, 0.8333, 0.8333])
     expect(ASSET_MANIFEST_BY_ID.get(BODIES.garage.id)!.rotation[1]).toBeCloseTo(-Math.PI / 2, 12)
+    // The second row carries the SAME mounted yaw, which is why a south door composes to zero.
+    expect(ASSET_MANIFEST_BY_ID.get(BODIES.garageYard.id)!.rotation[1]).toBeCloseTo(-Math.PI / 2, 12)
     expect(ASSET_MANIFEST_BY_ID.get(BODIES.hotel.id)!.rotation[1]).toBeCloseTo(-Math.PI / 2, 12)
     for (const id of [BODIES.shop.id, BODIES.rowHouse.id, BODIES.apartment.id]) {
       expect(ASSET_MANIFEST_BY_ID.get(id)!.rotation[1], `${id} yaw`).toBe(0)
@@ -395,7 +409,7 @@ describe('issue #53 — nineteen procedural lots on five already-approved archet
     }
   })
 
-  it('adds exactly these nineteen mappings — 52 projections, 61 of 73 placements mapped', () => {
+  it('adds exactly these twenty-two mappings — 55 projections, 64 of 73 placements mapped', () => {
     const byBody = (assetId: string) => BUILDINGS.filter((b) => b.visual?.assetId === assetId).map((b) => b.id).sort()
     expect(byBody(BODIES.shop.id), 'shop-row projections').toEqual(
       [...REUSED_IDS.filter((id) => REUSED[id].body === BODIES.shop.id), 's1_-1_s1', 's1_-2_s1', 's0_-2_shop'].sort())
@@ -418,6 +432,7 @@ describe('issue #53 — nineteen procedural lots on five already-approved archet
     expect(BUILDINGS.length, 'authored placements').toBe(PRE_CHANGE.placements)
     expect(REUSED_IDS.filter((id) => REUSED[id].batch === 1).length, 'batch 1').toBe(3)
     expect(REUSED_IDS.filter((id) => REUSED[id].batch === 3).length, 'batch 3 (placement closure)').toBe(5)
+    expect(REUSED_IDS.filter((id) => REUSED[id].batch === 4).length, 'batch 4 (industrial yard)').toBe(3)
   })
 
   it('records how close each reuse lands to another instance of the same body', () => {
