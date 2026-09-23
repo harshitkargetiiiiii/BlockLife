@@ -70,6 +70,24 @@ describe('§13 #14 — every ownable vehicle class resolves a valid, enabled GLB
         for (const name of declared) {
           expect(materials, `${def.assetId} paint slot "${name}" must exist in the GLB`).toContain(name)
         }
+      } else if (entry!.paintMask) {
+        // Issue #50 NARROWS this branch rather than removing it. An empty `materialSlots` is still
+        // the only honest declaration for a baked atlas — a whole-material tint would recolor the
+        // windows — but "no slot" no longer has to mean "no visible paint". A body may instead
+        // declare a DERIVED per-texel mask, and then the file must actually carry the materials
+        // that mask is aimed at, or the recolor would silently do nothing.
+        const mask = entry!.paintMask
+        expect(materials, `${def.assetId} declares paintMask.bodyMaterial`).toContain(mask.bodyMaterial)
+        expect(materials, `${def.assetId} declares paintMask.wheelMaterial`).toContain(mask.wheelMaterial)
+        // Same guard as the single-material branch: none of the derived names may be one the
+        // default slot candidates would bind, or the whole-atlas tint would come back through the
+        // side door on top of the masked recolor.
+        for (const name of materials) {
+          expect(
+            ['paint', 'Paint', 'body', 'Body', 'carpaint', 'CarPaint'],
+            `${def.assetId} material "${name}" must not rebind a default paint slot`,
+          ).not.toContain(name)
+        }
       } else {
         expect(
           materials.length,
