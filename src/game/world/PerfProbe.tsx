@@ -22,8 +22,11 @@ export function PerfProbe() {
     }
   }, [scene])
   useFrame((_, delta) => {
-    // Real clamped delta (CONVENTIONS #1) — headless E2E runs slow; never 1/60.
-    recordFrame(gl.info, Math.min(delta, 0.05) * 1000)
+    // The REAL frame interval, unclamped (CONVENTIONS #1 says never a hardcoded 1/60 — headless E2E
+    // runs slow). This deliberately does NOT apply the simulation's `Math.min(delta, 0.05)` guard:
+    // that clamp protects the physics from a long frame, and clamping the RULER instead pinned
+    // `frameMs` at 50 and `fps` at 20, so a 50 ms frame and a 5 s stall reported identically.
+    recordFrame(gl.info, delta * 1000)
   })
   return null
 }

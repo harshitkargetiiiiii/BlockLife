@@ -1117,6 +1117,7 @@ export interface GameTestApi {
     programs: number
     frameMs: number
     fps: number
+    worstFrameMs: number
     samples: number
     jsHeapMB: number | null
   }
@@ -2556,6 +2557,7 @@ export function installTestApi(): void {
         programs: perfRuntime.programs,
         frameMs: Math.round(perfRuntime.frameMs * 100) / 100,
         fps: Math.round(perfRuntime.fps),
+        worstFrameMs: Math.round(perfRuntime.worstFrameMs * 100) / 100,
         samples: perfRuntime.samples,
         jsHeapMB: mem ? Math.round(mem.usedJSHeapSize / 1048576) : null,
       }
