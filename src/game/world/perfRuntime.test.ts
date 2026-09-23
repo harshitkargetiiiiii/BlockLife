@@ -48,7 +48,17 @@ describe('perf probe records the real frame interval', () => {
     expect(perfRuntime.worstFrameMs / perfRuntime.frameMs).toBeGreaterThan(2)
   })
 
-  it('a uniformly slow run and a stalled run are now distinguishable', () => {
+  /**
+   * LIMIT, stated so the pair is not over-read: an EMA plus a lifetime maximum is NOT a distribution
+   * and does not in general separate persistent slowness from intermittent stalling. The EMA is
+   * recency-weighted, so an early stall decays out of it entirely; the maximum keeps exactly one
+   * frame, forever, with no count and no idea when it happened. A run of many moderate stalls and a
+   * uniformly slow run can land on a similar pair. What this test shows is narrower and is all that
+   * is claimed: on these two synthetic shapes the ratio differs, so the pair carries SOME signal the
+   * EMA alone did not. Actually separating the two needs a distribution — frame-time percentiles, or
+   * a count of frames over a threshold — which this probe does not collect.
+   */
+  it('separates these two synthetic shapes by the worst-to-average ratio', () => {
     for (let i = 0; i < 40; i++) recordFrame(info, 200)
     const uniform = { frameMs: perfRuntime.frameMs, worst: perfRuntime.worstFrameMs }
     reset()
@@ -56,7 +66,16 @@ describe('perf probe records the real frame interval', () => {
     recordFrame(info, 7000)
     const stalled = { frameMs: perfRuntime.frameMs, worst: perfRuntime.worstFrameMs }
     expect(uniform.worst / uniform.frameMs, 'uniformly slow: worst tracks the average').toBeLessThan(1.1)
-    expect(stalled.worst / stalled.frameMs, 'stalled: worst dwarfs it').toBeGreaterThan(5)
+    expect(stalled.worst / stalled.frameMs, 'one late stall: worst dwarfs it').toBeGreaterThan(5)
+    // ...and the counter-example that keeps the claim honest: a stall EARLY in a long run decays out
+    // of the EMA, leaving a ratio that looks just like the stalled case above even though the run
+    // then proceeded at a steady 16 ms. The pair alone cannot tell these apart.
+    reset()
+    recordFrame(info, 7000)
+    for (let i = 0; i < 200; i++) recordFrame(info, 16)
+    const earlyStall = perfRuntime.worstFrameMs / perfRuntime.frameMs
+    expect(earlyStall, 'an early stall is indistinguishable from a late one by this pair')
+      .toBeGreaterThan(5)
   })
 
   it('carries the renderer counters through untouched', () => {
