@@ -194,6 +194,70 @@ describe('GL context reporting', () => {
     expect(perfRuntime.gl.version).toBe('WebGL 2.0')
   })
 
+  /**
+   * The isolated cases below each start from a cleared runtime, so none of them can catch a capture
+   * that LEAVES an earlier reading standing. These run captures back to back, which is the shape the
+   * probe actually has: its effect re-runs whenever the renderer identity changes.
+   */
+  it('a later, less informative capture never leaves the earlier renderer standing', () => {
+    const full = {
+      ...base,
+      getParameter(k: number) {
+        return { 1: 'MaskedVendor', 2: 'MaskedRenderer', 3: 'WebGL 2.0', 10: 'Google Inc.', 11: 'ANGLE (SwiftShader)' }[k] ?? null
+      },
+      getExtension: () => ({ UNMASKED_VENDOR_WEBGL: 10, UNMASKED_RENDERER_WEBGL: 11 }),
+    } as unknown as WebGL2RenderingContext
+
+    // 1. available -> null context. Nothing may survive, masked or unmasked.
+    recordGlContext(full)
+    expect(perfRuntime.gl.unmaskedRenderer).toBe('ANGLE (SwiftShader)')
+    recordGlContext(null)
+    expect(perfRuntime.gl.debugRendererInfo).toBe('unavailable')
+    expect(perfRuntime.gl.unmaskedRenderer, 'a null context keeps no renderer').toBeNull()
+    expect(perfRuntime.gl.unmaskedVendor).toBeNull()
+    expect(perfRuntime.gl.renderer, 'nor the masked strings').toBeNull()
+    expect(perfRuntime.gl.vendor).toBeNull()
+    expect(perfRuntime.gl.version).toBeNull()
+
+    // 2. available -> extension gone. The masked strings are THIS context's and stay; the unmasked
+    //    ones belonged to the previous capture and must not.
+    recordGlContext(full)
+    recordGlContext({ ...base, getExtension: () => null } as unknown as WebGL2RenderingContext)
+    expect(perfRuntime.gl.debugRendererInfo).toBe('unavailable')
+    expect(perfRuntime.gl.unmaskedRenderer, 'stale unmasked renderer cleared').toBeNull()
+    expect(perfRuntime.gl.unmaskedVendor, 'stale unmasked vendor cleared').toBeNull()
+    expect(perfRuntime.gl.renderer, "this context's masked string is reported").toBe('MaskedRenderer')
+
+    // 3. available -> throwing query. Same rule.
+    recordGlContext(full)
+    recordGlContext({
+      ...base,
+      getExtension: () => { throw new Error('blocked') },
+    } as unknown as WebGL2RenderingContext)
+    expect(perfRuntime.gl.debugRendererInfo).toBe('unavailable')
+    expect(perfRuntime.gl.unmaskedRenderer).toBeNull()
+
+    // 4. ...and a recapture that CAN read it repopulates, so the reset is not sticky.
+    recordGlContext(full)
+    expect(perfRuntime.gl.debugRendererInfo).toBe('available')
+    expect(perfRuntime.gl.unmaskedRenderer).toBe('ANGLE (SwiftShader)')
+  })
+
+  it('a second context replaces the first rather than merging with it', () => {
+    recordGlContext({
+      ...base,
+      getParameter: (k: number) => ({ 1: 'V1', 2: 'R1', 3: 'WebGL 2.0', 10: 'UV1', 11: 'UR1' }[k] ?? null),
+      getExtension: () => ({ UNMASKED_VENDOR_WEBGL: 10, UNMASKED_RENDERER_WEBGL: 11 }),
+    } as unknown as WebGL2RenderingContext)
+    recordGlContext({
+      ...base,
+      getParameter: (k: number) => ({ 1: 'V2', 2: 'R2', 3: 'WebGL 1.0' }[k] ?? null),
+      getExtension: () => null,
+    } as unknown as WebGL2RenderingContext)
+    expect([perfRuntime.gl.vendor, perfRuntime.gl.renderer, perfRuntime.gl.version]).toEqual(['V2', 'R2', 'WebGL 1.0'])
+    expect([perfRuntime.gl.unmaskedVendor, perfRuntime.gl.unmaskedRenderer]).toEqual([null, null])
+  })
+
   it('survives a missing context and a throwing extension query', () => {
     recordGlContext(null)
     expect(perfRuntime.gl.debugRendererInfo).toBe('unavailable')

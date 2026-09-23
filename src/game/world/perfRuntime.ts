@@ -141,10 +141,27 @@ export function recordFrame(info: ThreeInfo, dtMs: number, ctx: FrameContext = {
   p.samples++
 }
 
-/** Record what the game's OWN WebGL context reports. Called once from the probe, with the context
- *  R3F actually renders into — reading a separate canvas or a fresh context would describe a
- *  different pipeline than the one being measured. */
+/** Reset the context block. Every capture starts here so a later, less informative capture can
+ *  never leave an earlier renderer standing: a null context, a missing extension or a throwing
+ *  query would otherwise keep strings describing a pipeline that is no longer the one in use. */
+function clearGlContext(): void {
+  const c = perfRuntime.gl
+  c.vendor = null
+  c.renderer = null
+  c.unmaskedVendor = null
+  c.unmaskedRenderer = null
+  c.version = null
+  c.debugRendererInfo = 'not-captured'
+}
+
+/** Record what the game's OWN WebGL context reports, with the context R3F actually renders into —
+ *  reading a separate canvas or a fresh context would describe a different pipeline than the one
+ *  being measured.
+ *
+ *  Safe to call more than once (the renderer identity can change): each call CLEARS the previous
+ *  reading first and then reports only what THIS context provides. */
 export function recordGlContext(gl: WebGLRenderingContext | WebGL2RenderingContext | null): void {
+  clearGlContext()
   const c = perfRuntime.gl
   if (!gl) {
     c.debugRendererInfo = 'unavailable'
@@ -170,6 +187,7 @@ export function recordGlContext(gl: WebGLRenderingContext | WebGL2RenderingConte
   if (!ext) {
     // The masked strings above are all this browser will say. Report the gap rather than leaving
     // the unmasked fields null and letting a reader assume the query simply returned nothing.
+    // They are already null from the reset, so nothing from an earlier capture survives here.
     c.debugRendererInfo = 'unavailable'
     return
   }
