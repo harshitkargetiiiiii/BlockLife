@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { perfRuntime, recordFrame } from './perfRuntime'
+import { FRAME_MS_BUCKETS, FRAME_MS_BUCKET_LABELS, bucketIndexFor, perfRuntime, recordFrame, recordGlContext } from './perfRuntime'
 
 /**
  * The probe is a RULER. It must not borrow the simulation's `Math.min(delta, 0.05)` guard: that
@@ -13,6 +13,9 @@ function reset(): void {
   Object.assign(perfRuntime, {
     drawCalls: 0, triangles: 0, geometries: 0, textures: 0, programs: 0,
     frameMs: 0, fps: 0, worstFrameMs: 0, samples: 0,
+    frameMsBuckets: FRAME_MS_BUCKETS.map(() => 0),
+    elapsedMs: 0, windowStartMs: null, windowEndMs: null, hiddenFrames: 0,
+    gl: { vendor: null, renderer: null, unmaskedVendor: null, unmaskedRenderer: null, debugRendererInfo: 'not-captured', version: null },
   })
 }
 
@@ -83,5 +86,123 @@ describe('perf probe records the real frame interval', () => {
     expect([perfRuntime.drawCalls, perfRuntime.triangles, perfRuntime.geometries, perfRuntime.textures])
       .toEqual([1, 2, 3, 4])
     expect(perfRuntime.samples).toBe(1)
+  })
+})
+
+describe('frame-time histogram', () => {
+  beforeEach(reset)
+
+  it('bucket bounds are ascending, finite except the last, and fixed in width', () => {
+    expect(FRAME_MS_BUCKETS.length).toBeGreaterThan(3)
+    for (let i = 1; i < FRAME_MS_BUCKETS.length; i++) {
+      expect(FRAME_MS_BUCKETS[i], `bound ${i} exceeds bound ${i - 1}`).toBeGreaterThan(FRAME_MS_BUCKETS[i - 1])
+    }
+    expect(FRAME_MS_BUCKETS.at(-1), 'the last bucket is unbounded').toBe(Infinity)
+    expect(FRAME_MS_BUCKETS.slice(0, -1).every(Number.isFinite), 'every other bound is finite').toBe(true)
+    // Constant memory: one counter per bound, no matter how long the run is.
+    expect(perfRuntime.frameMsBuckets).toHaveLength(FRAME_MS_BUCKETS.length)
+    // Labels exist for every bucket, because JSON turns the unbounded bound into `null` and a CI
+    // reader should not have to guess whether that means "missing" or "no upper limit".
+    expect(FRAME_MS_BUCKET_LABELS).toHaveLength(FRAME_MS_BUCKETS.length)
+    expect(FRAME_MS_BUCKET_LABELS[0]).toBe('0-8ms')
+    expect(FRAME_MS_BUCKET_LABELS.at(-1)).toBe('>2000ms')
+    expect(JSON.parse(JSON.stringify(FRAME_MS_BUCKETS)).at(-1), 'the bound itself JSONs to null').toBeNull()
+  })
+
+  it('buckets are UPPER-INCLUSIVE at every boundary', () => {
+    for (let i = 0; i < FRAME_MS_BUCKETS.length - 1; i++) {
+      const bound = FRAME_MS_BUCKETS[i]
+      expect(bucketIndexFor(bound), `exactly ${bound} ms falls in the <= ${bound} bucket`).toBe(i)
+      expect(bucketIndexFor(bound + 0.001), `just over ${bound} ms falls in the next bucket`).toBe(i + 1)
+      if (i > 0) {
+        expect(bucketIndexFor(FRAME_MS_BUCKETS[i - 1] + 0.001), 'just over the previous bound').toBe(i)
+      }
+    }
+    // Anything above the last finite bound lands in the unbounded bucket, never out of range.
+    const last = FRAME_MS_BUCKETS.length - 1
+    expect(bucketIndexFor(1e9)).toBe(last)
+    expect(bucketIndexFor(Infinity)).toBe(last)
+    // A zero or negative delta is still counted, in the first bucket, never dropped.
+    expect(bucketIndexFor(0)).toBe(0)
+    expect(bucketIndexFor(-5)).toBe(0)
+  })
+
+  it('bucket counts always total the frame count, and elapsed totals the deltas', () => {
+    const deltas = [4, 8, 8.0001, 16, 20, 33, 49.9, 50, 51, 120, 300, 900, 1500, 2000, 5000, 0]
+    for (const d of deltas) recordFrame(info, d)
+    const total = perfRuntime.frameMsBuckets.reduce((a, b) => a + b, 0)
+    expect(total, 'every frame landed in exactly one bucket').toBe(deltas.length)
+    expect(perfRuntime.samples, 'and the total equals the frame count').toBe(deltas.length)
+    expect(perfRuntime.elapsedMs).toBeCloseTo(deltas.reduce((a, b) => a + b, 0), 6)
+    expect(perfRuntime.worstFrameMs).toBe(5000)
+  })
+
+  it('separates a startup window from a later one, and counts hidden frames', () => {
+    recordFrame(info, 900, { nowMs: 1_000, hidden: false })
+    recordFrame(info, 850, { nowMs: 2_000, hidden: true })
+    recordFrame(info, 16, { nowMs: 3_000, hidden: true })
+    expect(perfRuntime.windowStartMs, 'first sample pins the window start').toBe(1_000)
+    expect(perfRuntime.windowEndMs, 'and the latest sample its end').toBe(3_000)
+    expect(perfRuntime.hiddenFrames, 'background frames are counted separately').toBe(2)
+    // A window that begins at page time ~0 is a startup burst; one beginning later is not. The
+    // probe records the position rather than deciding which it was.
+    expect(perfRuntime.windowEndMs! - perfRuntime.windowStartMs!).toBe(2_000)
+  })
+
+  it('a slow EMA plus the histogram distinguishes what the EMA alone cannot', () => {
+    // Mostly-fast run with two long stalls: the EMA can be dragged up, but the distribution shows
+    // that the great majority of frames were fast.
+    for (let i = 0; i < 100; i++) recordFrame(info, 16)
+    recordFrame(info, 3000)
+    recordFrame(info, 3000)
+    const fast = perfRuntime.frameMsBuckets[bucketIndexFor(16)]
+    const slow = perfRuntime.frameMsBuckets[bucketIndexFor(3000)]
+    expect(fast).toBe(100)
+    expect(slow).toBe(2)
+    expect(slow / perfRuntime.samples, 'stalls are a small share of frames').toBeLessThan(0.02)
+  })
+})
+
+describe('GL context reporting', () => {
+  beforeEach(reset)
+
+  const base = {
+    VENDOR: 1, RENDERER: 2, VERSION: 3,
+    getParameter(k: number) { return { 1: 'MaskedVendor', 2: 'MaskedRenderer', 3: 'WebGL 2.0' }[k] ?? null },
+  }
+
+  it('reports the unmasked strings when the extension is available', () => {
+    recordGlContext({
+      ...base,
+      getParameter(k: number) {
+        return { 1: 'MaskedVendor', 2: 'MaskedRenderer', 3: 'WebGL 2.0', 10: 'Google Inc.', 11: 'ANGLE (SwiftShader)' }[k] ?? null
+      },
+      getExtension: () => ({ UNMASKED_VENDOR_WEBGL: 10, UNMASKED_RENDERER_WEBGL: 11 }),
+    } as unknown as WebGL2RenderingContext)
+    expect(perfRuntime.gl.debugRendererInfo).toBe('available')
+    expect(perfRuntime.gl.unmaskedRenderer).toBe('ANGLE (SwiftShader)')
+    expect(perfRuntime.gl.unmaskedVendor).toBe('Google Inc.')
+    expect(perfRuntime.gl.renderer).toBe('MaskedRenderer')
+  })
+
+  it('says "unavailable" rather than leaving the unmasked fields ambiguously null', () => {
+    recordGlContext({ ...base, getExtension: () => null } as unknown as WebGL2RenderingContext)
+    expect(perfRuntime.gl.debugRendererInfo, 'the gap is explicit').toBe('unavailable')
+    expect(perfRuntime.gl.unmaskedRenderer).toBeNull()
+    // The masked strings it WILL give are still recorded, so the report is not empty.
+    expect(perfRuntime.gl.renderer).toBe('MaskedRenderer')
+    expect(perfRuntime.gl.version).toBe('WebGL 2.0')
+  })
+
+  it('survives a missing context and a throwing extension query', () => {
+    recordGlContext(null)
+    expect(perfRuntime.gl.debugRendererInfo).toBe('unavailable')
+    reset()
+    recordGlContext({
+      ...base,
+      getExtension: () => { throw new Error('blocked') },
+    } as unknown as WebGL2RenderingContext)
+    expect(perfRuntime.gl.debugRendererInfo).toBe('unavailable')
+    expect(perfRuntime.gl.renderer).toBe('MaskedRenderer')
   })
 })

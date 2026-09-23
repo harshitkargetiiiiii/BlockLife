@@ -2,7 +2,7 @@ import { useGameStore, canEditFurnish as canEditFurnishRt } from '../store/useGa
 import { registry } from '../world/runtimeRegistry'
 import { readAssetStageMarks, type AssetStageMark } from '../assets/assetStallProbe'
 import { ASSET_SETTLE_QUIET_MS, assetGraphPending, isAssetGraphSettled, isSceneReady, unresolvedByAsset, unresolvedInstances, type AssetGraphCounters, type UnresolvedAsset } from '../assets/assetSettle'
-import { perfRuntime } from '../world/perfRuntime'
+import { FRAME_MS_BUCKETS, FRAME_MS_BUCKET_LABELS, perfRuntime } from '../world/perfRuntime'
 import { countUniqueMaterials, materialProbe } from '../world/materialProbe'
 import { readPoliceSirens } from '../police/policeCruiserBody'
 import { readPlacementBody } from '../assets/placementBodyProbe'
@@ -1119,6 +1119,27 @@ export interface GameTestApi {
     fps: number
     worstFrameMs: number
     samples: number
+    /** Fixed-width frame-time distribution; `frameMsBucketBounds` are the upper bounds (ms). */
+    frameMsBuckets: number[]
+    frameMsBucketBounds: number[]
+    frameMsBucketLabels: string[]
+    elapsedMs: number
+    /** `performance.now()` at the first/last sample, so the window's place in the page's life is
+     *  visible; `hiddenFrames` separates background throttling from a slow renderer. */
+    windowStartMs: number | null
+    windowEndMs: number | null
+    windowMs: number | null
+    hiddenFrames: number
+    visibility: string | null
+    /** What the GAME'S OWN WebGL context reports (not a separate context). */
+    gl: {
+      vendor: string | null
+      renderer: string | null
+      unmaskedVendor: string | null
+      unmaskedRenderer: string | null
+      debugRendererInfo: 'available' | 'unavailable' | 'not-captured'
+      version: string | null
+    }
     jsHeapMB: number | null
   }
   /** Issue #25: unique live THREE.Material count (not reported by gl.info) + variant-cache
@@ -2559,6 +2580,18 @@ export function installTestApi(): void {
         fps: Math.round(perfRuntime.fps),
         worstFrameMs: Math.round(perfRuntime.worstFrameMs * 100) / 100,
         samples: perfRuntime.samples,
+        frameMsBuckets: [...perfRuntime.frameMsBuckets],
+        frameMsBucketBounds: [...FRAME_MS_BUCKETS],
+        frameMsBucketLabels: [...FRAME_MS_BUCKET_LABELS],
+        elapsedMs: Math.round(perfRuntime.elapsedMs),
+        windowStartMs: perfRuntime.windowStartMs == null ? null : Math.round(perfRuntime.windowStartMs),
+        windowEndMs: perfRuntime.windowEndMs == null ? null : Math.round(perfRuntime.windowEndMs),
+        windowMs: perfRuntime.windowStartMs == null || perfRuntime.windowEndMs == null
+          ? null
+          : Math.round(perfRuntime.windowEndMs - perfRuntime.windowStartMs),
+        hiddenFrames: perfRuntime.hiddenFrames,
+        visibility: typeof document !== 'undefined' ? document.visibilityState : null,
+        gl: { ...perfRuntime.gl },
         jsHeapMB: mem ? Math.round(mem.usedJSHeapSize / 1048576) : null,
       }
     },
