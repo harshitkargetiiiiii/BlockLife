@@ -95,6 +95,31 @@ async function buildCharacter(def, outDir) {
   return outPath
 }
 
+/**
+ * Issue #27 — run a character's `derive` step on the merge output it was authored against.
+ *
+ * The base hash is asserted FIRST. That is the whole point of deriving in-pipeline rather than
+ * committing an externally-authored GLB: the pristine sprint sources stay the provenance root, the
+ * merge above keeps proving itself on every run, and a recipe can never be applied to bytes it was
+ * not reviewed against. The derived hash is asserted too, so the reviewed result is pinned from
+ * both ends and `--check` fails loudly on any drift.
+ */
+async function applyDerivation(def, outPath) {
+  const d = def.derive
+  const baseSha256 = fileSha(outPath)
+  if (baseSha256 !== d.baseSha256)
+    throw new Error(`${def.id}: ${d.id} expects base ${d.baseSha256}, the merge produced ${baseSha256} — refusing to derive`)
+  const mod = await import(d.module)
+  const measured = await mod[d.export](outPath, outPath)
+  const outputSha256 = fileSha(outPath)
+  if (outputSha256 !== d.outputSha256)
+    throw new Error(`${def.id}: ${d.id} produced ${outputSha256}, expected the reviewed ${d.outputSha256}`)
+  return {
+    id: d.id, label: d.label, module: d.module, export: d.export,
+    baseSha256, outputSha256, operations: d.operations, review: d.review, measured,
+  }
+}
+
 // --check rebuilds into a REAL temporary directory outside the repository and removes it on
 // every exit path, so verifying never dirties the worktree (issue #38 Codex review, finding 7).
 // The byte comparison below is unchanged — it still diffs the rebuilt bytes against the
@@ -108,15 +133,17 @@ for (const def of CHARACTERS) {
   }))
   for (const s of sources) s.structure = await describe(s.path)
   const outPath = await buildCharacter(def, outDir)
+  const derived = def.derive ? await applyDerivation(def, outPath) : null
   records.push({
     id: def.id, label: def.label, kind: 'character', output: def.out,
     outputSha256: fileSha(outPath), outputBytes: statSync(outPath).size,
-    sources,
+    sources, derived,
     operations: [
       'merge 3 per-clip GLBs -> 1 production GLB (clips grafted onto the base skeleton by bone name)',
       'rename clips to canonical semantic roles Idle / Walk / Run',
       'prune + dedup (drops the two duplicate meshes/skins/textures the merge introduced)',
       `textureCompress resize <=${MAX_TEXTURE} targetFormat=${TEXTURE_FORMAT} quality=${TEXTURE_QUALITY} filter=lanczos3`,
+      ...(derived ? [`derive ${derived.id}: ${derived.label} (see "derived" below for the full recipe and both pinned hashes)`] : []),
     ],
     attribution: def.attribution, license: def.license,
     structure: await describe(outPath),

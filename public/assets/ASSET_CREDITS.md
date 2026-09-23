@@ -77,9 +77,11 @@ its manifest entry to `enabled: true`:
 > expose. Both files remain valid, credited, loadable assets with **no named-NPC runtime mapping**,
 > reachable through the non-persistent DEV character override (named only outside `public/`, since
 > this credits file ships in the production bundle and must stay free of test-API identifiers).
-> The issue #38 Wave 0 characters (`blocklife_kabir_01`, `blocklife_ravi_01`) ship on the same
-> candidate footing —
-> despite its name, `blocklife_ravi_01` is **not** mapped to `npc_ravi_01`. See
+> Of the issue #38 Wave 0 characters, `blocklife_kabir_01` still ships on that candidate footing —
+> Kabir is not a member of the shipped cast. `blocklife_ravi_01` no longer does: issue #47 Wave 4
+> mapped it 1:1 onto `npc_ravi_01` as that resident's approved body, and issue #27 then replaced
+> **only its Idle clip** with an in-pipeline derivation (arms down, 4 s breathing loop) — geometry,
+> skin, materials, textures and the Walk/Run clips are the same bytes the merge produced. See
 > [`docs/CHARACTER_IDENTITY_AND_POPULATION.md`](../../docs/CHARACTER_IDENTITY_AND_POPULATION.md).
 
 ### Intake record — Meshy AI generated assets (issue #21 vertical slice)
@@ -208,7 +210,7 @@ source SHA-256, output SHA-256, exact operations and structure — is in
 | Shipped file | Triangles | Texture | Size | Output SHA-256 | Pristine source(s) |
 |---|---|---|---|---|---|
 | `assets/models/characters/blocklife_kabir_01.glb` | 10109 | 1024×1024 jpeg | 1149 KB | `f90bc6065985c5d0…` | `kabir-sen-v3-rigged.glb` `34ab5f28df615ad9…`, `kabir-sen-v3-walking.glb` `c4d0bf8fa85b38f5…`, `kabir-sen-v3-running.glb` `42c79ad68861f694…` |
-| `assets/models/characters/blocklife_ravi_01.glb` | 10447 | 1024×1024 jpeg | 1008 KB | `f9ac3d5b8606c340…` | `ravi-sharma-rigged.glb` `48306125e15fd16a…`, `ravi-sharma-walking.glb` `9b8eca6912fc1ebb…`, `ravi-sharma-running.glb` `7ac7521cb711296b…` |
+| `assets/models/characters/blocklife_ravi_01.glb` | 10447 | 1024×1024 jpeg | 1030 KB | `7deab5d70a127e42…` | `ravi-sharma-rigged.glb` `48306125e15fd16a…`, `ravi-sharma-walking.glb` `9b8eca6912fc1ebb…`, `ravi-sharma-running.glb` `7ac7521cb711296b…` |
 | `assets/models/vehicles/compact_sedan_01.glb` | 14906 | 1024×1024 jpeg | 1133 KB | `75bc48b8c41473c2…` | `blocklife_vehicle_compact_sedan.glb` `8ea4d12d0d381b28…` |
 | `assets/models/city/arch_office_01.glb` | 16590 | 1024×1024 jpeg | 1122 KB | `fb5b709ac0758d32…` | `office_01.glb` `3fb0acf05d61b712…` |
 | `assets/models/props/prop_park_bench_01.glb` | 8473 | 1024×1024 jpeg | 620 KB | `5d663890b1388041…` | `blocklife_prop_park_bench.glb` `01de0881823bb289…` |
