@@ -63,9 +63,10 @@ describe('EjectedDrivers passes the real frame delta to the runtime', () => {
     expect(afterLong).toBeCloseTo(DRIVER_FLEE_SPEED * 0.04, 6)
   })
 
-  it('the exact regression: one 1 s frame beats sixty 1/60 s frames of the same wall clock', async () => {
-    // The shape of crime.spec.ts:201 on a slow runner. One slow frame covering a second of wall
-    // clock must not advance less than the clamp allows just because it was a single frame.
+  it('one slow frame advances the clamped 0.05 s, three times the old hardcoded step', async () => {
+    // The shape of crime.spec.ts:201 on a slow runner: few frames, each covering a lot of wall clock.
+    // The comparison is per FRAME -- this one frame against what that same frame used to yield -- not
+    // against sixty fast frames, which would of course cover more ground in total.
     spawn()
     const start = driverX()
     const renderer = await ReactThreeTestRenderer.create(<EjectedDrivers />)
