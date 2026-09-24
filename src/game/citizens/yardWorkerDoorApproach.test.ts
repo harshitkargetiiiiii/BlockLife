@@ -28,8 +28,9 @@ import { TRACK_B_RELOCATED_CRATES, propsAtContractBaseline } from '../assets/con
  * along the frontage, so the walker's centre entered the crate's east face; the MANDATORY static-solid
  * clamp (universal, on-path or not) pushed it back along the minimum-penetration axis — straight back
  * up its own approach — to x = −78.020, the exact position #34 recorded in normal render. It then
- * cycled −78.02 → −78.20 → −78.38 → −78.56 → clamped, never closer than ~3.98, and the no-progress
- * timer climbed to recovery.
+ * cycled −78.02 → −78.20 → −78.38 → −78.56 → clamped, never standing closer than 3.98 (its proposed
+ * steps, which the no-progress rule measures, reached 3.80), and the no-progress timer climbed to
+ * recovery.
  */
 
 const CITIZEN = 'cit_dd_yard_worker'
@@ -44,23 +45,62 @@ interface Walk {
   reason: string
   corrections: number
   maxCorrection: number
+  /** Closest PROPOSED distance — the quantity AmbientCitizens' no-progress rule measures. */
   closest: number
+  /** Closest RESOLVED distance — where the walker actually stood after occupancy. */
+  closestResolved: number
+  /** Resolved position after the last frame walked. */
   final: Vec2
+  /** Where the walker stood (resolved) when the no-progress rule fired. */
   stalledAt?: Vec2
 }
 
-/** Walk one leg exactly the way AmbientCitizens steps a trip, with its no-progress rule. */
+/**
+ * Walk one leg in AmbientCitizens' exact order (`walking_to_destination`):
+ *   1. `moveTowards` proposes the step (`s.pos = res.position`);
+ *   2. if it did NOT arrive, the no-progress rule measures the distance from that PROPOSED
+ *      position and fires recovery after 45 s without beating `tripLastDist` by 0.05;
+ *      if it DID arrive, the trip advances — arrival is decided here, before occupancy;
+ *   3. `resolvePersonOccupancy` (`onPath: true`, `isMoving = !arrived`) then resolves the position.
+ * Arrival is therefore reported exactly as production decides it; the tests assert SEPARATELY that the
+ * resolved position after that frame is really on the anchor. Proposed vs resolved is compared every
+ * frame so progress the clamp takes back is attributed, not inferred.
+ */
 function walkLeg(from: Vec2, target: Vec2, dt: number): Walk {
   let pos: Vec2 = [from[0], from[1]]
   // AmbientCitizens: `tripLastDist` starts at Infinity; progress means beating it by 0.05.
   let tripLastDist = Infinity
   let noProgressTime = 0
   let closest = Infinity
+  let closestResolved = Infinity
   let corrections = 0
   let maxCorrection = 0
   for (let frame = 0; frame < 20_000; frame++) {
+    const standing: Vec2 = [pos[0], pos[1]]
     const res = moveTowards(pos, target, WALK_SPEED * Math.min(dt, 0.1))
     const proposed: Vec2 = [res.position[0], res.position[1]]
+    if (!res.arrived) {
+      const dist = Math.hypot(target[0] - proposed[0], target[1] - proposed[1])
+      closest = Math.min(closest, dist)
+      if (dist < tripLastDist - 0.05) {
+        tripLastDist = dist
+        noProgressTime = 0
+      } else {
+        noProgressTime += dt
+        if (noProgressTime > NO_PROGRESS_LIMIT) {
+          return {
+            arrived: false,
+            reason: 'no-progress recovery would fire',
+            corrections,
+            maxCorrection,
+            closest,
+            closestResolved,
+            final: standing,
+            stalledAt: standing,
+          }
+        }
+      }
+    }
     const resolved: Vec2 = [proposed[0], proposed[1]]
     resolvePersonOccupancy(resolved, CITIZEN, dt, !res.arrived, /* onPath */ true)
     const corr = Math.hypot(resolved[0] - proposed[0], resolved[1] - proposed[1])
@@ -69,22 +109,18 @@ function walkLeg(from: Vec2, target: Vec2, dt: number): Walk {
       maxCorrection = Math.max(maxCorrection, corr)
     }
     pos = resolved
-    // Arrival must be truthful: moveTowards reached the anchor AND the resolve did not move it off.
-    if (res.arrived && corr < 1e-9) return { arrived: true, reason: 'arrived', corrections, maxCorrection, closest: 0, final: pos }
-    const dist = Math.hypot(target[0] - pos[0], target[1] - pos[1])
-    closest = Math.min(closest, dist)
-    if (dist < tripLastDist - 0.05) {
-      tripLastDist = dist
-      noProgressTime = 0
-    } else {
-      noProgressTime += dt
-      if (noProgressTime > NO_PROGRESS_LIMIT) {
-        return { arrived: false, reason: 'no-progress recovery would fire', corrections, maxCorrection, closest, final: pos, stalledAt: pos }
-      }
+    closestResolved = Math.min(closestResolved, Math.hypot(target[0] - pos[0], target[1] - pos[1]))
+    if (res.arrived) {
+      return { arrived: true, reason: 'arrived', corrections, maxCorrection, closest: 0, closestResolved, final: pos }
     }
   }
-  return { arrived: false, reason: 'frame budget exhausted', corrections, maxCorrection, closest, final: pos }
+  return { arrived: false, reason: 'frame budget exhausted', corrections, maxCorrection, closest, closestResolved, final: pos }
 }
+
+const fmt = (v?: Vec2) => (v ? `[${v[0].toFixed(3)}, ${v[1].toFixed(3)}]` : '—')
+const summarize = (w: Walk) =>
+  `${w.reason}: closest proposed ${w.closest.toFixed(3)} / resolved ${w.closestResolved.toFixed(3)} to the anchor, ` +
+  `${w.corrections} clamp corrections (max ${w.maxCorrection.toFixed(3)}), stalled at ${fmt(w.stalledAt)}`
 
 const dest = () => CITIZEN_DESTINATIONS.find((d) => d.id === DEST_ID)!
 const finalLeg = (): [Vec2, Vec2] => {
@@ -111,14 +147,9 @@ describe('issue #34 Track B — the yard worker reaches Yard 12\'s door on the r
     it(`walks the final leg to the door and arrives truthfully — ${label}`, () => {
       const [from, target] = finalLeg()
       const w = walkLeg(from, target, dt)
-      expect(
-        w.arrived,
-        `${w.reason}: closest ${w.closest.toFixed(3)} to the anchor, ` +
-          `${w.corrections} clamp corrections (max ${w.maxCorrection.toFixed(3)}), ` +
-          `stalled at ${w.stalledAt ? `[${w.stalledAt[0].toFixed(3)}, ${w.stalledAt[1].toFixed(3)}]` : '—'}`,
-      ).toBe(true)
-      // Arrival is truthful: the walker is ON the anchor, not merely near it.
-      expect(Math.hypot(w.final[0] - target[0], w.final[1] - target[1])).toBeLessThan(1e-6)
+      expect(w.arrived, summarize(w)).toBe(true)
+      // Independent of how production declares arrival: the RESOLVED position is on the anchor.
+      expect(Math.hypot(w.final[0] - target[0], w.final[1] - target[1]), 'resolved position on the anchor').toBeLessThan(1e-6)
     })
   }
 
@@ -127,7 +158,8 @@ describe('issue #34 Track B — the yard worker reaches Yard 12\'s door on the r
     // which on this frontage is the doorstep line itself.
     const target = dest().position as Vec2
     const w = walkLeg([target[0] + 6, target[1]], target, 0.1)
-    expect(w.arrived, `${w.reason}: closest ${w.closest.toFixed(3)}`).toBe(true)
+    expect(w.arrived, summarize(w)).toBe(true)
+    expect(Math.hypot(w.final[0] - target[0], w.final[1] - target[1]), 'resolved position on the anchor').toBeLessThan(1e-6)
   })
 
   it('the crate is still solid: collision protection is preserved, not bypassed', () => {
