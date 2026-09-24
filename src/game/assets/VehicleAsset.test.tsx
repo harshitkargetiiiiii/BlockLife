@@ -4,6 +4,7 @@ import * as THREE from 'three'
 import { VehicleAsset } from './VehicleAsset'
 import { clearPaintMaskCache, primePaintMask } from './maskedPaint'
 import { ASSET_MANIFEST_BY_ID, type AssetManifestEntry } from './assetManifest'
+import { variantCacheStats } from './variantMaterialCache'
 import { VEHICLE_DEFS } from '../vehicles/vehicleRegistry'
 import { VehicleVisual } from '../vehicles/VehicleVisual'
 import { registry } from '../world/runtimeRegistry'
@@ -281,6 +282,147 @@ describe('GLB bodies do not get duplicate procedural wheels or lights (issue #40
  * accumulates across style changes, and the fallback chain silently changing shape now that a
  * second file (the mask) is part of the GLB branch.
  */
+describe('issue #50 — instance-owned resource lifetime', () => {
+  const SPORTS = 'vehicle_sports_car_01'
+  const sportsEntry = () => ASSET_MANIFEST_BY_ID.get(SPORTS)!
+
+  /**
+   * Cleanup was implemented and executed but never ASSERTED: every VehicleAsset case mounted and
+   * unmounted, so `VehicleAsset.tsx`'s disposal effect ran, yet nothing checked that the two
+   * instance-owned masked materials were actually released — nor that the SHARED things they were
+   * derived from survived. A disposal that reaches too far is worse than one that never runs: it
+   * would free the source atlas or the contribution map out from under every other instance.
+   *
+   * These build ONE shared source scene (as `useGLTF`'s cache really does) and count `dispose()`
+   * calls per object, so "exactly once" and "not at all" are both checkable.
+   */
+  function sharedSource() {
+    const root = new THREE.Group()
+    root.name = 'sports-root'
+    const atlas = new THREE.Texture()
+    const geometry = new THREE.BoxGeometry()
+    const bodyMat = new THREE.MeshStandardMaterial({ name: 'paint_body' })
+    bodyMat.map = atlas
+    const body = new THREE.Mesh(geometry, bodyMat)
+    const bodyNode = new THREE.Group()
+    bodyNode.name = 'body'
+    bodyNode.add(body)
+    root.add(bodyNode)
+    const wheelMat = new THREE.MeshStandardMaterial({ name: 'paint_wheel' })
+    wheelMat.map = atlas
+    for (const w of sportsEntry().paintMask!.wheelNodes) {
+      const node = new THREE.Group()
+      node.name = w.name
+      node.position.set(0, w.radius, 0)
+      node.add(new THREE.Mesh(geometry, wheelMat))
+      root.add(node)
+    }
+    return { root, atlas, geometry, bodyMat, wheelMat }
+  }
+
+  /** Count dispose() per object across materials, textures and geometry. */
+  function countDisposals() {
+    const calls = new Map<object, number>()
+    const bump = function (this: object) { calls.set(this, (calls.get(this) ?? 0) + 1) }
+    for (const proto of [THREE.Material.prototype, THREE.Texture.prototype, THREE.BufferGeometry.prototype]) {
+      vi.spyOn(proto as unknown as { dispose: () => void }, 'dispose').mockImplementation(bump)
+    }
+    return (o: object) => calls.get(o) ?? 0
+  }
+
+  const maskedIn = (
+    r: Awaited<ReturnType<typeof ReactThreeTestRenderer.create>>,
+    name: string,
+    source: THREE.Material,
+  ): THREE.MeshStandardMaterial[] => {
+    const found: THREE.MeshStandardMaterial[] = []
+    for (const node of r.scene.findAll((n) => (n.instance as THREE.Object3D)?.name === 'sports-root')) {
+      ;(node.instance as THREE.Object3D).traverse((o) => {
+        const m = (o as THREE.Mesh).material as THREE.MeshStandardMaterial | undefined
+        // Instance-owned == named like the source but NOT the source object itself.
+        if (m && m.name === name && m !== source && !found.includes(m)) found.push(m)
+      })
+    }
+    return found
+  }
+
+  it('unmount disposes each masked material exactly once and touches nothing shared', async () => {
+    const src = sharedSource()
+    const maskTexture = new THREE.Texture()
+    seedMask(Promise.resolve(maskTexture))
+    useGLTFMock.mockReturnValue({ scene: src.root })
+    const disposals = countDisposals()
+
+    const r = await ReactThreeTestRenderer.create(
+      <VehicleAsset assetId={SPORTS} paint="#2c2c33" wheelHub="#c9ccd1" entry={sportsEntry()}>
+        <Fallback />
+      </VehicleAsset>,
+    )
+    const body = maskedIn(r, 'paint_body', src.bodyMat)
+    const wheel = maskedIn(r, 'paint_wheel', src.wheelMat)
+    expect(body, 'one instance-owned body material').toHaveLength(1)
+    expect(wheel, 'one instance-owned wheel material').toHaveLength(1)
+    expect(disposals(body[0]), 'nothing disposed while mounted').toBe(0)
+
+    await r.unmount()
+
+    expect(disposals(body[0]), 'masked body disposed EXACTLY once').toBe(1)
+    expect(disposals(wheel[0]), 'masked wheel disposed EXACTLY once').toBe(1)
+    // Everything shared with the source (and with every other instance) survives.
+    expect(disposals(src.bodyMat), 'shared source body material untouched').toBe(0)
+    expect(disposals(src.wheelMat), 'shared source wheel material untouched').toBe(0)
+    expect(disposals(src.atlas), 'shared baked atlas untouched').toBe(0)
+    expect(disposals(src.geometry), 'shared geometry untouched').toBe(0)
+    expect(disposals(maskTexture), 'shared contribution map untouched').toBe(0)
+  })
+
+  it('unmounting one instance leaves the other instance\'s resources alive', async () => {
+    const src = sharedSource()
+    const maskTexture = new THREE.Texture()
+    seedMask(Promise.resolve(maskTexture))
+    useGLTFMock.mockReturnValue({ scene: src.root })
+    const disposals = countDisposals()
+
+    const a = await ReactThreeTestRenderer.create(
+      <VehicleAsset assetId={SPORTS} paint="#2c2c33" entry={sportsEntry()}><Fallback /></VehicleAsset>,
+    )
+    const b = await ReactThreeTestRenderer.create(
+      <VehicleAsset assetId={SPORTS} paint="#c0392b" entry={sportsEntry()}><Fallback /></VehicleAsset>,
+    )
+    const aBody = maskedIn(a, 'paint_body', src.bodyMat)[0]
+    const bBody = maskedIn(b, 'paint_body', src.bodyMat)[0]
+    expect(aBody, 'the two instances own SEPARATE materials').not.toBe(bBody)
+
+    await a.unmount()
+    expect(disposals(aBody), "the unmounted instance's material is released").toBe(1)
+    expect(disposals(bBody), "the surviving instance's material is NOT released").toBe(0)
+    expect(disposals(src.atlas), 'and the shared atlas is still alive').toBe(0)
+    expect(disposals(maskTexture), 'as is the shared contribution map').toBe(0)
+
+    await b.unmount()
+    expect(disposals(bBody), 'released only when its own instance goes').toBe(1)
+    expect(disposals(src.atlas), 'the shared atlas outlives both').toBe(0)
+  })
+
+  it('a mount/unmount/remount cycle returns the variant registry to baseline', async () => {
+    const src = sharedSource()
+    seedMask(Promise.resolve(new THREE.Texture()))
+    useGLTFMock.mockReturnValue({ scene: src.root })
+    const baseline = variantCacheStats()
+
+    for (let cycle = 0; cycle < 3; cycle++) {
+      const r = await ReactThreeTestRenderer.create(
+        <VehicleAsset assetId={SPORTS} paint="#2c2c33" wheelHub="#c9ccd1" entry={sportsEntry()}>
+          <Fallback />
+        </VehicleAsset>,
+      )
+      expect(maskedIn(r, 'paint_body', src.bodyMat), `cycle ${cycle} remounts its own material`).toHaveLength(1)
+      await r.unmount()
+      expect(variantCacheStats(), `cycle ${cycle} returns the registry to baseline`).toEqual(baseline)
+    }
+  })
+})
+
 describe('issue #50 — masked paint and wheel styles on the derived sports body', () => {
   const SPORTS = 'vehicle_sports_car_01'
   const sportsEntry = () => ASSET_MANIFEST_BY_ID.get(SPORTS)!

@@ -338,8 +338,14 @@ export const RIG_FIT = {
   // taking #52's row would have reverted issue #56 while contradicting the bytes on disk.
   blocklife_person: { heightMeters: 2.15, sha256: '440e92761197981b7d438f1945eafb41d7c03712ce87931b412d9a71292957cb' },
   // Ravi takes #52's row: this is #52's whole contribution, and its derived GLB IS the file now in
-  // the tree. Re-measured from those bytes: still 1.76 m base-at-ground, so scale 1.6648 and every
-  // bound/anchor are unchanged — only the pinned hash moves.
+  // the tree. Re-measured from those bytes: still 1.76 m base-at-ground, so every bound/anchor is
+  // unchanged and only the pinned hash moves.
+  //
+  // #52's own note put the resulting scale at 1.6648. That was correct on ITS branch and is wrong
+  // here: 1.6648 is 2.93 / 1.76, the ratio against the OLD bind-pose envelope. This candidate
+  // carries #59's corrected 2.15 m envelope, so the manifest scale for this body is
+  // 2.15 / 1.76 = 1.2216, which is what `characterManifest.ts` declares. The asset bytes and the
+  // calibration itself are untouched by this correction — only the number quoted in prose.
   blocklife_ravi_01: { heightMeters: 1.76, sha256: '7deab5d70a127e42a2433648906e9cdd6cfdf7415723e5f6d1e13a87e06c56a7' },
   // Maya and Bruno keep the #65 Idle-only derivatives already integrated here; #52 touches neither
   // GLB, so its older hashes would not match the tree. Idle keeps the feet planted and the head on
