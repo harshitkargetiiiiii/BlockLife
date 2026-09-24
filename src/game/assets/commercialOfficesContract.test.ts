@@ -12,6 +12,7 @@ import { MAIN_STREET_EAST } from '../world/authoring/sectors/mainStreetEast'
 import { MAIN_STREET_NORTH } from '../world/authoring/sectors/mainStreetNorth'
 import { CITIZEN_DESTINATIONS, PEDESTRIAN_GRAPH } from '../citizens/destinations/pedestrianDestinations'
 import type { BuildingDef } from '../world/worldTypes'
+import { propsAtContractBaseline } from './contractPropBaseline'
 
 /**
  * Issue #63 — Main St Offices and North Exchange, the two compiled `office_tower` lots that still rendered
@@ -242,7 +243,7 @@ describe('issue #63 — Main St Offices and North Exchange on the shipped office
       : b))
     expect({
       buildings: hash(JSON.stringify(withoutTheTwo)),
-      props: hash(JSON.stringify(PROPS)),
+      props: hash(JSON.stringify(propsAtContractBaseline())),
       destinations: hash(canonical(CITIZEN_DESTINATIONS)),
       graph: hash(canonical(PEDESTRIAN_GRAPH)),
     }, 'pre-change export digests').toEqual({

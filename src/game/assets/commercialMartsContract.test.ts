@@ -9,6 +9,7 @@ import { WINDOW_OVERLAYS } from '../world/windowOverlayData'
 import { getBuildingOccluderDescriptor } from '../visibility/occluderData'
 import { projectedLabelHeight, resolveBuildingVisual } from '../world/buildingProjection'
 import type { BuildingDef } from '../world/worldTypes'
+import { propsAtContractBaseline } from './contractPropBaseline'
 
 /**
  * Issue #60 — Main St Mart and North Mart, the two compiled `small_shop` lots that still rendered the
@@ -190,7 +191,7 @@ describe('issue #60 — Main St Mart and North Mart on the shipped shop body', (
     const withoutTheTwo = BUILDINGS.map((b) => (IDS.includes(b.id) || b.id === ISSUE_61_BAY || ISSUE_63_OFFICES.includes(b.id) || ISSUE_53_REUSE.includes(b.id)
       ? Object.fromEntries(Object.entries(b).filter(([key]) => key !== 'visual'))
       : b))
-    expect({ buildings: sha256(withoutTheTwo), props: sha256(PROPS) }, 'delivered townhouse slice export digests').toEqual({
+    expect({ buildings: sha256(withoutTheTwo), props: sha256(propsAtContractBaseline()) }, 'delivered townhouse slice export digests').toEqual({
       buildings: BUILDINGS_WITHOUT_THE_TWO_VISUALS_SHA256,
       props: PROPS_SHA256,
     })

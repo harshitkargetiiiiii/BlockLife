@@ -11,6 +11,7 @@ import { projectedLabelHeight, resolveBuildingVisual } from '../world/buildingPr
 import { WATERFRONT_GATEWAY, WATERFRONT_GATEWAY_SPEC } from '../world/authoring/sectors/waterfrontGateway'
 import { CITIZEN_DESTINATIONS, PEDESTRIAN_GRAPH } from '../citizens/destinations/pedestrianDestinations'
 import type { BuildingDef } from '../world/worldTypes'
+import { propsAtContractBaseline } from './contractPropBaseline'
 
 /**
  * Issue #61 — Bay Supply (`s0_-2_shop`), the Waterfront Gateway `small_shop` free lot that still rendered
@@ -188,7 +189,7 @@ describe('issue #61 — Bay Supply on the shipped shop body, through a free-lot 
       : b))
     expect({
       buildings: hash(JSON.stringify(withoutBay)),
-      props: hash(JSON.stringify(PROPS)),
+      props: hash(JSON.stringify(propsAtContractBaseline())),
       destinations: hash(canonical(CITIZEN_DESTINATIONS)),
       graph: hash(canonical(PEDESTRIAN_GRAPH)),
     }, 'pre-change export digests').toEqual({

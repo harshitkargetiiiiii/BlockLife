@@ -338,7 +338,16 @@ export const FRONT_DETAIL_POLICIES: Record<
     { type: 'trash_can', out: 1.2, along: -1.5 },
   ],
   warehouse: [
-    { type: 'crate', out: 1.6, along: 3.2 },
+    // `out` 2.5, not 1.6 (issue #34 Track B). Door anchors sit on the DOORSTEP LINE at out 1.5
+    // (`doorAnchor`), and at 1.6 this crate's solid footprint (z-half 0.5 plus its 0.1 offset, so
+    // out 1.2-2.2) straddled that line 3.2 m beside the door. A walker whose final leg runs along the
+    // frontage -- the yard commuter's does -- drove its centre into the crate's side face, and the
+    // mandatory static-solid clamp pushed it straight back up its own approach every time: it cycled
+    // about 4 m short of the door until the 45 s no-progress rule fired and recovery diverted the
+    // trip. At 2.5 the footprint spans out 2.1-3.1, clearing the doorstep line by more than a person
+    // radius; the crate stays exactly as solid as before. The pallet is flat (no footprint) and the
+    // door strip itself was already clear, so nothing else here moves.
+    { type: 'crate', out: 2.5, along: 3.2 },
     { type: 'pallet', out: 1.2, along: -3.2 },
   ],
   depot: [{ type: 'barrel', out: 1.3, along: 2.6 }],

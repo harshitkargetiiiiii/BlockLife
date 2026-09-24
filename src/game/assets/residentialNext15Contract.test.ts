@@ -4,11 +4,12 @@ import { readFileSync } from 'node:fs'
 import * as THREE from 'three'
 import { describe, expect, it } from 'vitest'
 import { ASSET_MANIFEST_BY_ID } from './assetManifest'
-import { BUILDINGS, PROPS } from '../world/cityLayout'
+import { BUILDINGS } from '../world/cityLayout'
 import { WINDOW_OVERLAYS } from '../world/windowOverlayData'
 import { getBuildingOccluderDescriptor } from '../visibility/occluderData'
 import { resolveBuildingVisual } from '../world/buildingProjection'
 import type { BuildingDef } from '../world/worldTypes'
+import { propsAtContractBaseline } from './contractPropBaseline'
 
 /**
  * Issue #55, next slice — the fifteen 5 x 5 house lots the first slice left procedural.
@@ -182,7 +183,7 @@ describe('issue #55 next slice — fifteen 5 x 5 house lots on two existing bodi
     const withoutTheTwenty = BUILDINGS.map((b) => (TWENTY.has(b.id) || TOWNHOUSE_SLICE.includes(b.id) || ISSUE_60_MARTS.includes(b.id) || ISSUE_61_BAY.includes(b.id) || ISSUE_63_OFFICES.includes(b.id) || ISSUE_53_REUSE.includes(b.id)
       ? Object.fromEntries(Object.entries(b).filter(([key]) => key !== 'visual'))
       : b))
-    expect({ buildings: sha256(withoutTheTwenty), props: sha256(PROPS) }, 'master export digests').toEqual({
+    expect({ buildings: sha256(withoutTheTwenty), props: sha256(propsAtContractBaseline()) }, 'master export digests').toEqual({
       buildings: BUILDINGS_WITHOUT_THE_TWENTY_VISUALS_SHA256,
       props: PROPS_SHA256,
     })

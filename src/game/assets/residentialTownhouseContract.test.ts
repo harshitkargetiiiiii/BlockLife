@@ -4,11 +4,12 @@ import { readFileSync } from 'node:fs'
 import * as THREE from 'three'
 import { describe, expect, it } from 'vitest'
 import { ASSET_MANIFEST_BY_ID } from './assetManifest'
-import { BUILDINGS, PROPS } from '../world/cityLayout'
+import { BUILDINGS } from '../world/cityLayout'
 import { WINDOW_OVERLAYS } from '../world/windowOverlayData'
 import { getBuildingOccluderDescriptor } from '../visibility/occluderData'
 import { resolveBuildingVisual } from '../world/buildingProjection'
 import type { BuildingDef } from '../world/worldTypes'
+import { propsAtContractBaseline } from './contractPropBaseline'
 
 /**
  * Issue #55, townhouse slice — the three compiled `townhouse` lots that still rendered the procedural
@@ -165,7 +166,7 @@ describe('issue #55 townhouse slice — three compiled townhouse lots on the shi
     const withoutTheThree = BUILDINGS.map((b) => (IDS.includes(b.id) || ISSUE_60_MARTS.includes(b.id) || ISSUE_61_BAY.includes(b.id) || ISSUE_63_OFFICES.includes(b.id) || ISSUE_53_REUSE.includes(b.id)
       ? Object.fromEntries(Object.entries(b).filter(([key]) => key !== 'visual'))
       : b))
-    expect({ buildings: sha256(withoutTheThree), props: sha256(PROPS) }, 'delivered 5 x 5 slice export digests').toEqual({
+    expect({ buildings: sha256(withoutTheThree), props: sha256(propsAtContractBaseline()) }, 'delivered 5 x 5 slice export digests').toEqual({
       buildings: BUILDINGS_WITHOUT_THE_THREE_VISUALS_SHA256,
       props: PROPS_SHA256,
     })

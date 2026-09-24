@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs'
 import * as THREE from 'three'
 import { describe, expect, it } from 'vitest'
 import { ASSET_MANIFEST_BY_ID } from './assetManifest'
-import { BUILDINGS, PROPS } from '../world/cityLayout'
+import { BUILDINGS } from '../world/cityLayout'
 import { BUILDING_ROOF_EXTRA } from '../world/buildingMassing'
 import { WINDOW_OVERLAYS } from '../world/windowOverlayData'
 import { getBuildingOccluderDescriptor } from '../visibility/occluderData'
@@ -12,6 +12,7 @@ import { CAMERA_OFFSET, MAX_WORLD_RENDER_HEIGHT } from '../camera/cameraGeometry
 import { projectedLabelHeight, resolveBuildingVisual } from '../world/buildingProjection'
 import { CITIZEN_DESTINATIONS, PEDESTRIAN_GRAPH } from '../citizens/destinations/pedestrianDestinations'
 import type { BuildingDef } from '../world/worldTypes'
+import { propsAtContractBaseline } from './contractPropBaseline'
 
 /**
  * Issue #53 archetype reuse — authored lots that still drew the procedural `BuildingMesh` now draw an
@@ -476,7 +477,7 @@ describe('issue #53 — twenty-two procedural lots on five already-approved arch
       : b))
     expect({
       buildings: hash(JSON.stringify(withoutTheReuse)),
-      props: hash(JSON.stringify(PROPS)),
+      props: hash(JSON.stringify(propsAtContractBaseline())),
       destinations: hash(canonical(CITIZEN_DESTINATIONS)),
       graph: hash(canonical(PEDESTRIAN_GRAPH)),
     }, 'pre-change export digests').toEqual({
