@@ -4,11 +4,12 @@ import { readFileSync } from 'node:fs'
 import * as THREE from 'three'
 import { describe, expect, it } from 'vitest'
 import { ASSET_MANIFEST_BY_ID } from './assetManifest'
-import { BUILDINGS, PROPS } from '../world/cityLayout'
+import { BUILDINGS } from '../world/cityLayout'
 import { WINDOW_OVERLAYS } from '../world/windowOverlayData'
 import { getBuildingOccluderDescriptor } from '../visibility/occluderData'
 import { resolveBuildingVisual } from '../world/buildingProjection'
 import type { BuildingDef } from '../world/worldTypes'
+import { propsAtContractBaseline } from './contractPropBaseline'
 
 /**
  * Issue #55, next slice — the fifteen 5 x 5 house lots the first slice left procedural.
@@ -71,6 +72,22 @@ const ISSUE_60_MARTS = ['s1_-1_s1', 's1_-2_s1']
 const ISSUE_61_BAY = ['s0_-2_shop']
 /** The later issue #63 office projections, pinned in commercialOfficesContract.test.ts. */
 const ISSUE_63_OFFICES = ['s1_-1_n1', 's1_-2_n1']
+/**
+ * The LATER issue #53 archetype-reuse projections, pinned with their authored facts, resolved
+ * projections and fit derivations in `archetypeReuseContract.test.ts`: fourteen authored lots drawn by
+ * five already-approved rows (shop, garage, row house, apartment, gateway hotel) at their existing
+ * calibrations. They add `visual` keys to fourteen placements this slice never touched, so they are
+ * excluded here exactly as the other later slices are.
+ */
+const ISSUE_53_REUSE = ['building_market_02', 'building_gate_retail_01', 'building_depot_n1',
+  'building_cafe_01', 'building_market_01', 'building_tower_02', 'building_tower_05', 'building_gate_tower_01',
+  's1_-1_n2', 's1_-1_n3', 's1_-2_n2', 's1_-2_n3', 's-1_-2_w2', 's-1_-2_w4',
+  // Placement closure (2026-09-21), batch 3 of the same programme: the two 11 x 9 backdrop towers on the
+  // hotel row, and Book Nook on the shop row at a measured uniform 1.15.
+  'building_tower_03', 'building_tower_06', 'building_shop_02', 'building_factory_n1',
+  'building_deli_s1', 's-1_-2_w1', 's-1_-2_w3', 's-1_-2_w5',
+  'building_gate_offices_01', 's1_-2_s3']
+
 
 /** Every placement that master (d81d73dd) already projected through BuildingDef.visual. */
 const MASTER_MAPPED: string[] = ['building_house_01', 'building_house_r1', 'building_house_r2', 'building_house_s2', 'building_house_w2']
@@ -148,10 +165,10 @@ describe('issue #55 next slice — fifteen 5 x 5 house lots on two existing bodi
       return Boolean(entry?.enabled && entry.glbPath)
     }).map((b) => b.id).sort()
     expect(glbBodies.filter((id) => !mapped.includes(id)), 'own-row GLB bodies, exactly as on master').toEqual(OWN_ROW_BODIES)
-    expect(mapped.length, 'visual-projected placements (master\'s 5 + these 20 + the townhouse slice\'s 3 + issue #60\'s 2 + issue #61\'s 1 + issue #63\'s 2)').toBe(33)
-    expect(mapped.filter((id) => !MASTER_MAPPED.includes(id)), 'added since master').toEqual([...TWENTY, ...TOWNHOUSE_SLICE, ...ISSUE_60_MARTS, ...ISSUE_61_BAY, ...ISSUE_63_OFFICES].sort())
+    expect(mapped.length, 'visual-projected placements (master\'s 5 + these 20 + the townhouse slice\'s 3 + issue #60\'s 2 + issue #61\'s 1 + issue #63\'s 2 + issue #53\'s 5)').toBe(33 + ISSUE_53_REUSE.length)
+    expect(mapped.filter((id) => !MASTER_MAPPED.includes(id)), 'added since master').toEqual([...TWENTY, ...TOWNHOUSE_SLICE, ...ISSUE_60_MARTS, ...ISSUE_61_BAY, ...ISSUE_63_OFFICES, ...ISSUE_53_REUSE].sort())
     expect(MASTER_MAPPED.filter((id) => !mapped.includes(id)), 'nothing master mapped was dropped').toEqual([])
-    expect(glbBodies.length, 'mapped placements (own-row + projected GLB bodies)').toBe(42)
+    expect(glbBodies.length, 'mapped placements (own-row + projected GLB bodies)').toBe(42 + ISSUE_53_REUSE.length)
     expect(BUILDINGS.length, 'authored placements').toBe(73)
     // Mapped placements, not unique assets and not visual acceptance.
     const byAsset = (assetId: string) => BUILDINGS.filter((b) => b.visual?.assetId === assetId).map((b) => b.id).sort()
@@ -163,10 +180,10 @@ describe('issue #55 next slice — fifteen 5 x 5 house lots on two existing bodi
   })
 
   it('every other placement — and every prop — is exactly what master exported', () => {
-    const withoutTheTwenty = BUILDINGS.map((b) => (TWENTY.has(b.id) || TOWNHOUSE_SLICE.includes(b.id) || ISSUE_60_MARTS.includes(b.id) || ISSUE_61_BAY.includes(b.id) || ISSUE_63_OFFICES.includes(b.id)
+    const withoutTheTwenty = BUILDINGS.map((b) => (TWENTY.has(b.id) || TOWNHOUSE_SLICE.includes(b.id) || ISSUE_60_MARTS.includes(b.id) || ISSUE_61_BAY.includes(b.id) || ISSUE_63_OFFICES.includes(b.id) || ISSUE_53_REUSE.includes(b.id)
       ? Object.fromEntries(Object.entries(b).filter(([key]) => key !== 'visual'))
       : b))
-    expect({ buildings: sha256(withoutTheTwenty), props: sha256(PROPS) }, 'master export digests').toEqual({
+    expect({ buildings: sha256(withoutTheTwenty), props: sha256(propsAtContractBaseline()) }, 'master export digests').toEqual({
       buildings: BUILDINGS_WITHOUT_THE_TWENTY_VISUALS_SHA256,
       props: PROPS_SHA256,
     })

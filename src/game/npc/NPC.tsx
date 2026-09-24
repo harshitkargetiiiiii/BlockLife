@@ -22,6 +22,8 @@ import {
   type PedestrianRuntime,
 } from '../traffic/trafficRuntime'
 import { WorldLabel } from '../ui3d/WorldLabel'
+import { NPC_LABEL_ANCHOR_Y } from '../ui3d/npcLabelStack'
+
 
 /** Pedestrians keep this much distance from any car's center. */
 const CAR_CLEARANCE = 2.3
@@ -69,10 +71,10 @@ function QuestIndicator({ def }: { def: NPCDef }) {
   const questState = useGameStore((s) => s.questStates[COFFEE_QUEST_ID])
   if (def.id !== 'npc_ravi_01') return null
   if (questState === 'not_started') {
-    return <WorldLabel text="!" className="quest-marker" offset={2.9} />
+    return <WorldLabel text="!" className="quest-marker" offset={NPC_LABEL_ANCHOR_Y} />
   }
   if (questState === 'has_coffee') {
-    return <WorldLabel text="☕!" className="quest-marker" offset={2.9} />
+    return <WorldLabel text="☕!" className="quest-marker" offset={NPC_LABEL_ANCHOR_Y} />
   }
   return null
 }
@@ -350,7 +352,7 @@ export function NPC({ def }: { def: NPCDef }) {
       ) : (
         <NPCMesh def={def} />
       )}
-      <WorldLabel text={def.name} className="npc-name" offset={2.15} />
+      <WorldLabel text={def.name} className="npc-name" offset={NPC_LABEL_ANCHOR_Y} />
       <QuestIndicator def={def} />
       {bubble && !worldPaused && <SpeechBubble text={bubble} />}
     </group>

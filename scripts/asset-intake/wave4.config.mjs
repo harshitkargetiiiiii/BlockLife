@@ -93,6 +93,15 @@ export const CHARACTERS = [
       Run: { sha256: '9eba1366c778051f680fb92696e95cc04705625f9e35aaca1fc69abbf3edf450', bytes: 8665780 },
     },
     base: 'Idle',
+    idleDerivation: {
+      id: 'named_idle_v1',
+      label: 'Arms-down 4 s breathing Idle (issue #27 named slice), abduction 23 deg',
+      upperLateralDeg: 23,
+      baseSha256: '2b2de77624956433a3f7c65782bf3a315bf5f1ef8169a2b202017c415f8cdd73',
+      baseBytes: 1053340,
+      outputSha256: 'e8e2ef708005226c3b6c077b28e0b929a30fbf00aeb083306261472e44bd189b',
+      review: 'BlockLife-intake/named-idle-2026-09-15 (NAMED-IDLE-CHECKPOINT.v1.md; verify.v1.json 98535a9d; CODEX-NATIVE-REVIEW.md 4f12e972)',
+    },
     attribution: ATTRIB_ASSEMBLED,
     license: LICENSE,
   },
@@ -113,6 +122,15 @@ export const CHARACTERS = [
       Run: { sha256: '2848148253b03053ca4708952fa731a15c3eb2b3f4781dcfed5350f72c134116', bytes: 9014836 },
     },
     base: 'Idle',
+    idleDerivation: {
+      id: 'named_idle_v1',
+      label: 'Arms-down 4 s breathing Idle (issue #27 named slice), abduction 17 deg',
+      upperLateralDeg: 17,
+      baseSha256: '7abc583cf88e3def698b378477aba5dbd89603533756af694e10929b38adcdad',
+      baseBytes: 1045816,
+      outputSha256: '5b5bc61d27833196d6a33dc05b3ce4b9a2832949be152639845eac02e0c00d4c',
+      review: 'BlockLife-intake/named-idle-2026-09-15 (NAMED-IDLE-CHECKPOINT.v1.md; verify.v1.json 98535a9d; CODEX-NATIVE-REVIEW.md 4f12e972)',
+    },
     attribution: ATTRIB_ASSEMBLED,
     license: LICENSE,
   },
@@ -311,10 +329,29 @@ export const RIG_HEIGHT_METERS = 2.15
 /** Tolerance on `scale x heightMeters` vs RIG_HEIGHT_METERS — 4 decimal places of scale. */
 export const RIG_FIT_TOLERANCE_METERS = 0.001
 export const RIG_FIT = {
+  // Resolved per line when #52 merged into the candidate, each entry matching the bytes actually in
+  // the tree — neither side taken wholesale. #52 branched from master, so it predates #59 (issue #56)
+  // and #65, and its copies of the rows below are simply older, not newer.
+  //
+  // The rig keeps the #59 CORRECTED envelope. #52 pins 2.93 m / 7907894f because it predates the
+  // bind-pose fix, and it does not touch blocklife_person.glb at all; the tree holds 440e9276 and
+  // taking #52's row would have reverted issue #56 while contradicting the bytes on disk.
   blocklife_person: { heightMeters: 2.15, sha256: '440e92761197981b7d438f1945eafb41d7c03712ce87931b412d9a71292957cb' },
-  blocklife_ravi_01: { heightMeters: 1.76, sha256: 'f9ac3d5b8606c34007de89bfed05a764cfd2a4b843bb000e44fd0713488d6fe4' },
-  blocklife_maya_01: { heightMeters: 1.7, sha256: '2b2de77624956433a3f7c65782bf3a315bf5f1ef8169a2b202017c415f8cdd73' },
-  blocklife_bruno_01: { heightMeters: 1.84, sha256: '7abc583cf88e3def698b378477aba5dbd89603533756af694e10929b38adcdad' },
+  // Ravi takes #52's row: this is #52's whole contribution, and its derived GLB IS the file now in
+  // the tree. Re-measured from those bytes: still 1.76 m base-at-ground, so every bound/anchor is
+  // unchanged and only the pinned hash moves.
+  //
+  // #52's own note put the resulting scale at 1.6648. That was correct on ITS branch and is wrong
+  // here: 1.6648 is 2.93 / 1.76, the ratio against the OLD bind-pose envelope. This candidate
+  // carries #59's corrected 2.15 m envelope, so the manifest scale for this body is
+  // 2.15 / 1.76 = 1.2216, which is what `characterManifest.ts` declares. The asset bytes and the
+  // calibration itself are untouched by this correction — only the number quoted in prose.
+  blocklife_ravi_01: { heightMeters: 1.76, sha256: '7deab5d70a127e42a2433648906e9cdd6cfdf7415723e5f6d1e13a87e06c56a7' },
+  // Maya and Bruno keep the #65 Idle-only derivatives already integrated here; #52 touches neither
+  // GLB, so its older hashes would not match the tree. Idle keeps the feet planted and the head on
+  // its original track, so the measured heights are unchanged.
+  blocklife_maya_01: { heightMeters: 1.7, sha256: 'e8e2ef708005226c3b6c077b28e0b929a30fbf00aeb083306261472e44bd189b' },
+  blocklife_bruno_01: { heightMeters: 1.84, sha256: '5b5bc61d27833196d6a33dc05b3ce4b9a2832949be152639845eac02e0c00d4c' },
   blocklife_kim_01: { heightMeters: 1.71, sha256: '8b2d162eec4c5518993f188a288122404ee7f953f52d3954200f9344e76a3aa8' },
   blocklife_nisha_01: { heightMeters: 1.7, sha256: 'da73025eadeea48016e51aee73bf661b2735151bacc7dc1ea270bd188581a8d3' },
 }

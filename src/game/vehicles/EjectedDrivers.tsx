@@ -24,7 +24,7 @@ export function EjectedDrivers() {
   const groupRefs = useRef<(THREE.Group | null)[]>([])
   const bodyMats = useRef<THREE.MeshStandardMaterial[]>([])
 
-  useFrame(() => {
+  useFrame((_, delta) => {
     const store = useGameStore.getState()
     if (store.worldPaused) {
       // Still map positions so a paused scene renders drivers at rest.
@@ -32,7 +32,14 @@ export function EjectedDrivers() {
       return
     }
     const gameTime = getCrimeGameTime()
-    stepEjectedDrivers(1 / 60, gameTime)
+    // The REAL frame delta (CONVENTIONS #1). This used to be a hardcoded 1/60, which made a fleeing
+    // driver's distance a function of frame COUNT rather than elapsed time: on the software-rendered
+    // CI runner at ~1 fps it advanced ~1/60 s of flee per second of wall clock, and
+    // `crime.spec.ts:201` measured 0.51 m against a required 1 m. Issue #34 proved this across 16
+    // jobs (the dt reaching the runtime was 0.01667 in every update of every run).
+    // `stepEjectedDrivers` applies its own `Math.min(dt, 0.05)` guard, so a long frame still cannot
+    // tunnel the flee step or the occupancy resolve — the clamp belongs there, not here.
+    stepEjectedDrivers(delta, gameTime)
     mapDrivers(groupRefs.current, bodyMats.current)
   })
 

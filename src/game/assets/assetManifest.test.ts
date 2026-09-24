@@ -39,12 +39,16 @@ describe('asset manifest', () => {
     // + issue #47 Wave 4 (ONE building body on ONE placement: the gateway residential tower).
     // + issue #55's next slice: `arch_house_01_compact`, a second calibration row of the SAME
     // house file (a row, not a new file).
+    // + the industrial-yard slice: `building_garage_01_yard`, the same pattern again — a second
+    // calibration row of the SAME repair-garage file, for the yard's wider [10, 7, 9] lots. No new
+    // file, no new bytes.
     expect(landmarkEnabled.map((e) => e.id).sort()).toEqual([
       'arch_house_01',
       'arch_house_01_compact',
       'arch_residential_house_01',
       'building_apartment_01',
       'building_garage_01',
+      'building_garage_01_yard',
       'building_gate_hotel_01',
       'building_gate_tower_02',
       'building_gym_01',
@@ -86,7 +90,8 @@ describe('asset manifest', () => {
     ])
     // Issue #47 Wave 4 parked-vehicle bodies: `vehicles`-category rows that render as PROP
     // scenery through LandmarkAsset, not as a vehicle class. They carry no VehicleDef, so they
-    // are pinned separately from the four ownable-class bodies.
+    // are pinned separately from the four ownable-class bodies. Integration Wave 5 adds the
+    // police cruiser body, drawn on the live police pool — likewise no VehicleDef.
     expect(
       enabled
         .filter((e) => e.category === 'vehicles')
@@ -98,6 +103,7 @@ describe('asset manifest', () => {
       'vehicle_parked_delivery_van_01',
       'vehicle_parked_hatchback_01',
       'vehicle_parked_pickup_01',
+      'vehicle_police_cruiser_01',
       'vehicle_scooter_01',
       'vehicle_sports_car_01',
       'vehicle_utility_van_01',

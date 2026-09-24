@@ -21,9 +21,11 @@ function glbJson(glbPath: string): { meshes: { primitives: { material?: number }
 }
 
 describe('issue #67 — derived variant-cache expectations', () => {
-  it('the current city derives exactly ONE key: the office wall set shared by the two projected offices', () => {
+  it('the current city derives exactly ONE key: the office wall set shared by the four projected offices', () => {
     expect(deriveVariantCacheExpectations()).toEqual([
-      { key: OFFICE_KEY_LITERAL, assetId: 'building_office_01', materialNames: ['wall'], placementIds: ['s1_-1_n1', 's1_-2_n1'] },
+      // Gateway Offices joins the two sector offices on the SAME key: one shared tinted material-set
+      // for all three, so a third projection adds a placement to the existing entry, not a new key.
+      { key: OFFICE_KEY_LITERAL, assetId: 'building_office_01', materialNames: ['wall'], placementIds: ['building_gate_offices_01', 's1_-1_n1', 's1_-2_n1', 's1_-2_s3'] },
     ])
   })
 
@@ -33,8 +35,10 @@ describe('issue #67 — derived variant-cache expectations', () => {
       return Boolean(e?.enabled && e.glbPath && e.materialSlots && Object.values(e.materialSlots).flat().length > 0)
     })
     expect(raw.map((b) => [b.id, b.visual!.assetId, b.visual!.paletteVariant ?? b.paletteVariant ?? null])).toEqual([
+      ['building_gate_offices_01', 'building_office_01', null],
       ['s1_-1_n1', 'building_office_01', null],
       ['s1_-2_n1', 'building_office_01', null],
+      ['s1_-2_s3', 'building_office_01', null],
     ])
     expect(ASSET_MANIFEST_BY_ID.get('building_office_01')!.materialSlots).toEqual({ wall: ['wall'] })
   })

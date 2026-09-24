@@ -32,6 +32,7 @@ import type { AssetManifestEntry } from './assetManifest'
 import { getManifestEntry, markGlbBranch, noteGlbExpected, releaseGlbBranch, reportAssetLoadFailure, resolveGlbUrl, shouldLoadGlb } from './modelRegistry'
 import { applyVariant, createVariantInstances, disposeVariantMaterials, type MaterialSlotMap, type MaterialVariant } from './assetVariants'
 import { markAssetStage } from './assetStallProbe'
+import { createMaskedPaintMaterial, setMaskedPaintColor, usePaintMask, wheelNodeTransform, type MaskedPaintMaterial, type PaintMaskState } from './maskedPaint'
 import { noteGlbLandmarkChange, registry } from '../world/runtimeRegistry'
 
 const PAINT_SLOT = 'paint'
@@ -49,6 +50,12 @@ export interface VehicleAssetProps {
   paint: string
   /** Wheel-style hub colour — recolors the wheel slot if the model has one. */
   wheelHub?: string
+  /**
+   * Wheel-style radius multiplier. The procedural fallback has always scaled its own wheel meshes
+   * by this; issue #50 gives it somewhere to land on a GLB body too, for an entry whose derived
+   * segmentation produced real wheel pivots. Ignored by every other body.
+   */
+  wheelScale?: number
   /** CarMesh fallback — always kept, renders whenever the GLB can't. */
   children: ReactNode
   /**
@@ -108,17 +115,45 @@ function VehicleGlb({
   entry,
   paint,
   wheelHub,
+  wheelScale,
+  paintMaskState = null,
 }: {
   entry: AssetManifestEntry
   paint: string
   wheelHub?: string
+  /** Wheel-style radius multiplier — only meaningful for a body with derived wheel pivots. */
+  wheelScale?: number
+  /**
+   * The derived contribution map's load state (issue #50), or null for a body that declares none.
+   *
+   * Three outcomes, kept apart on purpose. `pending` renders the body in its authored paint but
+   * does NOT satisfy readiness. `error` is a failed REQUIRED asset and is rethrown here, inside the
+   * boundary, so the complete procedural car and the `glbFailed` accounting behave exactly as they
+   * do for a failed model. Only `ready` marks the branch active.
+   */
+  paintMaskState?: PaintMaskState | null
 }) {
+  // A required companion map that FAILED is an asset failure, raised where the boundary can see
+  // it. Raised before the model hook so the two failures are indistinguishable to everything
+  // downstream — same fallback, same counters, same branch.
+  if (paintMaskState?.status === 'error') {
+    throw paintMaskState.error instanceof Error
+      ? paintMaskState.error
+      : new Error(`paint contribution map failed for ${entry.id}`)
+  }
+  const paintMask = paintMaskState?.status === 'ready' ? (paintMaskState.texture ?? undefined) : undefined
+  const maskReady = !paintMaskState || paintMaskState.status === 'ready'
   const gltf = useGLTF(resolveGlbUrl(entry))
   // Issue #47 shard 8 probe (DEV only, one asset). Reaching this line means parse, decode and
   // Suspense-resume have ALL succeeded; its ABSENCE leaves those three undistinguished.
   if (import.meta.env.DEV) markAssetStage(entry.id, 'hook-returned')
 
   useEffect(() => {
+    // For a body with a companion map, "on screen" means on screen WEARING ITS PAINT. Marking the
+    // branch active a frame earlier would let a visual gate photograph the authored colour and call
+    // it the saved one. A map that FAILED never reaches here at all — it threw above, and the
+    // boundary counts it as a failed asset — so readiness cannot hang on one either.
+    if (!maskReady) return
     if (import.meta.env.DEV) markAssetStage(entry.id, 'active-effect')
     registry.glbLandmarksActive++
     noteGlbLandmarkChange()
@@ -128,7 +163,7 @@ function VehicleGlb({
       noteGlbLandmarkChange()
       releaseGlbBranch(entry.id, 'active')
     }
-  }, [entry.id])
+  }, [entry.id, maskReady])
 
   // One-time per instance: clone (so many painted shells share one file),
   // shadow flags, isolate the recolorable slots. Never re-traversed per frame.
@@ -156,9 +191,38 @@ function VehicleGlb({
         ? {}
         : { ...DEFAULT_VEHICLE_SLOTS, ...(declared ?? {}) }
     const slots = createVariantInstances(scene, slotMap, [PAINT_SLOT, WHEEL_SLOT])
+    // Issue #50: a baked-atlas body has no recolorable slot, so the empty map above isolates
+    // nothing. Its paint comes from the DERIVED mask instead — one cloned material per painted
+    // group, per instance, exactly as the slot path clones per instance so two vehicles of one
+    // class can wear different colours from one file.
+    const masked: { body: MaskedPaintMaterial | null; wheel: MaskedPaintMaterial | null } = { body: null, wheel: null }
+    const declaration = entry.paintMask
+    if (declaration && paintMask) {
+      const byName = new Map<string, MaskedPaintMaterial>()
+      scene.traverse((o) => {
+        const mesh = o as THREE.Mesh
+        if (!mesh.isMesh || !mesh.material || Array.isArray(mesh.material)) return
+        const name = mesh.material.name
+        if (name !== declaration.bodyMaterial && name !== declaration.wheelMaterial) return
+        let target = byName.get(name)
+        if (!target) {
+          target = createMaskedPaintMaterial(mesh.material, paintMask, declaration.referenceColor)
+          byName.set(name, target)
+        }
+        mesh.material = target.material
+      })
+      masked.body = byName.get(declaration.bodyMaterial) ?? null
+      masked.wheel = byName.get(declaration.wheelMaterial) ?? null
+    }
+    // The wheel pivots the segmentation step produced, resolved ONCE. Each keeps its authored
+    // translation so a style change sets an absolute transform rather than compounding one.
+    const wheels = (declaration?.wheelNodes ?? []).flatMap((w) => {
+      const node = scene.getObjectByName(w.name)
+      return node ? [{ node, radius: w.radius, baseY: node.position.y }] : []
+    })
     if (import.meta.env.DEV) markAssetStage(entry.id, 'clone-built')
-    return { scene, slots }
-  }, [gltf.scene, entry])
+    return { scene, slots, masked, wheels }
+  }, [gltf.scene, entry, paintMask])
 
   // 3. React actually COMMITTED this subtree (layout phase runs before paint and before passive
   //    effects), so a gap between 'clone-built' and here is a render that was thrown away.
@@ -167,14 +231,34 @@ function VehicleGlb({
   }, [entry.id, instance])
 
   // Dispose isolated materials symmetrically with the memo that made them.
-  useEffect(() => () => disposeVariantMaterials(instance.slots), [instance])
+  useEffect(() => () => {
+    disposeVariantMaterials(instance.slots)
+    instance.masked.body?.material.dispose()
+    instance.masked.wheel?.material.dispose()
+  }, [instance])
 
-  // Paint (+ optional wheel hub) applies immediately and only to this clone.
+  // Paint (+ optional wheel hub) applies immediately and only to this clone. Both paths run: an
+  // asset declares EITHER material slots OR a derived mask, and each is a no-op for the other.
   useEffect(() => {
     const variant: MaterialVariant = { [PAINT_SLOT]: { color: paint } }
     if (wheelHub) variant[WHEEL_SLOT] = { color: wheelHub }
     applyVariant(instance.slots, variant)
+    if (instance.masked.body) setMaskedPaintColor(instance.masked.body, paint)
+    // The wheel group's masked texels are the painted RIM; the tyre is outside the mask and stays
+    // black. With no style chosen the source colour is kept rather than guessed at.
+    if (instance.masked.wheel) setMaskedPaintColor(instance.masked.wheel, wheelHub)
   }, [instance, paint, wheelHub])
+
+  // Wheel size (issue #50 §9). Absolute, never accumulated: the scale is set from the style and
+  // the position from the wheel's own authored Y, so ten style changes leave the same transform as
+  // one. The lift keeps the contact patch on the road when the radius grows.
+  useEffect(() => {
+    for (const wheel of instance.wheels) {
+      const { scale, liftY } = wheelNodeTransform(wheel.radius, wheelScale ?? 1, entry.paintMask?.maxWheelRadiusScale)
+      wheel.node.scale.set(scale[0], scale[1], scale[2])
+      wheel.node.position.y = wheel.baseY + liftY
+    }
+  }, [instance, wheelScale])
 
   return (
     <primitive
@@ -191,9 +275,13 @@ function VehicleGlb({
  * enabled; otherwise (no entry, disabled, still loading, load error) the CarMesh
  * fallback renders. Gameplay/physics never depend on which branch is active.
  */
-export function VehicleAsset({ assetId, paint, wheelHub, children, glbSiblings, entry: entryOverride }: VehicleAssetProps) {
+export function VehicleAsset({ assetId, paint, wheelHub, wheelScale, children, glbSiblings, entry: entryOverride }: VehicleAssetProps) {
   const entry = entryOverride ?? (assetId ? getManifestEntry(assetId) : undefined)
   const useGlb = shouldLoadGlb(entry)
+  // Started HERE, in the component that never suspends, so the map and the model load in parallel
+  // and the boundary below keeps exactly ONE suspending resource — see `usePaintMask` for the
+  // measurement that made that matter.
+  const mask = usePaintMask(useGlb && entry?.paintMask ? `${import.meta.env.BASE_URL}${entry.paintMask.path}` : null)
 
   useEffect(() => {
     if (!useGlb) return
@@ -216,7 +304,13 @@ export function VehicleAsset({ assetId, paint, wheelHub, children, glbSiblings, 
   return (
     <VehicleErrorBoundary key={entry.id} assetId={entry.id} fallback={children}>
       <Suspense fallback={children}>
-        <VehicleGlb entry={entry} paint={paint} wheelHub={wheelHub} />
+        <VehicleGlb
+          entry={entry}
+          paint={paint}
+          wheelHub={wheelHub}
+          wheelScale={wheelScale}
+          paintMaskState={entry.paintMask ? mask : null}
+        />
         {glbSiblings}
       </Suspense>
     </VehicleErrorBoundary>

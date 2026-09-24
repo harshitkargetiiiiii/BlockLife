@@ -2,8 +2,10 @@ import { useGameStore, canEditFurnish as canEditFurnishRt } from '../store/useGa
 import { registry } from '../world/runtimeRegistry'
 import { readAssetStageMarks, type AssetStageMark } from '../assets/assetStallProbe'
 import { ASSET_SETTLE_QUIET_MS, assetGraphPending, isAssetGraphSettled, isSceneReady, unresolvedByAsset, unresolvedInstances, type AssetGraphCounters, type UnresolvedAsset } from '../assets/assetSettle'
-import { perfRuntime } from '../world/perfRuntime'
+import { FRAME_MS_BUCKETS, FRAME_MS_BUCKET_LABELS, perfRuntime } from '../world/perfRuntime'
 import { countUniqueMaterials, materialProbe } from '../world/materialProbe'
+import { readPoliceSirens } from '../police/policeCruiserBody'
+import { readPlacementBody } from '../assets/placementBodyProbe'
 import { variantCacheSnapshot, variantCacheStats, type VariantCacheSnapshot } from '../assets/variantMaterialCache'
 import { collectVariantCacheUsage, type VariantCacheExpectation, type VariantCacheUsage } from '../assets/variantCacheOwnership'
 import { VARIANT_CACHE_NO_CACHE_ASSET_IDS, deriveVariantCacheExpectations, variantCacheAuthoredPlacementIds, variantCacheScannedAssetIds } from '../assets/variantCacheExpectations'
@@ -862,6 +864,15 @@ export interface GameTestApi {
   // ---- Police dispatch & AI (M4) ------------------------------------------
   /** Force a police response at the suspect's location for a wanted level. */
   spawnPoliceResponse: (level: number) => number
+  /** Integration Wave 5: the light bar on each visible police cruiser — mounted variant + lit lamps. */
+  getPoliceSirenState: () => {
+    bars: number
+    variants: ('body' | 'procedural')[]
+    litPerBar: number[]
+    litSides: ('red' | 'blue' | 'both' | 'none')[]
+  }
+  /** DEV: the GLB body mounted under ONE authored placement (asset ids of marked clones; [] = fallback). */
+  getPlacementBody: (placementId: string) => { found: boolean; glbAssetIds: string[] }
   getPoliceUnits: () => {
     id: string
     kind: string
@@ -1106,7 +1117,29 @@ export interface GameTestApi {
     programs: number
     frameMs: number
     fps: number
+    worstFrameMs: number
     samples: number
+    /** Fixed-width frame-time distribution; `frameMsBucketBounds` are the upper bounds (ms). */
+    frameMsBuckets: number[]
+    frameMsBucketBounds: number[]
+    frameMsBucketLabels: string[]
+    elapsedMs: number
+    /** `performance.now()` at the first/last sample, so the window's place in the page's life is
+     *  visible; `hiddenFrames` separates background throttling from a slow renderer. */
+    windowStartMs: number | null
+    windowEndMs: number | null
+    windowMs: number | null
+    hiddenFrames: number
+    visibility: string | null
+    /** What the GAME'S OWN WebGL context reports (not a separate context). */
+    gl: {
+      vendor: string | null
+      renderer: string | null
+      unmaskedVendor: string | null
+      unmaskedRenderer: string | null
+      debugRendererInfo: 'available' | 'unavailable' | 'not-captured'
+      version: string | null
+    }
     jsHeapMB: number | null
   }
   /** Issue #25: unique live THREE.Material count (not reported by gl.info) + variant-cache
@@ -2015,6 +2048,8 @@ export function installTestApi(): void {
       })
       return policeActiveCounts().vehicles
     },
+    getPoliceSirenState: () => readPoliceSirens(materialProbe.scene),
+    getPlacementBody: (placementId) => readPlacementBody(materialProbe.scene, placementId),
     getPoliceUnits: () =>
       getPoliceUnitsSnapshot().map((u) => ({
         id: u.id,
@@ -2543,7 +2578,20 @@ export function installTestApi(): void {
         programs: perfRuntime.programs,
         frameMs: Math.round(perfRuntime.frameMs * 100) / 100,
         fps: Math.round(perfRuntime.fps),
+        worstFrameMs: Math.round(perfRuntime.worstFrameMs * 100) / 100,
         samples: perfRuntime.samples,
+        frameMsBuckets: [...perfRuntime.frameMsBuckets],
+        frameMsBucketBounds: [...FRAME_MS_BUCKETS],
+        frameMsBucketLabels: [...FRAME_MS_BUCKET_LABELS],
+        elapsedMs: Math.round(perfRuntime.elapsedMs),
+        windowStartMs: perfRuntime.windowStartMs == null ? null : Math.round(perfRuntime.windowStartMs),
+        windowEndMs: perfRuntime.windowEndMs == null ? null : Math.round(perfRuntime.windowEndMs),
+        windowMs: perfRuntime.windowStartMs == null || perfRuntime.windowEndMs == null
+          ? null
+          : Math.round(perfRuntime.windowEndMs - perfRuntime.windowStartMs),
+        hiddenFrames: perfRuntime.hiddenFrames,
+        visibility: typeof document !== 'undefined' ? document.visibilityState : null,
+        gl: { ...perfRuntime.gl },
         jsHeapMB: mem ? Math.round(mem.usedJSHeapSize / 1048576) : null,
       }
     },

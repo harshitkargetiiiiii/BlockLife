@@ -77,9 +77,11 @@ its manifest entry to `enabled: true`:
 > expose. Both files remain valid, credited, loadable assets with **no named-NPC runtime mapping**,
 > reachable through the non-persistent DEV character override (named only outside `public/`, since
 > this credits file ships in the production bundle and must stay free of test-API identifiers).
-> The issue #38 Wave 0 characters (`blocklife_kabir_01`, `blocklife_ravi_01`) ship on the same
-> candidate footing —
-> despite its name, `blocklife_ravi_01` is **not** mapped to `npc_ravi_01`. See
+> Of the issue #38 Wave 0 characters, `blocklife_kabir_01` still ships on that candidate footing —
+> Kabir is not a member of the shipped cast. `blocklife_ravi_01` no longer does: issue #47 Wave 4
+> mapped it 1:1 onto `npc_ravi_01` as that resident's approved body, and issue #27 then replaced
+> **only its Idle clip** with an in-pipeline derivation (arms down, 4 s breathing loop) — geometry,
+> skin, materials, textures and the Walk/Run clips are the same bytes the merge produced. See
 > [`docs/CHARACTER_IDENTITY_AND_POPULATION.md`](../../docs/CHARACTER_IDENTITY_AND_POPULATION.md).
 
 ### Intake record — Meshy AI generated assets (issue #21 vertical slice)
@@ -208,7 +210,7 @@ source SHA-256, output SHA-256, exact operations and structure — is in
 | Shipped file | Triangles | Texture | Size | Output SHA-256 | Pristine source(s) |
 |---|---|---|---|---|---|
 | `assets/models/characters/blocklife_kabir_01.glb` | 10109 | 1024×1024 jpeg | 1149 KB | `f90bc6065985c5d0…` | `kabir-sen-v3-rigged.glb` `34ab5f28df615ad9…`, `kabir-sen-v3-walking.glb` `c4d0bf8fa85b38f5…`, `kabir-sen-v3-running.glb` `42c79ad68861f694…` |
-| `assets/models/characters/blocklife_ravi_01.glb` | 10447 | 1024×1024 jpeg | 1008 KB | `f9ac3d5b8606c340…` | `ravi-sharma-rigged.glb` `48306125e15fd16a…`, `ravi-sharma-walking.glb` `9b8eca6912fc1ebb…`, `ravi-sharma-running.glb` `7ac7521cb711296b…` |
+| `assets/models/characters/blocklife_ravi_01.glb` | 10447 | 1024×1024 jpeg | 1030 KB | `7deab5d70a127e42…` | `ravi-sharma-rigged.glb` `48306125e15fd16a…`, `ravi-sharma-walking.glb` `9b8eca6912fc1ebb…`, `ravi-sharma-running.glb` `7ac7521cb711296b…` |
 | `assets/models/vehicles/compact_sedan_01.glb` | 14906 | 1024×1024 jpeg | 1133 KB | `75bc48b8c41473c2…` | `blocklife_vehicle_compact_sedan.glb` `8ea4d12d0d381b28…` |
 | `assets/models/city/arch_office_01.glb` | 16590 | 1024×1024 jpeg | 1122 KB | `fb5b709ac0758d32…` | `office_01.glb` `3fb0acf05d61b712…` |
 | `assets/models/props/prop_park_bench_01.glb` | 8473 | 1024×1024 jpeg | 620 KB | `5d663890b1388041…` | `blocklife_prop_park_bench.glb` `01de0881823bb289…` |
@@ -443,3 +445,33 @@ metres with their feet at `y = 0`. Every number is recomputed from the committed
 
 **No file was retired or replaced by this wave** — every GLB it adds is new, and the ten Wave-0/1/2/3
 files it stands beside are untouched.
+
+---
+
+### Intake record — Integration Wave 5: the live police cruiser (2026-09-18)
+
+- **Source:** the same owner-approved 2026-08-31 Meshy sprint, read **read-only** from
+  `/Users/harshitkargeti/BlockLife-intake/asset-sprint-2026-08-31/` (`LEDGER-VEHICLES-PROPS.md`,
+  row 10: `blocklife_vehicle_police_car.glb`).
+- **Generation cost: 0 credits.** No Meshy generation, enhancement, remesh, retexture or purchase;
+  one already-approved output reduced and normalized in-repo.
+- **Deterministic and verifiable.** `node scripts/asset-intake/buildWave5.mjs` rebuilds the file
+  from the recorded source; `--check` rebuilds into a temp directory outside the worktree and fails
+  if a committed byte differs. The source SHA-256 is asserted **before** the file is read.
+- **Static body path, verbatim** (`./lib.mjs`, as Waves 1–4): material renamed `baked_atlas`,
+  dedup/prune, texture reduced to ≤1024 JPEG; the mesh digest and bounding box are asserted
+  unchanged. The source is already bottom-origin, so no vertical transform was applied.
+- **Runtime home.** Wave 4 measured this body and rejected it as a PARKED prop because a parked
+  cruiser implies police presence the live police system owns. It is drawn on exactly that
+  system's cruisers (`src/game/police/PoliceUnits.tsx`), which already rendered the same procedural
+  `CarMesh`; that complete cruiser (car + flashing light bar) stays the fallback.
+- **Projection.** Uniform scale 2.1076 (length-bound) after the +π/2 yaw, inside the `parked_car`
+  envelope the same `CarMesh` occupies: 1.5914 × 1.274 × 3.9998 m. Nose on +Z (confirmed on the
+  rendered body). The flashing lamps cover the model's own roof bar on this body. Recomputed from
+  the committed bytes by `src/game/assets/wave5Contract.test.ts`.
+
+| Shipped file | Runtime home | Triangles | Texture | Size | Output SHA-256 | Pristine source |
+|---|---|---|---|---|---|---|
+| `assets/models/vehicles/police_cruiser_01.glb` | live police cruiser pool (3 slots) | 14852 | 1024×1024 jpeg | 1111 KB | `36ec50f6ba480a9e…` | `blocklife_vehicle_police_car.glb` `9d8a26204a768c09…` |
+
+**Source colours are retained** — one baked atlas, no recolorable slot (`materialSlots: {}`).
