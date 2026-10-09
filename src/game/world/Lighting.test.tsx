@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import ReactThreeTestRenderer from '@react-three/test-renderer'
 import * as THREE from 'three'
 import { Lighting } from './Lighting'
+import { useGameStore } from '../store/useGameStore'
 
 async function lightStateAt(hour: number) {
   const renderer = await ReactThreeTestRenderer.create(<Lighting hourOverride={hour} />)
@@ -43,6 +44,28 @@ describe('Lighting (R3F)', () => {
     const eveningWarmth = evening.sunColor.r - evening.sunColor.b
     const noonWarmth = noon.sunColor.r - noon.sunColor.b
     expect(eveningWarmth).toBeGreaterThan(noonWarmth)
+  })
+
+  it('skips the sun shadow-map update only while the player is inside an interior', async () => {
+    useGameStore.getState().exitInterior()
+    const renderer = await ReactThreeTestRenderer.create(<Lighting hourOverride={13} />)
+    const scene = renderer.scene.instance as unknown as {
+      __r3f: { root: { getState: () => { gl: THREE.WebGLRenderer } } }
+    }
+    const shadowMap = scene.__r3f.root.getState().gl.shadowMap
+    expect(shadowMap, 'renderer shadow map reachable').toBeTruthy()
+    expect(shadowMap!.autoUpdate).toBe(true)
+    await ReactThreeTestRenderer.act(async () => {
+      useGameStore.getState().enterInterior('store_mainst')
+    })
+    expect(useGameStore.getState().location).not.toBe('city')
+    expect(shadowMap!.autoUpdate).toBe(false)
+    await ReactThreeTestRenderer.act(async () => {
+      useGameStore.getState().exitInterior()
+    })
+    expect(shadowMap!.autoUpdate).toBe(true)
+    await renderer.unmount()
+    expect(shadowMap!.autoUpdate).toBe(true)
   })
 
   it('night sun color shifts toward blue moonlight', async () => {

@@ -64,6 +64,26 @@ export function Lighting({ hourOverride }: { hourOverride?: number }) {
     apply(hourOverride ?? useGameStore.getState().stats.hour)
   })
 
+  // The sun's shadow camera covers ±80 around the world origin; every interior room sits far
+  // off-grid (≥200 away), so while the player is inside one no visible fragment samples the map
+  // (measured: a fully invalidated map changes 0 px in the store, vs ~700k px at spawn). Re-rendering
+  // it there was ~80% of each interior frame under software WebGL. Skip only the map UPDATE —
+  // castShadow, map size and filtering are untouched — and resume the moment the player is back in
+  // the city. Subscribing (not polling in useFrame) flips it synchronously, so an exit triggered by
+  // another useFrame (e.g. a breach) still refreshes the map before that frame renders.
+  const gl = useThree((s) => s.gl)
+  useEffect(() => {
+    const sync = (location: string) => {
+      gl.shadowMap.autoUpdate = location === 'city'
+    }
+    sync(useGameStore.getState().location)
+    const unsubscribe = useGameStore.subscribe((s) => sync(s.location))
+    return () => {
+      unsubscribe()
+      gl.shadowMap.autoUpdate = true
+    }
+  }, [gl])
+
   return (
     <group name="lighting">
       <ambientLight ref={ambientRef} intensity={0.8} />
