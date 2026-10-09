@@ -91,14 +91,13 @@ jobs:
   # on the default branch, and this one is already registered. Routing through it needs no
   # merge. The gate job above is untouched for push, pull_request and ordinary dispatch.
   #
-  # What it answers: `visual-upgrade-perf :139` and `store-robbery :147` failed at head
-  # 0e514b8 in run 36073632407 but passed at base 991a61f in run 34992682579, and local runs
-  # (plain and SwiftShader + 4x throttle) reproduced neither. So both revisions run the SAME
-  # two tests, back to back, on ONE runner, with their real clicks, assertions and timeouts,
-  # and every trace is kept. Non-reproduction here is recorded as such, not as clearance.
+  # What it answers: store-robbery :147 failed at 0e514b8 on this runner (run 36173795976) because
+  # its frame-count-bound threat hold ran past the 8 s wait; local profiling attributed ~80% of each
+  # interior frame to a sun shadow-map pass no interior pixel samples. Both revisions run the SAME
+  # test, back to back, on ONE runner, with real clicks, assertions and timeouts; traces kept.
   # ─────────────────────────────────────────────────────────────────────────────────────────
   diagnostic:
-    name: Diagnostic — visual-upgrade-perf :139 and store-robbery :147, base vs head
+    name: Diagnostic — store-robbery :147, unfixed 0e514b8 vs interior-shadow fix be9bf6e
     if: github.event_name == 'workflow_dispatch' && inputs.diagnostic == true
     runs-on: ubuntu-latest
     timeout-minutes: 45
@@ -106,9 +105,10 @@ jobs:
       contents: read
     env:
       # Fixed for this one-off comparison: no ref inputs, nothing interpolated into a shell.
-      BASE_SHA: 991a61f7b8a11162826cd6a792b7a9f2d958f789
-      HEAD_SHA: 0e514b8130fa008038854ac23dda2b223ea6b1d6
-      TESTS: tests/e2e/visual-upgrade-perf.spec.ts:139 tests/e2e/store-robbery.spec.ts:147
+      # BASE = unfixed PR70 head; HEAD = the same commit plus only the two-file interior-shadow fix.
+      BASE_SHA: 0e514b8130fa008038854ac23dda2b223ea6b1d6
+      HEAD_SHA: be9bf6e3b77f893cdf7611e750d4098cc2d813dd
+      TESTS: tests/e2e/store-robbery.spec.ts:147
     steps:
       - name: Check out the base revision
         uses: actions/checkout@v4
@@ -147,9 +147,7 @@ jobs:
           test "$(git -C head rev-parse HEAD)" = "$HEAD_SHA"
           bad=0
           for f in package-lock.json package.json .nvmrc playwright.config.ts \
-                   tests/e2e/visual-upgrade-perf.spec.ts tests/e2e/store-robbery.spec.ts \
-                   tests/e2e/helpers.ts tests/e2e/assetStallReport.ts \
-                   src/game/assets/variantCacheOwnership.ts src/game/assets/variantMaterialCache.ts; do
+                   tests/e2e/store-robbery.spec.ts tests/e2e/helpers.ts; do
             if cmp -s "base/$f" "head/$f"; then
               echo "same      $f" | tee -a evidence/pins.txt
             else
@@ -273,7 +271,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: pr70-two-test-diagnostic-0e514b8
+          name: store-robbery-147-unfixed-vs-fix-be9bf6e
           path: evidence/
           retention-days: 7
 
@@ -296,11 +294,11 @@ jobs:
             traces="$(find "evidence/$side-test-results" -name trace.zip 2>/dev/null | wc -l | tr -d ' ')"
             echo "$side: exit=$code results=$results traces=$traces"
             [ "$code" = "0" ] || { echo "::error::$side playwright exited $code"; fail=1; }
-            [ "$results" = "2" ] || { echo "::error::$side reported $results test results, expected 2"; fail=1; }
-            [ "$traces" = "2" ] || { echo "::error::$side kept $traces traces, expected 2"; fail=1; }
+            [ "$results" = "1" ] || { echo "::error::$side reported $results test results, expected 1"; fail=1; }
+            [ "$traces" = "1" ] || { echo "::error::$side kept $traces traces, expected 1"; fail=1; }
           done
           {
-            echo "# PR #70 two-test diagnostic (visual-upgrade-perf :139, store-robbery :147)"
+            echo "# store-robbery :147 — unfixed 0e514b8 vs interior-shadow fix be9bf6e"
             echo
             echo "- base \`$BASE_SHA\` exit: \`$(cat evidence/base.exit 2>/dev/null || echo missing)\`"
             echo "- head \`$HEAD_SHA\` exit: \`$(cat evidence/head.exit 2>/dev/null || echo missing)\`"
