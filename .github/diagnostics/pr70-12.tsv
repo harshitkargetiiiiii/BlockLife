@@ -1,0 +1,12 @@
+tests/e2e/asset-integration-wave-4.spec.ts	Wave 4 — measured cost in the four districts the issue names › central: draw calls, triangles and skinned population are within budget
+tests/e2e/asset-integration-wave-4.spec.ts	Wave 4 — measured cost in the four districts the issue names › gateway: draw calls, triangles and skinned population are within budget
+tests/e2e/asset-integration-wave-4.spec.ts	Wave 4 — named residents render their own approved body › an unreachable named GLB restores the PRE-WAVE RIG with her registry identity
+tests/e2e/asset-integration-wave-4.spec.ts	Wave 4 — named residents render their own approved body › each of the five named residents loads ITS OWN model, never the fallback
+tests/e2e/asset-integration-wave-4.spec.ts	Wave 4 — named residents render their own approved body › the PLAYER is untouched: still the wardrobe rig, with its slots resolved
+tests/e2e/asset-integration-wave-4.spec.ts	Wave 4 — parked bodies reach the street, and fail safely › a streaming unload → reload leaves no stale active/failed state
+tests/e2e/asset-pipeline-round2.spec.ts	§13 asset pipeline — production render/lifecycle › named NPCs + player load the primary model, not the fallback
+tests/e2e/gameplay-flow.spec.ts	gameplay flow › player moves with the keyboard and runs with shift
+tests/e2e/missions.spec.ts	missions & activities › 5 — City Courier survives save/load mid-run and still completes
+tests/e2e/occlusion.spec.ts	building occlusion › walking back into clear view restores the building smoothly
+tests/e2e/phone.spec.ts	phone › blocks driving while open
+tests/e2e/social.spec.ts	social platform › 13. accept + start + complete an invitation entirely through the production UI
