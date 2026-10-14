@@ -1,5 +1,5 @@
 import type { BuildingDef } from '../worldTypes'
-import { resolveFacadeStyle } from './facadeDetails'
+import { isShopDressingEligible, resolveFacadeStyle } from './facadeDetails'
 
 /**
  * Rooftop plant for the industrial lots, derived from the building's own definition.
@@ -38,6 +38,8 @@ export const MAX_ROOF_DETAIL_HEIGHT = 1.4
 export function computeRoofDetails(def: BuildingDef): RoofBox[] {
   const style = resolveFacadeStyle(def)
   if (style !== 'industrial' && style !== 'shop') return []
+  // The shop kit goes only to explicitly eligible shop lots, never to every labelled low building.
+  if (style === 'shop' && !isShopDressingEligible(def)) return []
   const [w, , d] = def.size
   // Keep everything within the slab, not the overhang, so nothing reads as floating off an edge.
   const halfW = w / 2 - 0.9

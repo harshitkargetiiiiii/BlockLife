@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { computeRoofDetails, MAX_ROOF_DETAIL_HEIGHT } from './roofDetails'
-import { resolveFacadeStyle } from './facadeDetails'
+import { isShopDressingEligible, resolveFacadeStyle } from './facadeDetails'
 import { BUILDINGS } from '../cityLayout'
 
 /**
@@ -14,10 +14,11 @@ import { BUILDINGS } from '../cityLayout'
  */
 describe('rooftop plant', () => {
   const industrial = BUILDINGS.filter((b) => resolveFacadeStyle(b) === 'industrial')
-  const shops = BUILDINGS.filter((b) => resolveFacadeStyle(b) === 'shop')
+  // Only explicitly eligible shop lots: 'shop' STYLE alone also matches labelled non-shops.
+  const shops = BUILDINGS.filter((b) => isShopDressingEligible(b))
   const dressed = [...industrial, ...shops]
 
-  it('covers the industrial and shop lots, and nothing else', () => {
+  it('covers the industrial and eligible shop lots, and nothing else', () => {
     expect(industrial.length).toBeGreaterThanOrEqual(4)
     expect(shops.length).toBeGreaterThanOrEqual(3)
     for (const def of dressed) {
@@ -25,7 +26,7 @@ describe('rooftop plant', () => {
     }
     // Towers, houses and plain blocks keep their authored roofs: the towers already carry an
     // antenna, the apartment a water tank, and a house roof is too small to read as plant.
-    for (const def of BUILDINGS.filter((b) => !['industrial', 'shop'].includes(resolveFacadeStyle(b)))) {
+    for (const def of BUILDINGS.filter((b) => !dressed.includes(b))) {
       expect(computeRoofDetails(def), `${def.id} should keep its authored roof`).toEqual([])
     }
   })
