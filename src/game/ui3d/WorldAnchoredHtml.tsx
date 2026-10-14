@@ -27,7 +27,21 @@ const _to = new Vector3()
 /** Far off-screen sentinel used to hide an anchor that is behind the camera. */
 const OFFSCREEN: [number, number] = [-99999, -99999]
 
-function makeClampedPosition(halfWidth: number, halfHeight: number, margin: number) {
+export interface AnchorPlacementInput {
+  /** Projected anchor in screen pixels, before any offset. */
+  anchorX: number
+  anchorY: number
+  viewportWidth: number
+  viewportHeight: number
+  onScreen: boolean
+}
+
+function makeClampedPosition(
+  halfWidth: number,
+  halfHeight: number,
+  margin: number,
+  place: ((a: AnchorPlacementInput) => { x: number; y: number; hidden: boolean }) | null,
+) {
   return (el: Object3D, camera: Camera, size: { width: number; height: number }): number[] => {
     _world.setFromMatrixPosition(el.matrixWorld)
     // In front of the camera? (works for ortho + perspective)
@@ -39,7 +53,23 @@ function makeClampedPosition(halfWidth: number, halfHeight: number, margin: numb
     const widthHalf = size.width / 2
     const heightHalf = size.height / 2
     const anchorX = _world.x * widthHalf + widthHalf
+    // Screen-space stack offset, applied BEFORE the clamp so the clamp keeps the element where it
+    // is actually drawn. A world offset cannot hold a pixel gap here: the camera zoom changes with
+    // the wheel and with the driving/interior mode, so the same world gap buys a different number
+    // of pixels at every zoom (see `npc/NPC.tsx`).
     const anchorY = -(_world.y * heightHalf) + heightHalf
+    // A caller with its own constraints (the NPC plate stack) resolves the point itself; it gets
+    // the raw projected anchor, because it needs to reason about where the other plates are.
+    if (place) {
+      const p = place({
+        anchorX,
+        anchorY,
+        viewportWidth: size.width,
+        viewportHeight: size.height,
+        onScreen,
+      })
+      return p.hidden ? OFFSCREEN : [p.x, p.y]
+    }
     const r = clampToViewport({
       anchorX,
       anchorY,
@@ -63,6 +93,12 @@ export interface WorldAnchoredHtmlProps {
   halfHeight?: number
   /** Safe margin from every viewport edge, in pixels. */
   margin?: number
+  /**
+   * Resolve the screen point from the raw projected anchor. Use when containment is not the only
+   * constraint — the speech bubble also has to stay clear of the NPC's other plates, which the
+   * generic clamp knows nothing about.
+   */
+  place?: (a: AnchorPlacementInput) => { x: number; y: number; hidden: boolean }
   zIndexRange?: [number, number]
   testGroupName?: string
 }
@@ -73,6 +109,7 @@ export function WorldAnchoredHtml({
   halfWidth = 80,
   halfHeight = 26,
   margin = 14,
+  place,
   zIndexRange = [40, 0],
   testGroupName,
 }: WorldAnchoredHtmlProps) {
@@ -85,7 +122,7 @@ export function WorldAnchoredHtml({
       center
       zIndexRange={zIndexRange}
       style={{ pointerEvents: 'none' }}
-      calculatePosition={makeClampedPosition(halfWidth, halfHeight, margin)}
+      calculatePosition={makeClampedPosition(halfWidth, halfHeight, margin, place ?? null)}
     >
       {children}
     </Html>

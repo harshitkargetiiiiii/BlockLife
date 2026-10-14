@@ -31,6 +31,29 @@ export function resolveFacadeStyle(def: BuildingDef): FacadeStyle {
   return 'block'
 }
 
+/** The approved shop archetype body; a lot authored onto it is a shop by explicit data. */
+const SHOP_ARCHETYPE_ID = 'building_shop_01'
+
+/**
+ * Procedural lots that are shops by explicit data but carry no shop-archetype mapping: West Commons
+ * (rejected for the shop body only because its door faces away from the camera — see
+ * archetypeReuseContract.test.ts), Shorefront Cafe (a 'cafe' destination in pedestrianDestinations)
+ * and the Pier Kiosk (kept by owner decision). Block Gym is deliberately NOT listed: it is a gym.
+ */
+const PROCEDURAL_SHOP_LOT_IDS: ReadonlySet<string> = new Set(['building_commons_w1', 's0_-2_cafe', 's0_-2_pavilion'])
+
+/**
+ * Whether a lot gets the hybrid shop dressing: the mirrored street-side shopfront below and the shop
+ * roof kit in roofDetails.ts. `resolveFacadeStyle` returns 'shop' for ANY labelled building up to
+ * 6.5 m, which also catches labelled non-shops (building_townhomes_01, a residential row house), so
+ * that dressing is gated on an explicit shop identity instead. The legacy shop facade (fascia and
+ * display at the door) still follows `resolveFacadeStyle` unchanged.
+ */
+export function isShopDressingEligible(def: BuildingDef): boolean {
+  if (resolveFacadeStyle(def) !== 'shop') return false
+  return def.id === SHOP_ARCHETYPE_ID || def.visual?.assetId === SHOP_ARCHETYPE_ID || PROCEDURAL_SHOP_LOT_IDS.has(def.id)
+}
+
 const DOOR_DIR: Record<NonNullable<BuildingDef['door']>, [number, number]> = {
   south: [0, 1],
   north: [0, -1],
@@ -68,7 +91,41 @@ export function computeFacadeDetails(def: BuildingDef): FacadeBox[] {
   }
 
   switch (style) {
-    case 'shop':
+    case 'shop': {
+      /**
+       * A second, STREET-side shopfront.
+       *
+       * The fixed camera only ever sees the +x and +z elevations, and a shop's whole shopfront —
+       * fascia, awning line and display glass — hangs off its authored door. Two of the three
+       * procedural shop lots author that door on the west or north face, so from normal play they
+       * present blank walls and read as offices. This mirrors the display band and its awning onto
+       * a seen elevation that is NOT the door's, so every shop reads as a shop from the street
+       * without moving its entrance, collider or identity. Only explicitly eligible shop lots
+       * (`isShopDressingEligible`) get it.
+       */
+      if (isShopDressingEligible(def)) {
+        const streetOnX = def.door !== 'east'
+        const streetFace = streetOnX ? w / 2 : d / 2
+        const streetSpan = (streetOnX ? d : w) * 0.52
+        out.push({
+          x: streetOnX ? streetFace * 1.008 : 0,
+          y: 0.75,
+          z: streetOnX ? 0 : streetFace * 1.008,
+          w: streetOnX ? 0.1 : streetSpan,
+          h: 1.45,
+          d: streetOnX ? streetSpan : 0.1,
+          role: 'dark',
+        })
+        out.push({
+          x: streetOnX ? streetFace + 0.26 : 0,
+          y: Math.min(2.5, h - 1),
+          z: streetOnX ? 0 : streetFace + 0.26,
+          w: streetOnX ? 0.62 : streetSpan + 0.5,
+          h: 0.17,
+          d: streetOnX ? streetSpan + 0.5 : 0.62,
+          role: 'accent',
+        })
+      }
       if (dir) {
         // Fascia sign band above the awning.
         out.push({
@@ -92,6 +149,7 @@ export function computeFacadeDetails(def: BuildingDef): FacadeBox[] {
         })
       }
       break
+    }
     case 'tower': {
       // Floor bands every other floor + entrance canopy.
       for (let y = 3.3; y < h - 1.2 && out.length < 5; y += 3.4) {

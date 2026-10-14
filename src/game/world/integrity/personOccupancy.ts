@@ -1,8 +1,8 @@
 /**
  * The FULL live person-occupancy contract for one actor (World Integrity Slice 2):
  *
- *   person-person spacing  →  on-foot player  →  [ vehicle push-out  →  MANDATORY
- *   static-solid clamp ]  (bracketed steps apply to OFF-path actors only)
+ *   person-person spacing  →  on-foot player  →  [ vehicle push-out ]  →
+ *   MANDATORY static-solid clamp   (only the bracketed step is OFF-path only)
  *
  * Every actor kind and state (walking, idle, queueing, sitting, frozen,
  * panicking; citizens, NPCs, police on foot, ejected drivers, interior
@@ -10,15 +10,16 @@
  * car or embedded in a building/prop.
  *
  * Person spacing + the player push apply to EVERY actor (capped, trip-safe soft
- * nudges). The HARD vehicle + solid clamps apply to OFF-path actors — idle,
+ * nudges). The HARD vehicle push-out applies to OFF-path actors only — idle,
  * queueing, sitting, frozen, panicking or displaced people, which have no
- * per-frame avoidance and are the ones that end up on a car or inside a wall. An
- * actor actively walking an AUTHORED path leg (`onPath`) is skipped: it already
- * gap-crosses roads via the pedestrian etiquette (`decidePedestrian`) and steps
- * out of cars (`CAR_CLEARANCE`), and follows a route validated clear of solids —
- * clamping it every frame fights its crossings and stalls long trips (measured:
- * a cross-district commute regressed from ~3.3min to a timeout under the clamp).
- * See CONVENTIONS #18.
+ * per-frame avoidance and are the ones that end up on a car. An actor actively
+ * walking an AUTHORED path leg (`onPath`) skips it: it already gap-crosses roads
+ * via the pedestrian etiquette (`decidePedestrian`) and steps out of cars
+ * (`CAR_CLEARANCE`) — pushing it out of a car it is passing every frame fights its
+ * crossings and stalls long trips (measured: a cross-district commute regressed
+ * from ~3.3min to a timeout). The static-solid clamp is UNIVERSAL, on-path walkers
+ * included (see step 6) — so a solid placed across a walker's final leg stops it
+ * short of its destination (issue #34). See CONVENTIONS #18.
  *
  * Runs only on live (non-paused) frames — callers invoke it after their
  * pause-snap early-return, preserving visual determinism.

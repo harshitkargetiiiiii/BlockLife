@@ -264,6 +264,15 @@ interface Window {
       heading: number
     }[]
     spawnPoliceResponse: (level: number) => number
+    /** Integration Wave 5: the light bar on each visible police cruiser — mounted variant + lit lamps. */
+    getPoliceSirenState: () => {
+      bars: number
+      variants: ('body' | 'procedural')[]
+      litPerBar: number[]
+      litSides: ('red' | 'blue' | 'both' | 'none')[]
+    }
+    /** DEV: the GLB body mounted under ONE authored placement ([] = procedural fallback). */
+    getPlacementBody: (placementId: string) => { found: boolean; glbAssetIds: string[] }
     getPoliceUnits: () => {
       id: string
       kind: string

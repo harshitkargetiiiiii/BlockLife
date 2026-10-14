@@ -32,8 +32,8 @@
       "kind": "character",
       "npc": "npc_maya_01",
       "output": "public/assets/models/characters/blocklife_maya_01.glb",
-      "outputSha256": "2b2de77624956433a3f7c65782bf3a315bf5f1ef8169a2b202017c415f8cdd73",
-      "outputBytes": 1053340,
+      "outputSha256": "e8e2ef708005226c3b6c077b28e0b929a30fbf00aeb083306261472e44bd189b",
+      "outputBytes": 1069192,
       "sources": [
         {
           "role": "Idle",
@@ -248,12 +248,159 @@
         "prune + dedup (drops the two duplicate meshes/skins/textures the merge introduced)",
         "textureCompress resize <=1024 targetFormat=jpeg quality=85 filter=lanczos3",
         "assert assembled skeleton signature + mesh digest identical to the source rig",
-        "assert grounded skinned bounds and the declared metre height, measured through three.js"
+        "assert grounded skinned bounds and the declared metre height, measured through three.js",
+        "derive named_idle_v1: Arms-down 4 s breathing Idle (issue #27 named slice), abduction 23 deg (see \"derived\" below for the recipe and both pinned hashes)"
       ],
       "attribution": "Meshy AI — generated original asset (owner-approved 2026-08-31 sprint), assembled + texture-optimized in-repo",
       "license": "Meshy AI generated asset (meshy.ai terms)",
+      "derived": {
+        "id": "named_idle_v1",
+        "label": "Arms-down 4 s breathing Idle (issue #27 named slice), abduction 23 deg",
+        "module": "./namedIdle.mjs",
+        "export": "deriveNamedIdle",
+        "upperLateralDeg": 23,
+        "baseSha256": "2b2de77624956433a3f7c65782bf3a315bf5f1ef8169a2b202017c415f8cdd73",
+        "baseBytes": 1053340,
+        "outputSha256": "e8e2ef708005226c3b6c077b28e0b929a30fbf00aeb083306261472e44bd189b",
+        "operations": [
+          "assert the assembled base sha256 + bytes, the canonical 24-joint skin, one mesh/primitive, clips Idle/Walk/Run and the static one-key Idle schema",
+          "apply each original Idle T/R/S key; re-aim both arms to the pinned per-body abduction (world-space, never stretched)",
+          "solve wrist roll against the unsigned PCA hand plane (palm-vs-back is not decided here)",
+          "author a 4 s / 33-key LINEAR breathing loop on the 11 breathing joints; hands hold their solved roll",
+          "hold T/S and every non-authored joint rotation bit-exact; rewrite ONLY Idle sampler accessor references",
+          "assert the derived output sha256 equals the reviewed candidate pinned in wave4.config.mjs"
+        ],
+        "review": "BlockLife-intake/named-idle-2026-09-15 (NAMED-IDLE-CHECKPOINT.v1.md; verify.v1.json 98535a9d; CODEX-NATIVE-REVIEW.md 4f12e972)",
+        "measured": {
+          "params": {
+            "upperLateralDeg": 23,
+            "upperForwardDeg": -1.7184,
+            "foreLateralDeg": 16.7791,
+            "foreForwardDeg": 7.9696
+          },
+          "handPlanes": {
+            "Left": {
+              "vertices": 505,
+              "flatness": 0.259923,
+              "identified": true
+            },
+            "Right": {
+              "vertices": 498,
+              "flatness": 0.234465,
+              "identified": true
+            },
+            "semantics": "unsigned hand-plane orientation only: the PCA normal has no sign, so palm-versus-back facing the thigh is NOT determined; it must be judged from the finite visual evidence"
+          },
+          "arms": {
+            "Left": {
+              "params": {
+                "upperLateralDeg": 23,
+                "upperForwardDeg": -1.7184,
+                "foreLateralDeg": 16.7791,
+                "foreForwardDeg": 7.9696
+              },
+              "wristRollDeg": -68,
+              "wristRollSolved": true,
+              "upperDirBefore": [
+                0.5471,
+                -0.824,
+                0.1473
+              ],
+              "foreDirBefore": [
+                0.6476,
+                0.7037,
+                0.2922
+              ],
+              "upperDirAfter": [
+                0.3906,
+                -0.9202,
+                -0.0276
+              ],
+              "foreDirAfter": [
+                0.2861,
+                -0.9489,
+                0.1329
+              ],
+              "elbowBendBeforeDeg": 100.52,
+              "elbowBendAfterDeg": 11.11,
+              "wristYBefore": 1.3382,
+              "wristYAfter": 0.9398,
+              "handPlaneUnsignedErrDegBefore": 86.04,
+              "handPlaneUnsignedErrDegAfter": 28.93,
+              "handPlaneSemantics": "unsigned hand-plane orientation only: the PCA normal has no sign, so palm-versus-back facing the thigh is NOT determined; it must be judged from the finite visual evidence",
+              "handMinusZErrDegBefore": 81.16,
+              "handMinusZErrDegAfter": 44.28,
+              "segmentLenDriftUpper": 0,
+              "segmentLenDriftFore": 0
+            },
+            "Right": {
+              "params": {
+                "upperLateralDeg": 23,
+                "upperForwardDeg": -1.7184,
+                "foreLateralDeg": 16.7791,
+                "foreForwardDeg": 7.9696
+              },
+              "wristRollDeg": 54,
+              "wristRollSolved": true,
+              "upperDirBefore": [
+                -0.5482,
+                -0.8237,
+                0.145
+              ],
+              "foreDirBefore": [
+                -0.6414,
+                0.6904,
+                0.3346
+              ],
+              "upperDirAfter": [
+                -0.3906,
+                -0.9202,
+                -0.0276
+              ],
+              "foreDirAfter": [
+                -0.2861,
+                -0.9489,
+                0.1329
+              ],
+              "elbowBendBeforeDeg": 99.7,
+              "elbowBendAfterDeg": 11.11,
+              "wristYBefore": 1.3171,
+              "wristYAfter": 0.9324,
+              "handPlaneUnsignedErrDegBefore": 83.3,
+              "handPlaneUnsignedErrDegAfter": 25.82,
+              "handPlaneSemantics": "unsigned hand-plane orientation only: the PCA normal has no sign, so palm-versus-back facing the thigh is NOT determined; it must be judged from the finite visual evidence",
+              "handMinusZErrDegBefore": 78.75,
+              "handMinusZErrDegAfter": 31.86,
+              "segmentLenDriftUpper": 0,
+              "segmentLenDriftFore": 0
+            }
+          },
+          "loop": {
+            "maxLoopEndpointDelta": 1.9949319973733282e-17,
+            "maxNormDeviationBeforeNormalize": 6.617075420933816e-8,
+            "untouchedJointsBitExact": [
+              "Hips",
+              "LeftUpLeg",
+              "LeftLeg",
+              "LeftFoot",
+              "LeftToeBase",
+              "RightUpLeg",
+              "RightLeg",
+              "RightFoot",
+              "RightToeBase",
+              "head_end",
+              "headfront"
+            ]
+          },
+          "bake": {
+            "disposedIdleAccessors": 73,
+            "keyCount": 33,
+            "durationSeconds": 4
+          }
+        }
+      },
       "structure": {
-        "bytes": 1053340,
+        "bytes": 1069192,
         "triangles": 10411,
         "meshes": 1,
         "materials": [
@@ -283,7 +430,7 @@
           {
             "name": "Idle",
             "channels": 72,
-            "duration": 0.3
+            "duration": 4
           },
           {
             "name": "Walk",
@@ -370,8 +517,8 @@
       "kind": "character",
       "npc": "npc_bruno_01",
       "output": "public/assets/models/characters/blocklife_bruno_01.glb",
-      "outputSha256": "7abc583cf88e3def698b378477aba5dbd89603533756af694e10929b38adcdad",
-      "outputBytes": 1045816,
+      "outputSha256": "5b5bc61d27833196d6a33dc05b3ce4b9a2832949be152639845eac02e0c00d4c",
+      "outputBytes": 1061948,
       "sources": [
         {
           "role": "Idle",
@@ -586,12 +733,159 @@
         "prune + dedup (drops the two duplicate meshes/skins/textures the merge introduced)",
         "textureCompress resize <=1024 targetFormat=jpeg quality=85 filter=lanczos3",
         "assert assembled skeleton signature + mesh digest identical to the source rig",
-        "assert grounded skinned bounds and the declared metre height, measured through three.js"
+        "assert grounded skinned bounds and the declared metre height, measured through three.js",
+        "derive named_idle_v1: Arms-down 4 s breathing Idle (issue #27 named slice), abduction 17 deg (see \"derived\" below for the recipe and both pinned hashes)"
       ],
       "attribution": "Meshy AI — generated original asset (owner-approved 2026-08-31 sprint), assembled + texture-optimized in-repo",
       "license": "Meshy AI generated asset (meshy.ai terms)",
+      "derived": {
+        "id": "named_idle_v1",
+        "label": "Arms-down 4 s breathing Idle (issue #27 named slice), abduction 17 deg",
+        "module": "./namedIdle.mjs",
+        "export": "deriveNamedIdle",
+        "upperLateralDeg": 17,
+        "baseSha256": "7abc583cf88e3def698b378477aba5dbd89603533756af694e10929b38adcdad",
+        "baseBytes": 1045816,
+        "outputSha256": "5b5bc61d27833196d6a33dc05b3ce4b9a2832949be152639845eac02e0c00d4c",
+        "operations": [
+          "assert the assembled base sha256 + bytes, the canonical 24-joint skin, one mesh/primitive, clips Idle/Walk/Run and the static one-key Idle schema",
+          "apply each original Idle T/R/S key; re-aim both arms to the pinned per-body abduction (world-space, never stretched)",
+          "solve wrist roll against the unsigned PCA hand plane (palm-vs-back is not decided here)",
+          "author a 4 s / 33-key LINEAR breathing loop on the 11 breathing joints; hands hold their solved roll",
+          "hold T/S and every non-authored joint rotation bit-exact; rewrite ONLY Idle sampler accessor references",
+          "assert the derived output sha256 equals the reviewed candidate pinned in wave4.config.mjs"
+        ],
+        "review": "BlockLife-intake/named-idle-2026-09-15 (NAMED-IDLE-CHECKPOINT.v1.md; verify.v1.json 98535a9d; CODEX-NATIVE-REVIEW.md 4f12e972)",
+        "measured": {
+          "params": {
+            "upperLateralDeg": 17,
+            "upperForwardDeg": -1.7184,
+            "foreLateralDeg": 10.7791,
+            "foreForwardDeg": 7.9696
+          },
+          "handPlanes": {
+            "Left": {
+              "vertices": 678,
+              "flatness": 0.306452,
+              "identified": true
+            },
+            "Right": {
+              "vertices": 638,
+              "flatness": 0.276432,
+              "identified": true
+            },
+            "semantics": "unsigned hand-plane orientation only: the PCA normal has no sign, so palm-versus-back facing the thigh is NOT determined; it must be judged from the finite visual evidence"
+          },
+          "arms": {
+            "Left": {
+              "params": {
+                "upperLateralDeg": 17,
+                "upperForwardDeg": -1.7184,
+                "foreLateralDeg": 10.7791,
+                "foreForwardDeg": 7.9696
+              },
+              "wristRollDeg": 87,
+              "wristRollSolved": true,
+              "upperDirBefore": [
+                0.4064,
+                -0.893,
+                -0.1934
+              ],
+              "foreDirBefore": [
+                0.497,
+                -0.1826,
+                0.8483
+              ],
+              "upperDirAfter": [
+                0.2923,
+                -0.9559,
+                -0.0287
+              ],
+              "foreDirAfter": [
+                0.1853,
+                -0.9732,
+                0.1362
+              ],
+              "elbowBendBeforeDeg": 78.4,
+              "elbowBendAfterDeg": 11.33,
+              "wristYBefore": 1.1513,
+              "wristYAfter": 0.9387,
+              "handPlaneUnsignedErrDegBefore": 51.06,
+              "handPlaneUnsignedErrDegAfter": 0.54,
+              "handPlaneSemantics": "unsigned hand-plane orientation only: the PCA normal has no sign, so palm-versus-back facing the thigh is NOT determined; it must be judged from the finite visual evidence",
+              "handMinusZErrDegBefore": 88.72,
+              "handMinusZErrDegAfter": 42.62,
+              "segmentLenDriftUpper": -1e-7,
+              "segmentLenDriftFore": -2e-7
+            },
+            "Right": {
+              "params": {
+                "upperLateralDeg": 17,
+                "upperForwardDeg": -1.7184,
+                "foreLateralDeg": 10.7791,
+                "foreForwardDeg": 7.9696
+              },
+              "wristRollDeg": -93,
+              "wristRollSolved": true,
+              "upperDirBefore": [
+                -0.3468,
+                -0.9196,
+                -0.1846
+              ],
+              "foreDirBefore": [
+                -0.532,
+                -0.1067,
+                0.84
+              ],
+              "upperDirAfter": [
+                -0.2923,
+                -0.9559,
+                -0.0287
+              ],
+              "foreDirAfter": [
+                -0.1853,
+                -0.9732,
+                0.1362
+              ],
+              "elbowBendBeforeDeg": 82.67,
+              "elbowBendAfterDeg": 11.33,
+              "wristYBefore": 1.1549,
+              "wristYAfter": 0.909,
+              "handPlaneUnsignedErrDegBefore": 56.74,
+              "handPlaneUnsignedErrDegAfter": 3.07,
+              "handPlaneSemantics": "unsigned hand-plane orientation only: the PCA normal has no sign, so palm-versus-back facing the thigh is NOT determined; it must be judged from the finite visual evidence",
+              "handMinusZErrDegBefore": 89.56,
+              "handMinusZErrDegAfter": 37.79,
+              "segmentLenDriftUpper": -1e-7,
+              "segmentLenDriftFore": -1e-7
+            }
+          },
+          "loop": {
+            "maxLoopEndpointDelta": 6.938893903907228e-18,
+            "maxNormDeviationBeforeNormalize": 4.911187343470402e-7,
+            "untouchedJointsBitExact": [
+              "Hips",
+              "LeftUpLeg",
+              "LeftLeg",
+              "LeftFoot",
+              "LeftToeBase",
+              "RightUpLeg",
+              "RightLeg",
+              "RightFoot",
+              "RightToeBase",
+              "head_end",
+              "headfront"
+            ]
+          },
+          "bake": {
+            "disposedIdleAccessors": 70,
+            "keyCount": 33,
+            "durationSeconds": 4
+          }
+        }
+      },
       "structure": {
-        "bytes": 1045816,
+        "bytes": 1061948,
         "triangles": 10420,
         "meshes": 1,
         "materials": [
@@ -621,7 +915,7 @@
           {
             "name": "Idle",
             "channels": 72,
-            "duration": 0.3
+            "duration": 4
           },
           {
             "name": "Walk",

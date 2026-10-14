@@ -37,8 +37,15 @@ export const MAIN_STREET_EAST_SPEC: SectorAuthoringSpec = {
     // Issue #63: the shipped Nook Offices body at its existing uniform fit — visual only; its entrance is the model's west side.
     { localId: 'n1', templateId: 'tower_lot', roadLocalId: 'main_st', side: 'left', at: 0.45, buildingTemplateId: 'office_tower', label: 'Main St Offices', labelColor: '#cfe3ff', details: true,
       visual: { assetId: 'building_office_01', referenceSize: [8, 12, 8], canonicalFacing: 'west', maxScaleDeviation: 0 } },
-    { localId: 'n2', templateId: 'storefront_lot', roadLocalId: 'main_st', side: 'left', at: 0.62, buildingTemplateId: 'cafe_shopfront', label: 'Corner Beans', labelColor: '#ffdf9e', details: true },
-    { localId: 'n3', templateId: 'tower_lot', roadLocalId: 'main_st', side: 'left', at: 0.82, buildingTemplateId: 'mixed_use_block', details: true },
+    // Issue #53 batch 2: the shipped shop body on this [6, 5, 6] south-facing storefront lot --
+    // same reference box, same 1.206 fit, facing-only, `maxScaleDeviation: 0`.
+    { localId: 'n2', templateId: 'storefront_lot', roadLocalId: 'main_st', side: 'left', at: 0.62, buildingTemplateId: 'cafe_shopfront', label: 'Corner Beans', labelColor: '#ffdf9e', details: true,
+      visual: { assetId: 'building_shop_01', referenceSize: [6, 5, 6], canonicalFacing: 'south', maxScaleDeviation: 0 } },
+    // Issue #53 batch 2: the shipped row-house body on this [9, 9, 8] block lot. Scale [1, 1, 1]
+    // (1.02 m / 1.36 m clearance per side, 7.95 m under the authored 9 m massing) and its front
+    // doors are on model +z, which this lot's south door points at the camera.
+    { localId: 'n3', templateId: 'tower_lot', roadLocalId: 'main_st', side: 'left', at: 0.82, buildingTemplateId: 'mixed_use_block', details: true,
+      visual: { assetId: 'building_townhomes_01', referenceSize: [9, 9, 8], canonicalFacing: 'south', maxScaleDeviation: 0 } },
     // South side (right of eastbound travel).
     // Issue #60: the shipped Wave 3 shop body at its existing uniform fit — visual only, facing-only.
     { localId: 's1', templateId: 'storefront_lot', roadLocalId: 'main_st', side: 'right', at: 0.52, buildingTemplateId: 'small_shop', label: 'Main St Mart', labelColor: '#fff3c9', details: true,

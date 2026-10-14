@@ -76,6 +76,58 @@ export interface AssetManifestEntry {
   /** Optional visual bounds (world units) for tooling/labels; render reads the GLB. */
   bounds?: { width: number; height: number; depth: number }
   /**
+   * Derived paint segmentation for a BAKED-ATLAS body (issue #50).
+   *
+   * Wave 1's bodies carry panels, glass, lamps, tyres and trim in ONE texture, so `materialSlots`
+   * cannot express "recolor the paint" — declaring a slot there recolors the whole car, which is
+   * why the sports entry below declares an explicitly EMPTY slot map. This field is the answer that
+   * does work: the intake pipeline derives, offline and deterministically, a paint CONTRIBUTION MAP
+   * over that same atlas plus a split of the single mesh into a body and four wheel pivots
+   * (`scripts/asset-intake/segmentation.mjs`). The renderer subtracts the authored paint's own
+   * contribution from the sample and adds the chosen colour at the same brightness, which is exact
+   * at a filtered boundary as well as inside a panel — see `src/game/assets/maskedPaint.ts` for the
+   * two simpler encodings that were tried first and measurably failed.
+   *
+   * Presentation only. No gameplay, physics, footprint, ownership, save or customization VALUE
+   * changes with it; it decides what the same stored paint and wheel selection LOOK like.
+   */
+  paintMask?: {
+    /**
+     * Path under public/ of the derived PAINT CONTRIBUTION MAP, next to the body it belongs to:
+     * the authored paint's own colour where a texel is painted panel, zero elsewhere.
+     */
+    path: string
+    /** Material whose masked texels take the vehicle's paint colour. */
+    bodyMaterial: string
+    /** Material whose masked texels take the wheel style's hub colour. */
+    wheelMaterial: string
+    /**
+     * The authored paint colour the mask was measured against — the shading reference, so a
+     * recolored panel keeps the atlas's own creases and ambient darkening instead of going flat.
+     */
+    referenceColor: string
+    /**
+     * The wheel pivot nodes the split produced, with each wheel's rolling radius (its centre
+     * height, because the wheel touches the ground in local space). A wheel style's `radiusScale`
+     * scales the node in its radial plane and lifts it by `radius * (scale - 1)` so the contact
+     * patch stays on the road.
+     */
+    wheelNodes: readonly { name: string; radius: number }[]
+    /**
+     * The largest radial scale this body's AUTHORED wheel arches actually clear.
+     *
+     * A wheel style is a gameplay value shared by every class; the arch it has to fit inside is
+     * this model's own geometry. Measured by triangle/triangle intersection against the body at
+     * this body's real transform, not inferred from ground contact — a wheel can sit perfectly on
+     * the road and still be driven through the wing above it.
+     *
+     * `wheelNodeTransform` clamps to this. That is a REDUCTION of the advertised style, recorded
+     * rather than hidden: see docs/VEHICLE_PAINT_SEGMENTATION.md for what it means for
+     * `wheels_offroad` on this class, and the clearance test that keeps it honest.
+     */
+    maxWheelRadiusScale: number
+  }
+  /**
    * Top of the rendered GLB body, in world units above this landmark's own origin — i.e. the
    * measured model bounds put through `rotation` → `scale` → `positionOffset` (issue #46 §3).
    *
@@ -476,6 +528,44 @@ export const ASSET_MANIFEST: AssetManifestEntry[] = [
   },
   {
     ...defaults,
+    id: 'building_garage_01_yard',
+    label: 'Garage (Industrial Yard, wide calibration)',
+    category: 'city',
+    // The SAME shipped file and bytes as `building_garage_01`, at a SECOND calibration for the
+    // yard's wider [10, 7, 9] warehouse lots -- the established separate-row pattern
+    // (`arch_house_01_compact` reuses `arch_house_01.glb` the same way). No new asset, no new
+    // bytes, and the 0.6304 row it sits beside is untouched.
+    //
+    // Why these lots and not the [10, 7, 9] `building_warehouse_01`: this row's `rotation` is the
+    // same [0, -pi/2, 0], so a lot declaring `canonicalFacing: 'west'` with a SOUTH door composes
+    // to a zero net yaw -- exactly how w2/w4 already mount -- which puts BOTH decorated
+    // elevations in view of the fixed camera (the twin shutters on +z toward the road, the third
+    // on +x). `building_warehouse_01`'s door is WEST, which hides the twin shutters; it stays
+    // procedural.
+    //
+    // Fit, measured from the bytes at the composed zero yaw (local bbox 11.0906 x 6 x 7.6682,
+    // origin at the base). World X binds:
+    //   half-extents 4.66297 / 3.22501 in a 5 / 4.5 half-lot -> slack 0.33703 / 1.27499 per side,
+    //   both inside the 1.93 ceiling and proportioned like the shipped w2/w4 fit (0.50 / 1.08).
+    //   top 5.04 under the authored 7 m box and far under the 15 m camera limit.
+    glbPath: 'assets/models/city/arch_repair_garage_01.glb',
+    fallbackKey: 'BuildingMesh',
+    scale: [0.84, 0.84, 0.84],
+    rotation: [0, -Math.PI / 2, 0],
+    positionOffset: [0, 0, 0],
+    labelHeight: 6.5,
+    materialSlots: {},
+    // MODEL-LOCAL extents at this scale, the convention every other entry uses; the -pi/2 yaw
+    // swaps them in world space, so this body renders 6.4413 wide x 9.3161 deep on the lot.
+    bounds: { width: 9.3161, height: 5.04, depth: 6.4413 },
+    renderedTopY: 5.04,
+    enabled: true,
+    budget: { maxTriangles: 60000 },
+    attribution: 'Meshy AI — generated original asset (owner-approved 2026-08-31 sprint), texture-optimized in-repo',
+    license: 'Meshy AI generated asset (meshy.ai terms)',
+  },
+  {
+    ...defaults,
     id: 'building_garage_01',
     label: 'Garage (Industrial / Market Strip)',
     category: 'city',
@@ -751,11 +841,39 @@ export const ASSET_MANIFEST: AssetManifestEntry[] = [
     // Issue #40: this body is ONE BAKED ATLAS — windows, lights, tyres and trim live in the same
     // texture as the panels — so it exposes NO clean recolorable body slot. An explicitly EMPTY
     // map means "retain the source paint": the variant system isolates nothing and tints nothing,
-    // instead of recoloring the whole atlas and falsely claiming per-panel paint. Customization
-    // and save state are untouched — the selected paint is still stored, still shown in the
-    // Garage, and still tints the procedural fallback shell. Re-authoring the body with real
-    // material segmentation is what unlocks a real `paint` slot here.
+    // instead of recoloring the whole atlas and falsely claiming per-panel paint.
+    //
+    // Issue #50 KEEPS that empty map — a whole-material tint is still the wrong answer and must stay
+    // unavailable — and adds `paintMask` below, which is the right one: the same atlas, with a
+    // DERIVED per-texel mask that confines the recolor to the panels, and a derived split that gives
+    // the four wheels real pivots. Wave 1 said "re-authoring the body with real material
+    // segmentation is what unlocks a real `paint` slot here"; the segmentation is now derived
+    // offline from the approved body itself, with no re-author and no paid call.
     materialSlots: {},
+    paintMask: {
+      path: 'assets/models/vehicles/sports_car_01_paint_contribution.png',
+      bodyMaterial: 'paint_body',
+      wheelMaterial: 'paint_wheel',
+      // The DOMINANT painted colour of the atlas — the flat panel yellow, measured by the intake
+      // step as the mode of the matched cluster (253.04, 211.31, 2.23) and recorded in
+      // docs/asset-provenance/wave1-provenance.json. The renderer divides the CONTRIBUTION's luma
+      // by this one's, so it must be the UNSHADED colour: the cluster's MEAN (220.7, 183.9, 10.5)
+      // is pulled down by every crease and shadow and would brighten the whole car. A contract
+      // test asserts this string still equals what the pipeline measured.
+      referenceColor: '#fdd302',
+      // Centre height == rolling radius: the wheels sit on y = 0 in the model's local space.
+      wheelNodes: [
+        { name: 'wheel_xneg_zneg', radius: 0.140895 },
+        { name: 'wheel_xneg_zpos', radius: 0.140832 },
+        { name: 'wheel_xpos_zneg', radius: 0.140785 },
+        { name: 'wheel_xpos_zpos', radius: 0.141248 },
+      ],
+      // Measured, not chosen: 1.04 is the largest radial scale at which NONE of the four wheels
+      // intersects the body. 1.05 already produces 217 intersecting triangle pairs and the
+      // advertised off-road 1.18 produces 806 — the tyre passes straight through the wing. The
+      // clearance test recomputes both halves of that from the shipped bytes.
+      maxWheelRadiusScale: 1.04,
+    },
     attribution: 'Meshy AI — generated original asset (owner-approved 2026-08-31 sprint), texture-optimized in-repo',
     license: 'Meshy AI generated asset (meshy.ai terms)',
     bounds: { width: 1.765, height: 1.154, depth: 3.88 },
@@ -1100,6 +1218,33 @@ export const ASSET_MANIFEST: AssetManifestEntry[] = [
     budget: { maxTriangles: 25000 },
     materialSlots: {},
     bounds: { width: 1.8182, height: 2.0998, depth: 4.0261 },
+    attribution: 'Meshy AI — generated original asset (owner-approved 2026-08-31 sprint), texture-optimized in-repo',
+    license: 'Meshy AI generated asset (meshy.ai terms)',
+  },
+  // ---- Integration Wave 5: the approved police car on the LIVE police cruiser pool.
+  // Wave 4 measured this body inside the parked-car envelope and rejected it as a PARKED prop,
+  // because a parked cruiser implies police presence the live police system owns. The cruisers
+  // in `PoliceUnits` ARE that presence and already draw the same procedural `CarMesh` the parked
+  // props do, so the body lands on exactly what it depicts. Purely visual: police AI, routing,
+  // avoidance boxes, dismount, dispatch caps and the flashing light bar are untouched.
+  {
+    ...defaults,
+    id: 'vehicle_police_cruiser_01',
+    label: 'Police cruiser body (Integration Wave 5, live police cruiser pool)',
+    category: 'vehicles',
+    glbPath: 'assets/models/vehicles/police_cruiser_01.glb',
+    fallbackKey: 'CarMesh',
+    // Model 1.8978 × 0.6045 × 0.7551, origin at its base. LENGTH binds: at s = 2.1076 the body is
+    // 3.9998 long against the cruiser envelope's 4.0 (the `parked_car` table — the same CarMesh),
+    // 1.274 tall against 1.4 and 1.5914 wide against 2.0. Computed by buildWave5.mjs from the bytes.
+    scale: [2.1076, 2.1076, 2.1076],
+    rotation: [0, Math.PI / 2, 0],
+    positionOffset: [0, 0, 0],
+    enabled: true,
+    budget: { maxTriangles: 25000 },
+    // One baked atlas: livery, glass, lights and tyres share a single texture — no recolorable slot.
+    materialSlots: {},
+    bounds: { width: 1.5914, height: 1.274, depth: 3.9998 },
     attribution: 'Meshy AI — generated original asset (owner-approved 2026-08-31 sprint), texture-optimized in-repo',
     license: 'Meshy AI generated asset (meshy.ai terms)',
   },

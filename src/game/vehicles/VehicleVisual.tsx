@@ -94,6 +94,10 @@ export function VehicleVisual({
       assetId={assetId}
       paint={color}
       wheelHub={wheelHub}
+      // Issue #50: a body whose derived segmentation gave it real wheel pivots can wear the wheel
+      // STYLE, not just its hub colour. Bodies without that segmentation ignore it, so nothing
+      // else changes.
+      wheelScale={wheelScale}
       // Mounted only when the GLB itself mounts: the approved bodies carry their own wheels and
       // lights, so layering the procedural set on top rendered a multi-wheel hybrid with a second
       // pair of lamps floating off the tail (issue #40). Occupants are the one fitting such a

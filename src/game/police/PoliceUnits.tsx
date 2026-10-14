@@ -7,6 +7,8 @@ import { registry, getFollowTargetPosition } from '../world/runtimeRegistry'
 import { hasLineOfSight } from '../crime/lineOfSight'
 import { getCrimeGameTime } from '../crime/crimeSystem'
 import { CarMesh } from '../vehicles/CarMesh'
+import { LandmarkAsset } from '../assets/LandmarkAsset'
+import { POLICE_CRUISER_ASSET_ID, SIREN_BAR_FITS, SIREN_BAR_NAME, type SirenBarFit } from './policeCruiserBody'
 import { policeRuntime } from './policeRuntime'
 import { POLICE_CAPS } from './policeTypes'
 import { stepPoliceDirector } from './policeStep'
@@ -38,9 +40,29 @@ const hasLos = (from: Vec2, to: Vec2) => hasLineOfSight(from, to, { includeProps
 const findSafeExit = (x: number, z: number, heading: number): Vec2 =>
   avoidSolids(cruiserExit(x, z, heading))
 
+function SirenBar({
+  fit,
+  redMat,
+  blueMat,
+}: {
+  fit: SirenBarFit
+  redMat: THREE.Material
+  blueMat: THREE.Material
+}) {
+  return (
+    <group name={SIREN_BAR_NAME} position={[...fit.position]}>
+      <mesh material={redMat} position={[-fit.lampX, 0, 0]}>
+        <boxGeometry args={[...fit.lampSize]} />
+      </mesh>
+      <mesh material={blueMat} position={[fit.lampX, 0, 0]}>
+        <boxGeometry args={[...fit.lampSize]} />
+      </mesh>
+    </group>
+  )
+}
+
 export function PoliceUnits() {
   const groupRefs = useRef<(THREE.Group | null)[]>([])
-  const barRefs = useRef<(THREE.Group | null)[]>([])
   const officerRefs = useRef<(THREE.Group | null)[]>([])
   const prevSuspect = useRef<Vec2 | null>(null)
 
@@ -130,7 +152,10 @@ export function PoliceUnits() {
       g.visible = true
       g.position.set(u.position[0], 0, u.position[1])
       g.rotation.y = u.heading
-      const bar = barRefs.current[i]
+      // Exactly one bar is mounted per cruiser (the body's while its GLB is on screen, the
+      // procedural one otherwise), so look it up rather than holding a ref that a
+      // fallback↔body swap would leave stale.
+      const bar = g.getObjectByName(SIREN_BAR_NAME)
       if (bar) {
         // Alternate the two lights so the bar reads as an active siren.
         ;(bar.children[0] as THREE.Mesh).visible = flash > 0.5
@@ -159,15 +184,13 @@ export function PoliceUnits() {
           ref={(el) => (groupRefs.current[i] = el)}
           visible={false}
         >
-          <CarMesh color="#1a2540" showDriver />
-          <group ref={(el) => (barRefs.current[i] = el)} position={[0, 1.45, -0.2]}>
-            <mesh material={redMat} position={[-0.35, 0, 0]}>
-              <boxGeometry args={[0.5, 0.18, 0.34]} />
-            </mesh>
-            <mesh material={blueMat} position={[0.35, 0, 0]}>
-              <boxGeometry args={[0.5, 0.18, 0.34]} />
-            </mesh>
-          </group>
+          <LandmarkAsset
+            assetId={POLICE_CRUISER_ASSET_ID}
+            glbSiblings={<SirenBar fit={SIREN_BAR_FITS.body} redMat={redMat} blueMat={blueMat} />}
+          >
+            <CarMesh color="#1a2540" showDriver />
+            <SirenBar fit={SIREN_BAR_FITS.procedural} redMat={redMat} blueMat={blueMat} />
+          </LandmarkAsset>
         </group>
       ))}
       {Array.from({ length: MAX_POLICE_OFFICERS }).map((_, i) => (

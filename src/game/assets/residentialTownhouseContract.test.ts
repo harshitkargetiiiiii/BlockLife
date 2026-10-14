@@ -4,11 +4,12 @@ import { readFileSync } from 'node:fs'
 import * as THREE from 'three'
 import { describe, expect, it } from 'vitest'
 import { ASSET_MANIFEST_BY_ID } from './assetManifest'
-import { BUILDINGS, PROPS } from '../world/cityLayout'
+import { BUILDINGS } from '../world/cityLayout'
 import { WINDOW_OVERLAYS } from '../world/windowOverlayData'
 import { getBuildingOccluderDescriptor } from '../visibility/occluderData'
 import { resolveBuildingVisual } from '../world/buildingProjection'
 import type { BuildingDef } from '../world/worldTypes'
+import { propsAtContractBaseline } from './contractPropBaseline'
 
 /**
  * Issue #55, townhouse slice — the three compiled `townhouse` lots that still rendered the procedural
@@ -41,6 +42,24 @@ const ISSUE_60_MARTS = ['s1_-1_s1', 's1_-2_s1']
 const ISSUE_61_BAY = ['s0_-2_shop']
 /** The later issue #63 office projections, pinned in commercialOfficesContract.test.ts. */
 const ISSUE_63_OFFICES = ['s1_-1_n1', 's1_-2_n1']
+/**
+ * The LATER issue #53 archetype-reuse projections, pinned with their authored facts, resolved
+ * projections and fit derivations in `archetypeReuseContract.test.ts`: fourteen authored lots drawn by
+ * five already-approved rows (shop, garage, row house, apartment, gateway hotel) at their existing
+ * calibrations. They add `visual` keys to fourteen placements this slice never touched, so they are
+ * excluded here exactly as the other later slices are.
+ */
+/** The two of them that project THIS row (the rest go on the shop, garage, apartment and hotel rows). */
+const ISSUE_53_ROWHOUSE = ['s1_-1_n3', 's1_-2_n3']
+const ISSUE_53_REUSE = ['building_market_02', 'building_gate_retail_01', 'building_depot_n1',
+  'building_cafe_01', 'building_market_01', 'building_tower_02', 'building_tower_05', 'building_gate_tower_01',
+  's1_-1_n2', 's1_-1_n3', 's1_-2_n2', 's1_-2_n3', 's-1_-2_w2', 's-1_-2_w4',
+  // Placement closure (2026-09-21), batch 3 of the same programme: the two 11 x 9 backdrop towers on the
+  // hotel row, and Book Nook on the shop row at a measured uniform 1.15.
+  'building_tower_03', 'building_tower_06', 'building_shop_02', 'building_factory_n1',
+  'building_deli_s1', 's-1_-2_w1', 's-1_-2_w3', 's-1_-2_w5',
+  'building_gate_offices_01', 's1_-2_s3']
+
 
 /**
  * sha256 of BUILDINGS (with ONLY these three lots' `visual` removed) and of PROPS exactly as the
@@ -128,7 +147,8 @@ describe('issue #55 townhouse slice — three compiled townhouse lots on the shi
   })
 
   it('adds exactly these three mappings: 37 of 73 placements mapped (40 with issues #60 and #61)', () => {
-    expect(BUILDINGS.filter((b) => b.visual?.assetId === ROW).map((b) => b.id).sort(), 'projections of the row-house body').toEqual([...IDS].sort())
+    expect(BUILDINGS.filter((b) => b.visual?.assetId === ROW).map((b) => b.id).sort(), 'projections of the row-house body')
+      .toEqual([...IDS, ...ISSUE_53_ROWHOUSE].sort())
     const glbBodies = BUILDINGS.filter((b) => {
       const entry = ASSET_MANIFEST_BY_ID.get(b.visual?.assetId ?? b.id)
       return Boolean(entry?.enabled && entry.glbPath)
@@ -137,16 +157,16 @@ describe('issue #55 townhouse slice — three compiled townhouse lots on the shi
     // This slice made it 37 / 28; issue #60's two Marts (commercialMartsContract.test.ts) and issue #61's
     // Bay Supply (commercialBaySupplyContract.test.ts) add three more.
     // ...and issue #63's two offices (commercialOfficesContract.test.ts) two more.
-    expect(glbBodies.length, 'mapped placements').toBe(37 + ISSUE_60_MARTS.length + ISSUE_61_BAY.length + ISSUE_63_OFFICES.length)
-    expect(BUILDINGS.filter((b) => b.visual).length, 'visual-projected placements').toBe(28 + ISSUE_60_MARTS.length + ISSUE_61_BAY.length + ISSUE_63_OFFICES.length)
+    expect(glbBodies.length, 'mapped placements').toBe(37 + ISSUE_60_MARTS.length + ISSUE_61_BAY.length + ISSUE_63_OFFICES.length + ISSUE_53_REUSE.length)
+    expect(BUILDINGS.filter((b) => b.visual).length, 'visual-projected placements').toBe(28 + ISSUE_60_MARTS.length + ISSUE_61_BAY.length + ISSUE_63_OFFICES.length + ISSUE_53_REUSE.length)
     expect(BUILDINGS.length, 'authored placements').toBe(73)
   })
 
   it('every other placement — including the twenty earlier issue #55 mappings — and every prop is unchanged', () => {
-    const withoutTheThree = BUILDINGS.map((b) => (IDS.includes(b.id) || ISSUE_60_MARTS.includes(b.id) || ISSUE_61_BAY.includes(b.id) || ISSUE_63_OFFICES.includes(b.id)
+    const withoutTheThree = BUILDINGS.map((b) => (IDS.includes(b.id) || ISSUE_60_MARTS.includes(b.id) || ISSUE_61_BAY.includes(b.id) || ISSUE_63_OFFICES.includes(b.id) || ISSUE_53_REUSE.includes(b.id)
       ? Object.fromEntries(Object.entries(b).filter(([key]) => key !== 'visual'))
       : b))
-    expect({ buildings: sha256(withoutTheThree), props: sha256(PROPS) }, 'delivered 5 x 5 slice export digests').toEqual({
+    expect({ buildings: sha256(withoutTheThree), props: sha256(propsAtContractBaseline()) }, 'delivered 5 x 5 slice export digests').toEqual({
       buildings: BUILDINGS_WITHOUT_THE_THREE_VISUALS_SHA256,
       props: PROPS_SHA256,
     })

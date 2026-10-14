@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
 import { gotoGame } from './helpers'
+import { waitForYardWorkerArrival } from './yardWorkerSamples'
 
 /**
  * Crossing-Aware Citizen Destinations v1. Trips run on the pedestrian
@@ -164,7 +165,7 @@ test.describe('crossing-aware citizen destinations', () => {
 
   test('the yard worker completes a cross-district commute to the warehouse door', async ({
     page,
-  }) => {
+  }, testInfo) => {
     test.setTimeout(420_000)
     await gotoGame(page)
     await arriveAtHarborCross(page)
@@ -179,13 +180,9 @@ test.describe('crossing-aware citizen destinations', () => {
     // East gate → Harbor Cross (signalized) → yard painted crossing → dock.
     expect(trip.crossingIds.some((c) => c.includes('harbor_cross'))).toBe(true)
     expect(trip.crossingIds).toContain('s-1_-2_yard_rd_gate_walk')
-    await page.waitForFunction(
-      () =>
-        window.GAME_TEST_API!.getCitizenTripState('cit_dd_yard_worker')?.phase ===
-        'performing_activity',
-      undefined,
-      { timeout: 380_000 },
-    )
+    // The same Boolean arrival predicate, default polling and 380 s limit; the predicate also emits
+    // bounded samples of the worker's trip/crossing/render state, attached on pass or fail (issue #34).
+    await waitForYardWorkerArrival(page, testInfo, 380_000)
     const state = await page.evaluate(
       () => window.GAME_TEST_API!.getCitizenTripState('cit_dd_yard_worker')!,
     )

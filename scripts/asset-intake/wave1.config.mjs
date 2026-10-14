@@ -42,6 +42,64 @@ export const TEXTURE_QUALITY = 85
  */
 const BAKED_MATERIAL = 'baked_atlas'
 
+/**
+ * Issue #50 — the sports coupe's DERIVED segmentation.
+ *
+ * Wave 1's answer above ("the material is deliberately named something that is NOT a slot
+ * candidate") was the right call for a wave that may not re-author art: tinting one baked atlas
+ * recolors the windows too. It left a real gap, which issue #50 closes — a saved paint and wheel
+ * choice were stored, persisted and shown in the Garage but invisible on the body.
+ *
+ * The gap is closed by DERIVING, offline and deterministically, the two things the source does not
+ * carry: which triangles are wheels (so a wheel can have a pivot and a size), and which atlas
+ * texels are painted panel (so a recolor can leave glass, lamps, tyres and trim alone). Nothing is
+ * generated, purchased or re-authored: this reads the approved source's own geometry and its own
+ * texture, and every number below is a MEASUREMENT of them that the build re-checks.
+ *
+ * `cluster` is the painted-panel colour test, in 0-255 sRGB channels, and is declared rather than
+ * discovered so that a source whose paint moved fails the build instead of silently masking the
+ * wrong pixels — `expect.paintCluster` is what proves the declaration still describes the file.
+ */
+const SPORTS_SEGMENTATION = {
+  id: 'vehicle_sports_car_01',
+  maskOut: 'public/assets/models/vehicles/sports_car_01_paint_contribution.png',
+  bodyMaterial: 'paint_body',
+  wheelMaterial: 'paint_wheel',
+  paint: {
+    // A HUE test, not a brightness one. The panels are one saturated yellow lobe; the glass, the
+    // tyres, the lamp housings and the shadowed trim are near-neutral and have no hue to match.
+    // Measured hue histogram of saturated texels on the shipped atlas: 318,864 texels in 40-60
+    // degrees against under 30,000 in every other 10-degree bin combined. The reference paint
+    // (245, 204, 11) sits at hue 49.5, saturation 0.96.
+    //
+    // The first revision used an absolute RGB floor (r>=150, g>=110) and therefore MISSED the
+    // shaded yellow in every seam and crease, which then survived a recolor as gold flecks on a
+    // charcoal car. The floors below are on saturation and value only, low enough to include that
+    // shading (measured value range of the matched cluster: 20-255) and high enough that a neutral
+    // dark surface never has a hue at all.
+    cluster: { hue: 49, hueTolerance: 12, minSaturation: 0.55, minValue: 20 },
+  },
+  expect: {
+    components: 5,
+    bodyTriangles: 9392,
+    /** The four wheels are discs in their local X/Y plane, thin along Z. */
+    wheelRoundnessTolerance: 0.02,
+    /**
+     * How much better the `row = v * height` UV mapping must be than the vertically flipped one,
+     * measured as colour agreement across shared triangle edges. The shipped atlas scores 54.9 vs
+     * 121.2 on the body (2.2x) and ~23 vs ~105 on each wheel; 1.5 is a wide margin that still
+     * cannot be met by a flipped mapping.
+     */
+    uvOrientationRatio: 1.5,
+    /**
+     * Measured on the committed atlas. `modeRgb` is the DOMINANT painted colour — the flat panel
+     * yellow — and is what the renderer divides by to preserve the authored shading, so it is the
+     * figure pinned here rather than the mean (which the shading pulls down).
+     */
+    paintCluster: { share: 0.308895, shareTolerance: 0.002, modeRgb: [253.04, 211.31, 2.23], modeTolerance: 1 },
+  },
+}
+
 const LICENSE = 'Meshy AI generated asset (meshy.ai terms)'
 const ATTRIB = 'Meshy AI — generated original asset (owner-approved 2026-08-31 sprint), texture-optimized in-repo'
 
@@ -92,6 +150,7 @@ export const VEHICLES = [
     materialName: BAKED_MATERIAL,
     attribution: ATTRIB,
     license: LICENSE,
+    segmentation: SPORTS_SEGMENTATION,
   },
 ]
 

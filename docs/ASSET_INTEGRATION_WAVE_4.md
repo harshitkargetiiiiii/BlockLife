@@ -415,7 +415,7 @@ Nothing below is in production. Everything below stays catalogued in the read-on
 |---|---|
 | `compact_sedan`, `scooter`, `utility_van`, `sports_coupe` | Already in production as the four ownable classes (Waves 0/1). Not re-projected as scenery: the "at most four additional bodies" ceiling is spent, and reusing a class body as street furniture would blur owned-vs-scenery. |
 | `city_taxi` | **REJECTED — semantics.** Fits (3.39 × 1.57 × 1.40), but a yellow-and-checker taxi livery repeated across ~9 placements implies a fare service BlockLife does not model. |
-| `police_car` | **REJECTED — semantics.** Fits (4.00 × 1.59 × 1.27), but a parked cruiser implies police presence that the live police/pursuit system owns. |
+| `police_car` | **REJECTED — semantics** (as a parked prop). Fits (4.00 × 1.59 × 1.27), but a parked cruiser implies police presence that the live police/pursuit system owns. *Later shipped on that system's live cruisers — see `ASSET_INTEGRATION_WAVE_5.md`.* |
 | `family_suv` | **REJECTED — fit.** h/l 0.579, so the authored 1.4 m ceiling shrinks it to **2.42 m** long: a toy beside a 4.0 m hatchback. Fails the scale-hierarchy bar. |
 | `city_bus`, `fire_engine`, `ambulance`, `garbage_truck` | **REJECTED.** Explicitly ineligible large service bodies, and none fits either authored envelope at a believable length (bus 4.00 × 1.25, the rest height-bound to 2.5–3.1 m). |
 | `bicycle` | **REJECTED — fit + no home.** 2.41 m at the car ceiling, and no authored placement type is a cycle stand. |

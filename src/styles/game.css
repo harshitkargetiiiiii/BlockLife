@@ -908,6 +908,26 @@ body,
   transform: scale(1.08);
 }
 
+/*
+ * The two NPC plates share one world anchor (the head top) and are stacked here, in SCREEN space,
+ * so their clearance is the same at every camera zoom — the wheel and the driving/interior mode
+ * zoom both change how many pixels a world metre buys, which is why world-space offsets let the
+ * marker land on top of the name. `.world-label` centres on its anchor; these two override that:
+ * the name sits directly above the head, and the marker sits above the name.
+ */
+.world-label.npc-name {
+  transform: translateY(-100%);
+}
+
+.world-label.quest-marker {
+  /* name plate height (19px) + a 3px gap, so the two never touch at any zoom. The bounce below
+     REPLACES `transform` while it runs — a CSS animation outranks a normal declaration — which is
+     what cancelled the shared `.world-label` centering and dropped the marker onto the name. The
+     offset therefore lives in a custom property that both this rule and the keyframes read. */
+  --quest-marker-stack-y: calc(-100% - 22px);
+  transform: translateY(var(--quest-marker-stack-y));
+}
+
 .npc-name {
   background: rgba(18, 22, 38, 0.45);
   color: #dfe6f7;
@@ -935,11 +955,21 @@ body,
 
 @keyframes quest-bounce {
   from {
-    transform: translateY(0);
+    transform: translateY(var(--quest-marker-stack-y, 0px));
   }
   to {
-    transform: translateY(-8px);
+    transform: translateY(calc(var(--quest-marker-stack-y, 0px) - 8px));
   }
+}
+
+/*
+ * The bubble is positioned by its BOTTOM edge (see `ui3d/npcLabelStack.ts`): the wrapper is centred
+ * on the point the clamp returns, and this lifts it by half its own height so the box's bottom
+ * lands there whatever the text wraps to. It sits on the WRAPPER, not on `.speech-bubble`, because
+ * that element's `prompt-in` animation drives `transform` and would replace a static one.
+ */
+.speech-bubble-anchor {
+  transform: translateY(-50%);
 }
 
 .speech-bubble {

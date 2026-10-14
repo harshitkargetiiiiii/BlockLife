@@ -12,6 +12,7 @@ import { MAIN_STREET_EAST } from '../world/authoring/sectors/mainStreetEast'
 import { MAIN_STREET_NORTH } from '../world/authoring/sectors/mainStreetNorth'
 import { CITIZEN_DESTINATIONS, PEDESTRIAN_GRAPH } from '../citizens/destinations/pedestrianDestinations'
 import type { BuildingDef } from '../world/worldTypes'
+import { propsAtContractBaseline } from './contractPropBaseline'
 
 /**
  * Issue #63 — Main St Offices and North Exchange, the two compiled `office_tower` lots that still rendered
@@ -59,6 +60,21 @@ const PRE_CHANGE = {
   citizenDestinations: '9cdd87b48e7d338a5fdf41404ce0cdf5e612f195b36453390bd60fc9c4caf736',
   pedestrianGraph: '0f7dd3de60cbccf0585465d0c39f1d33b85d64d07133519a0a29c47ae7eed06d',
 }
+/**
+ * The LATER issue #53 archetype-reuse projections, pinned with their authored facts, resolved
+ * projections and fit derivations in `archetypeReuseContract.test.ts`: fourteen authored lots drawn by
+ * five already-approved rows (shop, garage, row house, apartment, gateway hotel) at their existing
+ * calibrations. They add `visual` keys to fourteen placements this slice never touched, so they are
+ * excluded here exactly as the other later slices are.
+ */
+const ISSUE_53_REUSE = ['building_market_02', 'building_gate_retail_01', 'building_depot_n1',
+  'building_cafe_01', 'building_market_01', 'building_tower_02', 'building_tower_05', 'building_gate_tower_01',
+  's1_-1_n2', 's1_-1_n3', 's1_-2_n2', 's1_-2_n3', 's-1_-2_w2', 's-1_-2_w4',
+  // Placement closure (2026-09-21), batch 3 of the same programme: the two 11 x 9 backdrop towers on the
+  // hotel row, and Book Nook on the shop row at a measured uniform 1.15.
+  'building_tower_03', 'building_tower_06', 'building_shop_02', 'building_factory_n1',
+  'building_deli_s1', 's-1_-2_w1', 's-1_-2_w3', 's-1_-2_w5',
+  'building_gate_offices_01', 's1_-2_s3']
 
 const defFor = (id: string) => BUILDINGS.find((b) => b.id === id) as BuildingDef
 const hash = (text: string) => createHash('sha256').update(text).digest('hex')
@@ -121,8 +137,14 @@ function yawedCorners(): [number, number][] {
   return out
 }
 
-/** A compiled sector with ONLY the office lot's authored and compiled `visual` removed, serialized like the capture. */
-function withoutOfficeVisual(compiled: unknown, buildingId: string, localId: string): string {
+/**
+ * A compiled sector with the office lot's authored and compiled `visual` removed — and, since issue #53
+ * later added `visual` keys to the n2 / n3 lots of these same two sectors, those two as well. Nothing
+ * else is touched: the s1 / s2 visuals from issues #60 / #55 were already in the pre-change capture, so
+ * any OTHER new visual still breaks this digest.
+ */
+const ISSUE_53_LOCAL_IDS = ['n2', 'n3']
+function withoutOfficeVisual(compiled: unknown, buildingId: string, localId: string, alsoStrip: string[] = []): string {
   const copy = JSON.parse(canonical(compiled)) as { spec: { lots: { localId: string; visual?: unknown }[] }; buildings: { id: string; visual?: unknown }[] }
   const lot = copy.spec.lots.find((l) => l.localId === localId)!
   const building = copy.buildings.find((b) => b.id === buildingId)!
@@ -130,6 +152,27 @@ function withoutOfficeVisual(compiled: unknown, buildingId: string, localId: str
   expect(building.visual, `${buildingId} compiled visual`).toEqual(VISUAL)
   delete lot.visual
   delete building.visual
+  // The s1 / s2 lots' visuals (issues #60 / #55) were ALREADY in the pre-change capture and stay.
+  const sectorId = buildingId.slice(0, buildingId.lastIndexOf('_'))
+  for (const local of ISSUE_53_LOCAL_IDS) {
+    const laterLot = copy.spec.lots.find((l) => l.localId === local)!
+    const laterBuilding = copy.buildings.find((b) => b.id === `${sectorId}_${local}`)!
+    expect(laterLot.visual, `${sectorId}_${local} authored visual`).toBeDefined()
+    expect(laterBuilding.visual, `${sectorId}_${local} compiled visual`).toEqual(laterLot.visual)
+    delete laterLot.visual
+    delete laterBuilding.visual
+  }
+  // Lots mapped LATER still by other slices, named per sector so the other sector's digest stays
+  // exactly as strict: Main Street North's `s3` now draws the office body at 1.02, pinned in
+  // mixedUseOfficeContract.test.ts.
+  for (const local of alsoStrip) {
+    const otherLot = copy.spec.lots.find((l) => l.localId === local)!
+    const otherBuilding = copy.buildings.find((b) => b.id === `${sectorId}_${local}`)!
+    expect(otherLot.visual, `${sectorId}_${local} authored visual`).toBeDefined()
+    expect(otherBuilding.visual, `${sectorId}_${local} compiled visual`).toEqual(otherLot.visual)
+    delete otherLot.visual
+    delete otherBuilding.visual
+  }
   return JSON.stringify(copy)
 }
 
@@ -174,29 +217,33 @@ describe('issue #63 — Main St Offices and North Exchange on the shipped office
   })
 
   it('adds exactly these two mappings: 33 projections, 42 of 73 placements mapped to a GLB body', () => {
-    expect(BUILDINGS.filter((b) => b.visual?.assetId === ROW).map((b) => b.id).sort(), 'projections of the office body').toEqual([...IDS].sort())
+    // The office body also carries Gateway Offices, at its OWN measured 1.04 up-fit on a [9, 11, 8]
+    // cityLayout lot. That placement is pinned in gatewayOfficesContract.test.ts, not here: this file
+    // pins issue #63's two identical 1:1 sector lots, and every assertion below is written for them.
+    expect(BUILDINGS.filter((b) => b.visual?.assetId === ROW).map((b) => b.id).sort(), 'projections of the office body')
+      .toEqual([...IDS, 'building_gate_offices_01', 's1_-2_s3'].sort())
     const glbBodies = BUILDINGS.filter((b) => {
       const entry = ASSET_MANIFEST_BY_ID.get(b.visual?.assetId ?? b.id)
       return Boolean(entry?.enabled && entry.glbPath)
     })
     // Mapped placements (own-row bodies + projections), not unique assets and not visual acceptance.
-    expect(glbBodies.length, 'mapped placements').toBe(42)
-    expect(BUILDINGS.filter((b) => b.visual).length, 'visual-projected placements').toBe(33)
+    expect(glbBodies.length, 'mapped placements').toBe(42 + ISSUE_53_REUSE.length)
+    expect(BUILDINGS.filter((b) => b.visual).length, 'visual-projected placements').toBe(33 + ISSUE_53_REUSE.length)
     expect(BUILDINGS.length, 'authored placements').toBe(73)
   })
 
   it('both compiled sectors equal the PRE-CHANGE compiler output with only the office lot visual removed', () => {
     expect(hash(withoutOfficeVisual(MAIN_STREET_EAST, 's1_-1_n1', 'n1')), 'Main Street East vs pre-change').toBe(PRE_CHANGE.mainStreetEast)
-    expect(hash(withoutOfficeVisual(MAIN_STREET_NORTH, 's1_-2_n1', 'n1')), 'Main Street North vs pre-change').toBe(PRE_CHANGE.mainStreetNorth)
+    expect(hash(withoutOfficeVisual(MAIN_STREET_NORTH, 's1_-2_n1', 'n1', ['s3'])), 'Main Street North vs pre-change').toBe(PRE_CHANGE.mainStreetNorth)
   })
 
   it('every other placement, every prop, every destination and the pedestrian graph are unchanged', () => {
-    const withoutTheTwo = BUILDINGS.map((b) => (IDS.includes(b.id)
+    const withoutTheTwo = BUILDINGS.map((b) => (IDS.includes(b.id) || ISSUE_53_REUSE.includes(b.id)
       ? Object.fromEntries(Object.entries(b).filter(([key]) => key !== 'visual'))
       : b))
     expect({
       buildings: hash(JSON.stringify(withoutTheTwo)),
-      props: hash(JSON.stringify(PROPS)),
+      props: hash(JSON.stringify(propsAtContractBaseline())),
       destinations: hash(canonical(CITIZEN_DESTINATIONS)),
       graph: hash(canonical(PEDESTRIAN_GRAPH)),
     }, 'pre-change export digests').toEqual({

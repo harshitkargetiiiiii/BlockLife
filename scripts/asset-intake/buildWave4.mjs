@@ -36,6 +36,7 @@ import {
   skeletonSignature,
 } from './lib.mjs'
 import { inspect as inspectRig } from '../human-proof/inspectRig.mjs'
+import { deriveNamedIdle, NAMED_IDLE_OPERATIONS } from './namedIdle.mjs'
 import {
   BUILDINGS, CHARACTERS, VEHICLES, MAX_TEXTURE, TEXTURE_FORMAT, TEXTURE_QUALITY,
   PROVENANCE_OUT, BOUNDS_EPSILON, SCALE_DECIMALS, MAX_RENDERED_HEIGHT, PROP_ENVELOPES,
@@ -159,6 +160,21 @@ for (const def of CHARACTERS) {
     sources.push(s)
   }
   const outPath = await buildCharacter(def, outDir)
+  // Issue #27 (named slice): the reviewed Idle-only derivation of the assembled body. The assembly's own sha256
+  // is asserted first, so the sprint sources stay the provenance root; the result must be the reviewed candidate.
+  let derived = null
+  if (def.idleDerivation) {
+    const d = def.idleDerivation
+    const baseSha256 = fileSha(outPath)
+    if (baseSha256 !== d.baseSha256)
+      throw new Error(`${def.id}: ${d.id} expects base ${d.baseSha256}, the assembly produced ${baseSha256} — refusing to derive`)
+    const measured = await deriveNamedIdle(outPath, outPath, { id: def.id, baseSha256: d.baseSha256, baseBytes: d.baseBytes, upperLateralDeg: d.upperLateralDeg })
+    const outputSha256 = fileSha(outPath)
+    if (outputSha256 !== d.outputSha256)
+      throw new Error(`${def.id}: ${d.id} produced ${outputSha256}, expected the reviewed ${d.outputSha256}`)
+    derived = { id: d.id, label: d.label, module: './namedIdle.mjs', export: 'deriveNamedIdle', upperLateralDeg: d.upperLateralDeg,
+      baseSha256, baseBytes: d.baseBytes, outputSha256, operations: NAMED_IDLE_OPERATIONS, review: d.review, measured }
+  }
   const structure = await describe(outPath)
   // Real SKINNED bounds through three.js — `describe()` walks node matrices only, which for a
   // skinned mesh reports the (meaningless) armature-node box, not the metre height that the
@@ -185,8 +201,10 @@ for (const def of CHARACTERS) {
       `textureCompress resize <=${MAX_TEXTURE} targetFormat=${TEXTURE_FORMAT} quality=${TEXTURE_QUALITY} filter=lanczos3`,
       'assert assembled skeleton signature + mesh digest identical to the source rig',
       'assert grounded skinned bounds and the declared metre height, measured through three.js',
+      ...(derived ? [`derive ${derived.id}: ${derived.label} (see "derived" below for the recipe and both pinned hashes)`] : []),
     ],
     attribution: def.attribution, license: def.license,
+    ...(derived ? { derived } : {}),
     structure,
     rig: {
       bones: rig.bones,

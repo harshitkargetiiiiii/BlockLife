@@ -400,8 +400,11 @@ function Citizen({ def }: { def: AmbientCitizen }) {
       }
     }
     // The authored point this citizen is walking to this frame (a waypoint or
-    // its final door destination) — the occupancy solid clamp is skipped near it
-    // so a door-at-a-building-face stays reachable (see resolvePersonOccupancy).
+    // its final door destination). Setting it marks the citizen as ON-PATH, which
+    // skips only the hard VEHICLE push-out in resolvePersonOccupancy. The static-
+    // SOLID clamp is universal and still runs, so a solid prop on a leg's straight
+    // line can stop a walker dead (issue #34 Track B: a door-side crate held the
+    // yard commuter ~4 m short of its door until recovery diverted the trip).
     let moveTarget: Vec2 | null = null
     // Crossing-aware destination trips: the plan supplies the waypoints;
     // the SHARED pedestrian etiquette handles every road crossing (legs
@@ -578,8 +581,10 @@ function Citizen({ def }: { def: AmbientCitizen }) {
     // citizen ends a frame overlapping another body, standing on a car, or
     // embedded in a building/prop.
     // `moveTarget != null` ⇒ the citizen walked an authored path leg this frame,
-    // so it has crossing/car avoidance and a route validated clear of solids —
-    // the hard vehicle/solid clamps are skipped for it (they'd fight its trip).
+    // so it has crossing/car avoidance and the hard VEHICLE push-out is skipped for
+    // it (it would fight its road crossings). The static-SOLID clamp is NOT skipped:
+    // it runs for every actor (resolvePersonOccupancy step 6), so a leg that passes
+    // through a solid footprint is clamped, not ignored.
     // Idle, queueing and panicking citizens leave moveTarget null → fully clamped.
     const onPath = moveTarget != null
     resolvePersonOccupancy(s.pos, def.id, dt, s.walking, onPath)

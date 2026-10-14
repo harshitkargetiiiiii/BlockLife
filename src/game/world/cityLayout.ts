@@ -284,6 +284,12 @@ export const BUILDINGS: BuildingDef[] = [
     labelColor: '#ffdf9e',
     door: 'east',
     accentColor: '#e07a5f',
+    // Issue #53 batch 2: the same approved shop archetype as building_market_02 -- an identical
+    // [6, 5, 6] authored lot and an 'east' door, so scale [1, 1, 1] and the glazed shopfront faces
+    // the camera. The Mini Mart placement 18.5 m away draws the same body; under the owner's
+    // 2026-09-18 direction that repetition is deferred polish, not a functional blocker, and the
+    // facade, footprint, entrance and camera fit here are all sound. Purely visual.
+    visual: { assetId: 'building_shop_01', referenceSize: [6, 5, 6], canonicalFacing: 'south', maxScaleDeviation: 0 },
   },
   {
     id: 'building_shop_01',
@@ -306,6 +312,20 @@ export const BUILDINGS: BuildingDef[] = [
     labelColor: '#e8f0d8',
     door: 'south',
     accentColor: '#d9825f',
+    // The approved shop body, the same row the Mini Mart and the cafe draw, at a measured UNIFORM
+    // 1.15 up-fit: `referenceSize` is the lot divided by 1.15, so the projection resolves
+    // [1.15, 1.15, 1.15] inside the default +/-15% band — no threshold is relaxed and no axis is
+    // stretched on its own. Measured from the bytes under the composed yaw it reaches
+    // 3.4498 / 2.8092 with a 5.5476 m top, leaving 0.05 m / 0.19 m per side inside a [7, 6, 6] lot.
+    // At 1:1 the same body leaves 0.50 m / 0.56 m and reads small for the box; the up-fit fills it.
+    // The earlier ledger rejected this lot against the ROW-HOUSE body, whose 7.95 m height and
+    // domestic role never suited a bookshop; the shop row keeps the commercial role the label needs
+    // and its glazed elevation faces the authored south door, which the fixed camera can see.
+    visual: {
+      assetId: 'building_shop_01',
+      referenceSize: [6.087, 5.2174, 5.2174],
+      canonicalFacing: 'south',
+    },
   },
   {
     id: 'building_house_01',
@@ -350,6 +370,14 @@ export const BUILDINGS: BuildingDef[] = [
     size: [9, 13, 9],
     color: '#c8a88f',
     roofColor: '#93755d',
+    // Issue #53 batch 2: the approved gateway hotel body on this backdrop tower. The lot is
+    // [9, 13, 9] and the mounted body is 8.446 x 14.999 x 7.618, so referenceSize = the lot gives
+    // scale [1, 1, 1] with 0.28 m / 0.69 m of clearance per side -- the tightest fill in the batch.
+    // This body has "a canopied double-door entrance on EVERY elevation" (see its manifest row), so
+    // it has no wrong facing; the lot authors no door, which resolves to a zero projection yaw.
+    // It renders 2 m above the authored 13 m box, exactly as the shipped apartment body does over
+    // its own 7.5 m box, and stays under MAX_WORLD_RENDER_HEIGHT.
+    visual: { assetId: 'building_gate_hotel_01', referenceSize: [9, 13, 9], canonicalFacing: 'west', maxScaleDeviation: 0 },
   },
   {
     id: 'building_tower_03',
@@ -357,6 +385,14 @@ export const BUILDINGS: BuildingDef[] = [
     size: [11, 11, 9],
     color: '#9aa5b1',
     roofColor: '#68737f',
+    // The same approved gateway hotel body already on Meridian's neighbour (building_tower_02).
+    // The old ledger called this lot unfillable by comparing FULL widths (11 - 8.446 = 2.55 m)
+    // against a ceiling that the contract measures as a HALF-extent: measured from the bytes under
+    // the composed yaw, the body reaches 4.2305 / 3.8163, leaving 1.27 m / 0.68 m per side — inside
+    // the 1.93 m the shipped apartment placement already accepts. It renders 14.9994 m over an 11 m
+    // box, under MAX_WORLD_RENDER_HEIGHT, and this body is entered and windowed on every elevation,
+    // so a lot that authors no door has no wrong facing.
+    visual: { assetId: 'building_gate_hotel_01', referenceSize: [11, 11, 9], canonicalFacing: 'west', maxScaleDeviation: 0 },
   },
   // Distant silhouettes past the districts — the city continues off-map.
   {
@@ -372,6 +408,12 @@ export const BUILDINGS: BuildingDef[] = [
     size: [8, 9, 8],
     color: '#b3a08c',
     roofColor: '#7d6e5d',
+    // Issue #53 batch 2: the approved apartment body on this backdrop tower -- [8, 9, 8] lot,
+    // mounted 5.538 x 15.000 x 5.118, scale [1, 1, 1]. Its manifest row records "no distinguishable
+    // entrance elevation ... windowed on all four sides", so again no wrong facing, and this lot
+    // authors no door. The 1.23 m / 1.44 m side clearance is TIGHTER than the same body's own
+    // shipped placement (1.73 m / 1.93 m, documented there as an accepted cost).
+    visual: { assetId: 'building_apartment_01', referenceSize: [8, 9, 8], canonicalFacing: 'south', maxScaleDeviation: 0 },
   },
   {
     id: 'building_tower_06',
@@ -379,6 +421,10 @@ export const BUILDINGS: BuildingDef[] = [
     size: [11, 12, 9],
     color: '#a89bb3',
     roofColor: '#73687f',
+    // Same body and same measured fit as building_tower_03 (identical 11 x 9 footprint): 1.27 m /
+    // 0.68 m of half-extent slack, 14.9994 m over a 12 m box, no authored door and no wrong facing.
+    // The two stand 136 m apart, so the repeat never reads as a copy-paste.
+    visual: { assetId: 'building_gate_hotel_01', referenceSize: [11, 12, 9], canonicalFacing: 'west', maxScaleDeviation: 0 },
   },
 
   // ---- Residential Street (north district) ----
@@ -497,6 +543,7 @@ export const BUILDINGS: BuildingDef[] = [
     door: 'west',
     accentColor: '#d1495b',
     windows: false,
+
   },
   {
     id: 'building_garage_01',
@@ -520,6 +567,14 @@ export const BUILDINGS: BuildingDef[] = [
     labelColor: '#ffe9b0',
     door: 'east',
     accentColor: '#5f9ea0',
+    // Issue #53 batch 2: the shop archetype again, but this lot is 4.5 m tall and the body is
+    // 4.824 m, so it needs a per-placement calibration rather than the 1:1 reuse. The reference box
+    // is the lot divided by 0.9 ([6.6667, 5, 6.6667]), which makes the resolved scale UNIFORM 0.9
+    // on all three axes (max axis spread 4.5e-6 from the decimal reference) -- the approved body is
+    // scaled, never squashed. `maxScaleDeviation: 0.11` admits exactly that 0.1 departure and
+    // nothing looser. Renders 5.393 x 4.342 x 4.395 inside the [6, 4.5, 6] box: under the authored
+    // massing, 0.30 m clear of each side wall, 0.80 m front and back, 'east' door to the camera.
+    visual: { assetId: 'building_shop_01', referenceSize: [6.6667, 5, 6.6667], canonicalFacing: 'south', maxScaleDeviation: 0.11 },
   },
   {
     id: 'building_market_02',
@@ -529,6 +584,24 @@ export const BUILDINGS: BuildingDef[] = [
     roofColor: '#6a7340',
     door: 'east',
     accentColor: '#d9825f',
+    // Issue #53 retail reuse: draw the approved Wave-3 shop archetype on this lot. PURELY
+    // VISUAL. This placement's authored footprint IS the archetype's reference box
+    // ([6, 5, 6] -- the same lot shape Mini Mart, the two Marts and Bay Supply already ship
+    // on), so `maxScaleDeviation: 0` resolves to scale [1, 1, 1] and the body renders at its
+    // calibrated 5.9925 x 4.824 x 4.8836 with NO new fit math. The projection's only job is
+    // to yaw the model's canonical south shopfront onto THIS placement's authored door.
+    //
+    // WHY THIS LOT AND NOT EVERY 6 x 5 x 6 LOT: this body decorates exactly ONE elevation (the
+    // glazed shopfront + awning on model +z; the other three are blank render), and the camera is
+    // a FIXED isometric rig at +x / +z, so only a lot whose authored door is 'east' or 'south'
+    // can ever show that elevation to a player. West Commons ('west') and South Deli ('north')
+    // were measured, rendered and REJECTED for that reason -- they would trade an authored,
+    // windowed procedural facade for a blank wall. See archetypeReuseContract.test.ts, which
+    // gates the rule, and docs for the deferred list.
+    //
+    // Gameplay identity, collider, entrance anchor, routing and footprint stay keyed to
+    // building_market_02; the procedural BuildingMesh remains the fallback.
+    visual: { assetId: 'building_shop_01', referenceSize: [6, 5, 6], canonicalFacing: 'south', maxScaleDeviation: 0 },
   },
 
   // ---- Residential West (City Expansion v2): quiet lane, homes both sides ----
@@ -757,6 +830,19 @@ export const BUILDINGS: BuildingDef[] = [
     labelColor: '#fff3c9',
     door: 'north',
     accentColor: '#5f9ea0',
+    // The approved shop row on its [6, 5, 6] lot at scale [1, 1, 1], exactly as the cafe and Avenue
+    // Deli already ship it. The authored door is NORTH, so the composed yaw is pi: the glazed
+    // shopfront lands on the authored door -- the entrance belongs where the door is -- and the
+    // body's SECOND decorated elevation lands on world EAST, which the fixed camera sees. That
+    // second elevation (a framed sign panel, a framed window and a glazed panel between pilasters
+    // on the model's -x) was MEASURED, by rendering the shipped file orthographically dead-on to
+    // each cardinal so no adjacent face can leak into frame; the manifest row's older claim that
+    // every side but +z is blank render holds for -z but not for -x. This is the only placement
+    // that reaches the camera through a secondary elevation, and archetypeReuseContract names it in
+    // SECONDARY_FRONTAGE and re-derives the direction from the composed yaw rather than trusting
+    // this comment. West Commons stays procedural: its west door swings BOTH decorated elevations
+    // away from the camera.
+    visual: { assetId: 'building_shop_01', referenceSize: [6, 5, 6], canonicalFacing: 'south', maxScaleDeviation: 0 },
   },
   {
     id: 'building_house_s7',
@@ -809,6 +895,17 @@ export const BUILDINGS: BuildingDef[] = [
     door: 'east',
     accentColor: '#e0975f',
     windows: false,
+    // Placement closure pilot: the approved repair-garage row at a measured UNIFORM 1.14
+    // (referenceSize = the lot / 1.14, inside the default +/-15% band). Measured from the bytes at
+    // the composed +pi/2 yaw: half-extents 2.7591 / 3.9894 with a 4.3119 m top, leaving 1.7409 m /
+    // 0.0106 m per side inside a [9, 8, 8] lot -- both under the 1.93 m ceiling. canonicalFacing
+    // 'west' puts the body's PAIRED SHUTTER elevation on the authored east door, which is also a
+    // face the fixed camera sees; that is the arrangement building_depot_n1 already ships.
+    visual: {
+      assetId: 'building_garage_01',
+      referenceSize: [7.89474, 7.01754, 7.01754],
+      canonicalFacing: 'west',
+    },
   },
   {
     id: 'building_depot_n1',
@@ -819,6 +916,16 @@ export const BUILDINGS: BuildingDef[] = [
     door: 'east',
     accentColor: '#5faf7f',
     windows: false,
+    // Issue #53 industrial reuse: draw the approved repair-garage archetype here. PURELY
+    // VISUAL, and it reuses building_garage_01's OWN calibration unchanged: that placement is
+    // the identical [8, 5.5, 7] box, so `maxScaleDeviation: 0` gives scale [1, 1, 1] and the
+    // manifest's 0.6304 fit (4.834 x 3.7824 x 6.9915) still holds -- a 180 deg yaw maps the
+    // extents onto themselves. `canonicalFacing: 'west'` is the facing of the MOUNTED body,
+    // i.e. after the manifest's own [0, -pi/2, 0] rotation has already turned the model's +z
+    // shutter elevation west; the projection composes on top of it (nested group, matrix
+    // multiply), so this lot's 'east' door is a clean pi turn and the roller shutters face the
+    // industrial road. Gameplay identity, collider and anchors stay keyed to building_depot_n1.
+    visual: { assetId: 'building_garage_01', referenceSize: [8, 5.5, 7], canonicalFacing: 'west', maxScaleDeviation: 0 },
   },
 
   // ---- Downtown Gateway (Large City Foundation v1, sector s0_-1) ----
@@ -832,6 +939,12 @@ export const BUILDINGS: BuildingDef[] = [
     labelColor: '#cfe3ff',
     door: 'east',
     accentColor: '#9fc2ec',
+    // Issue #53 batch 2: Meridian Tower takes the approved apartment body ([8, 12, 8] lot, scale
+    // [1, 1, 1], 1.23 m / 1.44 m clearance). The neighbouring Gateway tower already draws
+    // building_gate_tower_02 (a DIFFERENT file, arch_apartment_02), so the two do not become twins.
+    // The body is windowed on all four elevations, so the 'east' door's pi/2 yaw is presentational
+    // only. Gameplay identity, collider, entrance anchor and occluder stay keyed to this id.
+    visual: { assetId: 'building_apartment_01', referenceSize: [8, 12, 8], canonicalFacing: 'south', maxScaleDeviation: 0 },
   },
   {
     id: 'building_gate_tower_02',
@@ -852,6 +965,23 @@ export const BUILDINGS: BuildingDef[] = [
     labelColor: '#e8dff2',
     door: 'west',
     accentColor: '#d9a5b5',
+    // The approved office row at a measured UNIFORM 1.04 up-fit: `referenceSize` is the lot divided
+    // by 1.04, so the projection resolves [1.04, 1.04, 1.04] inside the DEFAULT +/-15% band -- no
+    // threshold relaxed, no axis stretched alone, and no calibration alias needed.
+    //
+    // This overturns the recorded 2.004 m blocker, which was measured at 1:1: at the shipped 0.9501
+    // the body reaches half-extents 2.495770 / 2.540183, leaving 2.004230 m per side on X, just over
+    // the 1.93 m ceiling. At a total 0.988104 it reaches 2.595601 / 2.641790 -- gaps 1.904399 /
+    // 1.358210 -- with its top at 9.880285 under both the 11 m authored box and the 15 m camera
+    // limit, and its base on the ground.
+    //
+    // The west door was the other half of the old objection and it does not apply to THIS body:
+    // rendered orthographically dead-on to each cardinal, `arch_office_01` is decorated on ALL FOUR
+    // elevations (two glazed storeys, cornice, spandrel band and plinth all round) with a door on +z
+    // AND one on -x. It has no wrong front, so it is exempt from the camera-facing rule by
+    // measurement -- like the apartment and hotel rows -- and the authored west door keeps a real
+    // modelled door on it while the camera-visible +x / +z elevations are both fully glazed.
+    visual: { assetId: 'building_office_01', referenceSize: [9 / 1.04, 11 / 1.04, 8 / 1.04], canonicalFacing: 'west' },
   },
   {
     id: 'building_gate_hotel_01',
@@ -874,6 +1004,9 @@ export const BUILDINGS: BuildingDef[] = [
     labelColor: '#fff3c9',
     door: 'east',
     accentColor: '#5f9ea0',
+    // Issue #53 retail reuse: the same approved shop archetype as building_market_02, on an
+    // identical [6, 5, 6] authored lot (scale [1, 1, 1], yaw = authored door). Purely visual.
+    visual: { assetId: 'building_shop_01', referenceSize: [6, 5, 6], canonicalFacing: 'south', maxScaleDeviation: 0 },
   },
 
   // ---- Main Street East (District Authoring Kit proof, sector s1_-1) ----
