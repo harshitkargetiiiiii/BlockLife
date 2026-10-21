@@ -55,6 +55,12 @@ export const STATIC_INTERACTABLES: InteractableDef[] = [
     marker: true,
     icon: '📋',
     markerColor: '#7fd4c1',
+    // At the default 3 m the label projects onto the Nook Offices sign (building_office_01, label
+    // at 10.2 m) behind it: the fixed orthographic camera keeps them 48 px apart horizontally but
+    // only ~10 px vertically, so "Nook Offices" covered "Job Board". 1.8 m drops it below that sign
+    // (~38 px clear on foot, ~32 px while driving) and still floats in front of the 2.4 m kiosk.
+    // See interactables/labelSeparation.test.ts.
+    labelOffset: 1.8,
   },
 ]
 

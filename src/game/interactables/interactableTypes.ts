@@ -50,6 +50,12 @@ export interface InteractableDef {
   interiorId?: string
   /** For 'property_entrance': which housing property this door leads to. */
   propertyId?: string
+  /**
+   * Height of the floating marker label above the ground, in world units (default
+   * `MARKER_LABEL_OFFSET`). Only for a marker whose label would otherwise sit on top of a
+   * nearby building sign on screen; the interaction point and radius are unaffected.
+   */
+  labelOffset?: number
 }
 
 export interface ActivityAction {
