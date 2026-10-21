@@ -107,8 +107,10 @@ describe('issue #56 — blocklife_person binds at its rest pose', () => {
     expect(body.min.y, 'feet at y = 0').toBeCloseTo(0, 3)
     // The declared `visualHeight` is the bald body; the bun is the tallest hair and the envelope.
     expect(body.max.y, 'bald body height = declared visualHeight').toBeCloseTo(DEF.bounds.visualHeight, 3)
-    expect(top('short'), 'short hair').toBeCloseTo(2.055, 3)
-    expect(top('long'), 'long hair').toBeCloseTo(2.055, 3)
+    // The head-hugging hair shell (graphics sprint) sits 2 cm proud of the crown; only the bun
+    // reaches the envelope.
+    expect(top('short'), 'short hair').toBeCloseTo(1.939, 3)
+    expect(top('long'), 'long hair').toBeCloseTo(1.939, 3)
     expect(Math.abs(top('bun') - RIG_HEIGHT_METERS), 'bun = maximum-variant envelope').toBeLessThanOrEqual(
       RIG_FIT_TOLERANCE_METERS,
     )

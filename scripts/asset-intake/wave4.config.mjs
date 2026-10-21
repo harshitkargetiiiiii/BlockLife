@@ -336,7 +336,7 @@ export const RIG_FIT = {
   // The rig keeps the #59 CORRECTED envelope. #52 pins 2.93 m / 7907894f because it predates the
   // bind-pose fix, and it does not touch blocklife_person.glb at all; the tree holds 440e9276 and
   // taking #52's row would have reverted issue #56 while contradicting the bytes on disk.
-  blocklife_person: { heightMeters: 2.15, sha256: '440e92761197981b7d438f1945eafb41d7c03712ce87931b412d9a71292957cb' },
+  blocklife_person: { heightMeters: 2.15, sha256: '0f5fe04b3cc31f63e9e43c0c495c5446c77a297c30f48fb6d360b0c19bfb7ab7' },
   // Ravi takes #52's row: this is #52's whole contribution, and its derived GLB IS the file now in
   // the tree. Re-measured from those bytes: still 1.76 m base-at-ground, so every bound/anchor is
   // unchanged and only the pinned hash moves.

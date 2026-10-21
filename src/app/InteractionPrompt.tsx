@@ -1,5 +1,6 @@
 import { useGameStore } from '../game/store/useGameStore'
 import { INTERACTABLE_BY_ID } from '../data/interactables'
+import { getStealable } from '../game/vehicles/vehicleCrimeState'
 
 /** "Press E ..." helper shown whenever something interactable is in range. */
 export function InteractionPrompt() {
@@ -20,6 +21,18 @@ export function InteractionPrompt() {
   if (!activeId) return null
   const def = INTERACTABLE_BY_ID[activeId]
   if (!def) return null
+
+  // Theft is a crime, so its prompt names the act instead of a generic "interact with".
+  if (def.kind === 'steal_vehicle') {
+    const occupied = getStealable(def.id)?.access === 'civilian_occupied'
+    return (
+      <div className="interaction-prompt" data-testid="interaction-prompt">
+        {def.icon && <span className="prompt-icon">{def.icon}</span>}
+        Press <kbd>E</kbd> to <strong>{occupied ? 'carjack' : 'steal'}</strong>{' '}
+        {occupied ? 'this occupied car' : 'this parked car'}
+      </div>
+    )
+  }
 
   const verb = def.kind === 'npc' ? 'talk to' : def.kind === 'vehicle' ? 'drive' : 'interact with'
   return (
