@@ -5,6 +5,7 @@ import { Roads } from './Roads'
 import { Buildings } from './Buildings'
 import { Props } from './Props'
 import { FoodTruck } from './FoodTruck'
+import { PlazaGreenery } from './PlazaGreenery'
 import { TrafficLights } from './TrafficLights'
 import { Districts } from './Districts'
 import { InteractableMarker } from '../interactables/InteractableMarker'
@@ -32,6 +33,7 @@ export function CityBlock({
       <Buildings only={buildingIds} />
       <Districts />
       <Props only={propIds} />
+      <PlazaGreenery />
       <FoodTruck />
       <TrafficLights />
       {STATIC_INTERACTABLES.filter((d) => d.marker).map((def) => (

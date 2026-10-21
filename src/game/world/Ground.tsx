@@ -3,6 +3,7 @@ import * as THREE from 'three'
 import { useFrame } from '@react-three/fiber'
 import { PARK, PARKING_LOT } from './cityLayout'
 import { useGameStore } from '../store/useGameStore'
+import { getPlazaPavingTexture } from './surfaces/plazaPaving'
 
 // Little flower clusters scattered on the park lawn: [x, z, color].
 const FLOWERS: [number, number, string][] = [
@@ -71,6 +72,22 @@ function Pond() {
   )
 }
 
+const PLAZA_SIZE = 42
+
+function PlazaPavement() {
+  const paving = getPlazaPavingTexture(PLAZA_SIZE)
+  return (
+    <mesh rotation-x={-Math.PI / 2} position={[0, 0.02, 0]} receiveShadow name="plaza-pavement">
+      <planeGeometry args={[PLAZA_SIZE, PLAZA_SIZE]} />
+      {paving ? (
+        <meshStandardMaterial map={paving} roughness={0.92} />
+      ) : (
+        <meshStandardMaterial color="#cfc9bd" />
+      )}
+    </mesh>
+  )
+}
+
 /** Base terrain: grass, central plaza, park lawn + pond, parking asphalt. */
 export function Ground() {
   return (
@@ -81,11 +98,9 @@ export function Ground() {
         <meshStandardMaterial color="#6f9e58" />
       </mesh>
 
-      {/* Plaza pavement inside the road loop */}
-      <mesh rotation-x={-Math.PI / 2} position={[0, 0.02, 0]} receiveShadow>
-        <planeGeometry args={[42, 42]} />
-        <meshStandardMaterial color="#cfc9bd" />
-      </mesh>
+      {/* Plaza pavement inside the road loop: laid warm stone where a canvas exists, else the
+          flat fill. Same plane, size and height either way. */}
+      <PlazaPavement />
 
       {/* Park lawn (south-west corner) */}
       <group name="park">

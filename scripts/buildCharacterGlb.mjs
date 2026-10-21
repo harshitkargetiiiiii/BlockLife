@@ -5,7 +5,7 @@
  * Out:  public/assets/models/characters/blocklife_person.glb
  *
  * This is an ORIGINAL, in-repo authored asset (no third-party IP): a
- * low-poly humanoid matching the game's primitive art style, rigid-skinned
+ * stylized low-poly humanoid (lathed torso/limbs, shaped head and face), rigid-skinned
  * to a 7-bone skeleton (Hips, Spine, Head, ArmL/R, LegL/R) with three baked
  * animation clips — Idle, Walk, Run. Material slots are named for the
  * wardrobe contract: shirt / pants / hair / skin / shoes / accessory (+ eyes,
@@ -25,6 +25,7 @@ globalThis.FileReader = class {
 
 import * as THREE from 'three'
 import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js'
+import { mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { writeFileSync, mkdirSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -92,44 +93,182 @@ function mergeParts(parts) {
     }
     merged.setAttribute(key, new THREE.BufferAttribute(array, itemSize))
   }
-  return merged
+  // Weld coincident vertices (same position/normal/bone) into an indexed mesh: the shaped
+  // parts are dense, and a non-indexed export would be ~4x the bytes for the same surface.
+  return mergeVertices(merged)
 }
+
+// ---- Shape helpers --------------------------------------------------------
+// The body is still rigid-skinned to the 7-bone rig, but each part is a SHAPED surface
+// (lathed profiles, ellipsoids, capsules) instead of a bare cylinder/box/sphere, so it reads
+// as a stylized person at the gameplay camera. Every helper returns geometry in ABSOLUTE
+// world Y (feet at 0) unless noted; `part()` then adds only the given X/Z offset.
+
+/** A lathed solid from [radius, y] pairs (bottom → top), optionally flattened front-to-back. */
+function lathe(profile, { segments = 20, depth = 1 } = {}) {
+  const g = new THREE.LatheGeometry(
+    profile.map(([r, y]) => new THREE.Vector2(r, y)),
+    segments,
+  )
+  if (depth !== 1) g.scale(1, 1, depth)
+  return g
+}
+
+/** An ellipsoid of base radius `r` scaled per axis, centred on the origin. */
+function ellipsoid(r, [sx, sy, sz], w = 18, h = 12) {
+  return new THREE.SphereGeometry(r, w, h).scale(sx, sy, sz)
+}
+
+/** A cylinder spanning two points (for straps and glasses temples). */
+function rod(radius, from, to, radial = 6) {
+  const a = new THREE.Vector3(...from)
+  const b = new THREE.Vector3(...to)
+  const dir = b.clone().sub(a)
+  const g = new THREE.CylinderGeometry(radius, radius, dir.length(), radial)
+  g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.normalize()))
+  const mid = a.add(b).multiplyScalar(0.5)
+  g.translate(mid.x, mid.y, mid.z)
+  return g
+}
+
+// Head: an upright ellipsoid whose crown is the established 1.92 m visual height.
+const HEAD_Y = 1.64
+const HEAD_R = 0.26
+const HEAD_SCALE = [1, (1.92 - HEAD_Y) / HEAD_R, 1] // crown exactly at the declared 1.92 m visual height
+
+/** The torso: hips-to-shoulders profile with a waist and a rounded shoulder line. */
+const torso = () =>
+  lathe(
+    [
+      [0, 0.8],
+      [0.245, 0.8],
+      [0.255, 0.9],
+      [0.24, 1.01],
+      [0.262, 1.16],
+      [0.29, 1.27],
+      [0.305, 1.34],
+      [0.27, 1.405],
+      [0.2, 1.437],
+      [0.1, 1.455],
+      [0, 1.46],
+    ],
+    { segments: 24, depth: 0.68 },
+  )
+/** A sleeve: shoulder cap down to just above the elbow (T-shirt length). */
+const sleeve = () =>
+  lathe(
+    [
+      [0, 1.07],
+      [0.083, 1.07],
+      [0.086, 1.12],
+      [0.08, 1.24],
+      [0.088, 1.33],
+      [0.06, 1.395],
+      [0, 1.41],
+    ],
+    { segments: 14 },
+  )
+/** A bare forearm tapering to the wrist. */
+const forearm = () =>
+  lathe(
+    [
+      [0, 0.83],
+      [0.044, 0.83],
+      [0.05, 0.9],
+      [0.062, 1.02],
+      [0.064, 1.09],
+      [0, 1.1],
+    ],
+    { segments: 12 },
+  )
+/** A mitten hand: flattened, slightly longer than wide, thumb side forward. */
+const hand = (side) => {
+  const palm = ellipsoid(0.058, [0.72, 1.3, 1], 12, 10).translate(0, 0.785, 0)
+  const thumb = ellipsoid(0.024, [1, 1.6, 1], 8, 6)
+    .rotateX(-0.4)
+    .translate(side * -0.018, 0.8, 0.045)
+  return [palm, thumb]
+}
+/** A trouser leg: thigh → knee → ankle, with a slight cuff. */
+const leg = () =>
+  lathe(
+    [
+      [0, 0.1],
+      [0.068, 0.1],
+      [0.07, 0.14],
+      [0.072, 0.24],
+      [0.085, 0.36],
+      [0.098, 0.48],
+      [0.112, 0.62],
+      [0.11, 0.74],
+      [0, 0.75],
+    ],
+    { segments: 16, depth: 0.95 },
+  )
+/** Pelvis/seat: bridges the torso and both legs. */
+const pelvis = () =>
+  lathe(
+    [
+      [0, 0.6],
+      [0.2, 0.62],
+      [0.25, 0.68],
+      [0.262, 0.76],
+      [0.252, 0.84],
+      [0, 0.85],
+    ],
+    { segments: 22, depth: 0.74 },
+  )
+/** A rounded trainer: a toe-forward shell on a flat sole (sole underside at y = 0). */
+const shoe = () => [
+  ellipsoid(0.1, [0.9, 0.62, 1.5], 16, 10).translate(0, 0.072, 0.045),
+  new THREE.CylinderGeometry(0.1, 0.1, 0.03, 18).scale(0.86, 1, 1.42).translate(0, 0.015, 0.045),
+]
 
 const SLOTS = {
   shirt: {
     color: '#f4a259',
     parts: [
-      // Torso
-      [new THREE.CylinderGeometry(0.26, 0.3, 0.62, 10), [0, 1.09, 0], 'Spine'],
-      [new THREE.SphereGeometry(0.26, 10, 8), [0, 1.4, 0], 'Spine'],
-      // Sleeved arms (swing rigidly from the shoulder)
-      [new THREE.CylinderGeometry(0.075, 0.07, 0.5, 8), [-0.38, 1.07, 0], 'ArmL'],
-      [new THREE.CylinderGeometry(0.075, 0.07, 0.5, 8), [0.38, 1.07, 0], 'ArmR'],
-      [new THREE.SphereGeometry(0.085, 8, 8), [-0.38, 1.32, 0], 'ArmL'],
-      [new THREE.SphereGeometry(0.085, 8, 8), [0.38, 1.32, 0], 'ArmR'],
+      [torso(), [0, 0, 0], 'Spine'],
+      // Crew collar.
+      [new THREE.TorusGeometry(0.085, 0.022, 8, 20).rotateX(Math.PI / 2), [0, 1.44, 0], 'Spine'],
+      // Short sleeves (swing rigidly from the shoulder).
+      [sleeve(), [-0.38, 0, 0], 'ArmL'],
+      [sleeve(), [0.38, 0, 0], 'ArmR'],
+      // Deltoids: round the shoulder from the torso into the sleeve.
+      [ellipsoid(0.1, [1.1, 0.9, 0.95], 14, 10), [-0.35, 1.335, 0], 'ArmL'],
+      [ellipsoid(0.1, [1.1, 0.9, 0.95], 14, 10), [0.35, 1.335, 0], 'ArmR'],
     ],
   },
   pants: {
     color: '#3d405b',
     parts: [
-      [new THREE.CylinderGeometry(0.1, 0.095, 0.6, 8), [-0.14, 0.4, 0], 'LegL'],
-      [new THREE.CylinderGeometry(0.1, 0.095, 0.6, 8), [0.14, 0.4, 0], 'LegR'],
-      [new THREE.CylinderGeometry(0.27, 0.24, 0.2, 10), [0, 0.72, 0], 'Hips'],
+      [leg(), [-0.135, 0, 0], 'LegL'],
+      [leg(), [0.135, 0, 0], 'LegR'],
+      [pelvis(), [0, 0, 0], 'Hips'],
     ],
   },
   shoes: {
     color: '#2b2620',
     parts: [
-      [new THREE.BoxGeometry(0.19, 0.12, 0.3), [-0.14, 0.06, 0.04], 'LegL'],
-      [new THREE.BoxGeometry(0.19, 0.12, 0.3), [0.14, 0.06, 0.04], 'LegR'],
+      ...shoe().map((g) => [g, [-0.135, 0, 0], 'LegL']),
+      ...shoe().map((g) => [g, [0.135, 0, 0], 'LegR']),
     ],
   },
   skin: {
     color: '#ffd7b0',
     parts: [
-      [new THREE.SphereGeometry(0.3, 14, 12), [0, 1.62, 0], 'Head'],
-      [new THREE.SphereGeometry(0.075, 8, 8), [-0.38, 0.8, 0], 'ArmL'],
-      [new THREE.SphereGeometry(0.075, 8, 8), [0.38, 0.8, 0], 'ArmR'],
+      [ellipsoid(HEAD_R, HEAD_SCALE, 28, 20), [0, HEAD_Y, 0], 'Head'],
+      // Neck (bound to the Spine so the head turns on it rather than with it).
+      [new THREE.CylinderGeometry(0.068, 0.078, 0.14, 12), [0, 1.43, 0], 'Spine'],
+      // Nose and ears.
+      [ellipsoid(0.034, [0.8, 1, 0.9], 10, 8), [0, 1.615, 0.252], 'Head'],
+      [ellipsoid(0.045, [0.45, 1, 0.75], 10, 8), [-0.257, 1.645, -0.005], 'Head'],
+      [ellipsoid(0.045, [0.45, 1, 0.75], 10, 8), [0.257, 1.645, -0.005], 'Head'],
+      // Forearms and hands below the sleeves.
+      [forearm(), [-0.38, 0, 0], 'ArmL'],
+      [forearm(), [0.38, 0, 0], 'ArmR'],
+      ...hand(-1).map((g) => [g, [-0.38, 0, 0], 'ArmL']),
+      ...hand(1).map((g) => [g, [0.38, 0, 0], 'ArmR']),
     ],
   },
   // hair + accessory are VARIANT GROUPS (multiple authored geometries — see
@@ -139,8 +278,12 @@ const SLOTS = {
   eyes: {
     color: '#222222',
     parts: [
-      [new THREE.SphereGeometry(0.04, 6, 6), [-0.11, 1.64, 0.265], 'Head'],
-      [new THREE.SphereGeometry(0.04, 6, 6), [0.11, 1.64, 0.265], 'Head'],
+      // Oval eyes, brows and a small mouth: the face reads at the gameplay zoom.
+      [ellipsoid(0.034, [0.85, 1.3, 0.6], 10, 8), [-0.09, 1.672, 0.236], 'Head'],
+      [ellipsoid(0.034, [0.85, 1.3, 0.6], 10, 8), [0.09, 1.672, 0.236], 'Head'],
+      [new THREE.BoxGeometry(0.085, 0.018, 0.02).rotateZ(-0.12), [-0.09, 1.737, 0.229], 'Head'],
+      [new THREE.BoxGeometry(0.085, 0.018, 0.02).rotateZ(0.12), [0.09, 1.737, 0.229], 'Head'],
+      [new THREE.BoxGeometry(0.07, 0.013, 0.02), [0, 1.55, 0.243], 'Head'],
     ],
   },
 }
@@ -155,9 +298,13 @@ const SLOTS = {
  * adds TYPES (scarf / glasses / bag; "none" = show none) — none of which hide the
  * wardrobe-customizable hair.
  */
+// A head-hugging hair shell tilted so the hairline sits high at the front (above the
+// brows) and low at the nape.
 const cap = () => [
-  new THREE.SphereGeometry(0.285, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.55),
-  [0, 1.77, -0.04],
+  new THREE.SphereGeometry(HEAD_R + 0.018, 26, 14, 0, Math.PI * 2, 0, Math.PI * 0.56)
+    .rotateX(-0.42)
+    .scale(...HEAD_SCALE),
+  [0, HEAD_Y, -0.006],
   'Head',
 ]
 const VARIANT_GROUPS = {
@@ -165,29 +312,66 @@ const VARIANT_GROUPS = {
     color: '#5c4033',
     variants: {
       short: [cap()],
-      long: [cap(), [new THREE.BoxGeometry(0.44, 0.34, 0.14), [0, 1.5, -0.22], 'Head']],
-      bun: [cap(), [new THREE.SphereGeometry(0.12, 10, 8), [0, 2.03, -0.03], 'Head']],
+      // Shoulder-length: a rounded fall down the back of the head.
+      long: [
+        cap(),
+        [new THREE.CapsuleGeometry(0.19, 0.24, 6, 16).scale(1.3, 1, 0.5), [0, 1.52, -0.17], 'Head'],
+      ],
+      // Top-knot bun: its top is the rig's 2.15 m envelope.
+      bun: [cap(), [ellipsoid(0.12, [1, 1, 1], 14, 10), [0, 2.03, -0.03], 'Head']],
     },
   },
   accessory: {
     color: '#2b2620',
     variants: {
-      // Neck scarf (bound to Spine — never touches the hair).
-      scarf: [[new THREE.CylinderGeometry(0.27, 0.29, 0.13, 12), [0, 1.38, 0], 'Spine']],
-      // Glasses: two lenses + a bridge across the face.
-      glasses: [
-        [new THREE.BoxGeometry(0.12, 0.09, 0.03), [-0.11, 1.64, 0.27], 'Head'],
-        [new THREE.BoxGeometry(0.12, 0.09, 0.03), [0.11, 1.64, 0.27], 'Head'],
-        [new THREE.BoxGeometry(0.1, 0.03, 0.03), [0, 1.64, 0.27], 'Head'],
+      // Knitted neck scarf with a short hanging tail (bound to Spine — never touches the hair).
+      scarf: [
+        [new THREE.TorusGeometry(0.15, 0.055, 10, 24).rotateX(Math.PI / 2).scale(1, 1, 0.9), [0, 1.42, 0.01], 'Spine'],
+        [new THREE.CapsuleGeometry(0.045, 0.16, 4, 10).scale(1.3, 1, 0.55).rotateZ(0.12), [0.07, 1.27, 0.19], 'Spine'],
       ],
-      // Satchel with a shoulder strap (bound to Spine).
+      // Round glasses: two rims, a bridge and the temples back to the ears.
+      glasses: [
+        [new THREE.TorusGeometry(0.044, 0.009, 6, 18), [-0.09, 1.672, 0.262], 'Head'],
+        [new THREE.TorusGeometry(0.044, 0.009, 6, 18), [0.09, 1.672, 0.262], 'Head'],
+        [rod(0.007, [-0.046, 1.676, 0.264], [0.046, 1.676, 0.264]), [0, 0, 0], 'Head'],
+        [rod(0.007, [-0.134, 1.676, 0.25], [-0.25, 1.67, 0.04]), [0, 0, 0], 'Head'],
+        [rod(0.007, [0.134, 1.676, 0.25], [0.25, 1.67, 0.04]), [0, 0, 0], 'Head'],
+      ],
+      // Messenger satchel on the right hip with a strap across the chest (bound to Spine).
       bag: [
-        [new THREE.BoxGeometry(0.22, 0.28, 0.14), [0.29, 1.0, -0.05], 'Spine'],
-        [new THREE.CylinderGeometry(0.025, 0.025, 0.52, 6), [0.12, 1.22, 0.02], 'Spine'],
+        [new THREE.BoxGeometry(0.11, 0.24, 0.22), [0.28, 0.99, 0.0], 'Spine'],
+        [new THREE.BoxGeometry(0.12, 0.09, 0.23), [0.285, 1.07, 0.0], 'Spine'],
+        ...chestStrap(0.02, [-0.19, 1.4], [0.235, 1.1]),
       ],
     },
   },
 }
+
+/** The torso's lathe radius at height `y` (linear between profile points). */
+function torsoRadiusAt(y) {
+  const pts = torso().parameters.points
+  for (let i = 1; i < pts.length; i++) {
+    const a = pts[i - 1]
+    const b = pts[i]
+    if (y >= a.y && y <= b.y) return a.x + ((b.x - a.x) * (y - a.y)) / (b.y - a.y || 1)
+  }
+  return 0
+}
+/** A strap laid across the FRONT of the torso from (x0,y0) to (x1,y1), riding its surface. */
+function chestStrap(radius, [x0, y0], [x1, y1], steps = 6) {
+  const pts = []
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps
+    const x = x0 + (x1 - x0) * t
+    const y = y0 + (y1 - y0) * t
+    const r = torsoRadiusAt(y)
+    pts.push([x, y, Math.sqrt(Math.max(r * r - x * x, 0)) * 0.68 + radius * 0.8])
+  }
+  return pts.slice(1).map((p, i) => [rod(radius, pts[i], p), [0, 0, 0], 'Spine'])
+}
+
+/** Per-slot surface response: skin slightly satin, shoes and eyes glossier than cloth. */
+const ROUGHNESS = { skin: 0.62, eyes: 0.35, shoes: 0.55, hair: 0.7 }
 
 const root = new THREE.Group()
 root.name = 'BlockLifePerson'
@@ -202,10 +386,10 @@ root.updateMatrixWorld(true)
 let triangles = 0
 for (const [slot, def] of Object.entries(SLOTS)) {
   const merged = mergeParts(def.parts.map(([geo, pos, bone]) => part(geo, pos, bone)))
-  triangles += merged.attributes.position.count / 3
+  triangles += merged.index.count / 3
   const material = new THREE.MeshStandardMaterial({
     color: def.color,
-    roughness: 0.85,
+    roughness: ROUGHNESS[slot] ?? 0.85,
     name: slot,
   })
   const mesh = new THREE.SkinnedMesh(merged, material)
@@ -220,10 +404,10 @@ for (const [slot, def] of Object.entries(SLOTS)) {
 // visibility so exactly one shows per identity.
 let variantMeshes = 0
 for (const [group, gdef] of Object.entries(VARIANT_GROUPS)) {
-  const material = new THREE.MeshStandardMaterial({ color: gdef.color, roughness: 0.85, name: group })
+  const material = new THREE.MeshStandardMaterial({ color: gdef.color, roughness: ROUGHNESS[group] ?? 0.85, name: group })
   for (const [variant, parts] of Object.entries(gdef.variants)) {
     const merged = mergeParts(parts.map(([geo, pos, bone]) => part(geo, pos, bone)))
-    triangles += merged.attributes.position.count / 3
+    triangles += merged.index.count / 3
     const mesh = new THREE.SkinnedMesh(merged, material)
     mesh.name = `person_${group}__${variant}`
     mesh.castShadow = true

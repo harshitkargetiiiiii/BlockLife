@@ -16,6 +16,9 @@ export const MARKER_RING = {
   pulseSpeed: 1.6,
 }
 
+/** Default height of a marker's floating label above the ground, in world units. */
+export const MARKER_LABEL_OFFSET = 3
+
 /**
  * A softly pulsing ground ring + floating label marking an interactable
  * place. Brightens when it's the player's active interactable.
@@ -51,7 +54,7 @@ export function InteractableMarker({ def }: { def: InteractableDef }) {
         text={def.name}
         icon={def.icon}
         className={`place-label ${isActive ? 'place-label-active' : ''}`}
-        offset={3}
+        offset={def.labelOffset ?? MARKER_LABEL_OFFSET}
       />
     </group>
   )

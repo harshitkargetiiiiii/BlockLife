@@ -55,6 +55,12 @@ export const STATIC_INTERACTABLES: InteractableDef[] = [
     marker: true,
     icon: '📋',
     markerColor: '#7fd4c1',
+    // At the default 3 m the label projects onto the Nook Offices sign (building_office_01, label
+    // at 10.2 m) behind it: the fixed orthographic camera keeps them 48 px apart horizontally but
+    // only ~10 px vertically, so "Nook Offices" covered "Job Board". 1.8 m drops it below that sign
+    // (~38 px clear on foot, ~32 px while driving) and still floats in front of the 2.4 m kiosk.
+    // See interactables/labelSeparation.test.ts.
+    labelOffset: 1.8,
   },
 ]
 
@@ -178,10 +184,13 @@ export const STEAL_INTERACTABLES: InteractableDef[] = STEALABLE_VEHICLES.map((v)
     id: v.id,
     kind: 'steal_vehicle' as const,
     // The prompt identifies an occupied car so the player knows it's a carjack.
-    name: occupied ? 'Occupied Car' : 'Parked Car',
+    name: occupied ? 'Occupied Car' : 'Unlocked Car',
     position: [v.position[0], 0.8, v.position[1]] as [number, number, number],
     radius: 2.6,
-    marker: true,
+    // Only the empty parked cars carry a world marker (rendered by ParkedVehicles while the car is
+    // still there); an occupied car is discovered by walking up to its visible driver.
+    marker: !occupied,
+    labelOffset: 2.2,
     icon: occupied ? '🚙' : '🚗',
     markerColor: occupied ? '#e8871e' : '#d1495b',
   }

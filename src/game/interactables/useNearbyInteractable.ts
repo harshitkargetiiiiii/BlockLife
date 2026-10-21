@@ -5,10 +5,16 @@ import { ALL_INTERACTABLES } from '../../data/interactables'
 import { registry } from '../world/runtimeRegistry'
 import { useGameStore } from '../store/useGameStore'
 import { isDrivingShellActive } from '../vehicles/vehicleProjection'
+import { getVehicleCrimeState } from '../vehicles/vehicleCrimeState'
 
 // The one drivable shell is only offered on foot when it is present (an owned vehicle is active or
 // a stolen identity is projected). On a new game the shell is hidden, so there is no free car (§3).
 const ON_FOOT_INTERACTABLES = ALL_INTERACTABLES.filter((d) => d.dynamic !== 'vehicle')
+
+/** A stealable car stops being offered once it has been stolen (its source is gone). */
+export function isInteractableAvailable(def: InteractableDef): boolean {
+  return def.kind !== 'steal_vehicle' || !getVehicleCrimeState(def.id).stolen
+}
 
 interface Candidate {
   id: string
@@ -88,7 +94,7 @@ export function useNearbyInteractable(): void {
       const defs = isDrivingShellActive() ? ALL_INTERACTABLES : ON_FOOT_INTERACTABLES
       next = findNearestInteractable(
         { x: p.x, z: p.z },
-        defs,
+        defs.filter(isInteractableAvailable),
         resolveDynamicPosition,
         state.activeInteractableId,
       )
