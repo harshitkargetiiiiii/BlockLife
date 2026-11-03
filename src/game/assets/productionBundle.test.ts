@@ -43,7 +43,7 @@ describe('production bundle boundary (issue #27 H0)', () => {
     expect(existsSync(join(ROOT, 'dev-review-assets', 'human_gold_calibration_01.glb'))).toBe(true)
   })
 
-  it('ships exactly the nine approved character rigs under public/', () => {
+  it('ships exactly the nine approved character rigs plus the player body under public/', () => {
     const rigs = readdirSync(join(PUBLIC_ASSETS, 'models', 'characters'))
       .filter((f) => f.endsWith('.glb'))
       .sort()
@@ -56,6 +56,7 @@ describe('production bundle boundary (issue #27 H0)', () => {
       'blocklife_maya_01.glb', // issue #47 Wave 4 — 1:1 named body for npc_maya_01
       'blocklife_nisha_01.glb', // issue #47 Wave 4 — 1:1 named body for npc_nisha_01
       'blocklife_person.glb',
+      'blocklife_player.glb', // issue #73 — the player's own body on the blocklife_person wardrobe rig
       'blocklife_ravi_01.glb', // issue #38 Wave 0 body; issue #47 Wave 4 wired it to npc_ravi_01
     ])
   })

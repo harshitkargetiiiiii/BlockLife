@@ -3,7 +3,7 @@
 import { readFileSync } from 'node:fs'
 import * as THREE from 'three'
 import { describe, expect, it } from 'vitest'
-import { CHARACTER_ASSETS, DEFAULT_CHARACTER_ASSET_ID } from './characterManifest'
+import { CHARACTER_ASSETS, DEFAULT_CHARACTER_ASSET_ID, PLAYER_CHARACTER_DEF } from './characterManifest'
 import {
   ACCESSORY_VARIANTS,
   CUSTOMIZABLE_SLOTS,
@@ -29,13 +29,19 @@ import { RIG_FIT_TOLERANCE_METERS, RIG_HEIGHT_METERS } from '../../../scripts/as
  */
 const DEF = CHARACTER_ASSETS[DEFAULT_CHARACTER_ASSET_ID]
 const FILE = `public/${DEF.modelPath}`
+// Issue #73: the PLAYER renders its own body file on the same rig. Every property below is
+// asserted on BOTH files — the shared body every NPC and fallback draws, and the player's.
+const BODIES = [
+  { label: 'blocklife_person', file: FILE },
+  { label: 'the player body', file: `public/${PLAYER_CHARACTER_DEF.modelPath}` },
+] as const
 const HAIR_PREFIX = 'person_hair__'
 const ACCESSORY_PREFIX = 'person_accessory__'
 
-async function load() {
+async function load(file: string) {
   ;(globalThis as { self?: unknown }).self ??= globalThis
   const { GLTFLoader } = await import('three/examples/jsm/loaders/GLTFLoader.js')
-  const bytes = readFileSync(FILE)
+  const bytes = readFileSync(file)
   const buffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer
   const gltf = await new GLTFLoader().parseAsync(buffer, '')
   gltf.scene.updateMatrixWorld(true)
@@ -52,9 +58,10 @@ function restBox(mesh: THREE.SkinnedMesh): THREE.Box3 {
   return mesh.boundingBox!.clone()
 }
 
-describe('issue #56 — blocklife_person binds at its rest pose', () => {
+for (const BODY of BODIES) {
+describe(`issue #56 — ${BODY.label} binds at its rest pose`, () => {
   it('every skin inverse bind is the inverse of its bone rest world matrix — never identity', async () => {
-    const { meshes } = await load()
+    const { meshes } = await load(BODY.file)
     expect(meshes.length, 'skinned meshes: body slots + hair/accessory variants').toBe(11)
     const product = new THREE.Matrix4()
     for (const mesh of meshes) {
@@ -77,7 +84,7 @@ describe('issue #56 — blocklife_person binds at its rest pose', () => {
   })
 
   it('rest skinning reproduces the authored geometry — no joint offset applied twice', async () => {
-    const { meshes } = await load()
+    const { meshes } = await load(BODY.file)
     const skinned = new THREE.Vector3()
     const raw = new THREE.Vector3()
     let worst = 0
@@ -92,7 +99,7 @@ describe('issue #56 — blocklife_person binds at its rest pose', () => {
   })
 
   it('measures the envelope the Wave 4 fits derive from, per variant, feet at the origin', async () => {
-    const { meshes } = await load()
+    const { meshes } = await load(BODY.file)
     const body = new THREE.Box3()
     const hair = new Map<string, THREE.Box3>()
     const accessories = new Map<string, THREE.Box3>()
@@ -122,9 +129,9 @@ describe('issue #56 — blocklife_person binds at its rest pose', () => {
   })
 })
 
-describe('issue #56 — the player wardrobe and variants on the regenerated rig', () => {
+describe(`issue #56 — the player wardrobe and variants on ${BODY.label}`, () => {
   it('all six customizable slots resolve and recolour exactly', async () => {
-    const { gltf } = await load()
+    const { gltf } = await load(BODY.file)
     const slots = createCustomizableMaterialInstances(DEF, gltf.scene)
     const colours = {
       shirt: '#1f4e79',
@@ -154,7 +161,7 @@ describe('issue #56 — the player wardrobe and variants on the regenerated rig'
   })
 
   it('ships exactly the hair/accessory variant meshes, and shows exactly one of each choice', async () => {
-    const { gltf, meshes } = await load()
+    const { gltf, meshes } = await load(BODY.file)
     const names = meshes.map((m) => m.name)
     expect(names.filter((n) => n.startsWith(HAIR_PREFIX)).sort()).toEqual(
       ['bun', 'long', 'short'].map((v) => HAIR_PREFIX + v),
@@ -181,7 +188,8 @@ describe('issue #56 — the player wardrobe and variants on the regenerated rig'
   })
 
   it('keeps the three locomotion clips', async () => {
-    const { gltf } = await load()
+    const { gltf } = await load(BODY.file)
     expect(gltf.animations.map((a) => a.name).sort()).toEqual(['Idle', 'Run', 'Walk'])
   })
 })
+}

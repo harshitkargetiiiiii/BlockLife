@@ -10,6 +10,8 @@ import { LandmarkAsset } from '../assets/LandmarkAsset'
 import { getManifestEntry } from '../assets/modelRegistry'
 import { STREET_PROP_ASSET_IDS } from './propAssetIds'
 import { parkedBodyAssetId } from './parkedVehicleBodies'
+import { CafePlanter } from './CornerCafe'
+import { CAFE_PLANTER_IDS } from './cornerCafeIds'
 
 // Repeated props share geometry + materials: one allocation per shape for
 // the whole city (11 trees, 9 lamps, 3 benches, 3 cans, ...).
@@ -581,7 +583,8 @@ function PropByType({ def, seed }: { def: PropDef; seed: number }) {
         </LandmarkAsset>
       )
     case 'planter':
-      return <Planter />
+      // Issue #73: the café's own planters (today the only two `planter` placements).
+      return CAFE_PLANTER_IDS.has(def.id) ? <CafePlanter /> : <Planter />
     case 'parked_car':
       // Issue #47 Wave 4: an approved parked-car body when this placement has one, with the
       // complete procedural car — its authored `def.color` included — as the LandmarkAsset
