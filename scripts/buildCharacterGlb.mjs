@@ -30,9 +30,15 @@ import { writeFileSync, mkdirSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+// `--player` builds the PLAYER's own body (issue #73): the same rig, clips, slot/variant names
+// and envelope as the shared `blocklife_person`, with player-only shape refinements. Without the
+// flag the output is the shared body every NPC/fallback uses, byte-for-byte as before.
+const PLAYER = process.argv.includes('--player')
 const OUT = join(
   dirname(fileURLToPath(import.meta.url)),
-  '../public/assets/models/characters/blocklife_person.glb',
+  PLAYER
+    ? '../public/assets/models/characters/blocklife_player.glb'
+    : '../public/assets/models/characters/blocklife_person.glb',
 )
 
 // ---- Skeleton ---------------------------------------------------------
@@ -139,20 +145,56 @@ const HEAD_SCALE = [1, (1.92 - HEAD_Y) / HEAD_R, 1] // crown exactly at the decl
 /** The torso: hips-to-shoulders profile with a waist and a rounded shoulder line. */
 const torso = () =>
   lathe(
-    [
-      [0, 0.8],
-      [0.245, 0.8],
-      [0.255, 0.9],
-      [0.24, 1.01],
-      [0.262, 1.16],
-      [0.29, 1.27],
-      [0.305, 1.34],
-      [0.27, 1.405],
-      [0.2, 1.437],
-      [0.1, 1.455],
-      [0, 1.46],
-    ],
+    PLAYER
+      ? // Player: a tapered waist under a broader chest and shoulder line that meets the sleeves,
+        // so the arms read as attached at the gameplay camera.
+        [
+          [0, 0.8],
+          [0.245, 0.8],
+          [0.25, 0.9],
+          [0.232, 1.01],
+          [0.262, 1.15],
+          [0.305, 1.26],
+          [0.325, 1.335],
+          [0.295, 1.405],
+          [0.2, 1.44],
+          [0.1, 1.455],
+          [0, 1.46],
+        ]
+      : [
+          [0, 0.8],
+          [0.245, 0.8],
+          [0.255, 0.9],
+          [0.24, 1.01],
+          [0.262, 1.16],
+          [0.29, 1.27],
+          [0.305, 1.34],
+          [0.27, 1.405],
+          [0.2, 1.437],
+          [0.1, 1.455],
+          [0, 1.46],
+        ],
     { segments: 24, depth: 0.68 },
+  )
+/** Player only: an egg-shaped head (fuller cranium, tapered jaw) whose crown is still 1.92 m. */
+const playerHead = () =>
+  lathe(
+    [
+      [0, 1.37],
+      [0.1, 1.38],
+      [0.16, 1.42],
+      [0.215, 1.49],
+      [0.245, 1.56],
+      [0.26, 1.64],
+      // Above the cheekbones the profile follows the shared head's ellipsoid (a hair's breadth
+      // inside it), so every hair variant still covers the cranium.
+      [0.248, 1.71],
+      [0.222, 1.78],
+      [0.168, 1.85],
+      [0.095, 1.9],
+      [0, 1.92],
+    ],
+    { segments: 24, depth: 0.97 },
   )
 /** A sleeve: shoulder cap down to just above the elbow (T-shirt length). */
 const sleeve = () =>
@@ -235,8 +277,8 @@ const SLOTS = {
       [sleeve(), [-0.38, 0, 0], 'ArmL'],
       [sleeve(), [0.38, 0, 0], 'ArmR'],
       // Deltoids: round the shoulder from the torso into the sleeve.
-      [ellipsoid(0.1, [1.1, 0.9, 0.95], 14, 10), [-0.35, 1.335, 0], 'ArmL'],
-      [ellipsoid(0.1, [1.1, 0.9, 0.95], 14, 10), [0.35, 1.335, 0], 'ArmR'],
+      [ellipsoid(PLAYER ? 0.108 : 0.1, [1.1, 0.9, 0.95], 14, 10), [PLAYER ? -0.345 : -0.35, 1.335, 0], 'ArmL'],
+      [ellipsoid(PLAYER ? 0.108 : 0.1, [1.1, 0.9, 0.95], 14, 10), [PLAYER ? 0.345 : 0.35, 1.335, 0], 'ArmR'],
     ],
   },
   pants: {
@@ -257,9 +299,11 @@ const SLOTS = {
   skin: {
     color: '#ffd7b0',
     parts: [
-      [ellipsoid(HEAD_R, HEAD_SCALE, 28, 20), [0, HEAD_Y, 0], 'Head'],
+      PLAYER ? [playerHead(), [0, 0, 0], 'Head'] : [ellipsoid(HEAD_R, HEAD_SCALE, 28, 20), [0, HEAD_Y, 0], 'Head'],
       // Neck (bound to the Spine so the head turns on it rather than with it).
-      [new THREE.CylinderGeometry(0.068, 0.078, 0.14, 12), [0, 1.43, 0], 'Spine'],
+      PLAYER
+        ? [new THREE.CylinderGeometry(0.062, 0.074, 0.16, 12), [0, 1.44, 0], 'Spine']
+        : [new THREE.CylinderGeometry(0.068, 0.078, 0.14, 12), [0, 1.43, 0], 'Spine'],
       // Nose and ears.
       [ellipsoid(0.034, [0.8, 1, 0.9], 10, 8), [0, 1.615, 0.252], 'Head'],
       [ellipsoid(0.045, [0.45, 1, 0.75], 10, 8), [-0.257, 1.645, -0.005], 'Head'],
@@ -311,7 +355,8 @@ const VARIANT_GROUPS = {
   hair: {
     color: '#5c4033',
     variants: {
-      short: [cap()],
+      // Player: a little volume at the back of the crown so short hair reads as hair, not a cap.
+      short: PLAYER ? [cap(), [ellipsoid(0.2, [1.2, 0.85, 0.75], 16, 10), [0, 1.73, -0.11], 'Head']] : [cap()],
       // Shoulder-length: a rounded fall down the back of the head.
       long: [
         cap(),

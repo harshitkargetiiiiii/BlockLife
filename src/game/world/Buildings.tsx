@@ -13,6 +13,8 @@ import { getManifestEntry, hasRealModel } from '../assets/modelRegistry'
 import { variantCacheKey } from '../assets/variantMaterialCache'
 import { BuildingWindowOverlays } from './WindowOverlays'
 import { ShopfrontAccent } from './plazaPresentation'
+import { CornerCafeBody } from './CornerCafe'
+import { CORNER_CAFE_ID } from './cornerCafeIds'
 import { projectedLabelHeight, resolveBuildingVisual } from './buildingProjection'
 
 const windowGeometry = new THREE.PlaneGeometry(0.85, 1.05)
@@ -263,6 +265,14 @@ function Building({ def, index }: { def: BuildingDef; index: number }) {
           window overlays — lit windows never float over a faded façade.
           The label stays outside: signs are HUD-like chips by policy. */}
       <Occludable descriptor={occluder}>
+        {def.id === CORNER_CAFE_ID && projection ? (
+          // Issue #73: the Corner Café draws its own authored body instead of the shared shop
+          // GLB, under this placement's existing projection yaw (front onto the east door).
+          <group position={projection.offset} rotation-y={projection.rotationY}>
+            <CornerCafeBody />
+          </group>
+        ) : (
+        <>
         {/* Swappable visual: archetype/legacy GLB when enabled, else BuildingMesh.
             The procedural fallback renders OUTSIDE the projection group (unrotated,
             unscaled); only the GLB primitive is projected. */}
@@ -293,6 +303,8 @@ function Building({ def, index }: { def: BuildingDef; index: number }) {
               {entry && <ShopfrontAccent buildingId={def.id} entry={entry} />}
             </>
           ))}
+        </>
+        )}
       </Occludable>
       {/* The sign is UI, not part of the asset — it survives a GLB swap. */}
       {def.label && (

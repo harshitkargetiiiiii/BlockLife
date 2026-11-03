@@ -6,15 +6,14 @@ import type { AssetManifestEntry } from '../assets/assetManifest'
  * `BUILDINGS`, so ids, footprints, doors, colliders, occlusion, routing and the placement
  * contracts that digest that table are untouched.
  *
- * The café, the Mini Mart and the Book Nook all draw the one approved shop body, whose single
- * baked atlas holds walls, glass, roof and trim together — it cannot be tinted selectively. So the
- * body keeps its own colours, and each placement adds one modest accent in the shop's identity
- * colour: the awning fabric (slope and valance) with a cream sign board on it. Glass, roof, trim
- * and walls keep the body's own colours. Every
- * other reuse of the shop body is unaffected.
+ * The Mini Mart and the Book Nook draw the one approved shop body, whose single baked atlas holds
+ * walls, glass, roof and trim together — it cannot be tinted selectively. So the body keeps its own
+ * colours, and each placement adds one modest accent in the shop's identity colour: the awning
+ * fabric (slope and valance) with a cream sign board on it. Glass, roof, trim and walls keep the
+ * body's own colours. Every other reuse of the shop body is unaffected. (Issue #73 gave the Corner
+ * Café its own authored body — see CornerCafe.tsx — so it no longer carries this accent.)
  */
 const SHOPFRONT_ACCENTS: Readonly<Record<string, string>> = {
-  building_cafe_01: '#b5543a', // terracotta
   building_shop_01: '#c8962c', // mustard
   building_shop_02: '#6f8f5e', // sage
 }
